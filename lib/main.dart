@@ -22,6 +22,15 @@ import 'package:weighbridgemanagement/subscriptionpanel/subscription_billing_scr
 import 'package:weighbridgemanagement/auditpanel/audit_log_screen.dart';
 import 'package:weighbridgemanagement/reportpanel/reports_screen.dart';
 import 'package:weighbridgemanagement/reportpanel/weighment_reports_screen.dart';
+import 'package:weighbridgemanagement/reportpanel/vehicle_reports_screen.dart';
+import 'package:weighbridgemanagement/reportpanel/material_reports_screen.dart';
+import 'package:weighbridgemanagement/reportpanel/operator_reports_screen.dart';
+import 'package:weighbridgemanagement/reportpanel/comparison_reports_screen.dart';
+import 'package:weighbridgemanagement/reportpanel/custom_reports_screen.dart';
+import 'package:weighbridgemanagement/reportpanel/time_analysis_reports_screen.dart';
+import 'package:weighbridgemanagement/reportpanel/customer_reports_screen.dart';
+import 'package:weighbridgemanagement/reportpanel/financial_reports_screen.dart';
+import 'package:weighbridgemanagement/operatorpanel/operator_requests_screen.dart';
 
 
 void main() {
@@ -65,9 +74,16 @@ class WeighbridgeApp extends StatelessWidget {
         "/auditLog": (context) => AuditLogScreen(),
         "/reports": (context) => ReportsScreen(),
         "/weighmentReports": (context) => WeighmentReportsScreen(),
-
-
-  
+        "/vehicleReports": (context) => VehicleReportsScreen(),
+        "/materialReports": (context) => MaterialReportsScreen(),
+        "/operatorReports": (context) => OperatorReportsScreen(),
+        "/comparisonReports": (context) => ComparisonReportsScreen(),
+        "/customReports": (context) => CustomReportsScreen(),
+        "/timeAnalysisReports": (context) => TimeAnalysisReportsScreen(),
+        "/customerReports": (context) => CustomerReportsScreen(),
+        "/financialReports": (context) => FinancialReportsScreen(),
+        "/operatorRequests": (context) => OperatorRequestsScreen(),
+        "/operators": (context) => OperatorRequestsScreen(),
       },
     );
   }

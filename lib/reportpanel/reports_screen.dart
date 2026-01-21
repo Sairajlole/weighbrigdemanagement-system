@@ -419,6 +419,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
       onTap: () {
         if (category['title'] == 'Weighment Reports') {
           Navigator.pushNamed(context, '/weighmentReports');
+        } else if (category['title'] == 'Customer Reports') {
+          Navigator.pushNamed(context, '/customerReports');
+        } else if (category['title'] == 'Vehicle Reports') {
+          Navigator.pushNamed(context, '/vehicleReports');
+        } else if (category['title'] == 'Material Reports') {
+          Navigator.pushNamed(context, '/materialReports');
+        } else if (category['title'] == 'Operator Reports') {
+          Navigator.pushNamed(context, '/operatorReports');
+        } else if (category['title'] == 'Comparison') {
+          Navigator.pushNamed(context, '/comparisonReports');
+        } else if (category['title'] == 'Custom Builder') {
+          Navigator.pushNamed(context, '/customReports');
+        } else if (category['title'] == 'Time Analysis') {
+          Navigator.pushNamed(context, '/timeAnalysisReports');
+        } else if (category['title'] == 'Financial Reports') {
+          Navigator.pushNamed(context, '/financialReports');
         }
       },
       child: Container(

@@ -2,29 +2,29 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:weighbridgemanagement/widgets/main_layout.dart';
 
-class WeighmentReportsScreen extends StatefulWidget {
-  const WeighmentReportsScreen({super.key});
+class CustomerReportsScreen extends StatefulWidget {
+  const CustomerReportsScreen({super.key});
 
   @override
-  State<WeighmentReportsScreen> createState() => _WeighmentReportsScreenState();
+  State<CustomerReportsScreen> createState() => _CustomerReportsScreenState();
 }
 
-class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
+class _CustomerReportsScreenState extends State<CustomerReportsScreen> {
   String selectedTab = 'Overview';
   String selectedDateRange = 'Jan 1 - Jan 31, 2024';
+  String selectedSegment = 'All Segments';
   String selectedMaterial = 'All Materials';
-  String selectedVehicleType = 'All Vehicles';
 
   static const Color emerald600 = Color(0xFF059669);
   static const Color emerald500 = Color(0xFF10B981);
   static const Color emerald50 = Color(0xFFECFDF5);
 
-  final List<Map<String, dynamic>> topVehicles = [
-    {'vehicle': 'KA-01-AB-1234', 'type': 'Heavy Truck', 'weight': '1,240t', 'trips': '42'},
-    {'vehicle': 'MH-12-CD-5678', 'type': 'Medium Truck', 'weight': '980t', 'trips': '35'},
-    {'vehicle': 'GJ-05-EF-9012', 'type': 'Heavy Truck', 'weight': '850t', 'trips': '28'},
-    {'vehicle': 'RJ-14-GH-3456', 'type': 'Light Truck', 'weight': '720t', 'trips': '19'},
-    {'vehicle': 'TN-09-IJ-7890', 'type': 'Medium Truck', 'weight': '650t', 'trips': '15'},
+  final List<Map<String, dynamic>> topCustomers = [
+    {'customer': 'Atlas Construction', 'type': 'Industrial', 'weight': '1,240t', 'trips': '42'},
+    {'customer': 'Green Valley Farms', 'type': 'Commercial', 'weight': '980t', 'trips': '35'},
+    {'customer': 'City Logistics', 'type': 'Commercial', 'weight': '850t', 'trips': '28'},
+    {'customer': 'Metro Builders', 'type': 'Industrial', 'weight': '720t', 'trips': '19'},
+    {'customer': 'Roadworks Inc.', 'type': 'Industrial', 'weight': '650t', 'trips': '15'},
   ];
 
   @override
@@ -48,7 +48,7 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                   Text("  /  ", style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
                   Text("Analytics", style: TextStyle(fontSize: 13, color: emerald600)),
                   Text("  /  ", style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
-                  Text("Weighment Analytics Report", style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+                  Text("Customer Analytics Report", style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
                 ],
               ),
 
@@ -63,12 +63,12 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          "Weighment Analytics Report",
+                          "Customer Analytics Report",
                           style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: Color(0xFF111827)),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          "Analyze weighment performance, weighbridge trends, and segments.",
+                          "Analyze customer performance, weighbridge trends, and segments.",
                           style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
                         ),
                       ],
@@ -120,44 +120,38 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                         children: [
                           Text("DATE RANGE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade500, letterSpacing: 0.5)),
                           const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFE5E7EB)),
-                            ),
-                            child: Row(
-                              children: [
-                                Text(selectedDateRange, style: const TextStyle(fontSize: 13, color: Color(0xFF374151))),
-                                const Spacer(),
-                                Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey.shade500),
-                              ],
+                          GestureDetector(
+                            onTap: () => _showDateRangePicker(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFE5E7EB)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(selectedDateRange, style: const TextStyle(fontSize: 13, color: Color(0xFF374151))),
+                                  const Spacer(),
+                                  Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey.shade500),
+                                ],
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 16),
-                    // Vehicle Type
+                    // Customer Segment
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("VEHICLE TYPE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade500, letterSpacing: 0.5)),
+                          Text("CUSTOMER SEGMENT", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade500, letterSpacing: 0.5)),
                           const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFE5E7EB)),
-                            ),
-                            child: Row(
-                              children: [
-                                Text(selectedVehicleType, style: const TextStyle(fontSize: 13, color: Color(0xFF374151))),
-                                const Spacer(),
-                                Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.grey.shade500),
-                              ],
-                            ),
+                          _buildDropdown(
+                            value: selectedSegment,
+                            items: ['All Segments', 'Industrial', 'Commercial', 'Private'],
+                            onChanged: (value) => setState(() => selectedSegment = value!),
                           ),
                         ],
                       ),
@@ -170,19 +164,10 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                         children: [
                           Text("MATERIAL", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade500, letterSpacing: 0.5)),
                           const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFE5E7EB)),
-                            ),
-                            child: Row(
-                              children: [
-                                Text(selectedMaterial, style: const TextStyle(fontSize: 13, color: Color(0xFF374151))),
-                                const Spacer(),
-                                Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.grey.shade500),
-                              ],
-                            ),
+                          _buildDropdown(
+                            value: selectedMaterial,
+                            items: ['All Materials', 'Coal', 'Iron Ore', 'Limestone', 'Sand', 'Gravel'],
+                            onChanged: (value) => setState(() => selectedMaterial = value!),
                           ),
                         ],
                       ),
@@ -192,7 +177,16 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: 20),
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          // Apply filters - show snackbar for feedback
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Filters applied: $selectedSegment, $selectedMaterial'),
+                              backgroundColor: emerald500,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF374151),
                           foregroundColor: Colors.white,
@@ -212,13 +206,13 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
               // Stats Cards
               Row(
                 children: [
-                  Expanded(child: _buildStatCard("Total Weighments", "312", "+5%", true, Icons.scale_outlined, emerald50, emerald500)),
+                  Expanded(child: _buildStatCard("Total Customers", "156", "+5%", true, Icons.people_outlined, emerald50, emerald500)),
                   const SizedBox(width: 16),
                   Expanded(child: _buildStatCard("Active This Period", "89", "+12%", true, Icons.trending_up, const Color(0xFFFEF3C7), Colors.amber.shade600)),
                   const SizedBox(width: 16),
-                  Expanded(child: _buildStatCard("New Vehicles", "12", "-2%", false, Icons.local_shipping_outlined, const Color(0xFFFFE4E6), Colors.red.shade400)),
+                  Expanded(child: _buildStatCard("New Customers", "12", "-2%", false, Icons.person_add_outlined, const Color(0xFFFFE4E6), Colors.red.shade400)),
                   const SizedBox(width: 16),
-                  Expanded(child: _buildStatCard("Efficiency Rate", "78%", "+4%", true, Icons.speed_outlined, emerald50, emerald500)),
+                  Expanded(child: _buildStatCard("Returning Rate", "78%", "+4%", true, Icons.replay_outlined, emerald50, emerald500)),
                 ],
               ),
 
@@ -233,18 +227,18 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                   children: [
                     _buildTab("Overview"),
                     const SizedBox(width: 24),
-                    _buildTab("Top Vehicles"),
+                    _buildTab("Top Customers"),
                     const SizedBox(width: 24),
                     _buildTab("Activity Analysis"),
                     const SizedBox(width: 24),
-                    _buildTab("Weighment List"),
+                    _buildTab("Customer List"),
                   ],
                 ),
               ),
 
               const SizedBox(height: 24),
 
-              // Main Content Row - Chart and Top Vehicles
+              // Main Content Row - Chart and Top Customers
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -263,7 +257,7 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                         children: [
                           Row(
                             children: [
-                              const Text("Weighment Activity Over Time", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
+                              const Text("Customer Activity Over Time", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
                               const Spacer(),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -293,7 +287,7 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                             height: 240,
                             child: CustomPaint(
                               size: const Size(double.infinity, 240),
-                              painter: AreaChartPainter(),
+                              painter: CustomerAreaChartPainter(),
                             ),
                           ),
                         ],
@@ -301,7 +295,7 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                     ),
                   ),
                   const SizedBox(width: 24),
-                  // Top Vehicles List
+                  // Top Customers List
                   Expanded(
                     flex: 2,
                     child: Container(
@@ -316,7 +310,7 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                         children: [
                           Row(
                             children: [
-                              const Text("Top Vehicles", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
+                              const Text("Top Customers", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
                               const Spacer(),
                               Text("View All", style: TextStyle(fontSize: 13, color: emerald600, fontWeight: FontWeight.w500)),
                             ],
@@ -330,14 +324,14 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                             ),
                             child: Row(
                               children: [
-                                Expanded(flex: 2, child: Text("VEHICLE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade500, letterSpacing: 0.5))),
+                                Expanded(flex: 2, child: Text("CUSTOMER", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade500, letterSpacing: 0.5))),
                                 Expanded(child: Text("WEIGHT", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade500, letterSpacing: 0.5))),
                                 SizedBox(width: 50, child: Text("TRIPS", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade500, letterSpacing: 0.5))),
                               ],
                             ),
                           ),
                           // Rows
-                          ...topVehicles.map((vehicle) => _buildTopVehicleRow(vehicle)),
+                          ...topCustomers.map((customer) => _buildTopCustomerRow(customer)),
                         ],
                       ),
                     ),
@@ -351,7 +345,7 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Material Segments Donut
+                  // Customer Segments Donut
                   Expanded(
                     child: Container(
                       height: 280,
@@ -364,7 +358,7 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text("Material Segments", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
+                          const Text("Customer Segments", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
                           const SizedBox(height: 20),
                           Expanded(
                             child: Center(
@@ -372,7 +366,7 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                                 width: 160,
                                 height: 160,
                                 child: CustomPaint(
-                                  painter: DonutChartPainter(),
+                                  painter: CustomerDonutChartPainter(),
                                   child: Center(
                                     child: Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
@@ -406,11 +400,11 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                         children: [
                           const Text("Segment Breakdown", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
                           const SizedBox(height: 24),
-                          _buildSegmentItem(emerald500, "Coal", "45%", "142 Weighments"),
+                          _buildSegmentItem(emerald500, "Industrial", "45%", "70 Customers"),
                           const SizedBox(height: 20),
-                          _buildSegmentItem(const Color(0xFF6EE7B7), "Iron Ore", "30%", "95 Weighments"),
+                          _buildSegmentItem(const Color(0xFF6EE7B7), "Commercial", "30%", "47 Customers"),
                           const SizedBox(height: 20),
-                          _buildSegmentItem(const Color(0xFFD1FAE5), "Limestone", "25%", "75 Weighments"),
+                          _buildSegmentItem(const Color(0xFFD1FAE5), "Private", "25%", "39 Customers"),
                         ],
                       ),
                     ),
@@ -433,7 +427,7 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
                           Text("Need a detailed breakdown?", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
                           const SizedBox(height: 8),
                           Text(
-                            "Download the full CSV report to analyze individual transaction logs for all weighments.",
+                            "Download the full CSV report to analyze individual transaction logs for all customers.",
                             style: TextStyle(fontSize: 13, color: Colors.grey.shade500, height: 1.5),
                           ),
                           const SizedBox(height: 20),
@@ -548,7 +542,7 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
     );
   }
 
-  Widget _buildTopVehicleRow(Map<String, dynamic> vehicle) {
+  Widget _buildTopCustomerRow(Map<String, dynamic> customer) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: const BoxDecoration(
@@ -561,17 +555,17 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(vehicle['vehicle'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF374151))),
-                Text(vehicle['type'], style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                Text(customer['customer'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF374151))),
+                Text(customer['type'], style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
               ],
             ),
           ),
           Expanded(
-            child: Text(vehicle['weight'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF374151))),
+            child: Text(customer['weight'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF374151))),
           ),
           SizedBox(
             width: 50,
-            child: Text(vehicle['trips'], style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+            child: Text(customer['trips'], style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
           ),
         ],
       ),
@@ -598,10 +592,77 @@ class _WeighmentReportsScreenState extends State<WeighmentReportsScreen> {
       ],
     );
   }
+
+  Widget _buildDropdown({
+    required String value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.grey.shade500),
+          style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+          items: items.map((String item) {
+            return DropdownMenuItem<String>(
+              value: item,
+              child: Text(item),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDateRangePicker(BuildContext context) async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      initialDateRange: DateTimeRange(
+        start: DateTime(2024, 1, 1),
+        end: DateTime(2024, 1, 31),
+      ),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF10B981),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Color(0xFF374151),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        final startMonth = _getMonthName(picked.start.month);
+        final endMonth = _getMonthName(picked.end.month);
+        selectedDateRange = '$startMonth ${picked.start.day} - $endMonth ${picked.end.day}, ${picked.end.year}';
+      });
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  }
 }
 
-// Area Chart Painter
-class AreaChartPainter extends CustomPainter {
+// Area Chart Painter for Customer Activity
+class CustomerAreaChartPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
@@ -687,7 +748,7 @@ class AreaChartPainter extends CustomPainter {
     
     // Tooltip text
     textPainter.text = const TextSpan(
-      text: '489 Tons',
+      text: '480 Tons',
       style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
     );
     textPainter.layout();
@@ -703,8 +764,8 @@ class AreaChartPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// Donut Chart Painter
-class DonutChartPainter extends CustomPainter {
+// Donut Chart Painter for Customer Segments
+class CustomerDonutChartPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
@@ -713,22 +774,22 @@ class DonutChartPainter extends CustomPainter {
 
     final rect = Rect.fromCircle(center: center, radius: radius - strokeWidth / 2);
 
-    // Coal - 45%
-    final coalPaint = Paint()
+    // Industrial - 45%
+    final industrialPaint = Paint()
       ..color = const Color(0xFF10B981)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.butt;
 
-    // Iron Ore - 30%
-    final ironOrePaint = Paint()
+    // Commercial - 30%
+    final commercialPaint = Paint()
       ..color = const Color(0xFF6EE7B7)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.butt;
 
-    // Limestone - 25%
-    final limestonePaint = Paint()
+    // Private - 25%
+    final privatePaint = Paint()
       ..color = const Color(0xFFD1FAE5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
@@ -736,9 +797,9 @@ class DonutChartPainter extends CustomPainter {
 
     // Draw segments (with small gaps)
     final gap = 0.03;
-    canvas.drawArc(rect, -math.pi / 2, math.pi * (0.9 - gap), false, coalPaint); // 45%
-    canvas.drawArc(rect, -math.pi / 2 + math.pi * 0.9, math.pi * (0.6 - gap), false, ironOrePaint); // 30%
-    canvas.drawArc(rect, -math.pi / 2 + math.pi * 1.5, math.pi * (0.5 - gap), false, limestonePaint); // 25%
+    canvas.drawArc(rect, -math.pi / 2, math.pi * (0.9 - gap), false, industrialPaint); // 45%
+    canvas.drawArc(rect, -math.pi / 2 + math.pi * 0.9, math.pi * (0.6 - gap), false, commercialPaint); // 30%
+    canvas.drawArc(rect, -math.pi / 2 + math.pi * 1.5, math.pi * (0.5 - gap), false, privatePaint); // 25%
   }
 
   @override
