@@ -31,6 +31,9 @@ import 'package:weighbridgemanagement/reportpanel/time_analysis_reports_screen.d
 import 'package:weighbridgemanagement/reportpanel/customer_reports_screen.dart';
 import 'package:weighbridgemanagement/reportpanel/financial_reports_screen.dart';
 import 'package:weighbridgemanagement/operatorpanel/operator_requests_screen.dart';
+import 'package:weighbridgemanagement/accountsettingpanel/account_settings_screen.dart';
+import 'package:weighbridgemanagement/customerpanel/customer_database_screen.dart';
+import 'package:weighbridgemanagement/customerpanel/customer_profile_screen.dart';
 
 
 void main() {
@@ -84,6 +87,9 @@ class WeighbridgeApp extends StatelessWidget {
         "/financialReports": (context) => FinancialReportsScreen(),
         "/operatorRequests": (context) => OperatorRequestsScreen(),
         "/operators": (context) => OperatorRequestsScreen(),
+        "/accountSettings": (context) => AccountSettingsScreen(),
+        "/customers": (context) => CustomerDatabaseScreen(),
+        "/customerProfile": (context) => CustomerProfileScreen(),
       },
     );
   }

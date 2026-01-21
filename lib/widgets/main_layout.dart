@@ -169,43 +169,55 @@ class _MainLayoutState extends State<MainLayout> {
                       top: BorderSide(color: Color(0xFFF3F4F6)),
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFEF3C7),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: Text(
-                            "SA",
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFFB45309),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () {
+                        Navigator.pushReplacementNamed(context, '/accountSettings');
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Row(
                           children: [
-                            Text(
-                              "System Admin",
-                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFEF3C7),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  "SA",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFFB45309),
+                                  ),
+                                ),
+                              ),
                             ),
-                            Text(
-                              "Logout",
-                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "System Admin",
+                                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                  ),
+                                  Text(
+                                    "My Account",
+                                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
                             ),
+                            Icon(Icons.chevron_right, size: 18, color: Colors.grey),
                           ],
                         ),
                       ),
-                      Icon(Icons.logout, size: 18, color: Colors.grey.shade500),
-                    ],
+                    ),
                   ),
                 ),
               ],
