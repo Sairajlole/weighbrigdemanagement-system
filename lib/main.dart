@@ -6,6 +6,12 @@ import 'package:weighbridgemanagement/authentication/otp_verification_screen.dar
 import 'package:weighbridgemanagement/authentication/reset_password_screen.dart';
 import 'package:weighbridgemanagement/authentication/signup_screen.dart';
 import 'package:weighbridgemanagement/dashboardpanel/dashboard_screen.dart';
+import 'package:weighbridgemanagement/dashboardpanel/gate_control_screen.dart' as dashboard_gate;
+import 'package:weighbridgemanagement/dashboardpanel/vehicle_detection_screen.dart';
+import 'package:weighbridgemanagement/dashboardpanel/manual_entry_screen.dart';
+import 'package:weighbridgemanagement/dashboardpanel/driver_assist_screen.dart';
+import 'package:weighbridgemanagement/dashboardpanel/material_recognition_screen.dart';
+import 'package:weighbridgemanagement/dashboardpanel/customer_identification_screen.dart';
 import 'package:weighbridgemanagement/settingspanel/settings_dashboard_screen.dart';
 import 'package:weighbridgemanagement/settingspanel/general_settings_screen.dart';
 import 'package:weighbridgemanagement/settingspanel/custom_fields_screen.dart';
@@ -61,6 +67,12 @@ class WeighbridgeApp extends StatelessWidget {
         "/adminSignup": (context) => AdminSignupScreen(),
         "/linkageSubmitted": (context) => LinkageRequestSubmittedScreen(),
         "/dashboard": (context) =>  DashboardScreen(),
+        "/startWeighment": (context) => dashboard_gate.GateControlScreen(),
+        "/vehicleDetection": (context) => VehicleDetectionScreen(),
+        "/manualEntry": (context) => ManualEntryScreen(),
+        "/driverAssist": (context) => DriverAssistScreen(),
+        "/materialRecognition": (context) => MaterialRecognitionScreen(),
+        "/customerIdentification": (context) => CustomerIdentificationScreen(),
         "/settings": (context) => SettingsDashboardScreen(),
         "/generalSettings": (context) => GeneralSettingsScreen(),
         "/customFields": (context) => CustomFieldsScreen(),

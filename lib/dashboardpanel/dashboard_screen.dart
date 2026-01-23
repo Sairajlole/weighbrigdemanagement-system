@@ -140,7 +140,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                       ElevatedButton.icon(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/startWeighment');
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: emerald,
                           foregroundColor: Colors.white,
