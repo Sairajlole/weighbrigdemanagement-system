@@ -270,7 +270,10 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: handleCreateAccount,
+                    onPressed: () {
+                      handleCreateAccount();
+                      Navigator.pushReplacementNamed(context, "/dashboard");
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: greenColor,
                       foregroundColor: Colors.white,
