@@ -15,10 +15,14 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
       TextEditingController(text: "ABC Company Pvt Ltd");
   final TextEditingController emailController =
       TextEditingController(text: "admin@company.com");
+  final TextEditingController addressLine1Controller =
+      TextEditingController(text: "123, Industrial Area, Phase 2");
+  final TextEditingController addressLine2Controller =
+      TextEditingController(text: "Near Highway, Pune - 411001");
   final TextEditingController gstinController =
       TextEditingController(text: "27ABCDE1234F1Z5");
-  final TextEditingController companyCodeController =
-      TextEditingController(text: "CMP - XXXX");
+  final TextEditingController panController =
+      TextEditingController(text: "ABCDE1234F");
   final TextEditingController passwordController =
       TextEditingController(text: "........");
   final TextEditingController confirmPasswordController =
@@ -29,8 +33,10 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
     debugPrint("Account Type: $accountType");
     debugPrint("Company Name: ${companyNameController.text}");
     debugPrint("Email: ${emailController.text}");
+    debugPrint("Address Line 1: ${addressLine1Controller.text}");
+    debugPrint("Address Line 2: ${addressLine2Controller.text}");
     debugPrint("GSTIN: ${gstinController.text}");
-    debugPrint("Company Code: ${companyCodeController.text}");
+    debugPrint("PAN: ${panController.text}");
     debugPrint("Agreed: $agreedToTerms");
   }
 
@@ -83,7 +89,7 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
                     Expanded(
                       child: InkWell(
                         onTap: () {
-                          Navigator.pop(context);
+                          Navigator.pushReplacementNamed(context, "/login");
                         },
                         child: Column(
                           children: [
@@ -132,7 +138,6 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // ✅ UPDATED HERE (Operator = back to Operator screen)
                 Row(
                   children: [
                     Expanded(
@@ -142,7 +147,7 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
                         icon: Icons.local_shipping,
                         selected: accountType == "operator",
                         onTap: () {
-                           Navigator.pop(context); // ✅ back to Operator Signup
+                          Navigator.pushReplacementNamed(context, "/signup");
                         },
                       ),
                     ),
@@ -165,7 +170,7 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
 
                 const SizedBox(height: 20),
 
-                // Form Fields (Row 1) ✅ Company Name
+                // Row 1: Company Name + Email Address
                 Row(
                   children: [
                     Expanded(
@@ -179,35 +184,29 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
                 ),
                 const SizedBox(height: 14),
 
-                // Form Fields (Row 2) ✅ GSTIN No
+                // Row 2: Address Line 1 (full width)
+                inputField("Address Line 1", addressLine1Controller),
+                const SizedBox(height: 14),
+
+                // Row 3: Address Line 2 (full width)
+                inputField("Address Line 2", addressLine2Controller),
+                const SizedBox(height: 14),
+
+                // Row 4: Company GSTIN + Company PAN
                 Row(
                   children: [
                     Expanded(
-                      child: inputField("GSTIN No", gstinController),
+                      child: inputField("Company GSTIN", gstinController),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          inputField(
-                            "Ph No",
-                            companyCodeController,
-                            //suffixIcon: const Text("🔑"),
-                          ),
-                          const SizedBox(height: 4),
-                          // const Text(
-                          //   "Enter the code provided by your company administrator.",
-                          //   style: TextStyle(fontSize: 12, color: Colors.grey),
-                          // ),
-                        ],
-                      ),
+                      child: inputField("Company PAN", panController),
                     ),
                   ],
                 ),
                 const SizedBox(height: 14),
 
-                // Form Fields (Row 3)
+                // Row 5: Password + Confirm Password
                 Row(
                   children: [
                     Expanded(
@@ -300,7 +299,7 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
                 Center(
                   child: TextButton(
                     onPressed: () {
-                      Navigator.pop(context);
+                      Navigator.pushReplacementNamed(context, "/login");
                     },
                     child: const Text(
                       "Already have an account? Log in",

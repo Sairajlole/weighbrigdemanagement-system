@@ -6,7 +6,8 @@ import 'package:weighbridgemanagement/authentication/otp_verification_screen.dar
 import 'package:weighbridgemanagement/authentication/reset_password_screen.dart';
 import 'package:weighbridgemanagement/authentication/signup_screen.dart';
 import 'package:weighbridgemanagement/dashboardpanel/dashboard_screen.dart';
-import 'package:weighbridgemanagement/dashboardpanel/gate_control_screen.dart' as dashboard_gate;
+import 'package:weighbridgemanagement/dashboardpanel/gate_control_screen.dart'
+    as dashboard_gate;
 import 'package:weighbridgemanagement/dashboardpanel/vehicle_detection_screen.dart';
 import 'package:weighbridgemanagement/dashboardpanel/manual_entry_screen.dart';
 import 'package:weighbridgemanagement/dashboardpanel/driver_assist_screen.dart';
@@ -41,7 +42,6 @@ import 'package:weighbridgemanagement/accountsettingpanel/account_settings_scree
 import 'package:weighbridgemanagement/customerpanel/customer_database_screen.dart';
 import 'package:weighbridgemanagement/customerpanel/customer_profile_screen.dart';
 
-
 void main() {
   runApp(const WeighbridgeApp());
 }
@@ -54,19 +54,16 @@ class WeighbridgeApp extends StatelessWidget {
     return MaterialApp(
       title: "Weighbridge Manager",
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        fontFamily: "Arial",
-      ),
+      theme: ThemeData(useMaterial3: true, fontFamily: "Arial"),
       initialRoute: "/login",
       routes: {
-        "/login": (context) =>  LoginScreen(),
-        "/signup": (context) =>  SignupScreen(),
-        "/otp": (context) =>  OtpVerificationScreen(),
+        "/login": (context) => LoginScreen(),
+        "/signup": (context) => SignupScreen(),
+        "/otp": (context) => OtpVerificationScreen(),
         "/reset": (context) => ResetPasswordScreen(),
         "/adminSignup": (context) => AdminSignupScreen(),
         "/linkageSubmitted": (context) => LinkageRequestSubmittedScreen(),
-        "/dashboard": (context) =>  DashboardScreen(),
+        "/dashboard": (context) => DashboardScreen(),
         "/startWeighment": (context) => dashboard_gate.GateControlScreen(),
         "/vehicleDetection": (context) => VehicleDetectionScreen(),
         "/manualEntry": (context) => ManualEntryScreen(),
@@ -106,3 +103,4 @@ class WeighbridgeApp extends StatelessWidget {
     );
   }
 }
+//helllo  this is sairaj here

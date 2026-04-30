@@ -156,9 +156,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         selected: accountType == "admin",
                         disabled: false,
                         onTap: () {
-                          setState(() {
-                            accountType = "admin";
-                          });
+                          Navigator.pushReplacementNamed(context, "/adminSignup");
                         },
                       ),
                     ),
