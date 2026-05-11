@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:weighbridgemanagement/authentication/admin_signup_screen.dart';
-import 'package:weighbridgemanagement/authentication/linkage_request_submitted_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:weighbridgemanagement/firebase_options.dart';
+import 'package:weighbridgemanagement/core/theme/app_theme.dart';
+import 'package:weighbridgemanagement/core/providers/providers.dart';
 import 'package:weighbridgemanagement/authentication/login_screen.dart';
+import 'package:weighbridgemanagement/authentication/signup_screen.dart';
 import 'package:weighbridgemanagement/authentication/otp_verification_screen.dart';
 import 'package:weighbridgemanagement/authentication/reset_password_screen.dart';
-import 'package:weighbridgemanagement/authentication/signup_screen.dart';
+import 'package:weighbridgemanagement/authentication/admin_signup_screen.dart';
+import 'package:weighbridgemanagement/authentication/linkage_request_submitted_screen.dart';
 import 'package:weighbridgemanagement/dashboardpanel/dashboard_screen.dart';
 import 'package:weighbridgemanagement/dashboardpanel/gate_control_screen.dart'
     as dashboard_gate;
@@ -42,65 +47,74 @@ import 'package:weighbridgemanagement/accountsettingpanel/account_settings_scree
 import 'package:weighbridgemanagement/customerpanel/customer_database_screen.dart';
 import 'package:weighbridgemanagement/customerpanel/customer_profile_screen.dart';
 
-void main() {
-  runApp(const WeighbridgeApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  runApp(const ProviderScope(child: WeighbridgeApp()));
 }
 
-class WeighbridgeApp extends StatelessWidget {
+class WeighbridgeApp extends ConsumerWidget {
   const WeighbridgeApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authStateProvider);
+
     return MaterialApp(
       title: "Weighbridge Manager",
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true, fontFamily: "Arial"),
-      initialRoute: "/login",
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.light,
+      initialRoute: authState.when(
+        data: (user) => user != null ? "/dashboard" : "/login",
+        loading: () => "/login",
+        error: (_, __) => "/login",
+      ),
       routes: {
-        "/login": (context) => LoginScreen(),
-        "/signup": (context) => SignupScreen(),
-        "/otp": (context) => OtpVerificationScreen(),
-        "/reset": (context) => ResetPasswordScreen(),
-        "/adminSignup": (context) => AdminSignupScreen(),
-        "/linkageSubmitted": (context) => LinkageRequestSubmittedScreen(),
-        "/dashboard": (context) => DashboardScreen(),
-        "/startWeighment": (context) => dashboard_gate.GateControlScreen(),
-        "/vehicleDetection": (context) => VehicleDetectionScreen(),
-        "/manualEntry": (context) => ManualEntryScreen(),
-        "/driverAssist": (context) => DriverAssistScreen(),
-        "/materialRecognition": (context) => MaterialRecognitionScreen(),
-        "/customerIdentification": (context) => CustomerIdentificationScreen(),
-        "/settings": (context) => SettingsDashboardScreen(),
-        "/generalSettings": (context) => GeneralSettingsScreen(),
-        "/customFields": (context) => CustomFieldsScreen(),
-        "/materials": (context) => MaterialsScreen(),
-        "/gateControl": (context) => GateControlScreen(),
-        "/weighbridge": (context) => WeighbridgeScreen(),
-        "/camerasAi": (context) => CamerasAiScreen(),
-        "/notifications": (context) => NotificationsScreen(),
-        "/printing": (context) => PrintingScreen(),
-        "/dataBackup": (context) => DataBackupScreen(),
-        "/security": (context) => SecurityScreen(),
-        "/integrations": (context) => IntegrationsScreen(),
-        "/subscriptionBilling": (context) => SubscriptionBillingScreen(),
-        "/auditLog": (context) => AuditLogScreen(),
-        "/reports": (context) => ReportsScreen(),
-        "/weighmentReports": (context) => WeighmentReportsScreen(),
-        "/vehicleReports": (context) => VehicleReportsScreen(),
-        "/materialReports": (context) => MaterialReportsScreen(),
-        "/operatorReports": (context) => OperatorReportsScreen(),
-        "/comparisonReports": (context) => ComparisonReportsScreen(),
-        "/customReports": (context) => CustomReportsScreen(),
-        "/timeAnalysisReports": (context) => TimeAnalysisReportsScreen(),
-        "/customerReports": (context) => CustomerReportsScreen(),
-        "/financialReports": (context) => FinancialReportsScreen(),
-        "/operatorRequests": (context) => OperatorRequestsScreen(),
-        "/operators": (context) => OperatorRequestsScreen(),
-        "/accountSettings": (context) => AccountSettingsScreen(),
-        "/customers": (context) => CustomerDatabaseScreen(),
-        "/customerProfile": (context) => CustomerProfileScreen(),
+        "/login": (context) => const LoginScreen(),
+        "/signup": (context) => const SignupScreen(),
+        "/otp": (context) => const OtpVerificationScreen(),
+        "/reset": (context) => const ResetPasswordScreen(),
+        "/adminSignup": (context) => const AdminSignupScreen(),
+        "/linkageSubmitted": (context) => const LinkageRequestSubmittedScreen(),
+        "/dashboard": (context) => const DashboardScreen(),
+        "/startWeighment": (context) => const dashboard_gate.GateControlScreen(),
+        "/vehicleDetection": (context) => const VehicleDetectionScreen(),
+        "/manualEntry": (context) => const ManualEntryScreen(),
+        "/driverAssist": (context) => const DriverAssistScreen(),
+        "/materialRecognition": (context) => const MaterialRecognitionScreen(),
+        "/customerIdentification": (context) => const CustomerIdentificationScreen(),
+        "/settings": (context) => const SettingsDashboardScreen(),
+        "/generalSettings": (context) => const GeneralSettingsScreen(),
+        "/customFields": (context) => const CustomFieldsScreen(),
+        "/materials": (context) => const MaterialsScreen(),
+        "/gateControl": (context) => const GateControlScreen(),
+        "/weighbridge": (context) => const WeighbridgeScreen(),
+        "/camerasAi": (context) => const CamerasAiScreen(),
+        "/notifications": (context) => const NotificationsScreen(),
+        "/printing": (context) => const PrintingScreen(),
+        "/dataBackup": (context) => const DataBackupScreen(),
+        "/security": (context) => const SecurityScreen(),
+        "/integrations": (context) => const IntegrationsScreen(),
+        "/subscriptionBilling": (context) => const SubscriptionBillingScreen(),
+        "/auditLog": (context) => const AuditLogScreen(),
+        "/reports": (context) => const ReportsScreen(),
+        "/weighmentReports": (context) => const WeighmentReportsScreen(),
+        "/vehicleReports": (context) => const VehicleReportsScreen(),
+        "/materialReports": (context) => const MaterialReportsScreen(),
+        "/operatorReports": (context) => const OperatorReportsScreen(),
+        "/comparisonReports": (context) => const ComparisonReportsScreen(),
+        "/customReports": (context) => const CustomReportsScreen(),
+        "/timeAnalysisReports": (context) => const TimeAnalysisReportsScreen(),
+        "/customerReports": (context) => const CustomerReportsScreen(),
+        "/financialReports": (context) => const FinancialReportsScreen(),
+        "/operatorRequests": (context) => const OperatorRequestsScreen(),
+        "/operators": (context) => const OperatorRequestsScreen(),
+        "/accountSettings": (context) => const AccountSettingsScreen(),
+        "/customers": (context) => const CustomerDatabaseScreen(),
+        "/customerProfile": (context) => const CustomerProfileScreen(),
       },
     );
   }
 }
-//helllo  this is sairaj here

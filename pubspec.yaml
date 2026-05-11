@@ -1,5 +1,5 @@
 name: weighbridgemanagement
-description: "A new Flutter project."
+description: "Weighbridge Management System - Smart weighbridge operations with Firebase backend."
 publish_to: 'none'
 version: 0.1.0
 
@@ -9,6 +9,20 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # Firebase
+  firebase_core: ^3.13.0
+  firebase_auth: ^5.5.3
+  cloud_firestore: ^5.6.7
+  firebase_storage: ^12.4.4
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # Utilities
+  uuid: ^4.5.1
+  intl: ^0.20.2
+  connectivity_plus: ^6.1.4
 
 dev_dependencies:
   flutter_test:
