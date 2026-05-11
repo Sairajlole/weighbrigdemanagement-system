@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:weighbridgemanagement/core/providers/providers.dart';
 
-class MainLayout extends StatefulWidget {
+class MainLayout extends ConsumerStatefulWidget {
   final String activeNav;
   final Widget child;
 
@@ -11,17 +13,13 @@ class MainLayout extends StatefulWidget {
   });
 
   @override
-  State<MainLayout> createState() => _MainLayoutState();
+  ConsumerState<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends State<MainLayout> {
-  static const Color emerald600 = Color(0xFF059669);
-  static const Color emerald700 = Color(0xFF047857);
-  static const Color emerald50 = Color(0xFFECFDF5);
-
+class _MainLayoutState extends ConsumerState<MainLayout> {
   final List<Map<String, dynamic>> sidebarItems = [
     {"icon": Icons.dashboard_outlined, "label": "Dashboard", "route": "/dashboard"},
-    {"icon": Icons.scale_outlined, "label": "Weighments", "route": "/weighments"},
+    {"icon": Icons.scale_outlined, "label": "Weighments", "route": "/weighmentReports"},
     {"icon": Icons.people_outlined, "label": "Customers", "route": "/customers"},
     {"icon": Icons.description_outlined, "label": "Reports", "route": "/reports"},
     {"icon": Icons.manage_accounts_outlined, "label": "Operators", "route": "/operators"},
@@ -32,17 +30,20 @@ class _MainLayoutState extends State<MainLayout> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final operatorAsync = ref.watch(currentOperatorProvider);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: colorScheme.surfaceContainerLowest,
       body: Row(
         children: [
-          // ==================== SIDEBAR ====================
+          // Sidebar
           Container(
             width: 224,
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
               border: Border(
-                right: BorderSide(color: Color(0xFFE5E7EB)),
+                right: BorderSide(color: colorScheme.outlineVariant),
               ),
             ),
             child: Column(
@@ -50,9 +51,9 @@ class _MainLayoutState extends State<MainLayout> {
                 // Logo & Version
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(color: Color(0xFFF3F4F6)),
+                      bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
                     ),
                   ),
                   child: Column(
@@ -64,38 +65,39 @@ class _MainLayoutState extends State<MainLayout> {
                             width: 32,
                             height: 32,
                             decoration: BoxDecoration(
-                              color: emerald600,
+                              color: colorScheme.primary,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.scale, color: Colors.white, size: 20),
+                            child: Icon(Icons.scale, color: colorScheme.onPrimary, size: 20),
                           ),
                           const SizedBox(width: 8),
-                          const Text(
+                          Text(
                             "Weighbridge MS",
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
-                              color: Color(0xFF1F2937),
+                              color: colorScheme.onSurface,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        "System Admin",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF374151),
+                      operatorAsync.when(
+                        data: (op) => Text(
+                          op?.role.name ?? "Operator",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: colorScheme.onSurface,
+                          ),
                         ),
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        "V3.2.1-Standard",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade400,
-                        ),
+                        "V3.2.1",
+                        style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -120,35 +122,31 @@ class _MainLayoutState extends State<MainLayout> {
                               }
                             },
                             child: Container(
-                              padding: EdgeInsets.only(
-                                left: isActive ? 8 : 12,
-                                right: 12,
-                                top: 10,
-                                bottom: 10,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(
-                                color: isActive ? emerald50 : Colors.transparent,
+                                color: isActive
+                                    ? colorScheme.primaryContainer.withValues(alpha: 0.5)
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
-                                border: isActive
-                                    ? const Border(
-                                        left: BorderSide(color: emerald600, width: 4),
-                                      )
-                                    : null,
                               ),
                               child: Row(
                                 children: [
                                   Icon(
                                     item["icon"],
                                     size: 20,
-                                    color: isActive ? emerald700 : const Color(0xFF4B5563),
+                                    color: isActive
+                                        ? colorScheme.onPrimaryContainer
+                                        : colorScheme.onSurfaceVariant,
                                   ),
                                   const SizedBox(width: 12),
                                   Text(
                                     item["label"],
                                     style: TextStyle(
                                       fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: isActive ? emerald700 : const Color(0xFF4B5563),
+                                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                                      color: isActive
+                                          ? colorScheme.onPrimaryContainer
+                                          : colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                 ],
@@ -164,9 +162,9 @@ class _MainLayoutState extends State<MainLayout> {
                 // User Profile at bottom
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     border: Border(
-                      top: BorderSide(color: Color(0xFFF3F4F6)),
+                      top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
                     ),
                   ),
                   child: Material(
@@ -183,37 +181,48 @@ class _MainLayoutState extends State<MainLayout> {
                             Container(
                               width: 38,
                               height: 38,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFFEF3C7),
+                              decoration: BoxDecoration(
+                                color: colorScheme.tertiaryContainer,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Center(
-                                child: Text(
-                                  "SA",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFFB45309),
+                              child: Center(
+                                child: operatorAsync.when(
+                                  data: (op) => Text(
+                                    (op?.name ?? "U").substring(0, 1).toUpperCase(),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: colorScheme.onTertiaryContainer,
+                                    ),
                                   ),
+                                  loading: () => const SizedBox.shrink(),
+                                  error: (_, __) => const Text("?"),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 10),
-                            const Expanded(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    "System Admin",
-                                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                  operatorAsync.when(
+                                    data: (op) => Text(
+                                      op?.name ?? "User",
+                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                    ),
+                                    loading: () => const Text("...", style: TextStyle(fontSize: 13)),
+                                    error: (_, __) => const Text("User", style: TextStyle(fontSize: 13)),
                                   ),
                                   Text(
                                     "My Account",
-                                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
-                            Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+                            Icon(Icons.chevron_right, size: 18, color: colorScheme.onSurfaceVariant),
                           ],
                         ),
                       ),
@@ -224,7 +233,7 @@ class _MainLayoutState extends State<MainLayout> {
             ),
           ),
 
-          // ==================== MAIN CONTENT ====================
+          // Main Content
           Expanded(
             child: widget.child,
           ),
