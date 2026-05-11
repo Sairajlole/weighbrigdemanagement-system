@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "189506147559",
+    "project_id": "weighbridge-management",
+    "storage_bucket": "weighbridge-management.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:189506147559:android:5c43a6d823085de718fe42",
+        "android_client_info": {
+          "package_name": "com.example.weighbridgemanagement"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDhPTCTtMQoSdxo5u8NJ1GMdaIjFzI8t4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
