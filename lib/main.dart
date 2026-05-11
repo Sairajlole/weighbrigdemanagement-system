@@ -11,6 +11,8 @@ import 'package:weighbridgemanagement/authentication/reset_password_screen.dart'
 import 'package:weighbridgemanagement/authentication/admin_signup_screen.dart';
 import 'package:weighbridgemanagement/authentication/linkage_request_submitted_screen.dart';
 import 'package:weighbridgemanagement/dashboardpanel/dashboard_screen.dart';
+import 'package:weighbridgemanagement/dashboardpanel/weighment_live_screen.dart';
+import 'package:weighbridgemanagement/dashboardpanel/weighment_complete_screen.dart';
 import 'package:weighbridgemanagement/dashboardpanel/gate_control_screen.dart'
     as dashboard_gate;
 import 'package:weighbridgemanagement/dashboardpanel/vehicle_detection_screen.dart';
@@ -79,7 +81,10 @@ class WeighbridgeApp extends ConsumerWidget {
         "/adminSignup": (context) => const AdminSignupScreen(),
         "/linkageSubmitted": (context) => const LinkageRequestSubmittedScreen(),
         "/dashboard": (context) => const DashboardScreen(),
-        "/startWeighment": (context) => const dashboard_gate.GateControlScreen(),
+        "/startWeighment": (context) => const WeighmentLiveScreen(),
+        "/weighmentLive": (context) => const WeighmentLiveScreen(),
+        "/weighmentComplete": (context) => const WeighmentCompleteScreen(),
+        "/oldGateControl": (context) => const dashboard_gate.GateControlScreen(),
         "/vehicleDetection": (context) => const VehicleDetectionScreen(),
         "/manualEntry": (context) => const ManualEntryScreen(),
         "/driverAssist": (context) => const DriverAssistScreen(),
