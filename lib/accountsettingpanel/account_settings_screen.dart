@@ -1,31 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:weighbridgemanagement/core/providers/providers.dart';
 import 'package:weighbridgemanagement/widgets/main_layout.dart';
 
-class AccountSettingsScreen extends StatefulWidget {
+class AccountSettingsScreen extends ConsumerStatefulWidget {
   const AccountSettingsScreen({super.key});
 
   @override
-  State<AccountSettingsScreen> createState() => _AccountSettingsScreenState();
+  ConsumerState<AccountSettingsScreen> createState() => _AccountSettingsScreenState();
 }
 
-class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
+class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
   static const Color emerald = Color(0xFF059669);
   static const Color emeraldLight = Color(0xFFD1FAE5);
 
-  // Form controllers
-  final TextEditingController _companyNameController =
-      TextEditingController(text: 'Logistics Solutions Ltd.');
+  final TextEditingController _companyNameController = TextEditingController();
 
-  // Sample data
-  String operatorLinkageCode = 'XJ9-22M';
   bool twoFactorEnabled = true;
   String lastPasswordChange = 'Last changed 3 months ago';
   String lastLogin = 'Oct 24, 2023, 09:30 AM';
 
-  void _generateNewLinkageCode() {
-    setState(() {
-      // Generate a random code (in real app, this would be from API)
-      operatorLinkageCode = 'AB1-34N';
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      final company = ref.read(currentCompanyProvider).value;
+      if (company != null) {
+        _companyNameController.text = company.name;
+      }
     });
   }
 
@@ -204,14 +207,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "John Doe",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF111827),
-                  ),
-                ),
+                Consumer(builder: (context, ref, _) {
+                  final op = ref.watch(currentOperatorProvider).value;
+                  return Text(
+                    op?.name ?? "User",
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF111827)),
+                  );
+                }),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -221,14 +223,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                       color: Colors.grey.shade500,
                     ),
                     const SizedBox(width: 6),
-                    const Text(
-                      "john.doe@logistics.com",
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: emerald,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    Consumer(builder: (context, ref, _) {
+                      final op = ref.watch(currentOperatorProvider).value;
+                      return Text(
+                        op?.email ?? "---",
+                        style: const TextStyle(fontSize: 13, color: emerald, fontWeight: FontWeight.w500),
+                      );
+                    }),
                     const SizedBox(width: 20),
                     Icon(
                       Icons.phone_outlined,
@@ -236,13 +237,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                       color: Colors.grey.shade500,
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      "+1 (555) 123-4567",
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
+                    Consumer(builder: (context, ref, _) {
+                      final op = ref.watch(currentOperatorProvider).value;
+                      return Text(
+                        op?.phone ?? "---",
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                      );
+                    }),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -265,14 +266,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      const Text(
-                        "Company Admin",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: emerald,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      Consumer(builder: (context, ref, _) {
+                        final op = ref.watch(currentOperatorProvider).value;
+                        return Text(
+                          op?.role.name ?? "operator",
+                          style: const TextStyle(fontSize: 12, color: emerald, fontWeight: FontWeight.w600),
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -380,75 +380,83 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
           const SizedBox(height: 24),
 
           // Operator Linkage Code
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF9FAFB),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "OPERATOR LINKAGE CODE",
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: emerald,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
+          Consumer(builder: (context, ref, _) {
+            final companyAsync = ref.watch(currentCompanyProvider);
+            final code = companyAsync.value?.linkageCode ?? '---';
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "OPERATOR LINKAGE CODE",
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: emerald,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Use this code to link operator terminals to your company account.",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                        const SizedBox(height: 4),
+                        Text(
+                          "Share this code with operators to link them to your company.",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                  ),
-                  child: Text(
-                    operatorLinkageCode,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'monospace',
-                      letterSpacing: 1,
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: emerald,
-                    borderRadius: BorderRadius.circular(8),
+                  const SizedBox(width: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Text(
+                      code,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'monospace',
+                        letterSpacing: 1,
+                      ),
+                    ),
                   ),
-                  child: IconButton(
-                    onPressed: _generateNewLinkageCode,
-                    icon: const Icon(Icons.refresh, size: 18, color: Colors.white),
-                    padding: EdgeInsets.zero,
+                  const SizedBox(width: 10),
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: emerald,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: IconButton(
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: code));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Linkage code copied!"), duration: Duration(seconds: 2)),
+                        );
+                      },
+                      icon: const Icon(Icons.copy, size: 18, color: Colors.white),
+                      padding: EdgeInsets.zero,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
+                ],
+              ),
+            );
+          }),
           const SizedBox(height: 24),
 
           // Save Changes Button

@@ -9,6 +9,7 @@ import 'package:weighbridgemanagement/core/models/weighment_session.dart';
 import 'package:weighbridgemanagement/core/models/operator_model.dart';
 import 'package:weighbridgemanagement/core/services/ai_service.dart';
 import 'package:weighbridgemanagement/core/services/firestore_service.dart';
+import 'package:weighbridgemanagement/core/services/scale_service.dart';
 import 'package:weighbridgemanagement/core/providers/providers.dart';
 
 enum StepStatus { waiting, running, completed, failed, skipped, needsInput }
@@ -76,6 +77,7 @@ final weighmentEngineProvider = StateNotifierProvider<WeighmentEngine, EngineSta
   return WeighmentEngine(
     aiService: AiService(),
     firestoreService: ref.read(firestoreServiceProvider),
+    scaleService: ref.read(scaleServiceProvider),
     ref: ref,
   );
 });
@@ -83,9 +85,10 @@ final weighmentEngineProvider = StateNotifierProvider<WeighmentEngine, EngineSta
 class WeighmentEngine extends StateNotifier<EngineState> {
   final AiService aiService;
   final FirestoreService firestoreService;
+  final ScaleService scaleService;
   final Ref ref;
 
-  WeighmentEngine({required this.aiService, required this.firestoreService, required this.ref})
+  WeighmentEngine({required this.aiService, required this.firestoreService, required this.scaleService, required this.ref})
       : super(EngineState());
 
   void startWeighment() {
@@ -289,9 +292,12 @@ class WeighmentEngine extends StateNotifier<EngineState> {
         _skipStep();
 
       case WeighmentStep.weightCheckBeforeEntry:
-        // Check if scale reads zero (mock for now)
-        await Future.delayed(const Duration(seconds: 1));
-        _advanceStep();
+        final isZero = await scaleService.isZero();
+        if (!isZero && !_isTareMode) {
+          _markStepNeedsInput('override', 'Scale not at zero. Clear platform or override.');
+        } else {
+          _advanceStep();
+        }
 
       case WeighmentStep.vehicleEntry:
         // Gate opens automatically
@@ -302,26 +308,23 @@ class WeighmentEngine extends StateNotifier<EngineState> {
         _advanceStep();
 
       case WeighmentStep.stabilization:
-        await Future.delayed(const Duration(seconds: 3));
+        final scaleReading = await scaleService.waitForStable();
         final boundary = await aiService.checkVehicleBoundary(['cam_top', 'cam_left', 'cam_right']);
         if (_isTareMode) {
-          // Tare mode — capture tare weight and calculate net
-          final tareWeight = 8500.0; // Mock: would come from scale
           final grossWeight = state.session!.grossWeight ?? 0;
           state = state.copyWith(
             session: state.session!.copyWith(
               weightStabilized: true,
-              tareWeight: tareWeight,
+              tareWeight: scaleReading.weight,
               tareDateTime: DateTime.now(),
-              netWeight: grossWeight - tareWeight,
+              netWeight: grossWeight - scaleReading.weight,
             ),
           );
         } else {
-          // Gross mode
           state = state.copyWith(
             session: state.session!.copyWith(
               weightStabilized: true,
-              grossWeight: 24500, // Mock: would come from scale
+              grossWeight: scaleReading.weight,
               grossDateTime: DateTime.now(),
             ),
           );

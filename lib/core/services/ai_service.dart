@@ -1,4 +1,6 @@
-import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 class AiDetectionResult {
   final String label;
@@ -73,69 +75,128 @@ class VehicleBoundaryResult {
   });
 }
 
-/// Interface for AI/YOLO inference service.
-/// Communicates with a local YOLO server (HTTP API) that handles
-/// both IP camera (RTSP) and USB camera feeds.
 class AiService {
   final String baseUrl;
+  final http.Client _client;
+  bool _serverOnline = false;
 
-  AiService({this.baseUrl = 'http://localhost:8420'});
+  AiService({this.baseUrl = 'http://localhost:8420'}) : _client = http.Client();
+
+  bool get isServerOnline => _serverOnline;
+
+  Future<bool> checkHealth() async {
+    try {
+      final response = await _client
+          .get(Uri.parse('$baseUrl/health'))
+          .timeout(const Duration(seconds: 2));
+      _serverOnline = response.statusCode == 200;
+      return _serverOnline;
+    } catch (_) {
+      _serverOnline = false;
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _post(String endpoint, Map<String, dynamic> body) async {
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('$baseUrl$endpoint'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        _serverOnline = true;
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('AI Service [$endpoint]: $e');
+      _serverOnline = false;
+    }
+    return null;
+  }
 
   Future<PlateDetectionResult> detectNumberPlate(String cameraId) async {
-    // TODO: POST to YOLO server /detect/plate with cameraId
-    // The YOLO server captures frame from the camera and runs inference
-    await Future.delayed(const Duration(seconds: 2));
-    return PlateDetectionResult(
-      plateNumber: 'KA-01-HH-1234',
-      confidence: 0.92,
-      snapshotPath: null,
-    );
+    final result = await _post('/detect/plate', {'cameraId': cameraId});
+    if (result != null) {
+      return PlateDetectionResult(
+        plateNumber: result['plateNumber'] ?? '',
+        confidence: (result['confidence'] as num?)?.toDouble() ?? 0,
+        snapshotPath: result['snapshotPath'],
+      );
+    }
+    // Fallback: low confidence triggers manual entry
+    return PlateDetectionResult(plateNumber: '', confidence: 0.0);
   }
 
   Future<FaceDetectionResult> detectFaces(String cameraId, {String? purpose}) async {
-    // TODO: POST to YOLO server /detect/faces
-    await Future.delayed(const Duration(seconds: 1));
+    final result = await _post('/detect/faces', {'cameraId': cameraId, 'purpose': purpose});
+    if (result != null) {
+      return FaceDetectionResult(
+        faceCount: (result['faceCount'] as num?)?.toInt() ?? 0,
+        snapshotPath: result['snapshotPath'],
+      );
+    }
     return FaceDetectionResult(faceCount: 1);
   }
 
   Future<FaceDetectionResult> matchCustomerFace(String cameraId) async {
-    // TODO: POST to YOLO server /detect/face-match
-    await Future.delayed(const Duration(seconds: 2));
-    return FaceDetectionResult(
-      faceCount: 1,
-      matchedCustomerId: null,
-      matchConfidence: null,
-    );
+    final result = await _post('/detect/face-match', {'cameraId': cameraId});
+    if (result != null) {
+      return FaceDetectionResult(
+        faceCount: (result['faceCount'] as num?)?.toInt() ?? 1,
+        matchedCustomerId: result['matchedCustomerId'],
+        matchConfidence: (result['matchConfidence'] as num?)?.toDouble(),
+        snapshotPath: result['snapshotPath'],
+      );
+    }
+    // No match — will prompt manual entry
+    return FaceDetectionResult(faceCount: 1, matchedCustomerId: null, matchConfidence: null);
   }
 
   Future<MaterialDetectionOutput> detectMaterial(List<String> cameraIds) async {
-    // TODO: POST to YOLO server /detect/material
-    await Future.delayed(const Duration(seconds: 2));
-    return MaterialDetectionOutput(
-      material: 'Sand',
-      confidence: 0.87,
-      isCovered: false,
-    );
+    final result = await _post('/detect/material', {'cameraIds': cameraIds});
+    if (result != null) {
+      return MaterialDetectionOutput(
+        material: result['material'] ?? '',
+        confidence: (result['confidence'] as num?)?.toDouble() ?? 0,
+        isCovered: result['isCovered'] ?? false,
+        snapshotPath: result['snapshotPath'],
+      );
+    }
+    // Fallback: low confidence triggers manual entry
+    return MaterialDetectionOutput(material: '', confidence: 0.0);
   }
 
   Future<VehicleBoundaryResult> checkVehicleBoundary(List<String> cameraIds) async {
-    // TODO: POST to YOLO server /detect/boundary
-    await Future.delayed(const Duration(seconds: 1));
-    return VehicleBoundaryResult(
-      isFullyOnPlatform: true,
-      coveragePercent: 0.98,
-    );
+    final result = await _post('/detect/boundary', {'cameraIds': cameraIds});
+    if (result != null) {
+      return VehicleBoundaryResult(
+        isFullyOnPlatform: result['isFullyOnPlatform'] ?? true,
+        coveragePercent: (result['coveragePercent'] as num?)?.toDouble() ?? 0.0,
+        snapshotPath: result['snapshotPath'],
+      );
+    }
+    // Assume on platform if server is offline (operator can override)
+    return VehicleBoundaryResult(isFullyOnPlatform: true, coveragePercent: 1.0);
   }
 
   Future<int> countPeopleOnPlatform(List<String> cameraIds) async {
-    // TODO: POST to YOLO server /detect/people-count
-    await Future.delayed(const Duration(seconds: 1));
+    final result = await _post('/detect/people-count', {'cameraIds': cameraIds});
+    if (result != null) {
+      return (result['count'] as num?)?.toInt() ?? 1;
+    }
+    // Assume 1 person if server offline
     return 1;
   }
 
   Future<String?> captureSnapshot(String cameraId) async {
-    // TODO: GET from YOLO server /capture/{cameraId}
-    await Future.delayed(const Duration(milliseconds: 500));
-    return null;
+    final result = await _post('/capture', {'cameraId': cameraId});
+    return result?['path'];
+  }
+
+  void dispose() {
+    _client.close();
   }
 }

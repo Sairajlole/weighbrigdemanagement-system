@@ -23,6 +23,7 @@ dependencies:
   uuid: ^4.5.1
   intl: ^0.20.2
   connectivity_plus: ^6.1.4
+  http: ^1.4.0
 
 dev_dependencies:
   flutter_test:
