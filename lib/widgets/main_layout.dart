@@ -167,66 +167,84 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                       top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
                     ),
                   ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () {
-                        Navigator.pushReplacementNamed(context, '/accountSettings');
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: colorScheme.tertiaryContainer,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: operatorAsync.when(
-                                  data: (op) => Text(
-                                    (op?.name ?? "U").substring(0, 1).toUpperCase(),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      color: colorScheme.onTertiaryContainer,
+                  child: Column(
+                    children: [
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () {
+                            Navigator.pushReplacementNamed(context, '/accountSettings');
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.tertiaryContainer,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: operatorAsync.when(
+                                      data: (op) => Text(
+                                        (op?.name ?? "U").substring(0, 1).toUpperCase(),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: colorScheme.onTertiaryContainer,
+                                        ),
+                                      ),
+                                      loading: () => const SizedBox.shrink(),
+                                      error: (_, __) => const Text("?"),
                                     ),
                                   ),
-                                  loading: () => const SizedBox.shrink(),
-                                  error: (_, __) => const Text("?"),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  operatorAsync.when(
-                                    data: (op) => Text(
-                                      op?.name ?? "User",
-                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                    ),
-                                    loading: () => const Text("...", style: TextStyle(fontSize: 13)),
-                                    error: (_, __) => const Text("User", style: TextStyle(fontSize: 13)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      operatorAsync.when(
+                                        data: (op) => Text(
+                                          op?.name ?? "User",
+                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                        ),
+                                        loading: () => const Text("...", style: TextStyle(fontSize: 13)),
+                                        error: (_, __) => const Text("User", style: TextStyle(fontSize: 13)),
+                                      ),
+                                      Text(
+                                        "My Account",
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    "My Account",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                                Icon(Icons.chevron_right, size: 18, color: colorScheme.onSurfaceVariant),
+                              ],
                             ),
-                            Icon(Icons.chevron_right, size: 18, color: colorScheme.onSurfaceVariant),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            await ref.read(authServiceProvider).signOut();
+                            if (context.mounted) {
+                              Navigator.pushReplacementNamed(context, '/login');
+                            }
+                          },
+                          icon: Icon(Icons.logout, size: 16, color: colorScheme.error),
+                          label: Text("Logout", style: TextStyle(color: colorScheme.error)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

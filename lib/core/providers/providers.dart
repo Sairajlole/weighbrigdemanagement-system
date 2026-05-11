@@ -5,6 +5,7 @@ import 'package:weighbridgemanagement/core/services/firestore_service.dart';
 import 'package:weighbridgemanagement/core/models/weighment.dart';
 import 'package:weighbridgemanagement/core/models/customer.dart';
 import 'package:weighbridgemanagement/core/models/operator_model.dart';
+import 'package:weighbridgemanagement/core/models/camera_config.dart';
 
 // Services
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
@@ -35,4 +36,14 @@ final customersStreamProvider = StreamProvider<List<Customer>>((ref) {
 // Operators for a company
 final operatorsStreamProvider = StreamProvider.family<List<Operator>, String>((ref, companyId) {
   return ref.watch(firestoreServiceProvider).streamOperators(companyId);
+});
+
+// Awaiting tare (second weighment)
+final awaitingTareProvider = StreamProvider<List<Weighment>>((ref) {
+  return ref.watch(firestoreServiceProvider).streamAwaitingTare();
+});
+
+// Cameras
+final camerasStreamProvider = StreamProvider<List<CameraConfig>>((ref) {
+  return ref.watch(firestoreServiceProvider).streamCameras();
 });

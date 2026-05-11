@@ -4,6 +4,7 @@ import 'package:weighbridgemanagement/core/models/customer.dart';
 import 'package:weighbridgemanagement/core/models/operator_model.dart';
 import 'package:weighbridgemanagement/core/models/company.dart';
 import 'package:weighbridgemanagement/core/models/queue_item.dart';
+import 'package:weighbridgemanagement/core/models/camera_config.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -51,6 +52,14 @@ class FirestoreService {
     return snap.docs.map((d) => Weighment.fromFirestore(d)).toList();
   }
 
+  Stream<List<Weighment>> streamAwaitingTare() {
+    return _weighments
+        .where('status', isEqualTo: 'awaitingTare')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => Weighment.fromFirestore(d)).toList());
+  }
+
   // ==================== CUSTOMERS ====================
 
   Future<String> createCustomer(Customer customer) async {
@@ -87,6 +96,14 @@ class FirestoreService {
     final snap = await _operators.where('uid', isEqualTo: uid).limit(1).get();
     if (snap.docs.isEmpty) return null;
     return Operator.fromFirestore(snap.docs.first);
+  }
+
+  Future<void> updateOperator(String id, Map<String, dynamic> data) async {
+    await _operators.doc(id).update(data);
+  }
+
+  Future<void> deleteOperator(String id) async {
+    await _operators.doc(id).delete();
   }
 
   Stream<List<Operator>> streamOperators(String companyId) {
@@ -132,6 +149,30 @@ class FirestoreService {
         .orderBy('createdAt')
         .snapshots()
         .map((snap) => snap.docs.map((d) => QueueItem.fromFirestore(d)).toList());
+  }
+
+  // ==================== CAMERAS ====================
+
+  CollectionReference get _cameras => _db.collection('cameras');
+
+  Future<String> createCamera(CameraConfig camera) async {
+    final docRef = await _cameras.add(camera.toFirestore());
+    return docRef.id;
+  }
+
+  Future<void> updateCamera(String id, Map<String, dynamic> data) async {
+    await _cameras.doc(id).update(data);
+  }
+
+  Future<void> deleteCamera(String id) async {
+    await _cameras.doc(id).delete();
+  }
+
+  Stream<List<CameraConfig>> streamCameras() {
+    return _cameras
+        .orderBy('gridOrder')
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => CameraConfig.fromFirestore(d)).toList());
   }
 
   // ==================== RST ====================

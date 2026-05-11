@@ -1,530 +1,512 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:weighbridgemanagement/core/enums/weighment_enums.dart';
+import 'package:weighbridgemanagement/core/models/camera_config.dart';
+import 'package:weighbridgemanagement/core/providers/providers.dart';
 import 'package:weighbridgemanagement/widgets/main_layout.dart';
 
-class CamerasAiScreen extends StatefulWidget {
+class CamerasAiScreen extends ConsumerStatefulWidget {
   const CamerasAiScreen({super.key});
 
   @override
-  State<CamerasAiScreen> createState() => _CamerasAiScreenState();
+  ConsumerState<CamerasAiScreen> createState() => _CamerasAiScreenState();
 }
 
-class _CamerasAiScreenState extends State<CamerasAiScreen> {
-  // LPR Settings
-  String lprCameraSource = 'Axis P1455-LE (Entry Gate)';
+class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
   double confidenceThreshold = 0.85;
-  bool ocrNightEnhancement = true;
-
-  // Driver Assist
-  String detectionMode = 'Realtime (GPU)';
-  double alertnessSensitivity = 0.65;
-  bool driverHelmetDetection = false;
-
-  // Customer Booth Card
-  bool autoPrintReceipt = false;
-  bool uploadToCentralRegistry = true;
-
-  static const Color emerald600 = Color(0xFF059669);
-  static const Color emerald500 = Color(0xFF10B981);
-  static const Color emerald50 = Color(0xFFECFDF5);
+  double materialThreshold = 0.80;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final camerasAsync = ref.watch(camerasStreamProvider);
+
     return MainLayout(
       activeNav: "Settings",
-      child: Row(
+      child: Column(
         children: [
-          // Left Sidebar
+          // Header
           Container(
-            width: 180,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(right: BorderSide(color: Color(0xFFE5E7EB))),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
+                Icon(Icons.videocam_outlined, color: colorScheme.primary),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("System Settings", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                      Text("V1.5 RAETNA", style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+                      Text("Cameras & AI Configuration",
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                      Text("Manage camera feeds and AI detection settings",
+                          style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
                     ],
                   ),
                 ),
-                _sidebarItem(Icons.settings_outlined, "General", false),
-                _sidebarItem(Icons.videocam_outlined, "Cameras & AI", true),
-                _sidebarItem(Icons.people_outline, "Users", false),
-                _sidebarItem(Icons.extension_outlined, "Integrations", false),
-                _sidebarItem(Icons.support_agent_outlined, "Support", false),
+                FilledButton.icon(
+                  onPressed: () => _showAddCameraDialog(context),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text("Add Camera"),
+                ),
               ],
             ),
           ),
 
-          // Main Content
+          // Body
           Expanded(
-            child: Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Camera Grid
+                  Text("CAMERA FEEDS",
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: colorScheme.onSurfaceVariant)),
+                  const SizedBox(height: 12),
+
+                  camerasAsync.when(
+                    data: (cameras) => cameras.isEmpty
+                        ? _emptyState(colorScheme)
+                        : _cameraGrid(cameras, colorScheme),
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (_, __) => _emptyState(colorScheme),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // AI Settings Section
+                  Text("AI DETECTION SETTINGS",
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: colorScheme.onSurfaceVariant)),
+                  const SizedBox(height: 12),
+
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _aiCard(
+                        colorScheme: colorScheme,
+                        icon: Icons.document_scanner_outlined,
+                        title: "License Plate Recognition",
+                        subtitle: "YOLO + OCR pipeline",
+                        children: [
+                          _sliderRow("Confidence Threshold", confidenceThreshold, colorScheme,
+                              (v) => setState(() => confidenceThreshold = v)),
+                          const SizedBox(height: 8),
+                          Text("Plates below this confidence will prompt manual entry.",
+                              style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant)),
+                        ],
+                      )),
+                      const SizedBox(width: 16),
+                      Expanded(child: _aiCard(
+                        colorScheme: colorScheme,
+                        icon: Icons.inventory_2_outlined,
+                        title: "Material Detection",
+                        subtitle: "YOLO classification model",
+                        children: [
+                          _sliderRow("Confidence Threshold", materialThreshold, colorScheme,
+                              (v) => setState(() => materialThreshold = v)),
+                          const SizedBox(height: 8),
+                          Text("Materials below this confidence will prompt manual entry.",
+                              style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant)),
+                        ],
+                      )),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _aiCard(
+                        colorScheme: colorScheme,
+                        icon: Icons.person_outline,
+                        title: "Person Detection",
+                        subtitle: "Platform safety check",
+                        children: [
+                          Text("Counts persons on platform. Expected: 1 (driver only).",
+                              style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+                          const SizedBox(height: 8),
+                          Text("Multi-camera fusion from all platform cameras.",
+                              style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant)),
+                        ],
+                      )),
+                      const SizedBox(width: 16),
+                      Expanded(child: _aiCard(
+                        colorScheme: colorScheme,
+                        icon: Icons.crop_free,
+                        title: "Vehicle Boundary Check",
+                        subtitle: "Platform coverage analysis",
+                        children: [
+                          Text("Verifies vehicle is fully within weighbridge platform boundaries.",
+                              style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+                          const SizedBox(height: 8),
+                          Text("Uses top and side cameras for boundary estimation.",
+                              style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant)),
+                        ],
+                      )),
+                    ],
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // YOLO Server Status
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colorScheme.outlineVariant),
+                    ),
+                    child: Row(
                       children: [
-                        // Header
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text("Cameras & AI Vision Settings", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
-                                  const SizedBox(height: 4),
-                                  Text("Manage intelligent detection modules and hardware streams.", style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
-                                ],
-                              ),
-                            ),
-                            OutlinedButton(
-                              onPressed: () {},
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF374151),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                side: const BorderSide(color: Color(0xFFE5E7EB)),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              child: const Text("Export Config"),
-                            ),
-                            const SizedBox(width: 12),
-                            ElevatedButton.icon(
-                              onPressed: () {},
-                              icon: const Icon(Icons.check, size: 18),
-                              label: const Text("Save All Changes"),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: emerald500,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Subscription Banner
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: emerald50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFD1FAE5)),
-                          ),
-                          child: Row(
+                        Icon(Icons.dns_outlined, color: colorScheme.onSurfaceVariant),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(color: emerald500, borderRadius: BorderRadius.circular(10)),
-                                child: const Icon(Icons.star, color: Colors.white, size: 20),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text("Subscription Status: Professional AI Suite", style: TextStyle(fontWeight: FontWeight.w600)),
-                                    const SizedBox(height: 4),
-                                    RichText(
-                                      text: TextSpan(
-                                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                                        children: const [
-                                          TextSpan(text: "Active: License Plate Recognition & Driver Assist. Upgrade to "),
-                                          TextSpan(text: "Enterprise Plan", style: TextStyle(fontWeight: FontWeight.w600, color: emerald600)),
-                                          TextSpan(text: " to unlock Material Recognition, Advanced Deep Learning Analytics, and Unlimited API Integration."),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              ElevatedButton(
-                                onPressed: () {},
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: emerald500,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                child: const Text("Upgrade Now"),
-                              ),
+                              const Text("YOLO Inference Server", style: TextStyle(fontWeight: FontWeight.w600)),
+                              Text("http://localhost:8420", style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
                             ],
                           ),
                         ),
-
-                        const SizedBox(height: 24),
-
-                        // LPR and Driver Assist Row
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // License Plate Recognition
-                            Expanded(child: _cameraCard(
-                              icon: Icons.document_scanner_outlined,
-                              title: "License Plate Recognition (LPR)",
-                              status: "LIVE",
-                              isActive: true,
-                              cameraId: "CAM_01_ENTRY_GATE",
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _dropdown("CAMERA SOURCE", lprCameraSource, ['Axis P1455-LE (Entry Gate)', 'Axis P1455-LE (Exit Gate)', 'Hikvision DS-2CD'], (v) => setState(() => lprCameraSource = v!)),
-                                  const SizedBox(height: 16),
-                                  _sliderField("CONFIDENCE THRESHOLD", confidenceThreshold, "${(confidenceThreshold * 100).toInt()}%", (v) => setState(() => confidenceThreshold = v)),
-                                  const SizedBox(height: 16),
-                                  _toggleRow("OCR Night Enhancement", ocrNightEnhancement, (v) => setState(() => ocrNightEnhancement = v)),
-                                ],
-                              ),
-                            )),
-                            const SizedBox(width: 24),
-                            // Driver Assist
-                            Expanded(child: _cameraCard(
-                              icon: Icons.person_outline,
-                              title: "Driver Assist & Cabin Safety",
-                              status: "ACTIVE",
-                              isActive: true,
-                              cameraId: "CAM_02_CABIN_CHECK",
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text("DETECTION MODE", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey)),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      _modeButton("Realtime (GPU)", detectionMode == "Realtime (GPU)", () => setState(() => detectionMode = "Realtime (GPU)")),
-                                      const SizedBox(width: 8),
-                                      _modeButton("Standard", detectionMode == "Standard", () => setState(() => detectionMode = "Standard")),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _sliderField("ALERTNESS SENSITIVITY", alertnessSensitivity, "Medium (65%)", (v) => setState(() => alertnessSensitivity = v)),
-                                  const SizedBox(height: 16),
-                                  _toggleRow("Driver Helmet Detection", driverHelmetDetection, (v) => setState(() => driverHelmetDetection = v)),
-                                ],
-                              ),
-                            )),
-                          ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: colorScheme.errorContainer,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text("OFFLINE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: colorScheme.error)),
                         ),
-
-                        const SizedBox(height: 24),
-
-                        // Material Recognition and Customer Booth
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Material Recognition (Locked)
-                            Expanded(child: _lockedCard(
-                              icon: Icons.inventory_2_outlined,
-                              title: "Material Recognition",
-                              description: "Unlock automated material classification and volume estimation with the Enterprise Plan.",
-                            )),
-                            const SizedBox(width: 24),
-                            // Customer Booth Card
-                            Expanded(child: _settingsCard(
-                              icon: Icons.badge_outlined,
-                              title: "Customer Booth Card",
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 48,
-                                        height: 48,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF3F4F6),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Icon(Icons.camera_alt_outlined, color: Colors.grey.shade600),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text("Manual ID Photo Capture", style: TextStyle(fontWeight: FontWeight.w500)),
-                                            const SizedBox(height: 4),
-                                            Text("Configured to capture high-res snapshot of driver/document at the weighbridge booth.", style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      TextButton(onPressed: () {}, child: const Text("Trigger Test Shot", style: TextStyle(color: emerald600))),
-                                      const SizedBox(width: 8),
-                                      TextButton(onPressed: () {}, child: Text("Refresh Stream", style: TextStyle(color: Colors.grey.shade600))),
-                                    ],
-                                  ),
-                                  const Divider(height: 24),
-                                  _toggleRow("Auto-print Receipt with Image", autoPrintReceipt, (v) => setState(() => autoPrintReceipt = v)),
-                                  const SizedBox(height: 12),
-                                  _toggleRow("Upload to Central Registry", uploadToCentralRegistry, (v) => setState(() => uploadToCentralRegistry = v)),
-                                ],
-                              ),
-                            )),
-                          ],
+                        const SizedBox(width: 12),
+                        OutlinedButton(
+                          onPressed: () {},
+                          child: const Text("Test Connection"),
                         ),
                       ],
                     ),
                   ),
-                ),
-
-                // Bottom Status Bar
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
-                  ),
-                  child: Row(
-                    children: [
-                      _statusChip(Icons.memory, "PROCESSOR: OK", true),
-                      const SizedBox(width: 16),
-                      _statusChip(Icons.cloud_outlined, "VISION API: ONLINE", true),
-                      const Spacer(),
-                      OutlinedButton(
-                        onPressed: () {},
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF374151),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          side: const BorderSide(color: Color(0xFFE5E7EB)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: const Text("Reset to Defaults"),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: emerald500,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: const Text("Deploy Configurations"),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sidebarItem(IconData icon, String label, bool isActive) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () {},
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: isActive ? emerald50 : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              border: isActive ? Border.all(color: emerald500) : null,
-            ),
-            child: Row(
-              children: [
-                Icon(icon, size: 18, color: isActive ? emerald600 : Colors.grey.shade600),
-                const SizedBox(width: 10),
-                Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: isActive ? emerald600 : Colors.grey.shade700)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _cameraCard({required IconData icon, required String title, required String status, required bool isActive, required String cameraId, required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE5E7EB))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 20, color: emerald600),
-              const SizedBox(width: 8),
-              Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600))),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: emerald50, borderRadius: BorderRadius.circular(4)),
-                child: Text(status, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: emerald600)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            height: 120,
-            width: double.infinity,
-            decoration: BoxDecoration(color: const Color(0xFF374151), borderRadius: BorderRadius.circular(8)),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.videocam, color: Colors.grey.shade600, size: 32),
-                  const SizedBox(height: 8),
-                  Text(cameraId, style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontFamily: 'monospace')),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          child,
         ],
       ),
     );
   }
 
-  Widget _lockedCard({required IconData icon, required String title, required String description}) {
+  Widget _emptyState(ColorScheme colorScheme) {
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFFF9FAFB), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE5E7EB))),
+      width: double.infinity,
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.videocam_off_outlined, size: 48, color: colorScheme.outlineVariant),
+          const SizedBox(height: 12),
+          Text("No cameras configured", style: TextStyle(color: colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          FilledButton.tonalIcon(
+            onPressed: () => _showAddCameraDialog(context),
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text("Add First Camera"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cameraGrid(List<CameraConfig> cameras, ColorScheme colorScheme) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.4,
+      ),
+      itemCount: cameras.length,
+      itemBuilder: (context, index) {
+        final cam = cameras[index];
+        return Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colorScheme.outlineVariant),
+          ),
+          child: Column(
+            children: [
+              // Camera preview area
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1a1a2e),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                  ),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Icon(Icons.videocam, size: 28, color: Colors.white.withValues(alpha: 0.3)),
+                      ),
+                      Positioned(
+                        top: 6,
+                        left: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: cam.enabled ? Colors.green.withValues(alpha: 0.8) : Colors.red.withValues(alpha: 0.8),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            cam.enabled ? "ON" : "OFF",
+                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            cam.sourceType.name.toUpperCase(),
+                            style: const TextStyle(color: Colors.white, fontSize: 9),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Camera info
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(cam.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          Text(cam.purpose.name, style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuButton<String>(
+                      iconSize: 18,
+                      padding: EdgeInsets.zero,
+                      onSelected: (action) {
+                        if (action == 'edit') _showEditCameraDialog(context, cam);
+                        if (action == 'delete') _deleteCamera(cam);
+                        if (action == 'toggle') _toggleCamera(cam);
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(value: 'edit', child: Text(cam.enabled ? 'Edit' : 'Edit')),
+                        PopupMenuItem(value: 'toggle', child: Text(cam.enabled ? 'Disable' : 'Enable')),
+                        const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _aiCard({
+    required ColorScheme colorScheme,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 20, color: Colors.grey.shade500),
+              Icon(icon, size: 18, color: colorScheme.primary),
               const SizedBox(width: 8),
-              Expanded(child: Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade500))),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    Text(subtitle, style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 24),
-          Center(
-            child: Column(
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(32)),
-                  child: Icon(Icons.lock_outline, color: Colors.grey.shade400, size: 28),
-                ),
-                const SizedBox(height: 16),
-                Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
-                const SizedBox(height: 8),
-                Text(description, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: emerald500,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text("Unlock Module"),
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(height: 14),
+          ...children,
         ],
       ),
     );
   }
 
-  Widget _settingsCard({required IconData icon, required String title, required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE5E7EB))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [Icon(icon, size: 20, color: emerald600), const SizedBox(width: 8), Text(title, style: const TextStyle(fontWeight: FontWeight.w600))]),
-          const SizedBox(height: 16),
-          child,
-        ],
-      ),
-    );
-  }
-
-  Widget _dropdown(String label, String value, List<String> items, Function(String?) onChanged) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade500)),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(color: const Color(0xFFF9FAFB), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE5E7EB))),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(value: value, isExpanded: true, icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade600), style: const TextStyle(fontSize: 14, color: Color(0xFF374151)), items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(), onChanged: onChanged),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _sliderField(String label, double value, String displayValue, Function(double) onChanged) {
+  Widget _sliderRow(String label, double value, ColorScheme colorScheme, ValueChanged<double> onChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade500)), Text(displayValue, style: const TextStyle(fontSize: 12, color: emerald600, fontWeight: FontWeight.w500))],
+          children: [
+            Text(label, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+            Text("${(value * 100).toInt()}%", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colorScheme.primary)),
+          ],
         ),
-        const SizedBox(height: 8),
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(activeTrackColor: emerald500, inactiveTrackColor: const Color(0xFFE5E7EB), thumbColor: emerald500, overlayColor: emerald500.withOpacity(0.2), trackHeight: 6),
-          child: Slider(value: value, min: 0, max: 1, onChanged: onChanged),
-        ),
+        Slider(value: value, min: 0.5, max: 1.0, onChanged: onChanged),
       ],
     );
   }
 
-  Widget _toggleRow(String label, bool value, Function(bool) onChanged) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF374151))), Switch(value: value, onChanged: onChanged, activeColor: emerald500)],
-    );
+  void _showAddCameraDialog(BuildContext context) {
+    _showCameraFormDialog(context, null);
   }
 
-  Widget _modeButton(String label, bool isActive, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isActive ? emerald50 : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isActive ? emerald500 : const Color(0xFFE5E7EB)),
+  void _showEditCameraDialog(BuildContext context, CameraConfig camera) {
+    _showCameraFormDialog(context, camera);
+  }
+
+  void _showCameraFormDialog(BuildContext context, CameraConfig? existing) {
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final urlCtrl = TextEditingController(text: existing?.streamUrl ?? '');
+    var purpose = existing?.purpose ?? CameraPurpose.platformTopView;
+    var sourceType = existing?.sourceType ?? CameraSourceType.rtsp;
+    var showOnWeighment = existing?.showOnWeighmentScreen ?? true;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(existing == null ? "Add Camera" : "Edit Camera"),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: "Camera Name", hintText: "e.g. Front Gate"),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: urlCtrl,
+                  decoration: InputDecoration(
+                    labelText: "Stream URL",
+                    hintText: sourceType == CameraSourceType.usb ? "/dev/video0" : "rtsp://192.168.1.x/stream",
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<CameraSourceType>(
+                  value: sourceType,
+                  decoration: const InputDecoration(labelText: "Source Type"),
+                  items: CameraSourceType.values
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t.name.toUpperCase())))
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => sourceType = v!),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<CameraPurpose>(
+                  value: purpose,
+                  decoration: const InputDecoration(labelText: "Purpose"),
+                  items: CameraPurpose.values
+                      .map((p) => DropdownMenuItem(value: p, child: Text(p.name)))
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => purpose = v!),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  title: const Text("Show on Weighment Screen", style: TextStyle(fontSize: 13)),
+                  value: showOnWeighment,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (v) => setDialogState(() => showOnWeighment = v),
+                ),
+              ],
+            ),
           ),
-          child: Center(child: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: isActive ? emerald600 : Colors.grey.shade600))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+            FilledButton(
+              onPressed: () async {
+                if (nameCtrl.text.trim().isEmpty) return;
+                final fs = ref.read(firestoreServiceProvider);
+                if (existing == null) {
+                  await fs.createCamera(CameraConfig(
+                    id: '',
+                    name: nameCtrl.text.trim(),
+                    purpose: purpose,
+                    sourceType: sourceType,
+                    streamUrl: urlCtrl.text.trim(),
+                    showOnWeighmentScreen: showOnWeighment,
+                    gridOrder: 99,
+                  ));
+                } else {
+                  await fs.updateCamera(existing.id, {
+                    'name': nameCtrl.text.trim(),
+                    'purpose': purpose.name,
+                    'sourceType': sourceType.name,
+                    'streamUrl': urlCtrl.text.trim(),
+                    'showOnWeighmentScreen': showOnWeighment,
+                  });
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: Text(existing == null ? "Add" : "Save"),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _statusChip(IconData icon, String label, bool isOk) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: isOk ? emerald500 : Colors.red),
-        const SizedBox(width: 6),
-        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: isOk ? emerald600 : Colors.red)),
-      ],
+  void _deleteCamera(CameraConfig cam) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Camera?"),
+        content: Text("Remove '${cam.name}' from configuration?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          FilledButton(
+            onPressed: () {
+              ref.read(firestoreServiceProvider).deleteCamera(cam.id);
+              Navigator.pop(ctx);
+            },
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
     );
+  }
+
+  void _toggleCamera(CameraConfig cam) {
+    ref.read(firestoreServiceProvider).updateCamera(cam.id, {'enabled': !cam.enabled});
   }
 }

@@ -1,0 +1,48 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Companies: any authenticated user can create, only admin can update/delete
+    match /companies/{companyId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null
+        && resource.data.adminUid == request.auth.uid;
+    }
+
+    // Operators: any authenticated user can create their own profile
+    match /operators/{operatorId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if request.auth != null
+        && resource.data.uid == request.auth.uid;
+    }
+
+    // Customers: any authenticated user can CRUD
+    match /customers/{customerId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Weighments: any authenticated user can CRUD
+    match /weighments/{weighmentId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Queues: any authenticated user can CRUD
+    match /queues/{queueId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Counters (RST numbers): any authenticated user can read/write
+    match /counters/{counterId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Cameras configuration: any authenticated user can CRUD
+    match /cameras/{cameraId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

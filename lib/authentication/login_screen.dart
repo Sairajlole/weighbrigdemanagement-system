@@ -37,8 +37,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         Navigator.pushReplacementNamed(context, "/dashboard");
       }
     } on Exception catch (e) {
+      debugPrint('Login error: $e');
       setState(() {
-        errorMessage = _parseAuthError(e.toString());
+        errorMessage = _parseError(e.toString());
       });
     } finally {
       if (mounted) {
@@ -47,14 +48,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  String _parseAuthError(String error) {
+  String _parseError(String error) {
     if (error.contains('user-not-found')) return 'No account found with this email.';
     if (error.contains('wrong-password')) return 'Incorrect password.';
     if (error.contains('invalid-email')) return 'Invalid email address.';
     if (error.contains('user-disabled')) return 'This account has been disabled.';
     if (error.contains('too-many-requests')) return 'Too many attempts. Try again later.';
     if (error.contains('invalid-credential')) return 'Invalid email or password.';
-    return 'Sign in failed. Please try again.';
+    if (error.contains('network-request-failed')) return 'Network error. Check your internet connection.';
+    if (error.contains('keychain-error')) return 'Keychain access error. Try restarting the app.';
+    return 'Sign in failed: ${error.length > 120 ? error.substring(0, 120) : error}';
   }
 
   @override

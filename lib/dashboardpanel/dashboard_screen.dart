@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:weighbridgemanagement/core/providers/providers.dart';
 import 'package:weighbridgemanagement/core/models/weighment.dart';
 import 'package:weighbridgemanagement/core/enums/weighment_enums.dart';
+import 'package:weighbridgemanagement/core/services/weighment_engine.dart';
 import 'package:weighbridgemanagement/widgets/main_layout.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -109,9 +110,9 @@ class DashboardScreen extends ConsumerWidget {
                                     fontSize: 13,
                                     color: colorScheme.onSurfaceVariant,
                                   ),
-                                )
+                                ),
                               ],
-                            )
+                            ),
                           ],
                         ),
                       ),
@@ -120,7 +121,7 @@ class DashboardScreen extends ConsumerWidget {
                           Navigator.pushNamed(context, '/startWeighment');
                         },
                         icon: const Icon(Icons.add),
-                        label: const Text("Start New Weighment"),
+                        label: const Text("Start Gross Weighment"),
                       ),
                     ],
                   ),
@@ -129,9 +130,9 @@ class DashboardScreen extends ConsumerWidget {
 
                   // Stats Cards
                   weighmentsAsync.when(
-                    data: (weighments) => _buildStatsAndTable(context, weighments, colorScheme),
+                    data: (weighments) => _buildStatsAndTable(context, ref, weighments, colorScheme),
                     loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => _buildStatsAndTable(context, [], colorScheme),
+                    error: (e, _) => _buildStatsAndTable(context, ref, [], colorScheme),
                   ),
                 ],
               ),
@@ -143,7 +144,7 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildStatsAndTable(
-      BuildContext context, List<Weighment> weighments, ColorScheme colorScheme) {
+      BuildContext context, WidgetRef ref, List<Weighment> weighments, ColorScheme colorScheme) {
     final today = DateTime.now();
     final todaysWeighments = weighments.where((w) {
       return w.createdAt.year == today.year &&
@@ -197,6 +198,9 @@ class DashboardScreen extends ConsumerWidget {
         ),
 
         const SizedBox(height: 16),
+
+        // Awaiting Tare Section
+        _buildAwaitingTare(context, ref, weighments, colorScheme),
 
         // Recent Weighments Table
         Container(
@@ -307,24 +311,87 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildAwaitingTare(BuildContext context, WidgetRef ref, List<Weighment> weighments, ColorScheme colorScheme) {
+    final awaitingTare = weighments.where((w) => w.status == WeighmentStatus.awaitingTare).toList();
+    if (awaitingTare.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.tertiaryContainer.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.tertiary.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.scale, size: 18, color: colorScheme.tertiary),
+              const SizedBox(width: 8),
+              Text("Awaiting Tare Weighment (${awaitingTare.length})",
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: colorScheme.tertiary)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...awaitingTare.take(5).map((w) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colorScheme.outlineVariant),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(w.vehicleNumber, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(w.customerName, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+                    const SizedBox(width: 12),
+                    Text("${w.grossWeight?.toStringAsFixed(0) ?? '--'} kg",
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 8),
+                    Text("(gross)", style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant)),
+                    const Spacer(),
+                    Text("RST #${w.rstNumber}", style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant)),
+                    const SizedBox(width: 12),
+                    FilledButton.tonalIcon(
+                      onPressed: () {
+                        ref.read(weighmentEngineProvider.notifier).startTareWeighment(w);
+                        Navigator.pushNamed(context, '/weighmentLive');
+                      },
+                      icon: const Icon(Icons.scale, size: 14),
+                      label: const Text("Tare", style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
   Widget _statusChip(WeighmentStatus status, ColorScheme colorScheme) {
-    final isComplete = status == WeighmentStatus.completed;
+    final (IconData icon, Color color, String label) = switch (status) {
+      WeighmentStatus.completed => (Icons.check_circle, colorScheme.primary, "Completed"),
+      WeighmentStatus.awaitingTare => (Icons.scale, colorScheme.tertiary, "Awaiting Tare"),
+      WeighmentStatus.inProgress => (Icons.timelapse, colorScheme.tertiary, "In Progress"),
+      _ => (Icons.circle_outlined, colorScheme.outlineVariant, status.name),
+    };
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          isComplete ? Icons.check_circle : Icons.timelapse,
-          size: 18,
-          color: isComplete ? colorScheme.primary : colorScheme.tertiary,
-        ),
+        Icon(icon, size: 18, color: color),
         const SizedBox(width: 6),
-        Text(
-          status.name[0].toUpperCase() + status.name.substring(1),
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: isComplete ? colorScheme.primary : colorScheme.tertiary,
-          ),
-        ),
+        Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: color)),
       ],
     );
   }

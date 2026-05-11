@@ -83,6 +83,10 @@ class WeighmentCompleteScreen extends ConsumerWidget {
                     _summaryRow("Customer", session.customerName ?? '--', colorScheme),
                     _summaryRow("Material", session.material ?? '--', colorScheme),
                     _summaryRow("Gross Weight", session.grossWeight != null ? "${session.grossWeight!.toStringAsFixed(0)} kg" : '--', colorScheme),
+                    if (session.tareWeight != null)
+                      _summaryRow("Tare Weight", "${session.tareWeight!.toStringAsFixed(0)} kg", colorScheme),
+                    if (session.netWeight != null)
+                      _summaryRow("Net Weight", "${session.netWeight!.toStringAsFixed(0)} kg", colorScheme),
                     _summaryRow("Time", DateFormat('dd MMM yyyy, hh:mm a').format(session.startedAt), colorScheme),
                     const SizedBox(height: 12),
                     Divider(color: colorScheme.outlineVariant),

@@ -1,7 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:weighbridgemanagement/core/enums/weighment_enums.dart';
+import 'package:weighbridgemanagement/core/models/customer.dart';
+import 'package:weighbridgemanagement/core/models/weighment.dart';
 import 'package:weighbridgemanagement/core/models/weighment_session.dart';
+import 'package:weighbridgemanagement/core/models/operator_model.dart';
 import 'package:weighbridgemanagement/core/services/ai_service.dart';
 import 'package:weighbridgemanagement/core/services/firestore_service.dart';
 import 'package:weighbridgemanagement/core/providers/providers.dart';
@@ -71,22 +76,30 @@ final weighmentEngineProvider = StateNotifierProvider<WeighmentEngine, EngineSta
   return WeighmentEngine(
     aiService: AiService(),
     firestoreService: ref.read(firestoreServiceProvider),
+    ref: ref,
   );
 });
 
 class WeighmentEngine extends StateNotifier<EngineState> {
   final AiService aiService;
   final FirestoreService firestoreService;
+  final Ref ref;
 
-  WeighmentEngine({required this.aiService, required this.firestoreService})
+  WeighmentEngine({required this.aiService, required this.firestoreService, required this.ref})
       : super(EngineState());
 
   void startWeighment() {
+    final operatorAsync = ref.read(currentOperatorProvider);
+    Operator? currentOperator;
+    operatorAsync.whenData((op) => currentOperator = op);
+
     final session = WeighmentSession(
       sessionId: const Uuid().v4(),
       startedAt: DateTime.now(),
       currentStep: WeighmentStep.retryQueue,
       status: WeighmentStatus.inProgress,
+      operatorId: currentOperator?.id,
+      operatorName: currentOperator?.name,
     );
 
     final steps = WeighmentStep.values
@@ -97,12 +110,63 @@ class WeighmentEngine extends StateNotifier<EngineState> {
     _runNextStep();
   }
 
+  /// Start a tare weighment for an existing gross record
+  void startTareWeighment(Weighment grossRecord) {
+    final operatorAsync = ref.read(currentOperatorProvider);
+    Operator? currentOperator;
+    operatorAsync.whenData((op) => currentOperator = op);
+
+    final session = WeighmentSession(
+      sessionId: grossRecord.sessionId,
+      startedAt: DateTime.now(),
+      currentStep: WeighmentStep.weightCheckBeforeEntry,
+      status: WeighmentStatus.inProgress,
+      operatorId: currentOperator?.id,
+      operatorName: currentOperator?.name,
+      vehicleNumber: grossRecord.vehicleNumber,
+      material: grossRecord.material,
+      customerId: grossRecord.customerId,
+      customerName: grossRecord.customerName,
+      customerPhone: grossRecord.customerPhone,
+      customerAddress: grossRecord.customerAddress,
+      rstNumber: grossRecord.rstNumber,
+      grossWeight: grossRecord.grossWeight,
+      grossDateTime: grossRecord.grossDateTime,
+    );
+
+    // Tare flow only needs: entry → stabilize → boundary check → tare capture → save → print → exit
+    final tareSteps = [
+      WeighmentStep.weightCheckBeforeEntry,
+      WeighmentStep.vehicleEntry,
+      WeighmentStep.stabilization,
+      WeighmentStep.cctvDetection,
+      WeighmentStep.saveWeighment,
+      WeighmentStep.pdfGeneration,
+      WeighmentStep.printing,
+      WeighmentStep.exitSequence,
+    ];
+
+    final steps = tareSteps
+        .map((s) => WeighmentStepState(step: s, startedAt: DateTime.now()))
+        .toList();
+
+    _isTareMode = true;
+    _grossRecordId = grossRecord.id;
+    state = EngineState(session: session, steps: steps, isRunning: true);
+    _runNextStep();
+  }
+
+  bool _isTareMode = false;
+  String? _grossRecordId;
+
   void cancelWeighment() {
+    _isTareMode = false;
+    _grossRecordId = null;
     state = EngineState();
   }
 
   /// Provide manual input for a step that needs it
-  void provideInput(String field, String value) {
+  void provideInput(String field, String value) async {
     if (state.session == null) return;
 
     var session = state.session!;
@@ -115,12 +179,40 @@ class WeighmentEngine extends StateNotifier<EngineState> {
         break;
       case 'customerName':
         session = session.copyWith(customerName: value);
+        if (session.customerPhone != null && session.customerId == null) {
+          try {
+            final now = DateTime.now();
+            final newId = await firestoreService.createCustomer(Customer(
+              id: '',
+              name: value,
+              phone: session.customerPhone!,
+              createdAt: now,
+              updatedAt: now,
+            ));
+            session = session.copyWith(customerId: newId);
+          } catch (_) {}
+        }
         break;
       case 'customerPhone':
         session = session.copyWith(customerPhone: value);
+        final customer = await firestoreService.findCustomerByPhone(value);
+        if (customer != null) {
+          session = session.copyWith(
+            customerId: customer.id,
+            customerName: customer.name,
+            customerPhone: customer.phone,
+            customerAddress: customer.address,
+          );
+        } else {
+          state = state.copyWith(session: session, pendingInputField: null);
+          _markStepNeedsInput('customerName', 'New customer. Enter name for $value.');
+          return;
+        }
         break;
       case 'customerAddress':
         session = session.copyWith(customerAddress: value);
+        break;
+      case 'override':
         break;
     }
 
@@ -210,16 +302,30 @@ class WeighmentEngine extends StateNotifier<EngineState> {
         _advanceStep();
 
       case WeighmentStep.stabilization:
-        // Wait for weight to stabilize
         await Future.delayed(const Duration(seconds: 3));
         final boundary = await aiService.checkVehicleBoundary(['cam_top', 'cam_left', 'cam_right']);
-        state = state.copyWith(
-          session: state.session!.copyWith(
-            weightStabilized: true,
-            grossWeight: 24500,
-            grossDateTime: DateTime.now(),
-          ),
-        );
+        if (_isTareMode) {
+          // Tare mode — capture tare weight and calculate net
+          final tareWeight = 8500.0; // Mock: would come from scale
+          final grossWeight = state.session!.grossWeight ?? 0;
+          state = state.copyWith(
+            session: state.session!.copyWith(
+              weightStabilized: true,
+              tareWeight: tareWeight,
+              tareDateTime: DateTime.now(),
+              netWeight: grossWeight - tareWeight,
+            ),
+          );
+        } else {
+          // Gross mode
+          state = state.copyWith(
+            session: state.session!.copyWith(
+              weightStabilized: true,
+              grossWeight: 24500, // Mock: would come from scale
+              grossDateTime: DateTime.now(),
+            ),
+          );
+        }
         if (boundary.isFullyOnPlatform) {
           _advanceStep();
         } else {
@@ -275,36 +381,75 @@ class WeighmentEngine extends StateNotifier<EngineState> {
       case WeighmentStep.customerVerification:
         final faceResult = await aiService.matchCustomerFace('cam_customer');
         if (faceResult.matchedCustomerId != null && faceResult.matchConfidence != null && faceResult.matchConfidence! >= 0.85) {
-          // Auto-matched customer
-          final customer = await firestoreService.findCustomerByPhone('');
-          if (customer != null) {
-            state = state.copyWith(
-              session: state.session!.copyWith(
-                customerId: customer.id,
-                customerName: customer.name,
-                customerPhone: customer.phone,
-                customerAddress: customer.address,
-              ),
-            );
-            _advanceStep();
-          } else {
-            _markStepNeedsInput('customerPhone', 'Enter customer phone to identify.');
-          }
+          _advanceStep();
         } else {
           _markStepNeedsInput('customerPhone', 'Enter customer phone to identify.');
         }
 
       case WeighmentStep.rstManagement:
-        final rst = await firestoreService.getNextRstNumber('default');
-        state = state.copyWith(
-          session: state.session!.copyWith(rstNumber: rst.toString()),
-        );
+        try {
+          final rst = await firestoreService.getNextRstNumber('default');
+          state = state.copyWith(
+            session: state.session!.copyWith(rstNumber: rst.toString()),
+          );
+        } catch (e) {
+          debugPrint('RST error: $e');
+          state = state.copyWith(
+            session: state.session!.copyWith(rstNumber: DateTime.now().millisecondsSinceEpoch.toString().substring(6)),
+          );
+        }
         _advanceStep();
 
       case WeighmentStep.saveWeighment:
-        // Save to Firestore handled after all data collected
-        await Future.delayed(const Duration(seconds: 1));
-        _advanceStep();
+        try {
+          final session = state.session!;
+          final now = DateTime.now();
+          if (_isTareMode && _grossRecordId != null) {
+            // Update existing record with tare data
+            await firestoreService.updateWeighment(_grossRecordId!, {
+              'tareWeight': session.tareWeight,
+              'netWeight': session.netWeight,
+              'tareDateTime': Timestamp.fromDate(session.tareDateTime ?? now),
+              'status': WeighmentStatus.completed.name,
+              'updatedAt': Timestamp.fromDate(now),
+            });
+          } else {
+            // Create new gross weighment
+            await firestoreService.createWeighment(Weighment(
+              id: '',
+              sessionId: session.sessionId,
+              rstNumber: session.rstNumber ?? '',
+              deviceId: 'web',
+              weighbridgeId: 'default',
+              vehicleNumber: session.vehicleNumber ?? 'Unknown',
+              rfidTag: session.rfidTag,
+              customerId: session.customerId ?? '',
+              customerName: session.customerName ?? 'Walk-in',
+              customerPhone: session.customerPhone ?? '',
+              customerAddress: session.customerAddress,
+              material: session.material ?? 'Unknown',
+              materialDetectionResult: session.materialResult,
+              materialConfidence: session.materialConfidence,
+              grossWeight: session.grossWeight,
+              tareWeight: session.tareWeight,
+              netWeight: session.netWeight,
+              grossDateTime: session.grossDateTime,
+              tareDateTime: session.tareDateTime,
+              operatorId: session.operatorId ?? '',
+              operatorName: session.operatorName ?? 'System',
+              operatorRole: UserRole.operator,
+              cameraSnapshots: session.cameraSnapshots.isNotEmpty ? session.cameraSnapshots : null,
+              status: session.tareWeight != null ? WeighmentStatus.completed : WeighmentStatus.awaitingTare,
+              currentStep: WeighmentStep.saveWeighment,
+              createdAt: now,
+              updatedAt: now,
+            ));
+          }
+          _advanceStep();
+        } catch (e) {
+          debugPrint('Save weighment error: $e');
+          _advanceStep();
+        }
 
       case WeighmentStep.pdfGeneration:
         await Future.delayed(const Duration(seconds: 2));

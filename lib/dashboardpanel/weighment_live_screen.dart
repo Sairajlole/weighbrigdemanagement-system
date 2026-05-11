@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/core/enums/weighment_enums.dart';
+import 'package:weighbridgemanagement/core/models/camera_config.dart';
 import 'package:weighbridgemanagement/core/models/weighment_session.dart';
+import 'package:weighbridgemanagement/core/providers/providers.dart';
 import 'package:weighbridgemanagement/core/services/weighment_engine.dart';
 
 class WeighmentLiveScreen extends ConsumerStatefulWidget {
@@ -18,7 +20,10 @@ class _WeighmentLiveScreenState extends ConsumerState<WeighmentLiveScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(weighmentEngineProvider.notifier).startWeighment();
+      final engineState = ref.read(weighmentEngineProvider);
+      if (!engineState.isRunning) {
+        ref.read(weighmentEngineProvider.notifier).startWeighment();
+      }
     });
   }
 
@@ -186,23 +191,32 @@ class _WeighmentLiveScreenState extends ConsumerState<WeighmentLiveScreen> {
   }
 
   Widget _buildCctvGrid(ColorScheme colorScheme) {
-    // Configurable grid - showing 4 cameras as default
-    final cameras = [
-      {'name': 'Front View', 'icon': Icons.videocam},
-      {'name': 'Platform Top', 'icon': Icons.videocam},
-      {'name': 'Left Side', 'icon': Icons.videocam},
-      {'name': 'Right Side', 'icon': Icons.videocam},
-    ];
+    final camerasAsync = ref.watch(camerasStreamProvider);
+    final cameras = camerasAsync.when(
+      data: (list) => list.where((c) => c.enabled && c.showOnWeighmentScreen).toList(),
+      loading: () => CameraConfig.defaults(),
+      error: (_, __) => CameraConfig.defaults(),
+    );
+
+    final crossAxisCount = cameras.length <= 2 ? 1 : 2;
 
     return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
         childAspectRatio: 16 / 9,
       ),
       itemCount: cameras.length,
       itemBuilder: (context, index) {
+        final cam = cameras[index];
+        final purposeIcon = switch (cam.purpose) {
+          CameraPurpose.vehicleNumberPlate => Icons.directions_car,
+          CameraPurpose.driverFace || CameraPurpose.customerFace || CameraPurpose.operatorFace => Icons.face,
+          CameraPurpose.platformTopView => Icons.videocam,
+          _ => Icons.videocam_outlined,
+        };
+
         return Container(
           decoration: BoxDecoration(
             color: const Color(0xFF1a1a2e),
@@ -211,28 +225,19 @@ class _WeighmentLiveScreenState extends ConsumerState<WeighmentLiveScreen> {
           ),
           child: Stack(
             children: [
-              // Placeholder for actual camera feed
               Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      cameras[index]['icon'] as IconData,
-                      size: 32,
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
+                    Icon(purposeIcon, size: 32, color: Colors.white.withValues(alpha: 0.3)),
                     const SizedBox(height: 8),
                     Text(
-                      cameras[index]['name'] as String,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        fontSize: 12,
-                      ),
+                      cam.streamUrl.isEmpty ? "No stream configured" : cam.streamUrl,
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10),
                     ),
                   ],
                 ),
               ),
-              // Camera label overlay
               Positioned(
                 top: 8,
                 left: 8,
@@ -248,17 +253,29 @@ class _WeighmentLiveScreenState extends ConsumerState<WeighmentLiveScreen> {
                       Container(
                         width: 6,
                         height: 6,
-                        decoration: const BoxDecoration(
-                          color: Colors.redAccent,
+                        decoration: BoxDecoration(
+                          color: cam.streamUrl.isEmpty ? Colors.amber : Colors.redAccent,
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        cameras[index]['name'] as String,
-                        style: const TextStyle(color: Colors.white, fontSize: 10),
-                      ),
+                      Text(cam.name, style: const TextStyle(color: Colors.white, fontSize: 10)),
                     ],
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    cam.sourceType.name.toUpperCase(),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -270,6 +287,10 @@ class _WeighmentLiveScreenState extends ConsumerState<WeighmentLiveScreen> {
   }
 
   Widget _buildWeightDisplay(WeighmentSession session, ColorScheme colorScheme) {
+    final isTare = session.grossWeight != null && session.tareWeight != null;
+    final displayWeight = session.tareWeight ?? session.grossWeight;
+    final weightLabel = isTare ? "TARE WEIGHT" : (session.grossWeight != null ? "GROSS WEIGHT" : "LIVE WEIGHT");
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -279,7 +300,7 @@ class _WeighmentLiveScreenState extends ConsumerState<WeighmentLiveScreen> {
       child: Column(
         children: [
           Text(
-            "LIVE WEIGHT",
+            weightLabel,
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
@@ -289,8 +310,8 @@ class _WeighmentLiveScreenState extends ConsumerState<WeighmentLiveScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            session.grossWeight != null
-                ? "${session.grossWeight!.toStringAsFixed(0)} kg"
+            displayWeight != null
+                ? "${displayWeight.toStringAsFixed(0)} kg"
                 : "-- kg",
             style: TextStyle(
               fontSize: 36,
@@ -316,7 +337,48 @@ class _WeighmentLiveScreenState extends ConsumerState<WeighmentLiveScreen> {
                 ),
               ),
             ),
+          if (isTare) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _weightPill("Gross", session.grossWeight!, colorScheme),
+                const SizedBox(width: 8),
+                Text("-", style: TextStyle(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700)),
+                const SizedBox(width: 8),
+                _weightPill("Tare", session.tareWeight!, colorScheme),
+                const SizedBox(width: 8),
+                Text("=", style: TextStyle(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700)),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    "${session.netWeight?.toStringAsFixed(0) ?? '--'} kg",
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: colorScheme.onPrimary),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _weightPill(String label, double weight, ColorScheme colorScheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        "$label: ${weight.toStringAsFixed(0)}",
+        style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -376,27 +438,38 @@ class _WeighmentLiveScreenState extends ConsumerState<WeighmentLiveScreen> {
   Widget _buildManualInput(EngineState engineState, ColorScheme colorScheme) {
     final currentStep = engineState.currentStep;
     final field = engineState.pendingInputField!;
+    final isOverride = field == 'override';
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: colorScheme.tertiaryContainer.withValues(alpha: 0.3),
+        color: isOverride
+            ? colorScheme.errorContainer.withValues(alpha: 0.3)
+            : colorScheme.tertiaryContainer.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.tertiary.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: isOverride
+              ? colorScheme.error.withValues(alpha: 0.3)
+              : colorScheme.tertiary.withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.edit_note, size: 18, color: colorScheme.tertiary),
+              Icon(
+                isOverride ? Icons.warning_amber : Icons.edit_note,
+                size: 18,
+                color: isOverride ? colorScheme.error : colorScheme.tertiary,
+              ),
               const SizedBox(width: 8),
               Text(
-                "Input Required",
+                isOverride ? "Attention Required" : "Input Required",
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
-                  color: colorScheme.tertiary,
+                  color: isOverride ? colorScheme.error : colorScheme.tertiary,
                 ),
               ),
             ],
@@ -407,33 +480,45 @@ class _WeighmentLiveScreenState extends ConsumerState<WeighmentLiveScreen> {
             style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 40,
-                  child: TextField(
-                    controller: _inputController,
-                    style: const TextStyle(fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: _getHintForField(field),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          if (isOverride)
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  ref.read(weighmentEngineProvider.notifier).provideInput('override', 'approved');
+                },
+                icon: const Icon(Icons.check, size: 16),
+                label: const Text("Override & Continue", style: TextStyle(fontSize: 12)),
+              ),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 40,
+                    child: TextField(
+                      controller: _inputController,
+                      style: const TextStyle(fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: _getHintForField(field),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onSubmitted: (_) => _submitInput(field),
                     ),
-                    onSubmitted: (_) => _submitInput(field),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                height: 40,
-                child: FilledButton(
-                  onPressed: () => _submitInput(field),
-                  child: const Text("OK", style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 40,
+                  child: FilledButton(
+                    onPressed: () => _submitInput(field),
+                    child: const Text("OK", style: TextStyle(fontSize: 12)),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );

@@ -2,11 +2,14 @@ enum WeighmentStatus {
   pending,
   inProgress,
   grossWeighed,
+  awaitingTare,
   tareWeighed,
   completed,
   cancelled,
   failed,
 }
+
+enum WeighmentType { single, twoPass }
 
 enum WeighmentStep {
   retryQueue,

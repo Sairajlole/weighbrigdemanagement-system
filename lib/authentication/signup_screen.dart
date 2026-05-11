@@ -78,17 +78,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         Navigator.pushReplacementNamed(context, "/linkageSubmitted");
       }
     } on Exception catch (e) {
-      setState(() => errorMessage = _parseAuthError(e.toString()));
+      debugPrint('Operator signup error: $e');
+      setState(() => errorMessage = _parseError(e.toString()));
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
   }
 
-  String _parseAuthError(String error) {
+  String _parseError(String error) {
     if (error.contains('email-already-in-use')) return 'This email is already registered.';
     if (error.contains('weak-password')) return 'Password is too weak (min 6 characters).';
     if (error.contains('invalid-email')) return 'Invalid email address.';
-    return 'Registration failed. Please try again.';
+    if (error.contains('permission-denied') || error.contains('PERMISSION_DENIED')) {
+      return 'Firestore permission denied. Update your Firestore security rules to allow authenticated writes.';
+    }
+    if (error.contains('unavailable') || error.contains('UNAVAILABLE')) {
+      return 'Could not connect to server. Check your internet connection.';
+    }
+    return 'Registration failed: ${error.length > 120 ? error.substring(0, 120) : error}';
   }
 
   @override
