@@ -20,6 +20,17 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.189506147559-lccatk67k2uqkb2q3n1mua7apo2dmq2d</string>
+			</array>
+		</dict>
+	</array>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key>
@@ -28,5 +39,7 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app requires camera access for weighbridge monitoring and vehicle identification.</string>
 </dict>
 </plist>
