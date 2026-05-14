@@ -1,17 +1,74 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:barcode/barcode.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image/image.dart' as img;
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/print_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 
 // ─── Providers ──────────────────────────────────────────────────────────────
 
 final _printSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestoreProvider);
   final doc = await db.collection('settings').doc('printing').get();
+  return doc.exists ? doc.data()! : {};
+});
+
+final _companyLogoProvider = FutureProvider<Uint8List?>((ref) async {
+  final db = ref.watch(firestoreProvider);
+  final doc = await db.collection('settings').doc('general_docs').get();
+  if (!doc.exists) return null;
+  final dataUri = doc.data()?['company_logo'] as String?;
+  if (dataUri == null || !dataUri.startsWith('data:')) return null;
+  final b64 = dataUri.split(',').last;
+  return base64Decode(b64);
+});
+
+class _DmDotData {
+  final int width;
+  final int height;
+  final List<bool> dots;
+  _DmDotData(this.width, this.height, this.dots);
+}
+
+final _dmMonoLogoProvider = FutureProvider<_DmDotData?>((ref) async {
+  final logoBytes = await ref.watch(_companyLogoProvider.future);
+  if (logoBytes == null) return null;
+  var decoded = img.decodeImage(logoBytes);
+  if (decoded == null) return null;
+
+  final settings = await ref.watch(_printSettingsProvider.future);
+  final logoCharW = settings['dmLogoWidth'] as int? ?? 18;
+  // Match print service: 10 CPI ≈ 6px per char at 60 DPI
+  final targetPx = logoCharW * 6;
+  if (decoded.width != targetPx) {
+    decoded = img.copyResize(decoded, width: targetPx);
+  }
+
+  final grayscale = img.grayscale(decoded);
+  final mono = img.ditherImage(grayscale);
+  final w = mono.width;
+  final h = mono.height;
+  final dots = List<bool>.filled(w * h, false);
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      dots[y * w + x] = img.getLuminance(mono.getPixel(x, y)) < 128;
+    }
+  }
+  return _DmDotData(w, h, dots);
+});
+
+final _companyInfoProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final db = ref.watch(firestoreProvider);
+  final doc = await db.collection('settings').doc('general').get();
   return doc.exists ? doc.data()! : {};
 });
 
@@ -25,6 +82,13 @@ final _customFieldsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) a
       .map((f) => Map<String, dynamic>.from(f as Map))
       .where((f) => f['enabled'] == true && (f['label'] as String?)?.isNotEmpty == true)
       .toList();
+});
+
+final _materialsProvider = StreamProvider<List<String>>((ref) {
+  final db = ref.watch(firestoreProvider);
+  return db.collection('materials').orderBy('order').snapshots().map(
+    (snap) => snap.docs.map((d) => d.data()['name'] as String? ?? '').where((n) => n.isNotEmpty).toList(),
+  );
 });
 
 // ─── Placeholders ───────────────────────────────────────────────────────────
@@ -61,8 +125,8 @@ const _builtInPlaceholders = [
   _Placeholder('{operator}', 'Operator Name', 'Weighment'),
   // System
   _Placeholder('{date}', 'Current Date', 'System'),
-  _Placeholder('{time}', 'Current Time', 'System'),
-  _Placeholder('{serial_no}', 'Serial Number', 'System'),
+  _Placeholder('{pc_name}', 'PC Name', 'System'),
+  _Placeholder('{port_name}', 'Port Name', 'System'),
   _Placeholder('{weighbridge_name}', 'Weighbridge Name', 'System'),
 ];
 
@@ -84,14 +148,106 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
 
   // ── Printers ──
   List<Map<String, dynamic>> _printers = [];
+  Map<String, List<String>> _printerTrays = {};
 
   // ── Printer Assignment ──
   String _grossPrinter = 'default';
+  String _grossTray = '';
   String _tarePrinter = 'default';
+  String _tareTray = '';
   String _backupPrinter = '';
+  String _backupTray = '';
   bool _backupEnabled = false;
   bool _materialRoutingEnabled = false;
   List<Map<String, dynamic>> _materialPrinterRules = [];
+
+  String _resolveSystemName(String displayName) {
+    if (displayName == 'default') return '';
+    for (final p in _printers) {
+      final nickname = p['nickname'] as String? ?? '';
+      final sysName = p['name'] as String? ?? '';
+      if (nickname.isNotEmpty && nickname == displayName) return sysName;
+      if (sysName == displayName) return sysName;
+    }
+    return displayName;
+  }
+
+  List<String> _getTraysForPrinter(String printerName) => _printerTrays[_resolveSystemName(printerName)] ?? [];
+
+  Future<void> _loadPrinterTrays() async {
+    final trays = <String, List<String>>{};
+    for (final p in _printers) {
+      final name = p['name'] as String? ?? '';
+      if (name.isEmpty) continue;
+      try {
+        if (Platform.isWindows) {
+          final result = await Process.run('powershell', ['-Command', 'Get-PrinterProperty -PrinterName "$name" | Where-Object { \$_.PropertyName -eq "Config:InputBin" } | Select-Object -ExpandProperty Value']);
+          if (result.exitCode == 0) {
+            final output = (result.stdout as String).trim();
+            if (output.isNotEmpty) {
+              final options = output.split(RegExp(r'[\r\n]+')).map((o) => o.trim()).where((o) => o.isNotEmpty).toList();
+              if (options.length > 1) trays[name] = options;
+            }
+          }
+        } else {
+          final cupsPrinterName = name.replaceAll(' ', '_');
+          final result = await Process.run('lpoptions', ['-p', cupsPrinterName, '-l']);
+          if (result.exitCode == 0) {
+            final output = result.stdout as String;
+            for (final line in output.split('\n')) {
+              if (line.startsWith('InputSlot/')) {
+                final parts = line.split(':');
+                if (parts.length == 2) {
+                  final options = parts[1].trim().split(RegExp(r'\s+')).map((o) => o.replaceAll('*', '')).toList();
+                  if (options.length > 1) trays[name] = options;
+                }
+                break;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    if (mounted) setState(() => _printerTrays = trays);
+  }
+
+  void _syncPrinterConfigToTemplates() {
+    for (final p in _printers) {
+      final type = p['type'] as String? ?? 'normal';
+      final name = p['name'] as String? ?? '';
+      final nickname = p['nickname'] as String? ?? '';
+      final match = nickname.isNotEmpty ? nickname : name;
+      if (type == 'dotMatrix' && (match == _grossPrinter || match == _tarePrinter)) {
+        final w = (p['paperWidth'] as num?)?.toDouble();
+        if (w != null) _dmPaperWidth = w;
+      }
+      if (type == 'thermal' && (match == _grossPrinter || match == _tarePrinter)) {
+        final w = p['thermalWidth'] as String?;
+        if (w != null) _thermalWidth = w;
+      }
+      if (type == 'normal' && (match == _grossPrinter || match == _tarePrinter)) {
+        final ps = p['paperSize'] as String?;
+        if (ps != null && ps != _normalPaperSize) {
+          _normalPaperSize = ps;
+          _applySizeConfig(_getDefaultSizeConfig(ps));
+        }
+      }
+    }
+  }
+
+  void _syncTemplateToPrinters(String type, {double? paperWidth, String? thermalWidth, String? paperSize}) {
+    for (final p in _printers) {
+      final pType = p['type'] as String? ?? 'normal';
+      if (pType != type) continue;
+      if (type == 'dotMatrix' && paperWidth != null) {
+        p['paperWidth'] = paperWidth;
+      } else if (type == 'thermal' && thermalWidth != null) {
+        p['thermalWidth'] = thermalWidth;
+      } else if (type == 'normal' && paperSize != null) {
+        p['paperSize'] = paperSize;
+      }
+    }
+  }
 
   // ── Print Rules ──
   int _copies = 2;
@@ -102,20 +258,24 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
   int _maxReprints = 3;
 
   // ── Dot Matrix ──
-  int _dmColumns = 80;
-  String _dmCharSet = 'Normal';
-  bool _dmBorders = true;
+  double _dmPaperWidth = 10.0; // inches
+  int get _dmColumns => (_dmPaperWidth * 10).round(); // 10 CPI (Normal)
+  double _dmPageHeight = 4.0; // cut length in inches
   int _dmMarginTop = 1;
   int _dmMarginBottom = 1;
   int _dmMarginLeft = 2;
+  bool _dmLogo = false;
+  int _dmLogoWidth = 18;
+  int _dmLogoHeight = 8;
   List<Map<String, dynamic>> _dmLines = [];
 
   // ── Thermal ──
   String _thermalWidth = '80mm';
   bool _thermalLogo = true;
-  bool _thermalPdf417 = false;
+  bool _thermalPdf417 = true;
   String _thermalCutMode = 'Full';
   int _thermalFontSize = 12;
+  String _thermalFont = 'Font A';
   List<Map<String, dynamic>> _thermalLines = [];
 
   // ── Header Layout (normal printer only) ──
@@ -128,33 +288,30 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
   double _normalLogoWidth = 80;
   double _normalLogoHeight = 80;
 
-  // ── Font Size ──
+  // ── Font ──
   int _normalFontSize = 14;
+  String _normalFont = 'Helvetica';
 
   // ── Multi-column ──
   int _dmColumnCount = 1;
-  int _thermalColumnCount = 1;
 
   // ── Normal ──
   String _normalPaperSize = 'A4';
-  String _normalOrientation = 'Portrait';
   double _normalMarginTop = 15;
   double _normalMarginBottom = 15;
   double _normalMarginLeft = 15;
   double _normalMarginRight = 15;
   bool _normalLogo = true;
-  bool _normalPdf417 = false;
+  bool _normalPdf417 = true;
   String _normalPdf417Position = 'bottom';
   bool _normalCctv = false;
   List<String> _normalCctvCameras = [];
-  bool _normalCustomFields = true;
   List<Map<String, dynamic>> _normalLines = [];
 
   // Per-size config store
   final Map<String, Map<String, dynamic>> _perSizeConfigs = {};
 
   Map<String, dynamic> _getCurrentSizeConfig() => {
-    'orientation': _normalOrientation,
     'marginTop': _normalMarginTop,
     'marginBottom': _normalMarginBottom,
     'marginLeft': _normalMarginLeft,
@@ -168,13 +325,11 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     'pdf417Position': _normalPdf417Position,
     'cctv': _normalCctv,
     'cctvCameras': List<String>.from(_normalCctvCameras),
-    'customFields': _normalCustomFields,
     'fontSize': _normalFontSize,
     'normalLines': _normalLines.map((l) => Map<String, dynamic>.from(l)).toList(),
   };
 
   void _applySizeConfig(Map<String, dynamic> cfg) {
-    _normalOrientation = cfg['orientation'] as String? ?? 'Portrait';
     _normalMarginTop = (cfg['marginTop'] as num?)?.toDouble() ?? 15;
     _normalMarginBottom = (cfg['marginBottom'] as num?)?.toDouble() ?? 15;
     _normalMarginLeft = (cfg['marginLeft'] as num?)?.toDouble() ?? 15;
@@ -184,52 +339,58 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     _normalLogo = cfg['logo'] as bool? ?? true;
     _normalLogoWidth = (cfg['logoWidth'] as num?)?.toDouble() ?? 80;
     _normalLogoHeight = (cfg['logoHeight'] as num?)?.toDouble() ?? 80;
-    _normalPdf417 = cfg['pdf417'] as bool? ?? false;
+    _normalPdf417 = cfg['pdf417'] as bool? ?? true;
     _normalPdf417Position = cfg['pdf417Position'] as String? ?? 'bottom';
     _normalCctv = cfg['cctv'] as bool? ?? false;
     _normalCctvCameras = List<String>.from(cfg['cctvCameras'] as List? ?? []);
-    _normalCustomFields = cfg['customFields'] as bool? ?? true;
     _normalFontSize = cfg['fontSize'] as int? ?? 14;
     final lines = cfg['normalLines'] as List?;
     _normalLines = lines != null
         ? lines.map((l) => Map<String, dynamic>.from(l as Map)).toList()
-        : _getDefaultNormalLines();
+        : _getDefaultNormalLines(paperSize: _normalPaperSize);
   }
 
   static Map<String, dynamic> _getDefaultSizeConfig(String size) {
     switch (size) {
       case 'A5':
         return {
-          'orientation': 'Portrait',
-          'marginTop': 10.0, 'marginBottom': 10.0, 'marginLeft': 10.0, 'marginRight': 10.0,
+          'marginTop': 5.0, 'marginBottom': 3.0, 'marginLeft': 10.0, 'marginRight': 10.0,
           'headerLayout': 'inline', 'headerRows': 3,
           'logo': true, 'logoWidth': 50.0, 'logoHeight': 50.0,
           'pdf417': false, 'pdf417Position': 'bottom',
           'cctv': false, 'cctvCameras': <String>[],
-          'customFields': true, 'fontSize': 10,
-          'normalLines': _getDefaultNormalLines(),
+          'fontSize': 10,
+          'normalLines': _getDefaultNormalLines(paperSize: 'A5'),
         };
       case 'Legal':
         return {
-          'orientation': 'Portrait',
-          'marginTop': 15.0, 'marginBottom': 15.0, 'marginLeft': 15.0, 'marginRight': 15.0,
+          'marginTop': 8.0, 'marginBottom': 5.0, 'marginLeft': 15.0, 'marginRight': 15.0,
           'headerLayout': 'inline', 'headerRows': 3,
           'logo': true, 'logoWidth': 80.0, 'logoHeight': 80.0,
           'pdf417': true, 'pdf417Position': 'bottom',
           'cctv': true, 'cctvCameras': ['Front', 'Rear', 'Top', 'Side', 'Operator', 'Customer'],
-          'customFields': true, 'fontSize': 14,
-          'normalLines': _getDefaultNormalLines(),
+          'fontSize': 16,
+          'normalLines': _getDefaultNormalLines(paperSize: 'Legal'),
         };
-      default: // A4, Letter
+      case 'Letter':
         return {
-          'orientation': 'Portrait',
-          'marginTop': 15.0, 'marginBottom': 15.0, 'marginLeft': 15.0, 'marginRight': 15.0,
+          'marginTop': 8.0, 'marginBottom': 5.0, 'marginLeft': 15.0, 'marginRight': 15.0,
           'headerLayout': 'inline', 'headerRows': 3,
           'logo': true, 'logoWidth': 80.0, 'logoHeight': 80.0,
           'pdf417': true, 'pdf417Position': 'bottom',
           'cctv': true, 'cctvCameras': ['Front', 'Rear', 'Top', 'Side'],
-          'customFields': true, 'fontSize': 14,
-          'normalLines': _getDefaultNormalLines(),
+          'fontSize': 14,
+          'normalLines': _getDefaultNormalLines(paperSize: 'Letter'),
+        };
+      default: // A4
+        return {
+          'marginTop': 8.0, 'marginBottom': 5.0, 'marginLeft': 15.0, 'marginRight': 15.0,
+          'headerLayout': 'inline', 'headerRows': 3,
+          'logo': true, 'logoWidth': 80.0, 'logoHeight': 80.0,
+          'pdf417': true, 'pdf417Position': 'bottom',
+          'cctv': true, 'cctvCameras': ['Front', 'Rear', 'Top', 'Side'],
+          'fontSize': 16,
+          'normalLines': _getDefaultNormalLines(paperSize: 'A4'),
         };
     }
   }
@@ -245,6 +406,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     if (newSize != 'Legal') {
       _normalCctvCameras.removeWhere((c) => c == 'Operator' || c == 'Customer');
     }
+    _syncTemplateToPrinters('normal', paperSize: newSize);
   }
 
   @override
@@ -255,83 +417,103 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
   }
 
   void _initDefaults() {
-    _dmLines = _getDefaultDmLines();
+    _dmPaperWidth = 10.0;
+    _dmPageHeight = 4.0;
+    _dmLogo = false;
+    _dmLogoWidth = 18;
+    _dmLogoHeight = 8;
+    _dmMarginTop = 1;
+    _dmMarginBottom = 1;
+    _dmMarginLeft = 2;
+    _dmLines = _getDefaultDmLines(columns: 100);
     _thermalLines = _getDefaultThermalLines();
-    _normalLines = _getDefaultNormalLines();
+    _normalLines = _getDefaultNormalLines(paperSize: _normalPaperSize);
   }
 
-  static List<Map<String, dynamic>> _getDefaultDmLines() => [
-    {'text': '{company_name}', 'align': 'left', 'style': 'double'},
-    {'text': '{company_address1}', 'align': 'left', 'style': 'normal'},
-    {'text': '{company_address2}', 'align': 'left', 'style': 'normal'},
-    {'text': '', 'align': 'left', 'style': 'separator'},
-    {'text': 'RST: {rst}', 'align': 'left', 'style': 'normal', 'group': 1},
-    {'text': 'Material: {material}', 'align': 'left', 'style': 'normal', 'group': 1},
-    {'text': '', 'align': 'left', 'style': 'separator'},
-    {'text': 'Vehicle: {vehicle}', 'align': 'left', 'style': 'normal', 'group': 2},
-    {'text': 'Phone:    {customer_phone}', 'align': 'left', 'style': 'normal', 'group': 2},
-    {'text': 'Customer: {customer_name}', 'align': 'left', 'style': 'normal', 'group': 3},
-    {'text': 'Address: {customer_address}', 'align': 'left', 'style': 'normal', 'group': 3},
-    {'text': '', 'align': 'left', 'style': 'separator'},
-    {'text': 'Gross:  {gross} kg', 'align': 'left', 'style': 'normal', 'group': 4},
-    {'text': '({gross_datetime})', 'align': 'left', 'style': 'normal', 'group': 4},
-    {'text': 'Tare:   {tare} kg', 'align': 'left', 'style': 'normal', 'group': 5},
-    {'text': '({tare_datetime})', 'align': 'left', 'style': 'normal', 'group': 5},
-    {'text': 'Net:    {net} kg', 'align': 'left', 'style': 'normal', 'group': 6},
-    {'text': '({net_datetime})', 'align': 'left', 'style': 'normal', 'group': 6},
-    {'text': '', 'align': 'left', 'style': 'separator'},
-    {'text': 'Operator: {operator}', 'align': 'left', 'style': 'normal', 'group': 7},
-    {'text': 'Time: {time}', 'align': 'left', 'style': 'normal', 'group': 7},
-    {'text': 'Weighbridge: {weighbridge_name}', 'align': 'left', 'style': 'normal', 'group': 8},
-    {'text': 'Serial: {serial_no}', 'align': 'left', 'style': 'normal', 'group': 8},
-  ];
+  static List<Map<String, dynamic>> _getDefaultDmLines({int columns = 100}) {
+    return [
+      {'text': '{company_name}', 'align': 'center', 'style': 'double'},
+      {'text': '{company_address1}', 'align': 'center', 'style': 'normal'},
+      {'text': '{company_address2}', 'align': 'center', 'style': 'normal'},
+      {'text': '', 'align': 'left', 'style': 'separator'},
+      {'text': 'RST: {rst}', 'align': 'left', 'style': 'normal', 'group': 1},
+      {'text': 'Material: {material}', 'align': 'left', 'style': 'normal', 'group': 1},
+      {'text': '', 'align': 'left', 'style': 'separator'},
+      {'text': 'Vehicle: {vehicle}', 'align': 'left', 'style': 'normal', 'group': 2},
+      {'text': 'Phone: {customer_phone}', 'align': 'left', 'style': 'normal', 'group': 2},
+      {'text': 'Customer: {customer_name}', 'align': 'left', 'style': 'normal', 'group': 3},
+      {'text': 'Address: {customer_address}', 'align': 'left', 'style': 'normal', 'group': 3},
+      {'text': '', 'align': 'left', 'style': 'separator'},
+      {'text': 'Gross: {gross} KG', 'align': 'left', 'style': 'normal', 'group': 4},
+      {'text': '({gross_datetime})', 'align': 'left', 'style': 'normal', 'group': 4},
+      {'text': 'Tare: {tare} KG', 'align': 'left', 'style': 'normal', 'group': 5},
+      {'text': '({tare_datetime})', 'align': 'left', 'style': 'normal', 'group': 5},
+      {'text': 'Net: {net} KG', 'align': 'left', 'style': 'bold', 'group': 6},
+      {'text': '({net_datetime})', 'align': 'left', 'style': 'normal', 'group': 6},
+      {'text': '', 'align': 'left', 'style': 'separator'},
+      {'text': 'Operator: {operator}', 'align': 'left', 'style': 'normal', 'group': 7},
+      {'text': 'PC: {pc_name}', 'align': 'left', 'style': 'normal', 'group': 7},
+      {'text': 'Weighbridge: {weighbridge_name}', 'align': 'left', 'style': 'normal', 'group': 8},
+      {'text': 'Port: {port_name}', 'align': 'left', 'style': 'normal', 'group': 8},
+    ];
+  }
+
+  static List<Map<String, dynamic>> _defaultLinesForType(String type) {
+    switch (type) {
+      case 'dotMatrix': return _getDefaultDmLines();
+      case 'thermal': return _getDefaultThermalLines();
+      default: return _getDefaultNormalLines();
+    }
+  }
 
   static List<Map<String, dynamic>> _getDefaultThermalLines() => [
-    {'text': '{company_name}', 'align': 'left', 'size': 'double'},
+    {'text': '{company_name}', 'align': 'center', 'size': 'double'},
     {'text': '', 'align': 'left', 'size': 'separator'},
     {'text': 'RST: {rst}', 'align': 'left', 'size': 'normal'},
-    {'text': 'Date: {date} {time}', 'align': 'left', 'size': 'normal'},
+    {'text': 'Date: {date}', 'align': 'left', 'size': 'normal'},
     {'text': 'Material: {material}', 'align': 'left', 'size': 'normal'},
     {'text': '', 'align': 'left', 'size': 'separator'},
     {'text': 'Vehicle: {vehicle}', 'align': 'left', 'size': 'normal'},
-    {'text': 'Phone:    {customer_phone}', 'align': 'left', 'size': 'normal'},
+    {'text': 'Phone: {customer_phone}', 'align': 'left', 'size': 'normal'},
     {'text': 'Customer: {customer_name}', 'align': 'left', 'size': 'normal'},
     {'text': 'Address: {customer_address}', 'align': 'left', 'size': 'normal'},
     {'text': '', 'align': 'left', 'size': 'separator'},
-    {'text': 'Gross: {gross} kg', 'align': 'left', 'size': 'normal'},
-    {'text': 'Tare:  {tare} kg', 'align': 'left', 'size': 'normal'},
-    {'text': 'Net:   {net} kg', 'align': 'left', 'size': 'bold'},
+    {'text': 'Gross: {gross} KG', 'align': 'left', 'size': 'normal'},
+    {'text': 'Tare: {tare} KG', 'align': 'left', 'size': 'normal'},
+    {'text': 'Net: {net} KG', 'align': 'left', 'size': 'bold'},
     {'text': '', 'align': 'left', 'size': 'separator'},
     {'text': 'Operator: {operator}', 'align': 'left', 'size': 'normal'},
     {'text': 'Weighbridge: {weighbridge_name}', 'align': 'left', 'size': 'normal'},
   ];
 
-  static List<Map<String, dynamic>> _getDefaultNormalLines() => [
-    {'text': '{company_name}', 'align': 'left', 'style': 'bold'},
-    {'text': '{company_address1}', 'align': 'left', 'style': 'normal'},
-    {'text': '{company_address2}', 'align': 'left', 'style': 'normal'},
-    {'text': '', 'align': 'left', 'style': 'blank'},
-    {'text': 'Weighment Docket', 'align': 'center', 'style': 'bold'},
-    {'text': '', 'align': 'left', 'style': 'blank'},
-    {'text': 'RST: {rst}', 'align': 'left', 'style': 'normal', 'group': 1},
-    {'text': 'Material: {material}', 'align': 'left', 'style': 'normal', 'group': 1},
-    {'text': 'Vehicle: {vehicle}', 'align': 'left', 'style': 'normal', 'group': 2},
-    {'text': 'Phone: {customer_phone}', 'align': 'left', 'style': 'normal', 'group': 2},
-    {'text': 'Customer: {customer_name}', 'align': 'left', 'style': 'normal', 'group': 3},
-    {'text': 'Address: {customer_address}', 'align': 'left', 'style': 'normal', 'group': 3},
-    {'text': '', 'align': 'left', 'style': 'blank'},
-    {'text': 'Gross: {gross} kg', 'align': 'left', 'style': 'normal', 'group': 4},
-    {'text': '({gross_datetime})', 'align': 'left', 'style': 'normal', 'group': 4},
-    {'text': 'Tare: {tare} kg', 'align': 'left', 'style': 'normal', 'group': 5},
-    {'text': '({tare_datetime})', 'align': 'left', 'style': 'normal', 'group': 5},
-    {'text': 'Net: {net} kg', 'align': 'left', 'style': 'bold', 'group': 6},
-    {'text': '({net_datetime})', 'align': 'left', 'style': 'normal', 'group': 6},
-    {'text': '', 'align': 'left', 'style': 'blank'},
-    {'text': 'Operator: {operator}', 'align': 'left', 'style': 'normal', 'group': 7},
-    {'text': 'Time: {time}', 'align': 'left', 'style': 'normal', 'group': 7},
-    {'text': 'Weighbridge: {weighbridge_name}', 'align': 'left', 'style': 'normal', 'group': 8},
-    {'text': 'Serial: {serial_no}', 'align': 'left', 'style': 'normal', 'group': 8},
-  ];
+  static List<Map<String, dynamic>> _getDefaultNormalLines({String paperSize = 'A4'}) {
+    return [
+      {'text': '{company_name}', 'align': 'left', 'style': 'bold'},
+      {'text': '{company_address1}', 'align': 'left', 'style': 'normal'},
+      {'text': '{company_address2}', 'align': 'left', 'style': 'normal'},
+      {'text': '', 'align': 'left', 'style': 'blank'},
+      {'text': 'Weighment Docket', 'align': 'center', 'style': 'bold'},
+      {'text': '', 'align': 'left', 'style': 'blank'},
+      {'text': 'RST: {rst}', 'align': 'left', 'style': 'normal', 'group': 1},
+      {'text': 'Material: {material}', 'align': 'left', 'style': 'normal', 'group': 1},
+      {'text': 'Vehicle: {vehicle}', 'align': 'left', 'style': 'normal', 'group': 2},
+      {'text': 'Phone: {customer_phone}', 'align': 'left', 'style': 'normal', 'group': 2},
+      {'text': 'Customer: {customer_name}', 'align': 'left', 'style': 'normal', 'group': 3},
+      {'text': 'Address: {customer_address}', 'align': 'left', 'style': 'normal', 'group': 3},
+      {'text': '', 'align': 'left', 'style': 'blank'},
+      {'text': 'Gross: {gross} KG', 'align': 'left', 'style': 'normal', 'group': 4},
+      {'text': '({gross_datetime})', 'align': 'left', 'style': 'normal', 'group': 4},
+      {'text': 'Tare: {tare} KG', 'align': 'left', 'style': 'normal', 'group': 5},
+      {'text': '({tare_datetime})', 'align': 'left', 'style': 'normal', 'group': 5},
+      {'text': 'Net: {net} KG', 'align': 'left', 'style': 'bold', 'group': 6},
+      {'text': '({net_datetime})', 'align': 'left', 'style': 'normal', 'group': 6},
+      {'text': '', 'align': 'left', 'style': 'blank'},
+      {'text': 'Operator: {operator}', 'align': 'left', 'style': 'normal', 'group': 7},
+      {'text': 'PC: {pc_name}', 'align': 'left', 'style': 'normal', 'group': 7},
+      {'text': 'Weighbridge: {weighbridge_name}', 'align': 'left', 'style': 'normal', 'group': 8},
+      {'text': 'Port: {port_name}', 'align': 'left', 'style': 'normal', 'group': 8},
+    ];
+  }
 
   bool _isTemplateDefault(List<Map<String, dynamic>> current, List<Map<String, dynamic>> defaults) {
     if (current.length != defaults.length) return false;
@@ -345,6 +527,37 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       }
     }
     return true;
+  }
+
+  bool _isDmConfigDefault() {
+    if (_dmMarginTop != 1 || _dmMarginBottom != 1 || _dmMarginLeft != 2) return false;
+    if (_dmPageHeight == 4.0) {
+      if (_dmLogo) return false;
+    } else {
+      if (!_dmLogo || _dmLogoWidth != 18 || _dmLogoHeight != 8) return false;
+    }
+    return true;
+  }
+
+  bool _isDmTemplateDefault() {
+    return _isTemplateDefault(_dmLines, _getDefaultDmLines(columns: _dmColumns));
+  }
+
+  void _resetDmConfig() {
+    _dmMarginTop = 1;
+    _dmMarginBottom = 1;
+    _dmMarginLeft = 2;
+    if (_dmPageHeight == 6.0) {
+      _dmLogo = true;
+      _dmLogoWidth = 18;
+      _dmLogoHeight = 8;
+    } else {
+      _dmLogo = false;
+    }
+  }
+
+  void _resetDmTemplate() {
+    _dmLines = _getDefaultDmLines(columns: _dmColumns);
   }
 
   @override
@@ -363,8 +576,11 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
 
     // Printer Assignment
     _grossPrinter = data['grossPrinter'] as String? ?? 'default';
+    _grossTray = data['grossTray'] as String? ?? '';
     _tarePrinter = data['tarePrinter'] as String? ?? 'default';
+    _tareTray = data['tareTray'] as String? ?? '';
     _backupPrinter = data['backupPrinter'] as String? ?? '';
+    _backupTray = data['backupTray'] as String? ?? '';
     _backupEnabled = data['backupEnabled'] as bool? ?? false;
     _materialRoutingEnabled = data['materialRoutingEnabled'] as bool? ?? false;
     final matRules = data['materialPrinterRules'] as List<dynamic>?;
@@ -390,24 +606,26 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
 
     // Multi-column
     _dmColumnCount = data['dmColumnCount'] as int? ?? 1;
-    _thermalColumnCount = data['thermalColumnCount'] as int? ?? 1;
 
     // Dot Matrix
-    _dmColumns = data['dmColumns'] as int? ?? 80;
-    _dmCharSet = data['dmCharSet'] as String? ?? 'Normal';
-    _dmBorders = data['dmBorders'] as bool? ?? true;
+    _dmPaperWidth = (data['dmPaperWidth'] as num?)?.toDouble() ?? 10.0;
+    _dmPageHeight = (data['dmPageHeight'] as num?)?.toDouble() ?? 6.0;
     _dmMarginTop = data['dmMarginTop'] as int? ?? 1;
     _dmMarginBottom = data['dmMarginBottom'] as int? ?? 1;
-    _dmMarginLeft = data['dmMarginLeft'] as int? ?? 2;
+    _dmMarginLeft = data['dmMarginLeft'] as int? ?? 1;
+    _dmLogo = data['dmLogo'] as bool? ?? false;
+    _dmLogoWidth = data['dmLogoWidth'] as int? ?? 18;
+    _dmLogoHeight = data['dmLogoHeight'] as int? ?? 8;
     final dmLines = data['dmLines'] as List<dynamic>?;
     if (dmLines != null) _dmLines = dmLines.map((l) => Map<String, dynamic>.from(l as Map)).toList();
 
     // Thermal
     _thermalWidth = data['thermalWidth'] as String? ?? '80mm';
     _thermalLogo = data['thermalLogo'] as bool? ?? true;
-    _thermalPdf417 = data['thermalPdf417'] as bool? ?? false;
+    _thermalPdf417 = data['thermalPdf417'] as bool? ?? true;
     _thermalCutMode = data['thermalCutMode'] as String? ?? 'Full';
     _thermalFontSize = data['thermalFontSize'] as int? ?? 12;
+    _thermalFont = data['thermalFont'] as String? ?? 'Font A';
     final tLines = data['thermalLines'] as List<dynamic>?;
     if (tLines != null) _thermalLines = tLines.map((l) => Map<String, dynamic>.from(l as Map)).toList();
 
@@ -427,7 +645,6 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       _applySizeConfig(_perSizeConfigs[_normalPaperSize]!);
     } else {
       // Legacy: load from flat keys
-      _normalOrientation = data['normalOrientation'] as String? ?? 'Portrait';
       _normalMarginTop = (data['normalMarginTop'] as num?)?.toDouble() ?? 15;
       _normalMarginBottom = (data['normalMarginBottom'] as num?)?.toDouble() ?? 15;
       _normalMarginLeft = (data['normalMarginLeft'] as num?)?.toDouble() ?? 15;
@@ -435,16 +652,18 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       _normalLogo = data['normalLogo'] as bool? ?? true;
       _normalLogoWidth = (data['normalLogoWidth'] as num?)?.toDouble() ?? 80;
       _normalLogoHeight = (data['normalLogoHeight'] as num?)?.toDouble() ?? 80;
-      _normalPdf417 = data['normalPdf417'] as bool? ?? false;
+      _normalPdf417 = data['normalPdf417'] as bool? ?? true;
       _normalPdf417Position = data['normalPdf417Position'] as String? ?? 'bottom';
       _normalCctv = data['normalCctv'] as bool? ?? false;
       final cctvCams = data['normalCctvCameras'] as List<dynamic>?;
       if (cctvCams != null) _normalCctvCameras = cctvCams.cast<String>();
-      _normalCustomFields = data['normalCustomFields'] as bool? ?? true;
       _normalFontSize = data['normalFontSize'] as int? ?? 14;
+      _normalFont = data['normalFont'] as String? ?? 'Helvetica';
       final nLines = data['normalLines'] as List<dynamic>?;
       if (nLines != null) _normalLines = nLines.map((l) => Map<String, dynamic>.from(l as Map)).toList();
     }
+
+    _loadPrinterTrays();
   }
 
   void _markDirty() {
@@ -454,8 +673,11 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
   Map<String, dynamic> _buildPayload() => {
     'printers': _printers,
     'grossPrinter': _grossPrinter,
+    'grossTray': _grossTray,
     'tarePrinter': _tarePrinter,
+    'tareTray': _tareTray,
     'backupPrinter': _backupPrinter,
+    'backupTray': _backupTray,
     'backupEnabled': _backupEnabled,
     'materialRoutingEnabled': _materialRoutingEnabled,
     'materialPrinterRules': _materialPrinterRules,
@@ -472,22 +694,25 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     'normalLogoWidth': _normalLogoWidth,
     'normalLogoHeight': _normalLogoHeight,
     'dmColumnCount': _dmColumnCount,
-    'thermalColumnCount': _thermalColumnCount,
+    'dmPaperWidth': _dmPaperWidth,
+    'dmPageHeight': _dmPageHeight,
     'dmColumns': _dmColumns,
-    'dmCharSet': _dmCharSet,
-    'dmBorders': _dmBorders,
     'dmMarginTop': _dmMarginTop,
     'dmMarginBottom': _dmMarginBottom,
     'dmMarginLeft': _dmMarginLeft,
+    'dmLogo': _dmLogo,
+    'dmLogoLayout': 'stacked',
+    'dmLogoWidth': _dmLogoWidth,
+    'dmLogoHeight': _dmLogoHeight,
     'dmLines': _dmLines,
     'thermalWidth': _thermalWidth,
     'thermalLogo': _thermalLogo,
     'thermalPdf417': _thermalPdf417,
     'thermalCutMode': _thermalCutMode,
     'thermalFontSize': _thermalFontSize,
+    'thermalFont': _thermalFont,
     'thermalLines': _thermalLines,
     'normalPaperSize': _normalPaperSize,
-    'normalOrientation': _normalOrientation,
     'normalMarginTop': _normalMarginTop,
     'normalMarginBottom': _normalMarginBottom,
     'normalMarginLeft': _normalMarginLeft,
@@ -497,8 +722,8 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     'normalPdf417Position': _normalPdf417Position,
     'normalCctv': _normalCctv,
     'normalCctvCameras': _normalCctvCameras,
-    'normalCustomFields': _normalCustomFields,
     'normalFontSize': _normalFontSize,
+    'normalFont': _normalFont,
     'normalLines': _normalLines,
     'perSizeConfigs': {
       ..._perSizeConfigs,
@@ -507,6 +732,9 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
   };
 
   Future<void> _save() async {
+    if (_materialRoutingEnabled && _materialPrinterRules.isEmpty) {
+      setState(() => _materialRoutingEnabled = false);
+    }
     setState(() => _saving = true);
     try {
       final payload = _buildPayload();
@@ -522,6 +750,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
         'updatedAt': FieldValue.serverTimestamp(),
       });
       ref.invalidate(_printSettingsProvider);
+      ref.read(auditServiceProvider).log(event: 'settingChange', description: 'Printing settings updated');
 
       if (mounted) {
         setState(() => _dirty = false);
@@ -534,11 +763,98 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     }
   }
 
+  Future<void> _testPrint(String type) async {
+    try {
+      // Save current settings first so print service reads latest config
+      await _save();
+      final printService = ref.read(printServiceProvider);
+      final result = await printService.testPrint(type: type);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.success ? 'Test print sent' : 'Print failed: ${result.error}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Print failed: $e')),
+        );
+      }
+    }
+  }
+
+
+  Widget _logoPreview(double width, double height, ColorScheme scheme) {
+    final logoAsync = ref.watch(_companyLogoProvider);
+    final bytes = logoAsync.valueOrNull;
+    if (bytes != null) {
+      return Image.memory(bytes, width: width, height: height, fit: BoxFit.contain);
+    }
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(2)),
+      child: Icon(Icons.image_rounded, size: (width * 0.3).clamp(6, 14), color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+    );
+  }
+
+  Map<String, String> _previewPlaceholders() {
+    final company = ref.read(_companyInfoProvider).valueOrNull ?? {};
+    final tf = ref.read(timeFormatProvider);
+    final timeFmt = getTimeFormatter(tf);
+    final now = DateTime.now();
+    final grossTime = now.subtract(const Duration(hours: 2, minutes: 27));
+    final dateStr = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+    return {
+      '{company_name}': company['companyName'] as String? ?? 'Your Company Name',
+      '{company_address1}': company['address1'] as String? ?? 'Address Line 1',
+      '{company_address2}': company['address2'] as String? ?? 'Address Line 2',
+      '{company_phone}': company['phone'] as String? ?? '+91 98765 43210',
+      '{company_gstin}': company['gstin'] as String? ?? '22AAAAA0000A1Z5',
+      '{customer_name}': 'Sample Customer',
+      '{customer_address}': 'Customer Address',
+      '{customer_phone}': '+91 91234 56789',
+      '{vehicle}': 'MH-12-AB-1234',
+      '{material}': 'Iron Ore',
+      '{gross}': '48,520',
+      '{tare}': '16,200',
+      '{net}': '32,320',
+      '{gross_datetime}': '$dateStr ${timeFmt.format(grossTime)}',
+      '{tare_datetime}': '$dateStr ${timeFmt.format(now)}',
+      '{net_datetime}': '$dateStr ${timeFmt.format(now)}',
+      '{rst}': '1042',
+      '{operator}': 'Rajesh Kumar',
+      '{date}': dateStr,
+      '{pc_name}': Platform.localHostname,
+      '{port_name}': ref.read(scaleConfigProvider).valueOrNull?.port ?? '',
+      '{weighbridge_name}': company['weighbridgeName'] as String? ?? 'Weighbridge',
+    };
+  }
+
+  String _substituteLine(String text) {
+    var result = text;
+    final placeholders = _previewPlaceholders();
+    // Pad weight values to align KG
+    final grossLen = placeholders['{gross}']!.length;
+    final tareLen = placeholders['{tare}']!.length;
+    final netLen = placeholders['{net}']!.length;
+    final maxW = [grossLen, tareLen, netLen].reduce((a, b) => a > b ? a : b);
+    final padded = Map<String, String>.from(placeholders);
+    padded['{gross}'] = placeholders['{gross}']!.padLeft(maxW);
+    padded['{tare}'] = placeholders['{tare}']!.padLeft(maxW);
+    padded['{net}'] = placeholders['{net}']!.padLeft(maxW);
+    for (final entry in padded.entries) {
+      result = result.replaceAll(entry.key, entry.value);
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final settingsAsync = ref.watch(_printSettingsProvider);
+    ref.watch(_companyInfoProvider);
     settingsAsync.whenData(_loadData);
 
     return Scaffold(
@@ -584,7 +900,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                       tabs: const [
                         Tab(text: 'Dot Matrix'),
                         Tab(text: 'Thermal'),
-                        Tab(text: 'Normal Printer'),
+                        Tab(text: 'Page Printer'),
                       ],
                     ),
                   ),
@@ -625,7 +941,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Printing', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-              Text('Docket templates, printer setup, and print rules', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+              Text('Docket layout and printers', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
             ],
           ),
           const Spacer(),
@@ -641,7 +957,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
           FilledButton.icon(
             onPressed: _dirty && !_saving && !_normalOverflows ? _save : null,
             icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
-            label: const Text('Save All'),
+            label: Text(_saving ? 'Saving...' : 'Save'),
             style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
           ),
         ],
@@ -664,11 +980,45 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
             child: Column(
               children: [
                 _Section(scheme: scheme, icon: Icons.grid_on_rounded, title: 'Dot Matrix Configuration', children: [
-                  _buildDropdownRow('Column Mode', _dmColumns.toString(), ['80', '132'], (v) { setState(() => _dmColumns = int.parse(v!)); _markDirty(); }, text),
+                  Text('Paper Width', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Slider(
+                          value: _dmPaperWidth,
+                          min: 8.0,
+                          max: 13.2,
+                          divisions: 26,
+                          label: '${_dmPaperWidth.toStringAsFixed(1)}″',
+                          onChanged: (v) { setState(() { _dmPaperWidth = double.parse(v.toStringAsFixed(1)); _syncTemplateToPrinters('dotMatrix', paperWidth: _dmPaperWidth); }); _markDirty(); },
+                        ),
+                      ),
+                      SizedBox(
+                        width: 90,
+                        child: Text('${_dmPaperWidth.toStringAsFixed(1)}″ · $_dmColumns col', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 10),
-                  _buildDropdownRow('Character Set', _dmCharSet, ['Condensed', 'Normal', 'Expanded', 'Double-Height'], (v) { setState(() => _dmCharSet = v!); _markDirty(); }, text),
+                  _buildDropdownRow('Cut Length', '${_dmPageHeight.toStringAsFixed(0)}″', ['4″', '6″'], (v) { setState(() { _dmPageHeight = double.parse(v!.replaceAll('″', '')); _dmLogo = _dmPageHeight == 6.0; }); _markDirty(); }, text),
                   const SizedBox(height: 10),
-                  _SwitchRow(label: 'Box-Drawing Borders', value: _dmBorders, onChanged: (v) { setState(() => _dmBorders = v); _markDirty(); }),
+                  const SizedBox(height: 10),
+                  _SwitchRow(label: 'Logo (Monochrome)', value: _dmLogo, onChanged: (v) { setState(() { _dmLogo = v; }); _markDirty(); }),
+                  if (_dmLogo) ...[
+                    const SizedBox(height: 8),
+                    Text('Logo Size (chars × lines)', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(child: _buildNumberInput('W', _dmLogoWidth, (v) { setState(() => _dmLogoWidth = v); _markDirty(); }, text)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _buildNumberInput('H', _dmLogoHeight, (v) { setState(() => _dmLogoHeight = v); _markDirty(); }, text)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text('PNG → 1-bit dithered. Best for line-art logos.', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
+                  ],
                   const SizedBox(height: 10),
                   Text('Margins (lines)', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
@@ -678,9 +1028,19 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                       const SizedBox(width: 8),
                       Expanded(child: _buildNumberInput('Bottom', _dmMarginBottom, (v) { _dmMarginBottom = v; _markDirty(); }, text)),
                       const SizedBox(width: 8),
-                      Expanded(child: _buildNumberInput('Left', _dmMarginLeft, (v) { _dmMarginLeft = v; _markDirty(); }, text)),
+                      Expanded(child: _buildNumberInput('L & R', _dmMarginLeft, (v) { _dmMarginLeft = v; _markDirty(); }, text)),
                     ],
                   ),
+                  if (!_isDmConfigDefault()) ...[
+                    const SizedBox(height: 10),
+                    TextButton.icon(
+                      onPressed: () { setState(_resetDmConfig); _markDirty(); },
+                      icon: const Icon(Icons.settings_backup_restore_rounded, size: 14),
+                      label: Text('Reset Config (${_dmPageHeight.toStringAsFixed(0)}″)'),
+                      style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), foregroundColor: scheme.error),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
                 ]),
                 const SizedBox(height: 16),
                 _buildPlaceholderReference(scheme, text),
@@ -715,30 +1075,86 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                         style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                       ),
                       const SizedBox(width: 8),
-                      if (!_isTemplateDefault(_dmLines, _getDefaultDmLines()))
+                      if (!_isDmTemplateDefault())
                         TextButton.icon(
-                          onPressed: () { setState(() => _dmLines = _getDefaultDmLines()); _markDirty(); },
+                          onPressed: () { setState(_resetDmTemplate); _markDirty(); },
                           icon: const Icon(Icons.restore_rounded, size: 14),
-                          label: const Text('Reset to Default'),
+                          label: const Text('Reset Lines'),
                           style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), foregroundColor: scheme.error),
                         ),
+                      const Spacer(),
+                      OutlinedButton.icon(
+                        onPressed: () => _testPrint('dm'),
+                        icon: const Icon(Icons.print_rounded, size: 14),
+                        label: const Text('Test Print'),
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      ),
                     ],
                   ),
                 ]),
                 const SizedBox(height: 16),
-                _Section(scheme: scheme, icon: Icons.preview_rounded, title: 'Live Preview', children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: const Color(0xFFFFFDE8), borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.topLeft,
-                      child: Text(
-                        _generateDmPreview(),
-                        softWrap: false,
-                        style: const TextStyle(fontFamily: 'Courier', fontSize: 12, height: 1.4, color: Color(0xFF1A1A1A)),
-                      ),
-                    ),
+                _Section(scheme: scheme, icon: Icons.preview_rounded, title: 'Live Preview  •  ${_dmPaperWidth.toStringAsFixed(1)}″ × ${_dmPageHeight.toStringAsFixed(0)}″  ($_dmColumns col)', children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      const ppi = 100.0;
+                      final boxWidth = _dmPaperWidth * ppi;
+                      final boxHeight = _dmPageHeight * ppi;
+
+                      return Center(
+                        child: Column(
+                          children: [
+                            // Horizontal inch ruler
+                            Padding(
+                              padding: const EdgeInsets.only(left: 18),
+                              child: SizedBox(
+                                width: boxWidth,
+                                height: 18,
+                                child: CustomPaint(
+                                  painter: _RulerPainter(
+                                    totalInches: _dmPaperWidth,
+                                    ppi: ppi,
+                                    horizontal: true,
+                                    color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Vertical inch ruler
+                                SizedBox(
+                                  width: 18,
+                                  height: boxHeight,
+                                  child: CustomPaint(
+                                    painter: _RulerPainter(
+                                      totalInches: _dmPageHeight,
+                                      ppi: ppi,
+                                      horizontal: false,
+                                      color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  width: boxWidth,
+                                  height: boxHeight,
+                                  clipBehavior: Clip.antiAlias,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFFDE8),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: scheme.outlineVariant.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: _buildDmPreviewContent(boxWidth, scheme),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ]),
               ],
@@ -749,22 +1165,76 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     );
   }
 
-  String _generateDmPreview() {
-    final buf = StringBuffer();
-    final cols = _dmColumns;
-    final usableWidth = cols - _dmMarginLeft;
-    for (var i = 0; i < _dmMarginTop; i++) {
-      buf.writeln();
+  Widget _buildDmPreviewContent(double boxWidth, ColorScheme scheme) {
+    const baseFontSize = 12.0;
+    const baseStyle = TextStyle(fontFamily: 'Courier', fontSize: baseFontSize, height: 1.4, color: Color(0xFF1A1A1A));
+
+    final dotData = _dmLogo ? ref.watch(_dmMonoLogoProvider).valueOrNull : null;
+    final hMeasurer = TextPainter(
+      text: const TextSpan(text: 'M', style: baseStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final lineH = hMeasurer.height;
+    final charW = hMeasurer.width;
+    int? actualLogoLines;
+    if (dotData != null) {
+      final logoW = _dmLogoWidth * charW;
+      final logoScale = logoW / dotData.width;
+      actualLogoLines = ((dotData.height * logoScale) / lineH).floor().clamp(1, 100);
     }
+    final previewText = _generateDmPreview(hasRealLogo: dotData != null, actualLogoLines: actualLogoLines);
+
+    // Separator spans full paper width (_dmColumns), so measure that
+    final sepMeasurer = TextPainter(
+      text: TextSpan(text: '-' * _dmColumns, style: baseStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final totalW = sepMeasurer.width;
+    final marginPx = _dmMarginLeft * charW;
+    final marginT = _dmMarginTop * lineH;
+
+    final scale = boxWidth / totalW;
+    return Transform.scale(
+      scale: scale,
+      alignment: Alignment.topLeft,
+      child: SizedBox(
+        width: totalW,
+        height: totalW * 2,
+        child: Stack(
+          children: [
+            Padding(
+              padding: EdgeInsets.only(top: marginT),
+              child: Text(previewText, softWrap: false, style: baseStyle),
+            ),
+            if (_dmLogo && dotData != null)
+              Builder(builder: (_) {
+                final logoW = _dmLogoWidth * charW;
+                final logoScale = logoW / dotData.width;
+                final logoH = dotData.height * logoScale;
+                final usableW = totalW - 2 * marginPx;
+                final leftOffset = marginPx + (usableW - logoW) / 2;
+                return Positioned(
+                  top: marginT,
+                  left: leftOffset,
+                  child: CustomPaint(
+                    size: Size(logoW, logoH),
+                    painter: _DmDotPainter(dotData),
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _generateDmPreview({bool hasRealLogo = false, int? actualLogoLines}) {
+    final buf = StringBuffer();
+    final usableWidth = _dmColumns - _dmMarginLeft - _dmMarginLeft;
     final leftPad = ' ' * _dmMarginLeft;
 
     String formatLine(String content, String align, String style, int usable) {
-      if (style == 'separator') {
-        return '-' * usable;
-      }
-      if (style == 'blank') {
-        return ' ' * usable;
-      }
+      if (style == 'blank') return '';
       String formatted = content;
       if (style == 'bold') formatted = formatted.toUpperCase();
       if (style == 'double') formatted = '>> $formatted <<';
@@ -775,16 +1245,44 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       } else if (align == 'right' && formatted.length < usable) {
         formatted = formatted.padLeft(usable);
       }
-      return formatted.padRight(usable);
+      return formatted;
     }
 
-    // Render lines — grouped lines render side-by-side, ungrouped render full-width
     var i = 0;
+    if (_dmLogo) {
+      final logoW = _dmLogoWidth.clamp(6, usableWidth ~/ 2);
+      final logoH = (hasRealLogo && actualLogoLines != null) ? actualLogoLines : _dmLogoHeight.clamp(2, 20);
+      if (hasRealLogo) {
+        for (var row = 0; row < logoH; row++) {
+          buf.writeln();
+        }
+      } else {
+        for (var row = 0; row < logoH; row++) {
+          if (row == 0 || row == logoH - 1) {
+            final line = '+${'-' * (logoW - 2)}+';
+            final pad = ((usableWidth - line.length) / 2).floor().clamp(0, usableWidth);
+            buf.writeln('$leftPad${' ' * pad}$line');
+          } else if (row == logoH ~/ 2) {
+            final line = '|${'LOGO'.padLeft((logoW - 2 + 4) ~/ 2).padRight(logoW - 2)}|';
+            final pad = ((usableWidth - line.length) / 2).floor().clamp(0, usableWidth);
+            buf.writeln('$leftPad${' ' * pad}$line');
+          } else {
+            final line = '|${' ' * (logoW - 2)}|';
+            final pad = ((usableWidth - line.length) / 2).floor().clamp(0, usableWidth);
+            buf.writeln('$leftPad${' ' * pad}$line');
+          }
+        }
+      }
+    }
     while (i < _dmLines.length) {
       final line = _dmLines[i];
       final group = line['group'] as int? ?? 0;
+      final style = line['style'] as String? ?? 'normal';
 
-      if (group > 0) {
+      if (style == 'separator') {
+        buf.writeln('-' * _dmColumns);
+        i++;
+      } else if (group > 0) {
         final groupLines = <Map<String, dynamic>>[];
         while (i < _dmLines.length && (_dmLines[i]['group'] as int? ?? 0) == group) {
           groupLines.add(_dmLines[i]);
@@ -792,27 +1290,21 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
         }
         final groupColCount = groupLines.length.clamp(1, 3);
         final colWidth = usableWidth ~/ groupColCount;
-
         final rowBuf = StringBuffer(leftPad);
         for (var c = 0; c < groupColCount; c++) {
           final gl = groupLines[c];
-          final content = gl['text'] as String? ?? '';
+          final content = _substituteLine(gl['text'] as String? ?? '');
           final align = gl['align'] as String? ?? 'left';
-          final style = gl['style'] as String? ?? 'normal';
-          rowBuf.write(formatLine(content, align, style, colWidth));
+          final gStyle = gl['style'] as String? ?? 'normal';
+          rowBuf.write(formatLine(content, align, gStyle, colWidth).padRight(colWidth));
         }
         buf.writeln(rowBuf.toString());
       } else {
-        final content = line['text'] as String? ?? '';
+        final content = _substituteLine(line['text'] as String? ?? '');
         final align = line['align'] as String? ?? 'left';
-        final style = line['style'] as String? ?? 'normal';
         buf.writeln('$leftPad${formatLine(content, align, style, usableWidth)}');
         i++;
       }
-    }
-
-    for (var i = 0; i < _dmMarginBottom; i++) {
-      buf.writeln();
     }
     return buf.toString();
   }
@@ -832,9 +1324,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
             child: Column(
               children: [
                 _Section(scheme: scheme, icon: Icons.receipt_long_rounded, title: 'Thermal Configuration', children: [
-                  _buildDropdownRow('Paper Width', _thermalWidth, ['58mm', '80mm'], (v) { setState(() => _thermalWidth = v!); _markDirty(); }, text),
-                  const SizedBox(height: 10),
-                  _buildDropdownRow('Print Columns', _thermalColumnCount.toString(), ['1', '2'], (v) { setState(() => _thermalColumnCount = int.parse(v!)); _markDirty(); }, text),
+                  _buildDropdownRow('Paper Width', _thermalWidth, ['58mm', '80mm'], (v) { setState(() { _thermalWidth = v!; _syncTemplateToPrinters('thermal', thermalWidth: _thermalWidth); }); _markDirty(); }, text),
                   const SizedBox(height: 10),
                   _SwitchRow(label: 'Include Logo', value: _thermalLogo, onChanged: (v) { setState(() => _thermalLogo = v); _markDirty(); }),
                   if (_thermalLogo) ...[
@@ -857,9 +1347,20 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                       child: Text('Encodes all weighment placeholders automatically', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
                     ),
                   const SizedBox(height: 10),
-                  _buildDropdownRow('Font Size', '${_thermalFontSize}pt', ['8pt', '10pt', '12pt', '14pt', '16pt'], (v) { setState(() => _thermalFontSize = int.parse(v!.replaceAll('pt', ''))); _markDirty(); }, text),
+                  _buildDropdownRow('Font', _thermalFont, ['Font A', 'Font B', 'Font C'], (v) { setState(() => _thermalFont = v!); _markDirty(); }, text),
+                  const SizedBox(height: 10),
+                  _buildDropdownRow('Font Size', '${_thermalFontSize}pt', ['6pt', '7pt', '8pt', '10pt', '12pt', '14pt', '16pt'], (v) { setState(() => _thermalFontSize = int.parse(v!.replaceAll('pt', ''))); _markDirty(); }, text),
                   const SizedBox(height: 10),
                   _buildDropdownRow('Cut Mode', _thermalCutMode, ['Full', 'Partial', 'None'], (v) { setState(() => _thermalCutMode = v!); _markDirty(); }, text),
+                  if (!_thermalLogo || !_thermalPdf417 || _thermalCutMode != 'Full' || _thermalFontSize != 12 || _thermalFont != 'Font A') ...[
+                    const SizedBox(height: 10),
+                    TextButton.icon(
+                      onPressed: () { setState(() { _thermalLogo = true; _thermalPdf417 = true; _thermalCutMode = 'Full'; _thermalFontSize = 12; _thermalFont = 'Font A'; }); _markDirty(); },
+                      icon: const Icon(Icons.settings_backup_restore_rounded, size: 14),
+                      label: Text('Reset Config ($_thermalWidth)'),
+                      style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), foregroundColor: scheme.error),
+                    ),
+                  ],
                 ]),
                 const SizedBox(height: 16),
                 _buildPlaceholderReference(scheme, text),
@@ -871,10 +1372,13 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
             child: Column(
               children: [
                 _Section(scheme: scheme, icon: Icons.edit_note_rounded, title: 'Template Lines', children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text('Assign same group (G1, G2…) to adjacent lines to column them together', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
+                  ),
                   ..._thermalLines.asMap().entries.map((e) => _ThermalLineEditor(
                     index: e.key,
                     line: e.value,
-                    colCount: _thermalColumnCount,
                     onChanged: (updated) { setState(() => _thermalLines[e.key] = updated); _markDirty(); },
                     onRemove: () { setState(() => _thermalLines.removeAt(e.key)); _markDirty(); },
                     onMoveUp: e.key > 0 ? () { setState(() { final item = _thermalLines.removeAt(e.key); _thermalLines.insert(e.key - 1, item); }); _markDirty(); } : null,
@@ -884,7 +1388,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                   Row(
                     children: [
                       OutlinedButton.icon(
-                        onPressed: () { setState(() => _thermalLines.add({'text': '', 'align': 'left', 'size': 'normal', 'col': 1})); _markDirty(); },
+                        onPressed: () { setState(() => _thermalLines.add({'text': '', 'align': 'left', 'size': 'normal'})); _markDirty(); },
                         icon: const Icon(Icons.add_rounded, size: 14),
                         label: const Text('Add Line'),
                         style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
@@ -894,9 +1398,16 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                         TextButton.icon(
                           onPressed: () { setState(() => _thermalLines = _getDefaultThermalLines()); _markDirty(); },
                           icon: const Icon(Icons.restore_rounded, size: 14),
-                          label: const Text('Reset to Default'),
+                          label: const Text('Reset Lines'),
                           style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), foregroundColor: scheme.error),
                         ),
+                      const Spacer(),
+                      OutlinedButton.icon(
+                        onPressed: () => _testPrint('thermal'),
+                        icon: const Icon(Icons.print_rounded, size: 14),
+                        label: const Text('Test Print'),
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      ),
                     ],
                   ),
                 ]),
@@ -944,31 +1455,15 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
         children: [
           if (_thermalLogo)
             Center(
-              child: Container(
-                width: _thermalLogoWidth * 0.5 * scale,
-                height: _thermalLogoHeight * 0.5 * scale,
-                margin: EdgeInsets.only(bottom: 6 * scale),
-                decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(2)),
-                child: Icon(Icons.image_rounded, size: 9 * scale, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 6 * scale),
+                child: _logoPreview(_thermalLogoWidth * 0.5 * scale, _thermalLogoHeight * 0.5 * scale, scheme),
               ),
             ),
-          if (_thermalColumnCount > 1) ...[
-            ..._buildThermalMultiColumn(text, scale: scale),
-          ] else ...[
-            ..._thermalLines.map((line) => _buildThermalPreviewLine(line, text, scale: scale)),
-          ],
+          ..._buildThermalLinesGrouped(text, scale: scale),
           if (_thermalPdf417) ...[
             SizedBox(height: 6 * scale),
-            Container(
-              height: 22 * scale,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(2),
-                border: Border.all(color: const Color(0xFFDDDDDD)),
-              ),
-              child: Center(child: Text('║║║║ PDF417 ║║║║', style: TextStyle(fontFamily: 'monospace', fontSize: 8 * scale, color: const Color(0xFF555555), letterSpacing: 0.5))),
-            ),
+            _buildPdf417Preview(scale, lines: _thermalLines),
           ],
         ],
       ),
@@ -1018,34 +1513,32 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     );
   }
 
-  List<Widget> _buildThermalMultiColumn(TextTheme text, {double scale = 1.0}) {
-    final lines = _thermalLines.toList();
-    final colCount = _thermalColumnCount.clamp(1, 2);
-
-    final colLines = List.generate(colCount, (_) => <Map<String, dynamic>>[]);
-    for (final line in lines) {
-      final assignedCol = ((line['col'] as int? ?? 1) - 1).clamp(0, colCount - 1);
-      colLines[assignedCol].add(line);
-    }
-    final maxRows = colLines.map((l) => l.length).fold(0, (a, b) => a > b ? a : b);
-
-    final rows = <Widget>[];
-    for (var row = 0; row < maxRows; row++) {
-      final rowChildren = <Widget>[];
-      for (var c = 0; c < colCount; c++) {
-        if (row < colLines[c].length) {
-          rowChildren.add(Expanded(child: _buildThermalPreviewLine(colLines[c][row], text, scale: scale)));
-        } else {
-          rowChildren.add(const Expanded(child: SizedBox()));
+  List<Widget> _buildThermalLinesGrouped(TextTheme text, {double scale = 1.0}) {
+    final widgets = <Widget>[];
+    var i = 0;
+    while (i < _thermalLines.length) {
+      final line = _thermalLines[i];
+      final group = line['group'] as int? ?? 0;
+      if (group > 0) {
+        final groupLines = <Map<String, dynamic>>[];
+        while (i < _thermalLines.length && (_thermalLines[i]['group'] as int? ?? 0) == group) {
+          groupLines.add(_thermalLines[i]);
+          i++;
         }
+        widgets.add(Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: groupLines.map((gl) => Expanded(child: _buildThermalPreviewLine(gl, text, scale: scale))).toList(),
+        ));
+      } else {
+        widgets.add(_buildThermalPreviewLine(line, text, scale: scale));
+        i++;
       }
-      rows.add(Row(crossAxisAlignment: CrossAxisAlignment.start, children: rowChildren));
     }
-    return rows;
+    return widgets;
   }
 
   Widget _buildThermalPreviewLine(Map<String, dynamic> line, TextTheme text, {double scale = 1.0}) {
-    final content = line['text'] as String? ?? '';
+    final content = _substituteLine(line['text'] as String? ?? '');
     final align = line['align'] as String? ?? 'left';
     final size = line['size'] as String? ?? 'normal';
 
@@ -1063,22 +1556,65 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       default: ta = TextAlign.left;
     }
 
+    final baseSize = _thermalFontSize * 0.85 * scale;
     double fontSize;
     FontWeight fw;
     switch (size) {
-      case 'bold': fontSize = 11 * scale; fw = FontWeight.w700; break;
-      case 'double': fontSize = 14 * scale; fw = FontWeight.w800; break;
-      default: fontSize = 11 * scale; fw = FontWeight.w400;
+      case 'bold': fontSize = baseSize; fw = FontWeight.w700; break;
+      case 'double': fontSize = baseSize * 1.3; fw = FontWeight.w800; break;
+      default: fontSize = baseSize; fw = FontWeight.w400;
+    }
+
+    String fontFamily;
+    switch (_thermalFont) {
+      case 'Font B': fontFamily = 'Courier New'; break;
+      case 'Font C': fontFamily = 'Courier'; break;
+      default: fontFamily = 'monospace';
     }
 
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 1 * scale),
-      child: Text(content, textAlign: ta, style: TextStyle(fontFamily: 'monospace', fontSize: fontSize, fontWeight: fw, color: const Color(0xFF1A1A1A))),
+      child: Text(content, textAlign: ta, style: TextStyle(fontFamily: fontFamily, fontSize: fontSize, fontWeight: fw, color: const Color(0xFF1A1A1A))),
     );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // NORMAL PRINTER TAB
+  Widget _buildPdf417Preview(double scale, {List<Map<String, dynamic>>? lines}) {
+    final placeholders = _previewPlaceholders();
+    final templateLines = lines ?? _normalLines;
+    final usedKeys = <String>{};
+    final pattern = RegExp(r'\{[^}]+\}');
+    for (final line in templateLines) {
+      final text = line['text'] as String? ?? '';
+      for (final match in pattern.allMatches(text)) {
+        usedKeys.add(match.group(0)!);
+      }
+    }
+    final parts = <String>[];
+    for (final key in usedKeys) {
+      final val = placeholders[key]?.trim() ?? '';
+      if (val.isNotEmpty) {
+        parts.add('${key.replaceAll(RegExp(r'[{}]'), '')}=$val');
+      }
+    }
+    parts.add('EOF=1');
+    final data = parts.join('|');
+
+    final bc = Barcode.pdf417();
+    const renderW = 300.0;
+    final renderH = 80 * 0.30 * scale;
+    final elements = bc.make(data, width: renderW, height: renderH);
+
+    return SizedBox(
+      width: double.infinity,
+      height: renderH,
+      child: CustomPaint(
+        painter: _Pdf417Painter(elements.toList(), renderW, renderH),
+      ),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildNormalTab(ColorScheme scheme, TextTheme text) {
@@ -1094,8 +1630,6 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                 _Section(scheme: scheme, icon: Icons.description_rounded, title: 'Page Setup', children: [
                   _buildDropdownRow('Paper Size', _normalPaperSize, ['A4', 'A5', 'Letter', 'Legal'], (v) { setState(() => _switchPaperSize(v!)); _markDirty(); }, text),
                   const SizedBox(height: 10),
-                  _buildDropdownRow('Orientation', _normalOrientation, ['Portrait', 'Landscape'], (v) { setState(() => _normalOrientation = v!); _markDirty(); }, text),
-                  const SizedBox(height: 12),
                   Text('Margins (mm)', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   Row(
@@ -1110,7 +1644,9 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                     ],
                   ),
                   const SizedBox(height: 10),
-                  _buildDropdownRow('Font Size', '${_normalFontSize}pt', ['8pt', '9pt', '10pt', '11pt', '12pt', '14pt', '16pt', '18pt'], (v) { setState(() => _normalFontSize = int.parse(v!.replaceAll('pt', ''))); _markDirty(); }, text),
+                  _buildDropdownRow('Font', _normalFont, ['Helvetica', 'Times', 'Courier', 'Roboto', 'Open Sans'], (v) { setState(() => _normalFont = v!); _markDirty(); }, text),
+                  const SizedBox(height: 10),
+                  _buildDropdownRow('Font Size', '${_normalFontSize}pt', ['6pt', '7pt', '8pt', '9pt', '10pt', '11pt', '12pt', '14pt', '16pt', '18pt'], (v) { setState(() => _normalFontSize = int.parse(v!.replaceAll('pt', ''))); _markDirty(); }, text),
                   const SizedBox(height: 10),
                   _buildDropdownRow('Header Layout', _headerLayout, ['stacked', 'inline'], (v) { setState(() => _headerLayout = v!); _markDirty(); }, text),
                   if (_headerLayout == 'inline' && _normalLogo) ...[
@@ -1173,7 +1709,15 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                     ),
                   ],
                   const SizedBox(height: 8),
-                  _SwitchRow(label: 'Include Custom Fields', value: _normalCustomFields, onChanged: (v) { setState(() => _normalCustomFields = v); _markDirty(); }),
+                  if (!_normalLogo || !_normalPdf417 || _normalFontSize != (_getDefaultSizeConfig(_normalPaperSize)['fontSize'] as int) || _normalFont != 'Helvetica') ...[
+                    const SizedBox(height: 10),
+                    TextButton.icon(
+                      onPressed: () { setState(() { final def = _getDefaultSizeConfig(_normalPaperSize); _normalLogo = true; _normalPdf417 = true; _normalFontSize = def['fontSize'] as int; _normalFont = 'Helvetica'; }); _markDirty(); },
+                      icon: const Icon(Icons.settings_backup_restore_rounded, size: 14),
+                      label: Text('Reset Config ($_normalPaperSize)'),
+                      style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), foregroundColor: scheme.error),
+                    ),
+                  ],
                 ]),
                 const SizedBox(height: 16),
                 _buildPlaceholderReference(scheme, text),
@@ -1208,13 +1752,20 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                         style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                       ),
                       const SizedBox(width: 8),
-                      if (!_isTemplateDefault(_normalLines, _getDefaultNormalLines()))
+                      if (!_isTemplateDefault(_normalLines, _getDefaultNormalLines(paperSize: _normalPaperSize)))
                         TextButton.icon(
-                          onPressed: () { setState(() => _normalLines = _getDefaultNormalLines()); _markDirty(); },
+                          onPressed: () { setState(() => _normalLines = _getDefaultNormalLines(paperSize: _normalPaperSize)); _markDirty(); },
                           icon: const Icon(Icons.restore_rounded, size: 14),
-                          label: const Text('Reset to Default'),
+                          label: const Text('Reset Lines'),
                           style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), foregroundColor: scheme.error),
                         ),
+                      const Spacer(),
+                      OutlinedButton.icon(
+                        onPressed: () => _testPrint('normal'),
+                        icon: const Icon(Icons.print_rounded, size: 14),
+                        label: const Text('Test Print'),
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      ),
                     ],
                   ),
                 ]),
@@ -1295,8 +1846,6 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
   }
 
   Widget _buildNormalPreview(ColorScheme scheme, TextTheme text, {bool enlarged = false}) {
-    final isLandscape = _normalOrientation == 'Landscape';
-
     double paperW, paperH;
     switch (_normalPaperSize) {
       case 'A5': paperW = 148; paperH = 210; break;
@@ -1304,7 +1853,6 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       case 'Legal': paperW = 216; paperH = 356; break;
       default: paperW = 210; paperH = 297;
     }
-    if (isLandscape) { final tmp = paperW; paperW = paperH; paperH = tmp; }
 
     final previewW = enlarged ? 500.0 : 280.0;
     final aspectRatio = paperW / paperH;
@@ -1317,12 +1865,9 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     // Logo (stacked: logo above lines)
     if (_normalLogo && _headerLayout == 'stacked') {
       contentWidgets.add(Center(
-        child: Container(
-          width: _normalLogoWidth * 0.4 * scale,
-          height: _normalLogoHeight * 0.4 * scale,
-          margin: EdgeInsets.only(bottom: 4 * scale),
-          decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(3), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
-          child: Icon(Icons.image_rounded, size: 10 * fontScale, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+        child: Padding(
+          padding: EdgeInsets.only(bottom: 1.5 * scale),
+          child: _logoPreview(_normalLogoWidth * 0.4 * scale, _normalLogoHeight * 0.4 * scale, scheme),
         ),
       ));
     }
@@ -1338,13 +1883,14 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
         final hGroup = hLine['group'] as int? ?? 0;
         if (hGroup > 0) {
           final gLines = <Map<String, dynamic>>[];
+          final gStart = hi;
           while (hi < _normalLines.length && (_normalLines[hi]['group'] as int? ?? 0) == hGroup) {
             gLines.add(_normalLines[hi]);
             hi++;
           }
           headerLineWidgets.add(Padding(
             padding: EdgeInsets.symmetric(vertical: 0.3 * scale),
-            child: Row(children: gLines.map((gl) => Expanded(child: _buildNormalPreviewLine(gl, fontScale, scheme))).toList()),
+            child: Row(children: gLines.asMap().entries.map((gl) => Expanded(child: _buildNormalPreviewLine(gl.value, fontScale, scheme, lineIndex: gStart + gl.key))).toList()),
           ));
         } else {
           final hStyle = hLine['style'] as String? ?? 'normal';
@@ -1353,7 +1899,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
           } else {
             headerLineWidgets.add(Padding(
               padding: EdgeInsets.symmetric(vertical: 0.3 * scale),
-              child: _buildNormalPreviewLine(hLine, fontScale, scheme),
+              child: _buildNormalPreviewLine(hLine, fontScale, scheme, lineIndex: hi),
             ));
           }
           hi++;
@@ -1362,16 +1908,13 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       }
       inlineHeaderConsumed = hi;
       contentWidgets.add(Padding(
-        padding: EdgeInsets.only(bottom: 4 * scale),
+        padding: EdgeInsets.only(bottom: 1.5 * scale),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: _normalLogoWidth * 0.4 * scale,
-              height: _normalLogoHeight * 0.4 * scale,
-              margin: EdgeInsets.only(right: 6 * scale),
-              decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(3), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
-              child: Icon(Icons.image_rounded, size: 8 * fontScale, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+            Padding(
+              padding: EdgeInsets.only(right: 6 * scale),
+              child: _logoPreview(_normalLogoWidth * 0.4 * scale, _normalLogoHeight * 0.4 * scale, scheme),
             ),
             Expanded(
               child: Column(
@@ -1392,6 +1935,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
 
       if (group > 0) {
         final groupLines = <Map<String, dynamic>>[];
+        final groupStartIdx = i;
         while (i < _normalLines.length && (_normalLines[i]['group'] as int? ?? 0) == group) {
           groupLines.add(_normalLines[i]);
           i++;
@@ -1399,8 +1943,8 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
         contentWidgets.add(Padding(
           padding: EdgeInsets.symmetric(vertical: 0.3 * scale),
           child: Row(
-            children: groupLines.map((gl) {
-              return Expanded(child: _buildNormalPreviewLine(gl, fontScale, scheme));
+            children: groupLines.asMap().entries.map((gl) {
+              return Expanded(child: _buildNormalPreviewLine(gl.value, fontScale, scheme, lineIndex: groupStartIdx + gl.key));
             }).toList(),
           ),
         ));
@@ -1411,7 +1955,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
         } else {
           contentWidgets.add(Padding(
             padding: EdgeInsets.symmetric(vertical: 0.3 * scale),
-            child: _buildNormalPreviewLine(line, fontScale, scheme),
+            child: _buildNormalPreviewLine(line, fontScale, scheme, lineIndex: i),
           ));
         }
         i++;
@@ -1420,12 +1964,9 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
 
     // PDF417 after text
     if (_normalPdf417 && _normalPdf417Position == 'afterText') {
-      contentWidgets.add(Container(
-        height: 16 * fontScale,
-        width: double.infinity,
-        margin: EdgeInsets.symmetric(vertical: 4 * scale),
-        decoration: BoxDecoration(color: const Color(0xFFF5F5F5), borderRadius: BorderRadius.circular(2), border: Border.all(color: const Color(0xFFDDDDDD))),
-        child: Center(child: Text('║║║║ PDF417 ║║║║', style: TextStyle(fontFamily: 'monospace', fontSize: 6 * fontScale, color: const Color(0xFF555555)))),
+      contentWidgets.add(Padding(
+        padding: EdgeInsets.only(top: 4 * scale),
+        child: _buildPdf417Preview(fontScale),
       ));
     }
 
@@ -1434,6 +1975,8 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       final maxCams = _normalPaperSize == 'Legal' ? 6 : 4;
       final cameras = _normalCctvCameras.take(maxCams).toList();
       contentWidgets.add(SizedBox(height: 4 * scale));
+      contentWidgets.add(Divider(height: 1, thickness: 0.5 * scale, color: scheme.outlineVariant.withValues(alpha: 0.4)));
+      contentWidgets.add(SizedBox(height: 2 * scale));
       for (var ci = 0; ci < cameras.length; ci += 2) {
         final rowCams = cameras.sublist(ci, (ci + 2).clamp(0, cameras.length));
         contentWidgets.add(Padding(
@@ -1456,14 +1999,10 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       }
     }
 
-    // PDF417 at bottom
     if (_normalPdf417 && _normalPdf417Position == 'bottom') {
-      contentWidgets.add(Container(
-        height: 16 * fontScale,
-        width: double.infinity,
-        margin: EdgeInsets.only(top: 4 * scale),
-        decoration: BoxDecoration(color: const Color(0xFFF5F5F5), borderRadius: BorderRadius.circular(2), border: Border.all(color: const Color(0xFFDDDDDD))),
-        child: Center(child: Text('║║║║ PDF417 ║║║║', style: TextStyle(fontFamily: 'monospace', fontSize: 6 * fontScale, color: const Color(0xFF555555)))),
+      contentWidgets.add(Padding(
+        padding: EdgeInsets.only(top: 1.5 * scale),
+        child: _buildPdf417Preview(fontScale),
       ));
     }
 
@@ -1486,8 +2025,8 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     );
   }
 
-  Widget _buildNormalPreviewLine(Map<String, dynamic> line, double fontScale, ColorScheme scheme) {
-    final content = line['text'] as String? ?? '';
+  Widget _buildNormalPreviewLine(Map<String, dynamic> line, double fontScale, ColorScheme scheme, {int lineIndex = -1}) {
+    final content = _substituteLine(line['text'] as String? ?? '');
     final align = line['align'] as String? ?? 'left';
     final style = line['style'] as String? ?? 'normal';
 
@@ -1498,16 +2037,33 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       default: ta = TextAlign.left;
     }
 
-    final baseFontSize = _normalFontSize * 0.35 * fontScale;
+    final baseFontSize = _normalFontSize * 0.30 * fontScale;
     double fontSize;
     FontWeight fw;
-    switch (style) {
-      case 'bold': fontSize = baseFontSize + (1 * 0.35 * fontScale); fw = FontWeight.w700; break;
-      case 'double': fontSize = baseFontSize + (2 * 0.35 * fontScale); fw = FontWeight.w800; break;
-      default: fontSize = baseFontSize; fw = FontWeight.w400;
+    if (lineIndex == 0) {
+      fontSize = baseFontSize + (4 * 0.30 * fontScale);
+      fw = FontWeight.w800;
+    } else if (lineIndex > 0 && lineIndex <= 2) {
+      fontSize = baseFontSize + (2 * 0.30 * fontScale);
+      fw = FontWeight.w600;
+    } else {
+      switch (style) {
+        case 'bold': fontSize = baseFontSize + (1 * 0.30 * fontScale); fw = FontWeight.w700; break;
+        case 'double': fontSize = baseFontSize + (2 * 0.30 * fontScale); fw = FontWeight.w800; break;
+        default: fontSize = baseFontSize; fw = FontWeight.w400;
+      }
     }
 
-    return Text(content, textAlign: ta, style: TextStyle(fontSize: fontSize, fontWeight: fw, color: const Color(0xFF1A1A1A)));
+    String? fontFamily;
+    switch (_normalFont) {
+      case 'Times': fontFamily = 'Times New Roman'; break;
+      case 'Courier': fontFamily = 'Courier New'; break;
+      case 'Roboto': fontFamily = 'Roboto'; break;
+      case 'Open Sans': fontFamily = 'Open Sans'; break;
+      default: fontFamily = 'Helvetica';
+    }
+
+    return Text(content, textAlign: ta, style: TextStyle(fontFamily: fontFamily, fontSize: fontSize, fontWeight: fw, color: const Color(0xFF1A1A1A)));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1553,59 +2109,156 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       context: context,
       builder: (ctx) {
         var printers = List<Map<String, dynamic>>.from(_printers.map((p) => Map<String, dynamic>.from(p)));
+        String? errorMsg;
         return StatefulBuilder(builder: (ctx, setD) {
           return AlertDialog(
             title: const Row(children: [Icon(Icons.print_rounded, size: 20), SizedBox(width: 8), Text('Manage Printers')]),
-            content: SizedBox(
-              width: 500,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+            content: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 800, maxHeight: MediaQuery.of(ctx).size.height * 0.7),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                  if (errorMsg != null) Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(color: Theme.of(ctx).colorScheme.errorContainer, borderRadius: BorderRadius.circular(6)),
+                      child: Text(errorMsg!, style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.onErrorContainer)),
+                    ),
+                  ),
                   ...printers.asMap().entries.map((e) {
                     final p = e.value;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
+                    final pType = p['type'] as String? ?? 'normal';
+                    final pName = p['name'] as String? ?? '';
+                    final trays = _printerTrays[pName] ?? [];
+                    final paperW = (p['paperWidth'] as num?)?.toDouble() ?? 10.0;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(ctx).colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Theme.of(ctx).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            flex: 3,
-                            child: TextField(
-                              controller: TextEditingController(text: p['name'] as String? ?? ''),
-                              onChanged: (v) => printers[e.key]['name'] = v,
-                              decoration: const InputDecoration(hintText: 'Printer name', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: TextField(
+                                  controller: TextEditingController(text: p['nickname'] as String? ?? ''),
+                                  onChanged: (v) => printers[e.key]['nickname'] = v,
+                                  decoration: InputDecoration(hintText: pName.isNotEmpty ? pName : 'Nickname', isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 2,
+                                child: TextField(
+                                  controller: TextEditingController(text: p['address'] as String? ?? ''),
+                                  onChanged: (v) => printers[e.key]['address'] = v,
+                                  decoration: const InputDecoration(hintText: 'IP / Port', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                                onPressed: () => setD(() => printers.removeAt(e.key)),
+                                color: Theme.of(ctx).colorScheme.error,
+                                iconSize: 18,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 2,
-                            child: DropdownButtonFormField<String>(
-                              initialValue: p['type'] as String? ?? 'normal',
-                              items: const [
-                                DropdownMenuItem(value: 'dotMatrix', child: Text('Dot Matrix', style: TextStyle(fontSize: 12))),
-                                DropdownMenuItem(value: 'thermal', child: Text('Thermal', style: TextStyle(fontSize: 12))),
-                                DropdownMenuItem(value: 'normal', child: Text('Normal', style: TextStyle(fontSize: 12))),
+                          if (pName.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, left: 2),
+                              child: Text(pName, style: const TextStyle(fontSize: 10, color: Color(0xFF999999))),
+                            ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Text('Type', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 130,
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: pType,
+                                  items: const [
+                                    DropdownMenuItem(value: 'dotMatrix', child: Text('Dot Matrix', style: TextStyle(fontSize: 11))),
+                                    DropdownMenuItem(value: 'thermal', child: Text('Thermal', style: TextStyle(fontSize: 11))),
+                                    DropdownMenuItem(value: 'normal', child: Text('Page Printer', style: TextStyle(fontSize: 11))),
+                                  ],
+                                  onChanged: (v) { setD(() { printers[e.key]['type'] = v; printers[e.key]['lines'] = _defaultLinesForType(v!); if (v == 'normal') printers[e.key]['paperSize'] ??= 'A4'; }); },
+                                  decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                                  icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 14),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              if (pType == 'normal') ...[
+                                const Text('Paper', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 110,
+                                  child: DropdownButtonFormField<String>(
+                                    initialValue: p['paperSize'] as String? ?? 'A4',
+                                    items: ['A4', 'A5', 'Legal', 'Letter'].map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 11)))).toList(),
+                                    onChanged: (v) { setD(() { printers[e.key]['paperSize'] = v; printers[e.key]['lines'] = _defaultLinesForType('normal'); }); },
+                                    decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 14),
+                                  ),
+                                ),
                               ],
-                              onChanged: (v) { setD(() => printers[e.key]['type'] = v); },
-                              decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 2,
-                            child: TextField(
-                              controller: TextEditingController(text: p['address'] as String? ?? ''),
-                              onChanged: (v) => printers[e.key]['address'] = v,
-                              decoration: const InputDecoration(hintText: 'IP / Port', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                            onPressed: () => setD(() => printers.removeAt(e.key)),
-                            color: Theme.of(ctx).colorScheme.error,
-                            iconSize: 18,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              if (pType == 'thermal') ...[
+                                const Text('Width', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 110,
+                                  child: DropdownButtonFormField<String>(
+                                    initialValue: p['thermalWidth'] as String? ?? '80mm',
+                                    items: ['58mm', '80mm'].map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 11)))).toList(),
+                                    onChanged: (v) { setD(() => printers[e.key]['thermalWidth'] = v); },
+                                    decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 14),
+                                  ),
+                                ),
+                              ],
+                              if (pType == 'dotMatrix') ...[
+                                const Text('Width', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 200,
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Slider(
+                                          value: paperW.clamp(8.0, 13.2),
+                                          min: 8.0,
+                                          max: 13.2,
+                                          divisions: 26,
+                                          label: '${paperW.toStringAsFixed(1)}″',
+                                          onChanged: (v) { setD(() => printers[e.key]['paperWidth'] = double.parse(v.toStringAsFixed(1))); },
+                                        ),
+                                      ),
+                                      Text('${paperW.toStringAsFixed(1)}″ · ${(paperW * 10).round()} col', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              if (trays.isNotEmpty) ...[
+                                const SizedBox(width: 16),
+                                Icon(Icons.inventory_2_outlined, size: 13, color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+                                const SizedBox(width: 4),
+                                Text('Trays: ${trays.join(", ")}', style: TextStyle(fontSize: 10, color: Theme.of(ctx).colorScheme.onSurfaceVariant)),
+                              ],
+                            ],
                           ),
                         ],
                       ),
@@ -1615,7 +2268,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                   Row(
                     children: [
                       OutlinedButton.icon(
-                        onPressed: () => setD(() => printers.add({'name': '', 'type': 'normal', 'address': ''})),
+                        onPressed: () => setD(() => printers.add({'name': '', 'type': 'normal', 'address': '', 'paperSize': 'A4', 'lines': _defaultLinesForType('normal')})),
                         icon: const Icon(Icons.add_rounded, size: 14),
                         label: const Text('Add Printer'),
                         style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)),
@@ -1631,6 +2284,10 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                                 if (!exists) printers.add(dp);
                               }
                             });
+                            // Refresh tray detection for newly added printers
+                            setState(() => _printers = List.from(printers));
+                            await _loadPrinterTrays();
+                            setD(() {});
                           }
                         },
                         icon: const Icon(Icons.search_rounded, size: 14),
@@ -1641,12 +2298,25 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                   ),
                 ],
               ),
+              ),
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
               FilledButton(
                 onPressed: () {
-                  setState(() => _printers = printers.where((p) => (p['name'] as String?)?.isNotEmpty == true).toList());
+                  final nicknames = printers
+                      .map((p) => (p['nickname'] as String? ?? '').trim())
+                      .where((n) => n.isNotEmpty)
+                      .toList();
+                  final duplicates = nicknames.where((n) => nicknames.indexOf(n) != nicknames.lastIndexOf(n)).toSet();
+                  if (duplicates.isNotEmpty) {
+                    setD(() => errorMsg = 'Duplicate nickname: "${duplicates.first}" — each printer must have a unique nickname.');
+                    return;
+                  }
+                  setState(() {
+                    _printers = printers.where((p) => (p['name'] as String?)?.isNotEmpty == true).toList();
+                    _syncPrinterConfigToTemplates();
+                  });
                   _markDirty();
                   Navigator.pop(ctx);
                 },
@@ -1668,14 +2338,18 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
           final output = result.stdout as String;
           final lines = output.split('\n');
           for (final line in lines) {
+            if (line.contains('disabled')) continue;
             final match = RegExp(r'^printer\s+(\S+)\s').firstMatch(line);
             if (match != null) {
               final name = match.group(1)!;
-              printers.add({'name': name, 'type': 'normal', 'address': 'cups://$name'});
+              final check = await Process.run('lpstat', ['-a', name]);
+              if (check.exitCode == 0 && (check.stdout as String).contains('accepting')) {
+                printers.add({'name': name, 'type': 'normal', 'address': 'cups://$name', 'lines': _defaultLinesForType('normal')});
+              }
             }
           }
         }
-        final ippResult = await Process.run('ippfind', []);
+        final ippResult = await Process.run('ippfind', ['--timeout', '3']);
         if (ippResult.exitCode == 0) {
           final ippOutput = ippResult.stdout as String;
           for (final uri in ippOutput.split('\n').where((l) => l.trim().isNotEmpty)) {
@@ -1683,7 +2357,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
             final ip = uriMatch?.group(1) ?? uri;
             final exists = printers.any((p) => p['address'] == uri);
             if (!exists) {
-              printers.add({'name': 'Network ($ip)', 'type': 'normal', 'address': uri});
+              printers.add({'name': 'Network ($ip)', 'type': 'normal', 'address': uri, 'lines': _defaultLinesForType('normal')});
             }
           }
         }
@@ -1694,7 +2368,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
           for (final line in lines) {
             final parts = line.split(',');
             if (parts.length >= 3) {
-              printers.add({'name': parts[1].trim(), 'type': 'normal', 'address': parts[2].trim()});
+              printers.add({'name': parts[1].trim(), 'type': 'normal', 'address': parts[2].trim(), 'lines': _defaultLinesForType('normal')});
             }
           }
         }
@@ -1707,14 +2381,20 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
   // Printer Assignment Bar
   // ═══════════════════════════════════════════════════════════════════════════
 
+  String _printerDisplayName(Map<String, dynamic> p) {
+    final nickname = p['nickname'] as String? ?? '';
+    if (nickname.isNotEmpty) return nickname;
+    return p['name'] as String? ?? 'Unnamed';
+  }
+
   List<String> get _printerNames {
-    final names = _printers.map((p) => p['name'] as String? ?? 'Unnamed').toList();
+    final names = _printers.map(_printerDisplayName).toList();
     if (names.isEmpty) return ['Default Printer'];
     return names;
   }
 
   Widget _buildPrinterAssignmentBar(ColorScheme scheme, TextTheme text) {
-    final printerOptions = ['default', ..._printerNames];
+    final printerOptions = _printerNames;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1725,7 +2405,6 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
             const SizedBox(width: 8),
             Text('Printer Assignment', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(width: 24),
-            // Gross weighment printer
             Text('1st Weighment:', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
             const SizedBox(width: 8),
             _MiniPrinterDropdown(
@@ -1733,8 +2412,11 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
               items: printerOptions,
               onChanged: (v) { setState(() => _grossPrinter = v); _markDirty(); },
             ),
-            const SizedBox(width: 20),
-            // Tare weighment printer
+            if (_getTraysForPrinter(_grossPrinter).isNotEmpty) ...[
+              const SizedBox(width: 4),
+              _MiniDropdown(value: _getTraysForPrinter(_grossPrinter).contains(_grossTray) ? _grossTray : _getTraysForPrinter(_grossPrinter).first, items: _getTraysForPrinter(_grossPrinter), onChanged: (v) { setState(() => _grossTray = v); _markDirty(); }),
+            ],
+            const SizedBox(width: 16),
             Text('2nd Weighment:', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
             const SizedBox(width: 8),
             _MiniPrinterDropdown(
@@ -1742,16 +2424,40 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
               items: printerOptions,
               onChanged: (v) { setState(() => _tarePrinter = v); _markDirty(); },
             ),
-            const SizedBox(width: 20),
-            // Backup
-            _CompactToggle(label: 'Backup', value: _backupEnabled, onChanged: (v) { setState(() => _backupEnabled = v); _markDirty(); }),
-            if (_backupEnabled) ...[
+            if (_getTraysForPrinter(_tarePrinter).isNotEmpty) ...[
+              const SizedBox(width: 4),
+              _MiniDropdown(value: _getTraysForPrinter(_tarePrinter).contains(_tareTray) ? _tareTray : _getTraysForPrinter(_tarePrinter).first, items: _getTraysForPrinter(_tarePrinter), onChanged: (v) { setState(() => _tareTray = v); _markDirty(); }),
+            ],
+            const SizedBox(width: 16),
+            _CompactToggle(label: 'Backup', value: _backupEnabled, onChanged: (v) {
+              final backupAvailable = !(_grossPrinter == _tarePrinter && printerOptions.length <= 1);
+              if (v && !backupAvailable) return;
+              setState(() => _backupEnabled = v);
+              _markDirty();
+            }),
+            if (_backupEnabled && _grossPrinter == _tarePrinter && printerOptions.length <= 1) ...[
               const SizedBox(width: 8),
-              _MiniPrinterDropdown(
-                value: _backupPrinter.isEmpty ? printerOptions.first : _backupPrinter,
-                items: printerOptions,
-                onChanged: (v) { setState(() => _backupPrinter = v); _markDirty(); },
-              ),
+              Text('No alternate printer available', style: text.bodySmall?.copyWith(color: scheme.error, fontSize: 10)),
+            ] else if (_backupEnabled) ...[
+              const SizedBox(width: 8),
+              Builder(builder: (_) {
+                final backupOptions = (_grossPrinter == _tarePrinter)
+                    ? printerOptions.where((p) => p != _grossPrinter).toList()
+                    : printerOptions;
+                final effectiveValue = backupOptions.contains(_backupPrinter) ? _backupPrinter : backupOptions.first;
+                if (effectiveValue != _backupPrinter) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) { setState(() => _backupPrinter = effectiveValue); _markDirty(); });
+                }
+                return _MiniPrinterDropdown(
+                  value: effectiveValue,
+                  items: backupOptions,
+                  onChanged: (v) { setState(() => _backupPrinter = v); _markDirty(); },
+                );
+              }),
+              if (_getTraysForPrinter(_backupPrinter).isNotEmpty) ...[
+                const SizedBox(width: 4),
+                _MiniDropdown(value: _getTraysForPrinter(_backupPrinter).contains(_backupTray) ? _backupTray : _getTraysForPrinter(_backupPrinter).first, items: _getTraysForPrinter(_backupPrinter), onChanged: (v) { setState(() => _backupTray = v); _markDirty(); }),
+              ],
             ],
             const Spacer(),
             _CompactToggle(label: 'Material Routing', value: _materialRoutingEnabled, onChanged: (v) { setState(() => _materialRoutingEnabled = v); _markDirty(); }),
@@ -1791,7 +2497,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
               const Spacer(),
               OutlinedButton.icon(
                 onPressed: () {
-                  setState(() => _materialPrinterRules.add({'material': '', 'printer': 'default'}));
+                  setState(() => _materialPrinterRules.add({'material': '', 'printer': _printerNames.first, 'tray': 'Auto', 'copies': _copies}));
                   _markDirty();
                 },
                 icon: const Icon(Icons.add_rounded, size: 12),
@@ -1811,22 +2517,39 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
               final rule = e.value;
               final material = rule['material'] as String? ?? '';
               final printer = rule['printer'] as String? ?? 'default';
+              final copies = rule['copies'] as int? ?? _copies;
+              final printOn = rule['printOn'] as String? ?? '—';
+              final materials = ref.watch(_materialsProvider).valueOrNull ?? [];
+              final materialItems = materials.where((m) =>
+                m == material || !_materialPrinterRules.any((r) {
+                  if (r == rule || r['material'] != m) return false;
+                  final rPrintOn = r['printOn'] as String? ?? '—';
+                  if (rPrintOn == 'both' || printOn == 'both') return true;
+                  if (rPrintOn == '—' || printOn == '—') return false;
+                  return rPrintOn == printOn;
+                })
+              ).toList();
               return Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 180,
-                      child: TextField(
-                        controller: TextEditingController(text: material),
-                        style: text.bodySmall,
-                        onChanged: (v) { setState(() => _materialPrinterRules[e.key] = {...rule, 'material': v}); _markDirty(); },
-                        decoration: InputDecoration(
-                          hintText: 'Material name',
-                          hintStyle: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                      width: 150,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+                        ),
+                        child: DropdownButton<String>(
+                          value: materialItems.contains(material) ? material : null,
+                          hint: Text('Select', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.5))),
+                          isExpanded: true,
+                          underline: const SizedBox(),
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                          style: text.bodySmall?.copyWith(color: scheme.onSurface),
+                          items: materialItems.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                          onChanged: (v) { if (v != null) { setState(() => _materialPrinterRules[e.key] = {...rule, 'material': v}); _markDirty(); } },
                         ),
                       ),
                     ),
@@ -1838,6 +2561,16 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
                       items: printerOptions,
                       onChanged: (v) { setState(() => _materialPrinterRules[e.key] = {...rule, 'printer': v}); _markDirty(); },
                     ),
+                    if (_getTraysForPrinter(printer).isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      _MiniDropdown(value: _getTraysForPrinter(printer).contains(rule['tray'] as String? ?? '') ? (rule['tray'] as String) : _getTraysForPrinter(printer).first, items: _getTraysForPrinter(printer), onChanged: (v) { setState(() => _materialPrinterRules[e.key] = {...rule, 'tray': v}); _markDirty(); }),
+                    ],
+                    const SizedBox(width: 8),
+                    Text('×', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                    const SizedBox(width: 4),
+                    _CounterButton(value: copies, min: 1, max: 10, onChanged: (v) { setState(() => _materialPrinterRules[e.key] = {...rule, 'copies': v}); _markDirty(); }),
+                    const SizedBox(width: 8),
+                    _MiniDropdown(value: printOn, items: const ['—', '1st', '2nd', 'both'], onChanged: (v) { setState(() => _materialPrinterRules[e.key] = {...rule, 'printOn': v}); _markDirty(); }),
                     const SizedBox(width: 8),
                     InkWell(
                       onTap: () { setState(() => _materialPrinterRules.removeAt(e.key)); _markDirty(); },
@@ -1922,12 +2655,13 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
   Widget _buildDropdownRow(String label, String value, List<String> items, ValueChanged<String?> onChanged, TextTheme text) {
     return Row(
       children: [
-        SizedBox(width: 120, child: Text(label, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600))),
+        SizedBox(width: 100, child: Text(label, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600))),
         Expanded(
           child: DropdownButtonFormField<String>(
             initialValue: value,
-            items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall))).toList(),
+            items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall, overflow: TextOverflow.ellipsis))).toList(),
             onChanged: onChanged,
+            isExpanded: true,
             decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
             icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
           ),
@@ -2001,7 +2735,7 @@ class _Section extends StatelessWidget {
           Row(children: [
             Icon(icon, size: 16, color: scheme.primary),
             const SizedBox(width: 8),
-            Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            Flexible(child: Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis)),
           ]),
           const SizedBox(height: 14),
           ...children,
@@ -2220,9 +2954,8 @@ class _ThermalLineEditor extends StatefulWidget {
   final VoidCallback onRemove;
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
-  final int colCount;
 
-  const _ThermalLineEditor({required this.index, required this.line, required this.onChanged, required this.onRemove, this.onMoveUp, this.onMoveDown, this.colCount = 1});
+  const _ThermalLineEditor({required this.index, required this.line, required this.onChanged, required this.onRemove, this.onMoveUp, this.onMoveDown});
 
   @override
   State<_ThermalLineEditor> createState() => _ThermalLineEditorState();
@@ -2257,7 +2990,7 @@ class _ThermalLineEditorState extends State<_ThermalLineEditor> {
     final scheme = Theme.of(context).colorScheme;
     final align = widget.line['align'] as String? ?? 'left';
     final size = widget.line['size'] as String? ?? 'normal';
-    final col = (widget.line['col'] as int? ?? 1).clamp(1, widget.colCount);
+    final group = widget.line['group'] as int? ?? 0;
     final isSeparator = size == 'separator';
 
     return Padding(
@@ -2316,10 +3049,8 @@ class _ThermalLineEditorState extends State<_ThermalLineEditor> {
               widget.onChanged(updated);
             },
           ),
-          if (widget.colCount > 1) ...[
-            const SizedBox(width: 4),
-            _MiniDropdown(value: 'C$col', items: List.generate(widget.colCount, (i) => 'C${i + 1}'), onChanged: (v) => widget.onChanged({...widget.line, 'col': int.parse(v.substring(1))})),
-          ],
+          const SizedBox(width: 4),
+          _MiniDropdown(value: group == 0 ? '—' : 'G$group', items: ['—', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8'], onChanged: (v) => widget.onChanged({...widget.line, 'group': v == '—' ? 0 : int.parse(v.substring(1))})),
           const SizedBox(width: 4),
           InkWell(onTap: widget.onRemove, child: Padding(padding: const EdgeInsets.all(4), child: Icon(Icons.close_rounded, size: 14, color: scheme.error))),
         ],
@@ -2369,7 +3100,7 @@ class _MiniPrinterDropdown extends StatelessWidget {
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(6), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
       child: DropdownButton<String>(
         value: effectiveValue,
-        items: items.map((e) => DropdownMenuItem(value: e, child: Text(e == 'default' ? 'Default' : e, style: const TextStyle(fontSize: 11)))).toList(),
+        items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 11)))).toList(),
         onChanged: (v) { if (v != null) onChanged(v); },
         underline: const SizedBox(),
         isDense: true,
@@ -2467,4 +3198,118 @@ class _NormalPreviewContainerState extends State<_NormalPreviewContainer> {
       ],
     );
   }
+}
+
+class _DmDotPainter extends CustomPainter {
+  final _DmDotData data;
+  _DmDotPainter(this.data);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final dotW = size.width / data.width;
+    final dotH = size.height / data.height;
+    final paint = Paint()
+      ..color = const Color(0xFF000000)
+      ..style = PaintingStyle.fill;
+
+    for (var y = 0; y < data.height; y++) {
+      final rowOffset = y * data.width;
+      for (var x = 0; x < data.width; x++) {
+        if (data.dots[rowOffset + x]) {
+          canvas.drawRect(
+            Rect.fromLTWH(x * dotW, y * dotH, dotW, dotH),
+            paint,
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DmDotPainter oldDelegate) => oldDelegate.data != data;
+}
+
+class _RulerPainter extends CustomPainter {
+  final double totalInches;
+  final double ppi;
+  final bool horizontal;
+  final Color color;
+
+  _RulerPainter({required this.totalInches, required this.ppi, required this.horizontal, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    final textStyle = TextStyle(fontSize: 9, color: color);
+    final maxPos = horizontal ? size.width : size.height;
+
+    for (var inch = 0; inch <= totalInches.ceil(); inch++) {
+      final pos = inch * ppi;
+      if (pos > maxPos) break;
+
+      if (horizontal) {
+        canvas.drawLine(Offset(pos, size.height), Offset(pos, size.height - 10), paint);
+        textPainter.text = TextSpan(text: '$inch', style: textStyle);
+        textPainter.layout();
+        textPainter.paint(canvas, Offset(pos + 2, 0));
+      } else {
+        canvas.drawLine(Offset(size.width, pos), Offset(size.width - 10, pos), paint);
+        textPainter.text = TextSpan(text: '$inch', style: textStyle);
+        textPainter.layout();
+        textPainter.paint(canvas, Offset(1, pos + 2));
+      }
+
+      if (inch < totalInches.ceil()) {
+        final half = pos + ppi / 2;
+        final q1 = pos + ppi / 4;
+        final q3 = pos + ppi * 3 / 4;
+        if (horizontal) {
+          if (half <= maxPos) canvas.drawLine(Offset(half, size.height), Offset(half, size.height - 6), paint);
+          if (q1 <= maxPos) canvas.drawLine(Offset(q1, size.height), Offset(q1, size.height - 4), paint);
+          if (q3 <= maxPos) canvas.drawLine(Offset(q3, size.height), Offset(q3, size.height - 4), paint);
+        } else {
+          if (half <= maxPos) canvas.drawLine(Offset(size.width, half), Offset(size.width - 6, half), paint);
+          if (q1 <= maxPos) canvas.drawLine(Offset(size.width, q1), Offset(size.width - 4, q1), paint);
+          if (q3 <= maxPos) canvas.drawLine(Offset(size.width, q3), Offset(size.width - 4, q3), paint);
+        }
+      }
+    }
+    if (horizontal) {
+      canvas.drawLine(Offset(0, size.height - 0.5), Offset(size.width, size.height - 0.5), paint);
+    } else {
+      canvas.drawLine(Offset(size.width - 0.5, 0), Offset(size.width - 0.5, size.height), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RulerPainter old) => old.totalInches != totalInches || old.ppi != ppi || old.color != color;
+}
+
+class _Pdf417Painter extends CustomPainter {
+  final List<BarcodeElement> elements;
+  final double barcodeW;
+  final double barcodeH;
+  _Pdf417Painter(this.elements, this.barcodeW, this.barcodeH);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scaleX = size.width / barcodeW;
+    final scaleY = size.height / barcodeH;
+    final paint = Paint()..color = const Color(0xFF000000);
+
+    for (final elem in elements) {
+      if (elem is BarcodeBar && elem.black) {
+        canvas.drawRect(
+          Rect.fromLTWH(elem.left * scaleX, elem.top * scaleY, elem.width * scaleX, elem.height * scaleY),
+          paint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_Pdf417Painter oldDelegate) => false;
 }

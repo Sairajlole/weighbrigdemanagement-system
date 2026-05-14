@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Appearance &amp; UI Settings - Weighbridge MS</title>
+<!-- Google Fonts: Manrope -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "primary-dark": "#16c90f",
+                        "primary-content": "#0e1b0d", // Dark text on primary green for contrast
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1a2e19",
+                        "border-light": "#d0e7cf",
+                        "border-dark": "#2a4229",
+                        "text-main": "#0e1b0d",
+                        "text-secondary": "#4e9a4c",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none; 
+            background: transparent; 
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #1aec13;
+            cursor: pointer;
+            margin-top: -8px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            border: 2px solid #fff;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #d0e7cf;
+            border-radius: 2px;
+        }
+        
+        .dark input[type=range]::-webkit-slider-runnable-track {
+            background: #2a4229;
+        }
+
+        /* Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #1aec13;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #1aec13;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d0e7cf; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #b0c7af; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-main dark:text-gray-100 font-display transition-colors duration-200">
+<div class="flex h-screen w-full overflow-hidden">
+<!-- Side Navigation -->
+<aside class="hidden md:flex flex-col w-64 bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark flex-shrink-0 h-full">
+<div class="flex flex-col gap-4 p-4 h-full">
+<div class="flex flex-col mb-4">
+<h1 class="text-text-main dark:text-white text-lg font-bold leading-normal flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">scale</span>
+                    Weighbridge MS
+                </h1>
+<p class="text-text-secondary dark:text-gray-400 text-xs font-normal leading-normal pl-8">v2.4.0</p>
+</div>
+<nav class="flex flex-col gap-1 flex-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-background-light dark:hover:bg-background-dark transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 group-hover:text-primary transition-colors">dashboard</span>
+<p class="text-sm font-medium">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-background-light dark:hover:bg-background-dark transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 group-hover:text-primary transition-colors">scale</span>
+<p class="text-sm font-medium">Weighment</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-background-light dark:hover:bg-background-dark transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 group-hover:text-primary transition-colors">description</span>
+<p class="text-sm font-medium">Reports</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 dark:bg-primary/20 text-primary-content dark:text-primary" href="#">
+<span class="material-symbols-outlined text-primary fill-1">settings</span>
+<p class="text-sm font-bold">Settings</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-background-light dark:hover:bg-background-dark transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 group-hover:text-primary transition-colors">group</span>
+<p class="text-sm font-medium">Users</p>
+</a>
+</nav>
+<div class="border-t border-border-light dark:border-border-dark pt-4">
+<div class="flex items-center gap-3 px-3 py-2">
+<div class="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold" data-alt="User Avatar">JD</div>
+<div class="flex flex-col">
+<p class="text-sm font-bold text-text-main dark:text-white">John Doe</p>
+<p class="text-xs text-text-secondary dark:text-gray-400">Supervisor</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col h-full overflow-hidden relative">
+<!-- Header -->
+<header class="flex-shrink-0 bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark px-8 py-6 z-10">
+<div class="max-w-5xl mx-auto w-full">
+<div class="flex flex-col gap-1">
+<h2 class="text-2xl md:text-3xl font-black tracking-tight text-text-main dark:text-white">Appearance &amp; UI Settings</h2>
+<p class="text-text-secondary dark:text-gray-400 text-sm md:text-base">Customize your workspace view, themes, and layout preferences for optimal visibility.</p>
+</div>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto px-4 md:px-8 py-8 pb-32">
+<div class="max-w-5xl mx-auto w-full flex flex-col lg:flex-row gap-8">
+<!-- Left Column: Settings Controls -->
+<div class="flex flex-col gap-6 flex-1 min-w-0">
+<!-- Section 1: Theme -->
+<section class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-6">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary">palette</span>
+<h3 class="text-lg font-bold text-text-main dark:text-white">General Theme</h3>
+</div>
+<div class="space-y-6">
+<div>
+<label class="text-sm font-semibold text-text-main dark:text-gray-200 mb-3 block">Interface Mode</label>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+<label class="cursor-pointer group">
+<input checked="" class="peer sr-only" name="theme-mode" type="radio"/>
+<div class="flex flex-col items-center p-4 rounded-lg border border-border-light dark:border-border-dark bg-background-light dark:bg-black/20 hover:border-primary/50 peer-checked:border-primary peer-checked:ring-1 peer-checked:ring-primary transition-all">
+<div class="w-full h-20 rounded bg-white border border-gray-100 mb-3 relative overflow-hidden shadow-sm" data-alt="Light Mode Preview">
+<div class="absolute top-0 left-0 w-4 h-full bg-gray-50 border-r border-gray-100"></div>
+<div class="absolute top-2 left-6 w-16 h-2 bg-gray-200 rounded-sm"></div>
+<div class="absolute top-6 left-6 w-8 h-8 rounded-full bg-primary/20"></div>
+</div>
+<span class="text-sm font-medium text-text-main dark:text-gray-300">Light Mode</span>
+</div>
+</label>
+<label class="cursor-pointer group">
+<input class="peer sr-only" name="theme-mode" type="radio"/>
+<div class="flex flex-col items-center p-4 rounded-lg border border-border-light dark:border-border-dark bg-background-light dark:bg-black/20 hover:border-primary/50 peer-checked:border-primary peer-checked:ring-1 peer-checked:ring-primary transition-all">
+<div class="w-full h-20 rounded bg-gray-900 border border-gray-800 mb-3 relative overflow-hidden shadow-sm" data-alt="Dark Mode Preview">
+<div class="absolute top-0 left-0 w-4 h-full bg-gray-800 border-r border-gray-700"></div>
+<div class="absolute top-2 left-6 w-16 h-2 bg-gray-700 rounded-sm"></div>
+<div class="absolute top-6 left-6 w-8 h-8 rounded-full bg-primary/20"></div>
+</div>
+<span class="text-sm font-medium text-text-main dark:text-gray-300">Dark Mode</span>
+</div>
+</label>
+<label class="cursor-pointer group">
+<input class="peer sr-only" name="theme-mode" type="radio"/>
+<div class="flex flex-col items-center p-4 rounded-lg border border-border-light dark:border-border-dark bg-background-light dark:bg-black/20 hover:border-primary/50 peer-checked:border-primary peer-checked:ring-1 peer-checked:ring-primary transition-all">
+<div class="w-full h-20 rounded bg-gradient-to-r from-white to-gray-900 border border-gray-200 mb-3 relative overflow-hidden shadow-sm" data-alt="System Mode Preview">
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-gray-400">settings_brightness</span>
+</div>
+</div>
+<span class="text-sm font-medium text-text-main dark:text-gray-300">System Default</span>
+</div>
+</label>
+</div>
+</div>
+<div>
+<label class="text-sm font-semibold text-text-main dark:text-gray-200 mb-3 block">Accent Color</label>
+<div class="flex flex-wrap gap-4">
+<label class="cursor-pointer">
+<input checked="" class="peer sr-only" name="accent-color" type="radio"/>
+<div class="w-10 h-10 rounded-full bg-[#1aec13] flex items-center justify-center text-black peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-[#1aec13] dark:peer-checked:ring-offset-surface-dark transition-all">
+<span class="material-symbols-outlined text-lg opacity-0 peer-checked:opacity-100">check</span>
+</div>
+</label>
+<label class="cursor-pointer">
+<input class="peer sr-only" name="accent-color" type="radio"/>
+<div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-blue-500 dark:peer-checked:ring-offset-surface-dark transition-all">
+<span class="material-symbols-outlined text-lg opacity-0 peer-checked:opacity-100">check</span>
+</div>
+</label>
+<label class="cursor-pointer">
+<input class="peer sr-only" name="accent-color" type="radio"/>
+<div class="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-purple-500 dark:peer-checked:ring-offset-surface-dark transition-all">
+<span class="material-symbols-outlined text-lg opacity-0 peer-checked:opacity-100">check</span>
+</div>
+</label>
+<label class="cursor-pointer">
+<input class="peer sr-only" name="accent-color" type="radio"/>
+<div class="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-orange-500 dark:peer-checked:ring-offset-surface-dark transition-all">
+<span class="material-symbols-outlined text-lg opacity-0 peer-checked:opacity-100">check</span>
+</div>
+</label>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Display -->
+<section class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-6">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary">monitor</span>
+<h3 class="text-lg font-bold text-text-main dark:text-white">Display &amp; Density</h3>
+</div>
+<div class="space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div>
+<div class="flex justify-between items-center mb-2">
+<label class="text-sm font-semibold text-text-main dark:text-gray-200">Base Font Size</label>
+<span class="text-xs font-medium text-text-secondary dark:text-gray-400">100%</span>
+</div>
+<input class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" max="150" min="75" type="range" value="100"/>
+<div class="flex justify-between mt-1 text-xs text-text-secondary dark:text-gray-500">
+<span>Small</span>
+<span>Standard</span>
+<span>Large</span>
+</div>
+</div>
+<div>
+<label class="text-sm font-semibold text-text-main dark:text-gray-200 mb-2 block">Animation Speed</label>
+<select class="w-full rounded-lg border-border-light dark:border-border-dark bg-background-light dark:bg-black/20 text-text-main dark:text-white focus:border-primary focus:ring-primary">
+<option>Fast (Performance)</option>
+<option selected="">Normal (Balanced)</option>
+<option>Slow (Accessibility)</option>
+<option>None</option>
+</select>
+</div>
+</div>
+<div class="flex items-center justify-between p-4 rounded-lg bg-background-light dark:bg-black/20 border border-border-light dark:border-border-dark">
+<div>
+<p class="text-sm font-bold text-text-main dark:text-white">Compact Mode</p>
+<p class="text-xs text-text-secondary dark:text-gray-400 mt-1">Reduces padding to fit more data rows on screen.</p>
+</div>
+<div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+<input class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 dark:border-gray-600" id="compact-mode" name="compact-mode" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 dark:bg-gray-700 cursor-pointer" for="compact-mode"></label>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Weighment Screen Layout -->
+<section class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-6">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary">grid_view</span>
+<h3 class="text-lg font-bold text-text-main dark:text-white">Weighment Layout</h3>
+</div>
+<div class="space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div>
+<label class="text-sm font-semibold text-text-main dark:text-gray-200 mb-3 block">Camera Feed Position</label>
+<div class="flex gap-2">
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="camera-pos" type="radio"/>
+<div class="h-24 rounded border border-border-light dark:border-border-dark flex items-center justify-center p-2 hover:bg-background-light dark:hover:bg-white/5 peer-checked:border-primary peer-checked:bg-primary/5 transition-all">
+<div class="flex gap-1 w-full h-full opacity-60">
+<div class="w-1/3 bg-gray-400 rounded-sm"></div>
+<div class="w-2/3 flex flex-col gap-1">
+<div class="h-full bg-gray-300 rounded-sm"></div>
+</div>
+</div>
+</div>
+<span class="text-xs font-medium text-center block mt-2 text-text-secondary">Left</span>
+</label>
+<label class="flex-1 cursor-pointer">
+<input checked="" class="peer sr-only" name="camera-pos" type="radio"/>
+<div class="h-24 rounded border border-border-light dark:border-border-dark flex items-center justify-center p-2 hover:bg-background-light dark:hover:bg-white/5 peer-checked:border-primary peer-checked:bg-primary/5 transition-all">
+<div class="flex gap-1 w-full h-full opacity-60">
+<div class="w-2/3 bg-gray-300 rounded-sm"></div>
+<div class="w-1/3 bg-gray-400 rounded-sm"></div>
+</div>
+</div>
+<span class="text-xs font-medium text-center block mt-2 text-text-secondary">Right</span>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="camera-pos" type="radio"/>
+<div class="h-24 rounded border border-border-light dark:border-border-dark flex items-center justify-center p-2 hover:bg-background-light dark:hover:bg-white/5 peer-checked:border-primary peer-checked:bg-primary/5 transition-all">
+<div class="flex gap-1 w-full h-full opacity-60">
+<div class="w-full bg-gray-300 rounded-sm flex items-center justify-center text-xs">No Cam</div>
+</div>
+</div>
+<span class="text-xs font-medium text-center block mt-2 text-text-secondary">Hidden</span>
+</label>
+</div>
+</div>
+<div>
+<label class="text-sm font-semibold text-text-main dark:text-gray-200 mb-3 block">Weight Readout Size</label>
+<div class="flex flex-col gap-2">
+<div class="flex rounded-lg border border-border-light dark:border-border-dark overflow-hidden p-1 bg-background-light dark:bg-black/20">
+<button class="flex-1 py-1.5 text-sm font-medium rounded hover:bg-white dark:hover:bg-white/10 transition-colors">Normal</button>
+<button class="flex-1 py-1.5 text-sm font-medium rounded bg-white dark:bg-surface-dark shadow-sm text-primary-dark">Large</button>
+<button class="flex-1 py-1.5 text-sm font-medium rounded hover:bg-white dark:hover:bg-white/10 transition-colors">X-Large</button>
+</div>
+<div class="mt-2 p-3 bg-black rounded-lg border border-gray-800 flex items-center justify-end">
+<span class="font-mono text-primary text-3xl font-bold tracking-wider">42,500 <span class="text-sm text-gray-400">kg</span></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 4: Dashboard & Stats -->
+<section class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-6">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary">equalizer</span>
+<h3 class="text-lg font-bold text-text-main dark:text-white">Dashboard Customization</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div>
+<label class="text-sm font-semibold text-text-main dark:text-gray-200 mb-2 block">Default Landing View</label>
+<select class="w-full rounded-lg border-border-light dark:border-border-dark bg-background-light dark:bg-black/20 text-text-main dark:text-white focus:border-primary focus:ring-primary">
+<option>Dashboard Overview</option>
+<option>New Weighment Entry</option>
+<option>Pending Transactions</option>
+</select>
+</div>
+<div>
+<label class="text-sm font-semibold text-text-main dark:text-gray-200 mb-2 block">Visible Quick Stats</label>
+<div class="flex flex-col gap-2">
+<label class="flex items-center gap-2 cursor-pointer">
+<input checked="" class="rounded border-border-light text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm text-text-main dark:text-gray-300">Today's Loads</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input checked="" class="rounded border-border-light text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm text-text-main dark:text-gray-300">Truck Count</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="rounded border-border-light text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm text-text-main dark:text-gray-300">Net Weight Processed</span>
+</label>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 5: Sounds -->
+<section class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-6">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary">volume_up</span>
+<h3 class="text-lg font-bold text-text-main dark:text-white">Audio Feedback</h3>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<div>
+<p class="text-sm font-medium text-text-main dark:text-white">Master Sound</p>
+<p class="text-xs text-text-secondary dark:text-gray-400">Enable audio feedback for the application</p>
+</div>
+<div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 dark:border-gray-600" id="master-sound" name="master-sound" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 dark:bg-gray-700 cursor-pointer" for="master-sound"></label>
+</div>
+</div>
+<hr class="border-border-light dark:border-border-dark"/>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
+<div>
+<label class="flex items-center gap-2 cursor-pointer mb-2">
+<input checked="" class="rounded border-border-light text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm text-text-main dark:text-gray-300">Beep on Weight Capture</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="rounded border-border-light text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm text-text-main dark:text-gray-300">Error Alerts</span>
+</label>
+</div>
+<div>
+<div class="flex justify-between items-center mb-2">
+<label class="text-sm font-semibold text-text-main dark:text-gray-200">Alert Volume</label>
+<span class="text-xs font-medium text-text-secondary dark:text-gray-400">70%</span>
+</div>
+<input class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" max="100" min="0" type="range" value="70"/>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: Sticky Preview -->
+<div class="lg:w-80 xl:w-96 flex-shrink-0">
+<div class="sticky top-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-lg p-4 lg:p-6 overflow-hidden">
+<div class="flex items-center justify-between mb-4">
+<h4 class="text-sm font-bold uppercase tracking-wider text-text-secondary">Live Preview</h4>
+<span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary-dark text-[10px] font-bold border border-primary/20">ACTIVE</span>
+</div>
+<!-- Mock Dashboard -->
+<div class="bg-background-light rounded-lg border border-border-light overflow-hidden flex flex-col h-[400px] shadow-inner relative transform scale-100 origin-top">
+<!-- Mock Header -->
+<div class="h-10 bg-white border-b border-gray-100 flex items-center px-3 justify-between">
+<div class="w-20 h-3 bg-gray-200 rounded"></div>
+<div class="w-6 h-6 rounded-full bg-gray-200"></div>
+</div>
+<!-- Mock Content -->
+<div class="p-3 flex flex-col gap-3 h-full">
+<!-- Mock Stats -->
+<div class="flex gap-2">
+<div class="flex-1 h-16 bg-white rounded border border-gray-100 p-2">
+<div class="w-4 h-4 rounded bg-primary/20 mb-2"></div>
+<div class="w-8 h-2 bg-gray-200 rounded"></div>
+</div>
+<div class="flex-1 h-16 bg-white rounded border border-gray-100 p-2">
+<div class="w-4 h-4 rounded bg-blue-100 mb-2"></div>
+<div class="w-8 h-2 bg-gray-200 rounded"></div>
+</div>
+</div>
+<!-- Mock Main Area -->
+<div class="flex-1 bg-white rounded border border-gray-100 p-2 flex flex-col gap-2">
+<div class="flex justify-between items-center">
+<div class="w-16 h-3 bg-gray-200 rounded"></div>
+<div class="w-12 h-6 bg-primary rounded"></div>
+</div>
+<div class="h-24 bg-gray-50 rounded border border-gray-100 flex items-center justify-center">
+<span class="text-xl font-bold text-gray-300">0000</span>
+</div>
+<div class="flex gap-2 mt-auto">
+<div class="h-8 flex-1 bg-gray-100 rounded"></div>
+<div class="h-8 w-8 bg-gray-100 rounded"></div>
+</div>
+</div>
+</div>
+<!-- Overlay Label -->
+<div class="absolute bottom-4 left-0 w-full text-center">
+<span class="bg-black/70 text-white px-3 py-1 rounded-full text-xs backdrop-blur-sm">Interactive Preview</span>
+</div>
+</div>
+<div class="mt-4 text-xs text-text-secondary dark:text-gray-400 text-center">
+                            Changes are applied automatically to the preview.
+                        </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Sticky Footer Action Bar -->
+<footer class="absolute bottom-0 left-0 right-0 bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark px-8 py-4 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+<div class="max-w-5xl mx-auto w-full flex items-center justify-between">
+<button class="text-text-secondary dark:text-gray-400 hover:text-red-500 text-sm font-medium transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-lg">restart_alt</span>
+                    Reset to defaults
+                </button>
+<div class="flex gap-3">
+<button class="px-5 py-2.5 rounded-lg border border-border-light dark:border-border-dark text-text-main dark:text-white font-semibold text-sm hover:bg-background-light dark:hover:bg-white/5 transition-colors">Cancel</button>
+<button class="px-6 py-2.5 rounded-lg bg-primary text-primary-content font-bold text-sm shadow-md hover:bg-primary-dark transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">save</span>
+                        Save Appearance Settings
+                    </button>
+</div>
+</div>
+</footer>
+</main>
+</div>
+</body></html>

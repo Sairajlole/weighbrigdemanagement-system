@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 
 // ─── Providers ─────────────────────────────────────────────────────────────────
 
@@ -336,7 +337,7 @@ class _SlideIn extends StatelessWidget {
 
 // ─── Dashboard Header ────────────────────────────────────────────────────────
 
-class _DashboardHeader extends StatelessWidget {
+class _DashboardHeader extends ConsumerWidget {
   final String operatorName;
   final DateTime now;
   final VoidCallback onNewWeighment;
@@ -348,7 +349,7 @@ class _DashboardHeader extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final hour = now.hour;
@@ -399,7 +400,7 @@ class _DashboardHeader extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    DateFormat('EEEE, d MMMM yyyy  •  HH:mm').format(now),
+                    '${DateFormat('EEEE, d MMMM yyyy').format(now)}  •  ${getTimeFormatter(ref.watch(timeFormatProvider)).format(now)}',
                     style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ],

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Camera Detection Configuration - WMS Pro</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Theme Configuration -->
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#111811",
+                        "surface-dark": "#1a231a",
+                        "surface-active": "#293928",
+                        "text-secondary": "#9db99d",
+                        "border-dark": "#2f3e2f"
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    boxShadow: {
+                        'glow': '0 0 15px rgba(26, 236, 19, 0.15)',
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom Scrollbar for dark theme */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111811; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #293928; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3a4f3a; 
+        }
+
+        /* Range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        
+        .crop-handle {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background-color: #1aec13;
+            border: 2px solid #000;
+            border-radius: 2px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display h-screen flex overflow-hidden selection:bg-primary selection:text-black">
+<!-- Side Navigation -->
+<aside class="w-64 bg-background-dark border-r border-border-dark flex-shrink-0 flex flex-col justify-between p-4 z-20">
+<div class="flex flex-col gap-8">
+<div class="flex flex-col px-2">
+<h1 class="text-white text-xl font-bold leading-normal tracking-tight">WMS Pro</h1>
+<p class="text-text-secondary text-xs font-normal leading-normal">Weighbridge Management</p>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:text-white hover:bg-surface-active transition-colors group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:text-white hover:bg-surface-active transition-colors group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">balance</span>
+<span class="text-sm font-medium">Weighbridge</span>
+</a>
+<!-- Active State -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface-active text-white shadow-sm ring-1 ring-white/5" href="#">
+<span class="material-symbols-outlined text-2xl fill-1">videocam</span>
+<span class="text-sm font-medium">Cameras</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:text-white hover:bg-surface-active transition-colors group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">description</span>
+<span class="text-sm font-medium">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:text-white hover:bg-surface-active transition-colors group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+</div>
+<div class="px-3 py-4 border-t border-border-dark">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-active flex items-center justify-center text-primary font-bold text-xs border border-white/10">JD</div>
+<div class="flex flex-col">
+<p class="text-white text-xs font-medium">John Doe</p>
+<p class="text-text-secondary text-[10px]">Admin Access</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col relative h-full overflow-hidden">
+<!-- Header Section -->
+<header class="flex-shrink-0 px-8 pt-6 pb-2">
+<!-- Breadcrumbs -->
+<div class="flex flex-wrap gap-2 items-center mb-4 text-sm">
+<a class="text-text-secondary hover:text-white transition-colors" href="#">Home</a>
+<span class="text-text-secondary">/</span>
+<a class="text-text-secondary hover:text-white transition-colors" href="#">Settings</a>
+<span class="text-text-secondary">/</span>
+<span class="text-white font-medium">Camera 01</span>
+</div>
+<!-- Page Heading -->
+<div class="flex flex-wrap justify-between items-end gap-4 pb-4 border-b border-border-dark">
+<div class="flex flex-col gap-1">
+<h2 class="text-white text-3xl font-bold leading-tight tracking-tight">Camera Detection Configuration</h2>
+<p class="text-text-secondary text-sm font-normal">Configure license plate detection zone for Camera 01 (North Gate)</p>
+</div>
+<div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-active border border-white/5">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse shadow-glow"></div>
+<span class="text-xs font-medium text-white uppercase tracking-wider">Live Feed</span>
+</div>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto px-8 py-6">
+<div class="flex flex-col lg:flex-row gap-6 h-full min-h-[600px]">
+<!-- Left Column: Camera Feed (Flexible width) -->
+<div class="flex-[2] flex flex-col gap-4 min-w-0">
+<!-- Camera Viewport Card -->
+<div class="relative w-full bg-black rounded-xl overflow-hidden border border-border-dark shadow-2xl group flex-1 min-h-[400px]">
+<!-- Background Image (Simulated Feed) -->
+<div class="absolute inset-0 w-full h-full bg-cover bg-center opacity-80" data-alt="CCTV view of a truck entering a weighbridge facility" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAXxOqrBdtrRtHFKJFA8JG2nGKLiVbMWD04P_8GJBGPQz9b2PcXKwqQ8s-nMyzuq6pKMEQ9ue4jmOO1PVkPS-yoMtRk8lzR5Fpibc9S5wbge3_VgQDzpEQsoGLbTkFMeGDugWxR-FyP2bS9aU6alUIP0BR8C6W3LPF1yPamvHT7JOfy_Hazwtnw08qesF0ADTxtpfWchF9Ss3EEazkEu900XkZX5MKiJKV2o2-KPXIPxmvih74d3ZLvQ-uiQD_1qUYTeQJ12_s5DE8');">
+</div>
+<!-- Grid Overlay for Alignment Help -->
+<div class="absolute inset-0 w-full h-full pointer-events-none opacity-10" style="background-image: linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px); background-size: 40px 40px;">
+</div>
+<!-- Dark Overlay Vignette -->
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none"></div>
+<!-- Crop Box Overlay -->
+<div class="absolute top-[25%] left-[30%] w-[40%] h-[30%] border-2 border-primary bg-primary/10 cursor-move shadow-glow z-10 group/crop">
+<!-- Drag Handles -->
+<div class="crop-handle -top-1.5 -left-1.5 cursor-nw-resize"></div>
+<div class="crop-handle -top-1.5 -right-1.5 cursor-ne-resize"></div>
+<div class="crop-handle -bottom-1.5 -left-1.5 cursor-sw-resize"></div>
+<div class="crop-handle -bottom-1.5 -right-1.5 cursor-se-resize"></div>
+<!-- Center Crosshair -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary opacity-50 pointer-events-none">
+<span class="material-symbols-outlined text-4xl">add</span>
+</div>
+<!-- Dimensions Label -->
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs px-2 py-1 rounded border border-white/10 whitespace-nowrap opacity-0 group-hover/crop:opacity-100 transition-opacity">
+                                640 x 360 px
+                            </div>
+</div>
+<!-- Floating Controls -->
+<div class="absolute top-4 right-4 flex gap-2">
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-white text-xs hover:bg-black/80 border border-white/10 transition-colors">
+<span class="material-symbols-outlined text-sm">restart_alt</span>
+                                Reset Crop
+                            </button>
+</div>
+<div class="absolute bottom-4 left-4">
+<span class="text-[10px] font-mono text-primary/80 bg-black/60 px-2 py-1 rounded border border-primary/20">CAM_01_FEED_RAW</span>
+</div>
+</div>
+<!-- Instructions -->
+<div class="bg-surface-dark border border-border-dark rounded-lg p-4 flex gap-3 items-start">
+<div class="bg-primary/10 p-2 rounded-full text-primary shrink-0">
+<span class="material-symbols-outlined text-xl">info</span>
+</div>
+<div>
+<p class="text-white text-sm font-medium mb-1">Detection Zone Adjustment</p>
+<p class="text-text-secondary text-sm leading-relaxed">
+                                Drag the green box handles to define the precise detection zone for the license plate. 
+                                Ensure the zone covers the area where vehicles stop completely. Avoid including areas with heavy pedestrian traffic.
+                            </p>
+</div>
+</div>
+</div>
+<!-- Right Column: Settings Panel (Fixed width approx 350-400px) -->
+<div class="w-full lg:w-96 flex-shrink-0 flex flex-col gap-6">
+<!-- Device Info Card -->
+<div class="bg-surface-dark rounded-xl border border-border-dark overflow-hidden">
+<div class="px-5 py-3 border-b border-border-dark bg-white/5 flex justify-between items-center">
+<h3 class="text-white font-medium text-sm">Device Information</h3>
+<span class="material-symbols-outlined text-text-secondary text-sm">router</span>
+</div>
+<div class="p-5 flex flex-col gap-4">
+<div class="grid grid-cols-2 gap-4">
+<div class="flex flex-col gap-1">
+<span class="text-text-secondary text-xs uppercase font-bold tracking-wider">Device Name</span>
+<span class="text-white text-sm font-medium font-mono">Cam-01-North</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-text-secondary text-xs uppercase font-bold tracking-wider">IP Address</span>
+<span class="text-white text-sm font-medium font-mono">192.168.1.55</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-text-secondary text-xs uppercase font-bold tracking-wider">Connection Status</span>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="text-primary text-sm font-medium">Online (12ms latency)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Crop Coordinates Card -->
+<div class="bg-surface-dark rounded-xl border border-border-dark overflow-hidden">
+<div class="px-5 py-3 border-b border-border-dark bg-white/5 flex justify-between items-center">
+<h3 class="text-white font-medium text-sm">Zone Coordinates</h3>
+<span class="material-symbols-outlined text-text-secondary text-sm">crop_free</span>
+</div>
+<div class="p-5">
+<div class="grid grid-cols-2 gap-4">
+<!-- X Axis -->
+<div class="space-y-1.5">
+<label class="text-xs text-text-secondary font-medium ml-1">Position X (px)</label>
+<div class="relative">
+<input class="w-full bg-[#111811] border border-border-dark rounded-lg px-3 py-2 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all font-mono" type="number" value="480"/>
+</div>
+</div>
+<!-- Y Axis -->
+<div class="space-y-1.5">
+<label class="text-xs text-text-secondary font-medium ml-1">Position Y (px)</label>
+<div class="relative">
+<input class="w-full bg-[#111811] border border-border-dark rounded-lg px-3 py-2 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all font-mono" type="number" value="270"/>
+</div>
+</div>
+<!-- Width -->
+<div class="space-y-1.5">
+<label class="text-xs text-text-secondary font-medium ml-1">Width (px)</label>
+<div class="relative">
+<input class="w-full bg-[#111811] border border-border-dark rounded-lg px-3 py-2 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all font-mono" type="number" value="640"/>
+</div>
+</div>
+<!-- Height -->
+<div class="space-y-1.5">
+<label class="text-xs text-text-secondary font-medium ml-1">Height (px)</label>
+<div class="relative">
+<input class="w-full bg-[#111811] border border-border-dark rounded-lg px-3 py-2 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all font-mono" type="number" value="360"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Stream Settings Card -->
+<div class="bg-surface-dark rounded-xl border border-border-dark overflow-hidden flex-1">
+<div class="px-5 py-3 border-b border-border-dark bg-white/5 flex justify-between items-center">
+<h3 class="text-white font-medium text-sm">Stream Settings</h3>
+<span class="material-symbols-outlined text-text-secondary text-sm">tune</span>
+</div>
+<div class="p-5 flex flex-col gap-5">
+<div class="space-y-2">
+<label class="text-xs text-text-secondary font-medium ml-1">Resolution</label>
+<div class="relative">
+<select class="w-full bg-[#111811] border border-border-dark rounded-lg px-3 py-2.5 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none appearance-none cursor-pointer">
+<option>1920 x 1080 (1080p)</option>
+<option>1280 x 720 (720p)</option>
+<option>854 x 480 (480p)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none text-lg">expand_more</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-xs text-text-secondary font-medium ml-1">Frame Rate (FPS)</label>
+<div class="relative">
+<select class="w-full bg-[#111811] border border-border-dark rounded-lg px-3 py-2.5 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none appearance-none cursor-pointer">
+<option>60 FPS</option>
+<option selected="">30 FPS</option>
+<option>24 FPS</option>
+<option>15 FPS</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none text-lg">expand_more</span>
+</div>
+<p class="text-xs text-text-secondary mt-1 ml-1">Higher FPS requires more bandwidth.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Sticky Action Bar -->
+<div class="flex-shrink-0 bg-surface-dark border-t border-border-dark p-4 px-8 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.3)]">
+<div class="flex justify-between items-center max-w-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-text-secondary">check_circle</span>
+<span class="text-text-secondary text-sm">Last saved: Today at 10:42 AM</span>
+</div>
+<div class="flex gap-4">
+<button class="flex items-center gap-2 px-6 py-2.5 rounded-lg border border-primary/30 hover:border-primary text-primary hover:bg-primary/5 transition-all font-medium text-sm group">
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">bug_report</span>
+                        Test Detection
+                    </button>
+<button class="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary hover:bg-[#15d10f] text-black font-bold text-sm shadow-[0_0_15px_rgba(26,236,19,0.3)] hover:shadow-[0_0_20px_rgba(26,236,19,0.5)] transition-all">
+<span class="material-symbols-outlined text-lg">save</span>
+                        Save Configuration
+                    </button>
+</div>
+</div>
+</div>
+</main>
+</body></html>

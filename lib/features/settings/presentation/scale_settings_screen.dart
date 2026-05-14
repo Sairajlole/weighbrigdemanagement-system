@@ -293,7 +293,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Weighbridge / Scale', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-              Text('Serial connection, capture rules & operational settings', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+              Text('Scale and indicator setup', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
             ],
           ),
           const Spacer(),
@@ -301,7 +301,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           FilledButton.icon(
             onPressed: _dirty && !_saving ? _save : null,
             icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
-            label: const Text('Save Configuration'),
+            label: Text(_saving ? 'Saving...' : 'Save'),
             style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
           ),
         ],

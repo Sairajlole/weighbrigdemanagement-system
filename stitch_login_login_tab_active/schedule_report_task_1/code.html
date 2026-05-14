@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Schedule Report Modal</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Noto+Sans:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508D4E",
+                        "primary-hover": "#3e6f3c",
+                        "text-main": "#131613",
+                        "text-secondary": "#6f7c6e",
+                        "border-color": "#E5E7EB",
+                    },
+                    fontFamily: {
+                        "manrope": ["Manrope", "sans-serif"],
+                        "noto": ["Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "card": "16px",
+                        "btn": "8px"
+                    }
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        .form-radio {
+            @apply w-5 h-5 text-primary border-gray-300 focus:ring-primary focus:ring-offset-0;
+        }
+        .input-base {
+            @apply w-full rounded-btn border border-border-color bg-white px-4 py-3 text-base text-text-main placeholder:text-gray-400 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-shadow font-noto;
+        }
+        .label-base {
+            @apply block text-[16px] font-normal text-text-main font-noto mb-2;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 font-noto text-text-main antialiased selection:bg-primary selection:text-white">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+<div class="relative w-full max-w-[560px] flex flex-col rounded-card bg-white shadow-2xl">
+<div class="flex items-center justify-between px-8 py-6 pb-4">
+<h2 class="text-[24px] font-semibold leading-tight text-text-main font-manrope">Schedule Report</h2>
+<button class="text-text-secondary hover:text-text-main transition-colors rounded-full p-1 hover:bg-gray-100">
+<span class="material-symbols-outlined text-[24px]">close</span>
+</button>
+</div>
+<div class="flex-1 overflow-y-auto px-8 py-4">
+<div class="flex flex-col gap-4"> 
+<div>
+<label class="label-base">Report</label>
+<div class="flex items-center w-full rounded-btn border border-gray-200 bg-gray-50 px-4 py-3 text-gray-500 cursor-not-allowed">
+<span class="text-base font-noto">Daily Weighbridge Summary</span>
+<span class="material-symbols-outlined ml-auto text-[20px] text-gray-400">lock</span>
+</div>
+</div>
+<div>
+<label class="label-base">Frequency</label>
+<div class="flex items-center gap-6 mt-1">
+<label class="inline-flex items-center cursor-pointer group">
+<input checked="" class="form-radio" name="frequency" type="radio" value="daily"/>
+<span class="ml-2 text-base text-text-main group-hover:text-primary transition-colors">Daily</span>
+</label>
+<label class="inline-flex items-center cursor-pointer group">
+<input class="form-radio" name="frequency" type="radio" value="weekly"/>
+<span class="ml-2 text-base text-text-main group-hover:text-primary transition-colors">Weekly</span>
+</label>
+<label class="inline-flex items-center cursor-pointer group">
+<input class="form-radio" name="frequency" type="radio" value="monthly"/>
+<span class="ml-2 text-base text-text-main group-hover:text-primary transition-colors">Monthly</span>
+</label>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="flex-1">
+<label class="label-base">Start Date</label>
+<div class="relative flex items-center">
+<input class="input-base pr-10" type="text" value="Oct 24, 2023"/>
+<span class="material-symbols-outlined absolute right-3 text-gray-400 pointer-events-none text-[20px]">calendar_today</span>
+</div>
+</div>
+<div class="flex-1">
+<label class="label-base">Time</label>
+<div class="relative flex items-center">
+<input class="input-base pr-10" type="text" value="08:00 AM"/>
+<span class="material-symbols-outlined absolute right-3 text-gray-400 pointer-events-none text-[20px]">schedule</span>
+</div>
+</div>
+</div>
+<div>
+<label class="label-base">Recipients</label>
+<div class="flex flex-wrap items-center gap-2 w-full rounded-btn border border-border-color bg-white p-2 min-h-[50px] focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-shadow">
+<div class="flex items-center gap-1.5 rounded-full bg-gray-100 pl-3 pr-1 py-1 text-sm font-medium text-text-main">
+<span>admin@weighbridge.sys</span>
+<button class="flex items-center justify-center rounded-full p-0.5 hover:bg-gray-200 text-gray-500 hover:text-red-500 transition-colors">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+<div class="flex items-center gap-1.5 rounded-full bg-gray-100 pl-3 pr-1 py-1 text-sm font-medium text-text-main">
+<span>manager@site-logistics.com</span>
+<button class="flex items-center justify-center rounded-full p-0.5 hover:bg-gray-200 text-gray-500 hover:text-red-500 transition-colors">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+<input class="flex-1 min-w-[120px] border-none bg-transparent p-1.5 text-base text-text-main placeholder:text-gray-400 focus:ring-0 font-noto" placeholder="Type email..." type="text"/>
+</div>
+</div>
+<div>
+<label class="label-base">Export Format</label>
+<div class="relative">
+<select class="input-base appearance-none pr-10 cursor-pointer">
+<option>PDF Document (.pdf)</option>
+<option>Excel Spreadsheet (.xlsx)</option>
+<option>Both PDF &amp; Excel</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[24px]">expand_more</span>
+</div>
+</div>
+<div>
+<label class="label-base">Message <span class="text-gray-400 text-sm ml-1 font-normal">(Optional)</span></label>
+<textarea class="input-base resize-none min-h-[100px]" placeholder="Add a note to include in the email body..."></textarea>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-end gap-6 px-8 py-8 pt-6">
+<a class="text-text-secondary hover:text-text-main font-noto font-medium text-base transition-colors underline-offset-4 hover:underline" href="#">
+                    Cancel
+                </a>
+<button class="h-[48px] px-8 rounded-btn bg-primary hover:bg-primary-hover text-white font-manrope font-semibold text-base shadow-sm hover:shadow transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">calendar_month</span>
+                    Schedule Report
+                </button>
+</div>
+</div>
+</div>
+
+</body></html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Weighbridge Scale Settings</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        .form-input {
+            appearance: none;
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1.5em 1.5em;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#111811] dark:text-white min-h-screen">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#dce6db] dark:border-[#2a3a2a] px-10 py-3 bg-white dark:bg-[#1a2e19]">
+<div class="flex items-center gap-4">
+<div class="flex items-center justify-center p-2 rounded-lg bg-[#f0f4f0] dark:bg-[#253a25] cursor-pointer">
+<span class="material-symbols-outlined text-[#111811] dark:text-white">arrow_back</span>
+</div>
+<div class="flex flex-col">
+<h2 class="text-[#111811] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Weighbridge Management System</h2>
+<p class="text-xs text-[#638961] dark:text-[#a3b8a1]">v6.13.0 - Configuration Mode</p>
+</div>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<div class="flex items-center gap-9">
+<a class="text-[#111811] dark:text-white text-sm font-medium leading-normal hover:text-primary" href="#">Dashboard</a>
+<a class="text-[#111811] dark:text-white text-sm font-medium leading-normal hover:text-primary" href="#">Reports</a>
+<a class="text-[#111811] dark:text-white text-sm font-medium leading-normal hover:text-primary" href="#">Inventory</a>
+</div>
+<div class="flex gap-2">
+<button class="flex min-w-[120px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-primary text-[#111811] text-sm font-bold leading-normal tracking-[0.015em] transition-colors hover:bg-opacity-90">
+<span>Save Changes</span>
+</button>
+</div>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border border-primary/20" data-alt="User profile avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAbedEyEBioXY3eszdipqQ84PeBedHARNTOGUt1YQE0_sJAZT7pe3cyOqBl_C2syDkVnzj3ndWbpkJUi6NF5DgwC4UzGBBBrKOZuS2JLfGOoRsOVFSFmlY3GiTr_GRKs0laA6nWHSIAgEW36HJ3jnqYhCquM3Mx70P8ylYZE8chf4_U_51B2W2sgTGW_EUeV_b7QZacDVUqyzk_g5L_7bebvSqeuAxSPNYTHNsSBXPEpDbfzJZ34g4Tp3s4cT0V7mhxMLJuFvXUFW4");'></div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex flex-1 justify-center py-8">
+<div class="layout-content-container flex flex-col max-w-[1200px] flex-1 px-10">
+<!-- Page Heading -->
+<div class="flex flex-wrap justify-between gap-3 mb-6">
+<div class="flex min-w-72 flex-col gap-1">
+<p class="text-[#111811] dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">Weighbridge Scale Settings</p>
+<p class="text-[#638961] dark:text-[#a3b8a1] text-base font-normal leading-normal">Configure hardware units, capture rules, and real-time scale connectivity.</p>
+</div>
+</div>
+<!-- Settings Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Section 1: Units Card -->
+<div class="bg-white dark:bg-[#1a2e19] rounded-xl border border-[#dce6db] dark:border-[#2a3a2a] p-6 shadow-sm">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary">straighten</span>
+<h3 class="text-xl font-bold">Units &amp; Precision</h3>
+</div>
+<div class="space-y-4">
+<label class="flex flex-col gap-2">
+<span class="text-sm font-bold text-[#111811] dark:text-white">Primary Unit</span>
+<select class="form-input w-full rounded-lg border-[#dce6db] dark:border-[#2a3a2a] bg-background-light dark:bg-[#112210] p-3 text-sm">
+<option>Kilograms (kg)</option>
+<option>Pounds (lb)</option>
+<option>Metric Tons (t)</option>
+</select>
+</label>
+<label class="flex flex-col gap-2">
+<span class="text-sm font-bold text-[#111811] dark:text-white">Secondary Unit</span>
+<select class="form-input w-full rounded-lg border-[#dce6db] dark:border-[#2a3a2a] bg-background-light dark:bg-[#112210] p-3 text-sm">
+<option>Metric Tons (t)</option>
+<option>Kilograms (kg)</option>
+<option>None</option>
+</select>
+</label>
+<div class="grid grid-cols-2 gap-4">
+<label class="flex flex-col gap-2">
+<span class="text-sm font-bold text-[#111811] dark:text-white">Decimals</span>
+<input class="w-full rounded-lg border-[#dce6db] dark:border-[#2a3a2a] bg-background-light dark:bg-[#112210] p-3 text-sm" type="number" value="2"/>
+</label>
+<label class="flex flex-col gap-2">
+<span class="text-sm font-bold text-[#111811] dark:text-white">Separator</span>
+<select class="form-input w-full rounded-lg border-[#dce6db] dark:border-[#2a3a2a] bg-background-light dark:bg-[#112210] p-3 text-sm">
+<option>Comma (,)</option>
+<option>Dot (.)</option>
+</select>
+</label>
+</div>
+</div>
+</div>
+<!-- Section 2: Weight Capture Card -->
+<div class="bg-white dark:bg-[#1a2e19] rounded-xl border border-[#dce6db] dark:border-[#2a3a2a] p-6 shadow-sm">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary">sensors</span>
+<h3 class="text-xl font-bold">Weight Capture</h3>
+</div>
+<div class="space-y-4">
+<div class="grid grid-cols-2 gap-4">
+<label class="flex flex-col gap-2">
+<span class="text-sm font-bold text-[#111811] dark:text-white">Min Weight (kg)</span>
+<input class="w-full rounded-lg border-[#dce6db] dark:border-[#2a3a2a] bg-background-light dark:bg-[#112210] p-3 text-sm" placeholder="20" type="number"/>
+</label>
+<label class="flex flex-col gap-2">
+<span class="text-sm font-bold text-[#111811] dark:text-white">Max Weight (kg)</span>
+<input class="w-full rounded-lg border-[#dce6db] dark:border-[#2a3a2a] bg-background-light dark:bg-[#112210] p-3 text-sm" placeholder="60000" type="number"/>
+</label>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<label class="flex flex-col gap-2">
+<span class="text-sm font-bold text-[#111811] dark:text-white">Stability Wait (ms)</span>
+<input class="w-full rounded-lg border-[#dce6db] dark:border-[#2a3a2a] bg-background-light dark:bg-[#112210] p-3 text-sm" type="number" value="500"/>
+</label>
+<label class="flex flex-col gap-2">
+<span class="text-sm font-bold text-[#111811] dark:text-white">Stability Tolerance</span>
+<input class="w-full rounded-lg border-[#dce6db] dark:border-[#2a3a2a] bg-background-light dark:bg-[#112210] p-3 text-sm" type="number" value="5"/>
+</label>
+</div>
+<div class="flex items-center justify-between pt-2">
+<div class="flex flex-col">
+<span class="text-sm font-bold">Auto-capture</span>
+<span class="text-xs text-[#638961] dark:text-[#a3b8a1]">Capture weight automatically when stable</span>
+</div>
+<div class="relative inline-block w-12 h-6 rounded-full bg-primary/30">
+<div class="absolute left-6 top-1 bg-primary w-4 h-4 rounded-full transition-all"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 3: Rules Card -->
+<div class="bg-white dark:bg-[#1a2e19] rounded-xl border border-[#dce6db] dark:border-[#2a3a2a] p-6 shadow-sm">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary">gavel</span>
+<h3 class="text-xl font-bold">Operational Rules</h3>
+</div>
+<div class="space-y-5">
+<div class="flex items-center justify-between">
+<span class="text-sm font-bold">Same-day Tare Requirement</span>
+<div class="relative inline-block w-12 h-6 rounded-full bg-primary/30">
+<div class="absolute left-6 top-1 bg-primary w-4 h-4 rounded-full transition-all"></div>
+</div>
+</div>
+<label class="flex flex-col gap-2">
+<span class="text-sm font-bold text-[#111811] dark:text-white">Tare Validity (Hours)</span>
+<input class="w-full rounded-lg border-[#dce6db] dark:border-[#2a3a2a] bg-background-light dark:bg-[#112210] p-3 text-sm" type="number" value="24"/>
+</label>
+<div class="flex items-center justify-between border-t border-[#dce6db] dark:border-[#2a3a2a] pt-4">
+<span class="text-sm font-bold">Allow Manual Weight Entry</span>
+<div class="relative inline-block w-12 h-6 rounded-full bg-[#dce6db] dark:bg-[#2a3a2a]">
+<div class="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-all"></div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-sm font-bold">Admin Override for Min/Max</span>
+<div class="relative inline-block w-12 h-6 rounded-full bg-primary/30">
+<div class="absolute left-6 top-1 bg-primary w-4 h-4 rounded-full transition-all"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 4: Scale Connection Card -->
+<div class="bg-white dark:bg-[#1a2e19] rounded-xl border border-[#dce6db] dark:border-[#2a3a2a] p-6 shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">settings_ethernet</span>
+<h3 class="text-xl font-bold">Scale Connection</h3>
+</div>
+<div class="flex items-center gap-2 bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
+<div class="size-2 bg-primary rounded-full animate-pulse"></div>
+<span class="text-xs font-bold text-[#111811] dark:text-white">Connected</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-4">
+<label class="flex flex-col gap-2">
+<span class="text-sm font-bold text-[#111811] dark:text-white">COM Port</span>
+<select class="form-input w-full rounded-lg border-[#dce6db] dark:border-[#2a3a2a] bg-background-light dark:bg-[#112210] p-3 text-sm">
+<option>COM1 (Active)</option>
+<option>COM2</option>
+<option>USB-Serial-0</option>
+</select>
+</label>
+<label class="flex flex-col gap-2">
+<span class="text-sm font-bold text-[#111811] dark:text-white">Baud Rate</span>
+<select class="form-input w-full rounded-lg border-[#dce6db] dark:border-[#2a3a2a] bg-background-light dark:bg-[#112210] p-3 text-sm">
+<option>9600</option>
+<option>19200</option>
+<option>115200</option>
+</select>
+</label>
+</div>
+<div class="space-y-4 mb-6">
+<label class="flex flex-col gap-2">
+<span class="text-sm font-bold text-[#111811] dark:text-white">Protocol</span>
+<select class="form-input w-full rounded-lg border-[#dce6db] dark:border-[#2a3a2a] bg-background-light dark:bg-[#112210] p-3 text-sm">
+<option>Continuous (ASCII)</option>
+<option>Polled (Request/Response)</option>
+<option>MT SICS</option>
+</select>
+</label>
+</div>
+</div>
+<div class="flex flex-col gap-3">
+<button class="w-full flex items-center justify-center gap-2 py-3 bg-[#f0f4f0] dark:bg-[#253a25] hover:bg-primary/20 rounded-lg font-bold text-sm transition-colors border border-[#dce6db] dark:border-[#2a3a2a]">
+<span class="material-symbols-outlined text-sm">vibration</span>
+                                Test Connection
+                            </button>
+<a class="text-center text-primary text-sm font-bold hover:underline" href="#">
+                                Go to Advanced Calibration
+                            </a>
+</div>
+</div>
+</div>
+<!-- Live Stream Mockup -->
+<div class="mt-8 bg-black dark:bg-[#0a120a] rounded-xl p-4 flex items-center justify-between border-4 border-[#1a2e19]">
+<div class="flex items-center gap-4">
+<div class="p-2 bg-[#222] rounded-lg">
+<span class="material-symbols-outlined text-primary text-3xl">digital_out_of_home</span>
+</div>
+<div>
+<p class="text-xs text-primary/70 uppercase font-black tracking-widest">Live Indicator</p>
+<p class="text-3xl font-mono text-primary leading-none">002450.00 <span class="text-lg">KG</span></p>
+</div>
+</div>
+<div class="text-right flex flex-col items-end gap-1">
+<div class="flex gap-2">
+<span class="px-2 py-1 bg-primary text-[#111811] text-[10px] font-bold rounded uppercase">Stable</span>
+<span class="px-2 py-1 bg-[#222] text-white text-[10px] font-bold rounded uppercase">Zeroed</span>
+</div>
+<p class="text-[#638961] text-xs font-mono">Buffer: ST,GS,+  2450.00 kg</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Help -->
+<footer class="px-10 py-6 border-t border-[#dce6db] dark:border-[#2a3a2a] flex justify-between items-center text-[#638961] dark:text-[#a3b8a1]">
+<p class="text-sm">Need help? <a class="text-primary font-bold hover:underline" href="#">Contact System Administrator</a></p>
+<p class="text-xs">System Uptime: 14d 05h 22m | Device Status: Optimal</p>
+</footer>
+</div>
+</body></html>

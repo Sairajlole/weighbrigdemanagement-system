@@ -8,6 +8,9 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:uuid/uuid.dart';
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/print_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 
 // ─── Flow State ──────────────────────────────────────────────────────────────
 
@@ -225,7 +228,7 @@ class WeighmentNotifier extends StateNotifier<WeighmentState> {
         data['currentStep'] = 'saveWeighment';
       }
 
-      await db.collection('weighments').add(data);
+      final docRef = await db.collection('weighments').add(data);
 
       state = state.copyWith(
         phase: WeighmentPhase.complete,
@@ -233,9 +236,33 @@ class WeighmentNotifier extends StateNotifier<WeighmentState> {
         grossWeight: state.isTare ? state.grossWeight : state.liveWeight,
         tareWeight: state.isTare ? state.liveWeight : null,
       );
+
+      // Auto-print
+      _autoPrint(docRef.id, state.isTare);
     } catch (e) {
       state = state.copyWith(phase: WeighmentPhase.dataEntry, error: e.toString());
     }
+  }
+
+  Future<void> _autoPrint(String weighmentId, bool isTare) async {
+    try {
+      final printService = _ref.read(printServiceProvider);
+      final shouldAuto = await printService.shouldAutoPrint();
+      if (!shouldAuto) return;
+
+      if (isTare) {
+        final shouldPrint = await printService.shouldPrintOnTare();
+        if (!shouldPrint) return;
+      } else {
+        final shouldPrint = await printService.shouldPrintOnGross();
+        if (!shouldPrint) return;
+      }
+
+      final result = await printService.printWeighment(weighmentId: weighmentId);
+      if (result.success) {
+        await printService.logPrint(weighmentId);
+      }
+    } catch (_) {}
   }
 
   void reset() {
@@ -324,7 +351,7 @@ class _ServiceStatusBar extends ConsumerWidget {
               )),
           const Spacer(),
           Text(
-            DateFormat('HH:mm:ss').format(DateTime.now()),
+            getTimeFormatter(ref.watch(timeFormatProvider)).format(DateTime.now()),
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w500,
@@ -816,14 +843,14 @@ class _PhaseStep extends StatelessWidget {
 
 // ─── Camera Feed ─────────────────────────────────────────────────────────────
 
-class _CameraFeed extends StatelessWidget {
+class _CameraFeed extends ConsumerWidget {
   final String label;
   final int index;
 
   const _CameraFeed({required this.label, required this.index});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
 
     return Container(
@@ -882,7 +909,7 @@ class _CameraFeed extends StatelessWidget {
             right: 8,
             bottom: 8,
             child: Text(
-              DateFormat('HH:mm:ss').format(DateTime.now()),
+              getTimeFormatter(ref.watch(timeFormatProvider)).format(DateTime.now()),
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 9,
@@ -1532,7 +1559,13 @@ class _CompletionStateState extends ConsumerState<_CompletionState>
                 width: double.infinity,
                 height: 46,
                 child: FilledButton.icon(
-                  onPressed: () {},
+                  onPressed: () {
+                    ref.read(auditServiceProvider).log(
+                      event: 'reprint',
+                      description: 'RST receipt printed for RST-${ws.rstNumber}',
+                      metadata: {'rstNumber': ws.rstNumber, 'vehicleNumber': ws.vehicleNumber},
+                    );
+                  },
                   icon: const Icon(Icons.print_rounded, size: 18),
                   label: const Text('Print RST Receipt'),
                   style: FilledButton.styleFrom(

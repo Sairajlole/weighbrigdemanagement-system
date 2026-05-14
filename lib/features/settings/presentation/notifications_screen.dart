@@ -333,7 +333,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   style: text.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700)),
               Text(
-                'Configure notification channels and event alerts',
+                'Alerts and event triggers',
                 style:
                     text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
@@ -363,7 +363,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         strokeWidth: 2, color: Colors.white),
                   )
                 : const Icon(Icons.save_rounded, size: 16),
-            label: const Text('Save All'),
+            label: Text(_saving ? 'Saving...' : 'Save'),
             style: FilledButton.styleFrom(
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

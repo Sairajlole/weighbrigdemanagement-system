@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gate Control Automation - Weighbridge System</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen text-[#0e1b0d] dark:text-white">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#d0e7cf] dark:border-white/10 px-10 py-3 bg-white dark:bg-[#1a2e19]">
+<div class="flex items-center gap-4 text-[#0e1b0d] dark:text-white">
+<div class="text-primary size-8 flex items-center justify-center">
+<span class="material-symbols-outlined text-3xl">precision_manufacturing</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">Weighbridge Management System</h2>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<nav class="flex items-center gap-9">
+<a class="text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Weighment</a>
+<a class="text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Reports</a>
+<a class="text-sm font-medium leading-normal text-primary" href="#">Settings</a>
+</nav>
+<button class="flex min-w-[120px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-primary text-[#0e1b0d] text-sm font-bold leading-normal tracking-[0.015em]">
+<span class="truncate">Save Changes</span>
+</button>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border border-primary/20" data-alt="User profile avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCYbYC8BIqKwimiPh30hf3OBp9mN4JfotyDMYUe8NHZI9kc5L-RjiPqMh1NTWqwYLEygF67gAGJuWBRQc2vefZzapRnmqxZ68vTXbpGcYm7z65w6IBbCK70QKPgDw9YD20IUSGUHb5RzLQS_lwiH4BOBMjukiEklPUZddB3WaG7mBmvPrFbicT_PkFVOmAdhRL3Y4ya5_tUq86rfXXKPYdsfnpaipqnL5ME18lLNFqKkcVwip58ku1s2b3V9nUek803Un15cLhgmxI");'></div>
+</div>
+</header>
+<main class="max-w-[1200px] mx-auto py-8 px-6">
+<!-- Page Heading -->
+<div class="flex flex-wrap justify-between items-end gap-3 mb-8">
+<div class="flex min-w-72 flex-col gap-1">
+<h1 class="text-[#0e1b0d] dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">Gate Control Automation</h1>
+<p class="text-[#4e9a4c] dark:text-primary/70 text-base font-normal leading-normal">Configure hardware integration for entry and exit barrier systems.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 min-w-[84px] cursor-pointer justify-center rounded-lg h-10 px-4 bg-white dark:bg-white/5 border border-[#d0e7cf] dark:border-white/10 text-[#0e1b0d] dark:text-white text-sm font-bold">
+<span class="material-symbols-outlined text-sm">refresh</span>
+<span>Reset Defaults</span>
+</button>
+<button class="flex items-center gap-2 min-w-[84px] cursor-pointer justify-center rounded-lg h-10 px-4 bg-[#e7f3e7] dark:bg-white/10 text-[#0e1b0d] dark:text-white text-sm font-bold">
+<span class="material-symbols-outlined text-sm">network_check</span>
+<span>Test All Connections</span>
+</button>
+</div>
+</div>
+<!-- Master Toggle -->
+<div class="mb-8">
+<div class="flex flex-1 flex-col items-start justify-between gap-4 rounded-xl border border-[#d0e7cf] dark:border-white/10 bg-white dark:bg-white/5 p-6 md:flex-row md:items-center">
+<div class="flex items-center gap-4">
+<div class="p-3 bg-primary/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">settings_input_component</span>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-[#0e1b0d] dark:text-white text-lg font-bold leading-tight">Master Gate Control System</p>
+<p class="text-[#4e9a4c] dark:text-primary/70 text-sm font-normal leading-normal">Enable or disable the entire automation logic for both entry and exit gates.</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-sm font-bold text-primary">SYSTEM ACTIVE</span>
+<label class="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full border-none bg-primary p-0.5 justify-end">
+<div class="h-full w-[27px] rounded-full bg-white shadow-md"></div>
+<input checked="" class="invisible absolute" type="checkbox"/>
+</label>
+</div>
+</div>
+</div>
+<h2 class="text-[#0e1b0d] dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em] mb-4">Gate Configuration</h2>
+<!-- Gate Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+<!-- Entry Gate Card -->
+<div class="flex flex-col gap-4 p-6 bg-white dark:bg-white/5 rounded-xl border border-[#d0e7cf] dark:border-white/10">
+<div class="flex justify-between items-start">
+<div class="flex gap-4">
+<div class="w-16 h-16 bg-center bg-no-repeat bg-cover rounded-lg border border-[#d0e7cf] dark:border-white/10" data-alt="Entry gate hardware icon" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA7pSiKC8beCgZ5SE9_zjMzBfAteCU6_UWLQJg-b22UgBWYbiMpI6xmvooZ3eRvtT4LwyB4JziPHWZEb9zvoUrXi0MdJ6HTbqQ6fJcWBk1UPpYusEmnggQQSECKihOc-dC5N0Rnbc8V-WdKEmE5dy2LDG3GBNDqVLvcaPLj6eXxrWBAHM6k3nguvz22EDzGBxuCvx17207x-6CCDUprdoqjLYFUg5J8oOF5y23NkApCzhRdiX_Yhn8Bv_SyJ6bCET1-iCchKSAgrdA");'></div>
+<div>
+<p class="text-[#0e1b0d] dark:text-white text-lg font-bold">Entry Gate Lane 01</p>
+<div class="flex items-center gap-2 mt-1">
+<span class="size-2 rounded-full bg-primary animate-pulse"></span>
+<span class="text-xs font-medium text-primary">CONNECTED</span>
+</div>
+</div>
+</div>
+<button class="p-2 hover:bg-background-light dark:hover:bg-white/5 rounded-lg text-gray-500">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-4 mt-2">
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-bold text-[#4e9a4c] uppercase tracking-wider">Connection Type</label>
+<select class="bg-background-light dark:bg-background-dark border-[#d0e7cf] dark:border-white/10 rounded-lg text-sm p-2 focus:ring-primary">
+<option>TCP/IP (Ethernet)</option>
+<option>RS485 Serial</option>
+<option>RS232 Serial</option>
+</select>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-bold text-[#4e9a4c] uppercase tracking-wider">IP Address / Port</label>
+<input class="bg-background-light dark:bg-background-dark border-[#d0e7cf] dark:border-white/10 rounded-lg text-sm p-2 focus:ring-primary" type="text" value="192.168.1.105:5000"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-bold text-[#4e9a4c] uppercase tracking-wider">Relay Output Pin</label>
+<input class="bg-background-light dark:bg-background-dark border-[#d0e7cf] dark:border-white/10 rounded-lg text-sm p-2 focus:ring-primary" type="number" value="4"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-bold text-[#4e9a4c] uppercase tracking-wider">Hold Duration (s)</label>
+<input class="bg-background-light dark:bg-background-dark border-[#d0e7cf] dark:border-white/10 rounded-lg text-sm p-2 focus:ring-primary" type="number" value="15"/>
+</div>
+</div>
+<div class="pt-4 mt-2 border-t border-[#d0e7cf] dark:border-white/10">
+<p class="text-xs font-bold text-[#4e9a4c] mb-3 uppercase tracking-wider">Triggers</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-primary/20 text-[#0e1b0d] dark:text-white text-xs font-medium rounded-full border border-primary/30">RFID Scan</span>
+<span class="px-3 py-1 bg-primary/20 text-[#0e1b0d] dark:text-white text-xs font-medium rounded-full border border-primary/30">ANPR Recognition</span>
+<button class="px-2 py-1 border border-dashed border-primary/50 text-primary text-xs rounded-full">+ Add</button>
+</div>
+</div>
+<button class="mt-4 w-full h-10 border border-primary text-primary hover:bg-primary/10 font-bold rounded-lg transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">play_circle</span>
+                    Test Open Cycle
+                </button>
+</div>
+<!-- Exit Gate Card -->
+<div class="flex flex-col gap-4 p-6 bg-white dark:bg-white/5 rounded-xl border border-[#d0e7cf] dark:border-white/10">
+<div class="flex justify-between items-start">
+<div class="flex gap-4">
+<div class="w-16 h-16 bg-center bg-no-repeat bg-cover rounded-lg border border-[#d0e7cf] dark:border-white/10 opacity-70" data-alt="Exit gate hardware icon" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDg_U9VsNPDHBonJGTBC8oufzKJX-35e9-YyRTiKAdky7CqXDT2wk5HwwQI1-lhdtJtlNtpIodgO9ODKZfBtnDE1MVvFKGV6EJmhycSrjmXOO_L5eNSKTzvd21bm6p1kIPLASyKYbg7Yu_rk4ddR9sm7z_sIJ2lyZzL2xv-Q8eAHk-SBzMxUd8k2sBxgkBhnxTBuFqiK6gXCDC3AUph2ScgIEgHh_Zd3x_8_-4VZkHg0QjrCoWGwMVoz3nMSvzm_juNm8dgMeTq1m8");'></div>
+<div>
+<p class="text-[#0e1b0d] dark:text-white text-lg font-bold">Exit Gate Lane 02</p>
+<div class="flex items-center gap-2 mt-1">
+<span class="size-2 rounded-full bg-red-500"></span>
+<span class="text-xs font-medium text-red-500">OFFLINE</span>
+</div>
+</div>
+</div>
+<button class="p-2 hover:bg-background-light dark:hover:bg-white/5 rounded-lg text-gray-500">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-4 mt-2">
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-bold text-[#4e9a4c] uppercase tracking-wider">Connection Type</label>
+<select class="bg-background-light dark:bg-background-dark border-[#d0e7cf] dark:border-white/10 rounded-lg text-sm p-2 focus:ring-primary">
+<option>RS485 Serial</option>
+<option>TCP/IP (Ethernet)</option>
+<option>RS232 Serial</option>
+</select>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-bold text-[#4e9a4c] uppercase tracking-wider">COM Port</label>
+<input class="bg-background-light dark:bg-background-dark border-[#d0e7cf] dark:border-white/10 rounded-lg text-sm p-2 focus:ring-primary" type="text" value="COM3"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-bold text-[#4e9a4c] uppercase tracking-wider">Baud Rate</label>
+<select class="bg-background-light dark:bg-background-dark border-[#d0e7cf] dark:border-white/10 rounded-lg text-sm p-2 focus:ring-primary">
+<option>9600</option>
+<option>19200</option>
+<option>115200</option>
+</select>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-bold text-[#4e9a4c] uppercase tracking-wider">Auto-close delay</label>
+<input class="bg-background-light dark:bg-background-dark border-[#d0e7cf] dark:border-white/10 rounded-lg text-sm p-2 focus:ring-primary" type="number" value="10"/>
+</div>
+</div>
+<div class="pt-4 mt-2 border-t border-[#d0e7cf] dark:border-white/10">
+<p class="text-xs font-bold text-[#4e9a4c] mb-3 uppercase tracking-wider">Triggers</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-primary/20 text-[#0e1b0d] dark:text-white text-xs font-medium rounded-full border border-primary/30">Weight Completion</span>
+<span class="px-3 py-1 bg-primary/20 text-[#0e1b0d] dark:text-white text-xs font-medium rounded-full border border-primary/30">Manual Override</span>
+</div>
+</div>
+<button class="mt-4 w-full h-10 bg-red-50 dark:bg-red-900/10 text-red-500 border border-red-200 dark:border-red-900/30 font-bold rounded-lg transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">warning</span>
+                    Reconnect Hardware
+                </button>
+</div>
+</div>
+<h2 class="text-[#0e1b0d] dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em] mb-4">Safety &amp; Alarms</h2>
+<!-- Safety Settings -->
+<div class="rounded-xl border border-[#d0e7cf] dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
+<div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary">sensors</span>
+<p class="font-bold">Infrared Sensors</p>
+</div>
+<div class="flex flex-col gap-3">
+<label class="flex items-center justify-between">
+<span class="text-sm text-[#4e9a4c]">Beam Obstruction Check</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#4e9a4c]">Debounce Time (ms)</span>
+<input class="bg-background-light dark:bg-background-dark border-[#d0e7cf] dark:border-white/10 rounded p-1.5 text-sm" type="number" value="250"/>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary">campaign</span>
+<p class="font-bold">Audio/Visual Alarms</p>
+</div>
+<div class="flex flex-col gap-3">
+<label class="flex items-center justify-between">
+<span class="text-sm text-[#4e9a4c]">Buzzer on Error</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#4e9a4c]">Buzzer Pattern</span>
+<select class="bg-background-light dark:bg-background-dark border-[#d0e7cf] dark:border-white/10 rounded p-1.5 text-sm">
+<option>Continuous</option>
+<option>Staccato</option>
+<option>Slow Pulse</option>
+</select>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary">lock_reset</span>
+<p class="font-bold">Fail-Safe Protocols</p>
+</div>
+<div class="flex flex-col gap-3">
+<label class="flex items-center justify-between">
+<span class="text-sm text-[#4e9a4c]">Open on Power Loss</span>
+<input class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between">
+<span class="text-sm text-[#4e9a4c]">Auto-Lock on Tamper</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+</div>
+</div>
+</div>
+<div class="bg-background-light dark:bg-white/5 p-4 border-t border-[#d0e7cf] dark:border-white/10 flex justify-between items-center">
+<p class="text-sm text-[#4e9a4c] flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">info</span>
+                    Safety settings are applied globally to all active gates.
+                </p>
+<button class="text-primary text-sm font-bold hover:underline">View Hardware Manual</button>
+</div>
+</div>
+</main>
+<!-- Floating Quick Actions -->
+<div class="fixed bottom-8 right-8 flex flex-col gap-3">
+<button class="size-14 bg-primary text-[#0e1b0d] rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform" title="Manual Emergency Open">
+<span class="material-symbols-outlined text-3xl font-bold">release_alert</span>
+</button>
+</div>
+</body></html>

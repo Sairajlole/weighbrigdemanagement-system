@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sign Up - Company Account</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-hover": "#3f6f3d",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "accent-bg": "#D6EFD8", // Specific request
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for cleaner look if needed */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
+    </style>
+</head>
+<body class="font-display bg-accent-bg min-h-screen flex items-center justify-center py-10 px-4">
+<!-- Auth Card Container -->
+<div class="bg-white rounded-lg shadow-xl w-full max-w-[520px] overflow-hidden flex flex-col relative">
+<!-- Header / Tabs -->
+<div class="flex border-b border-gray-200">
+<a class="flex-1 text-center py-4 text-gray-500 hover:text-gray-700 font-bold text-sm tracking-wide transition-colors" href="#">
+                Login
+            </a>
+<div class="flex-1 text-center py-4 text-primary font-bold text-sm tracking-wide border-b-[3px] border-primary bg-primary/5">
+                Sign Up
+            </div>
+</div>
+<!-- Content Area -->
+<div class="p-8 sm:p-10 flex flex-col gap-6">
+<!-- Headline Group -->
+<div class="text-center space-y-2">
+<h1 class="text-3xl font-bold text-gray-900 tracking-tight">Create Company Account</h1>
+<p class="text-gray-500 text-sm">Manage your weighbridge operations efficiently.</p>
+</div>
+<!-- Account Type Toggle -->
+<div class="grid grid-cols-2 gap-4">
+<label class="cursor-pointer group relative">
+<input class="peer sr-only" name="account_type" type="radio"/>
+<div class="flex items-center justify-center gap-2 p-3 rounded-lg border border-gray-200 peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all hover:border-primary/50 text-gray-600">
+<span class="material-symbols-outlined text-[20px]">person</span>
+<span class="text-sm font-semibold">Personal</span>
+</div>
+</label>
+<label class="cursor-pointer group relative">
+<input checked="" class="peer sr-only" name="account_type" type="radio"/>
+<div class="flex items-center justify-center gap-2 p-3 rounded-lg border border-gray-200 peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all hover:border-primary/50 text-gray-600 shadow-sm ring-1 ring-transparent peer-checked:ring-primary">
+<span class="material-symbols-outlined text-[20px]">domain</span>
+<span class="text-sm font-semibold">Company</span>
+</div>
+</label>
+</div>
+<!-- Form Fields -->
+<form action="#" class="flex flex-col gap-5" onsubmit="event.preventDefault();">
+<!-- Company Name -->
+<div class="space-y-1.5">
+<label class="text-sm font-semibold text-gray-700 block" for="company">Company Name</label>
+<input class="w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-primary focus:ring-primary placeholder:text-gray-400 h-11 text-base shadow-sm transition-all" id="company" placeholder="e.g., Acme Logistics" type="text"/>
+</div>
+<!-- Email -->
+<div class="space-y-1.5">
+<label class="text-sm font-semibold text-gray-700 block" for="email">Email Address</label>
+<input class="w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-primary focus:ring-primary placeholder:text-gray-400 h-11 text-base shadow-sm transition-all" id="email" placeholder="company@example.com" type="email"/>
+</div>
+<!-- Phone Number -->
+<div class="space-y-1.5">
+<label class="text-sm font-semibold text-gray-700 block" for="phone">Phone Number</label>
+<input class="w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-primary focus:ring-primary placeholder:text-gray-400 h-11 text-base shadow-sm transition-all" id="phone" placeholder="+1 (555) 000-0000" type="tel"/>
+<p class="text-xs text-gray-500 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">info</span>
+                        Used for SMS verification
+                    </p>
+</div>
+<!-- Password Row -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+<div class="space-y-1.5 relative">
+<label class="text-sm font-semibold text-gray-700 block" for="password">Password</label>
+<div class="relative">
+<input class="w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-primary focus:ring-primary placeholder:text-gray-400 h-11 text-base shadow-sm transition-all pr-10" id="password" placeholder="••••••••••••" type="password"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility_off</span>
+</button>
+</div>
+</div>
+<div class="space-y-1.5">
+<label class="text-sm font-semibold text-gray-700 block" for="confirm_password">Confirm Password</label>
+<input class="w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-primary focus:ring-primary placeholder:text-gray-400 h-11 text-base shadow-sm transition-all" id="confirm_password" placeholder="••••••••••••" type="password"/>
+</div>
+</div>
+<!-- Terms -->
+<div class="flex items-start gap-3 mt-2">
+<div class="flex h-6 items-center">
+<input class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" id="terms" type="checkbox"/>
+</div>
+<div class="text-sm leading-6">
+<label class="font-medium text-gray-600" for="terms">I agree to the <a class="font-semibold text-primary hover:text-primary-hover hover:underline" href="#">Terms of Service</a> and <a class="font-semibold text-primary hover:text-primary-hover hover:underline" href="#">Privacy Policy</a>.</label>
+</div>
+</div>
+<!-- Submit Button -->
+<button class="mt-2 w-full flex items-center justify-center rounded-lg bg-primary px-4 py-3 text-base font-bold text-white shadow hover:bg-primary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors" type="submit">
+                    Create Account
+                </button>
+</form>
+<!-- Footer -->
+<div class="text-center pt-2">
+<p class="text-sm text-gray-500">
+                    Already have an account? 
+                    <a class="font-bold text-primary hover:text-primary-hover hover:underline" href="#">Log in</a>
+</p>
+</div>
+</div>
+</div>
+</body></html>

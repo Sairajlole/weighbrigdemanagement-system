@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Second Weighment - Vehicle Search</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#508d4e",
+            "background-light": "#f6f7f6",
+            "background-dark": "#161c16",
+            "card-light": "#ffffff",
+            "card-dark": "#1e261e",
+          },
+          fontFamily: {
+            "display": ["Manrope", "Noto Sans", "sans-serif"]
+          },
+          borderRadius: {"DEFAULT": "0.5rem", "lg": "0.75rem", "xl": "1rem", "full": "9999px"},
+        },
+      },
+    }
+  </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#121712] dark:text-[#f0f2f0] font-display overflow-hidden">
+<div class="flex h-screen w-full">
+<!-- SideNavBar -->
+<aside class="w-72 flex-shrink-0 border-r border-[#ebefeb] dark:border-[#2a342a] bg-card-light dark:bg-card-dark flex flex-col justify-between p-4 hidden lg:flex">
+<div class="flex flex-col gap-8">
+<!-- Logo Section -->
+<div class="flex gap-3 items-center px-2">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-lg size-10 shadow-sm" data-alt="Abstract green geometric logo" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDYt1NudQYbPG8cPt3aT8EgUgJBxsLQd91Wh1GrSFMUSD2NnNSSn6DxN5cGOFQKYrP4zOYOWmwQnfYETMs1UbAuemPNBS2OBhOFaiUQWGYEYLQngJ4_qe6RCfI_lprkoaEs7lFjfGRE7XQsw7_kBNkET63IXlI4D6zI5_TZKWwIPQZ0003MbUokmSMiJQ8AHccdAM1zBoU3aQgqCHPjl5Pnaz0t-g1Yd7bUwBmKmZBiy-fQxbCeHdbiUOa0btaGzXceXl01AXoQAf4");'></div>
+<div class="flex flex-col">
+<h1 class="text-[#121712] dark:text-white text-base font-bold leading-normal">Weighbridge Sys</h1>
+<p class="text-[#668165] dark:text-[#8ea88d] text-xs font-medium leading-normal">Operator Panel</p>
+</div>
+</div>
+<!-- Navigation -->
+<div class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#ebefeb] dark:hover:bg-[#2a342a] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#668165] group-hover:text-primary" data-icon="dashboard">grid_view</span>
+<p class="text-[#668165] group-hover:text-[#121712] dark:group-hover:text-white text-sm font-medium">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#ebefeb] dark:hover:bg-[#2a342a] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#668165] group-hover:text-primary" data-icon="local_shipping">local_shipping</span>
+<p class="text-[#668165] group-hover:text-[#121712] dark:group-hover:text-white text-sm font-medium">First Weighment</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg bg-primary/10 border border-primary/20" href="#">
+<span class="material-symbols-outlined text-primary fill-current" data-icon="scale">scale</span>
+<p class="text-primary text-sm font-bold">Second Weighment</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#ebefeb] dark:hover:bg-[#2a342a] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#668165] group-hover:text-primary" data-icon="description">description</span>
+<p class="text-[#668165] group-hover:text-[#121712] dark:group-hover:text-white text-sm font-medium">Reports</p>
+</a>
+</div>
+</div>
+<!-- Bottom Actions -->
+<div class="flex flex-col gap-2 border-t border-[#ebefeb] dark:border-[#2a342a] pt-4">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#ebefeb] dark:hover:bg-[#2a342a] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#668165] group-hover:text-primary">settings</span>
+<p class="text-[#668165] group-hover:text-[#121712] dark:group-hover:text-white text-sm font-medium">Settings</p>
+</a>
+<div class="flex items-center gap-3 px-3 py-2">
+<div class="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">JD</div>
+<div class="flex flex-col">
+<p class="text-sm font-bold text-[#121712] dark:text-white">John Doe</p>
+<p class="text-xs text-[#668165]">Operator ID: 4920</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col h-full overflow-hidden bg-background-light dark:bg-background-dark relative">
+<!-- TopNavBar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#ebefeb] dark:border-[#2a342a] bg-card-light dark:bg-card-dark px-8 py-4 sticky top-0 z-10">
+<div class="flex items-center gap-4 text-[#121712] dark:text-white">
+<button class="lg:hidden p-2 text-[#668165]">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="flex flex-col">
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">Second Weighment</h2>
+<p class="text-xs text-[#668165] font-medium hidden sm:block">Tare Weighment Processing</p>
+</div>
+</div>
+<div class="flex flex-1 justify-end gap-6 items-center">
+<div class="hidden md:flex bg-[#ebefeb] dark:bg-[#2a342a] px-3 py-2 rounded-lg items-center gap-2">
+<span class="material-symbols-outlined text-[#668165] text-[20px]">calendar_today</span>
+<span class="text-sm font-medium text-[#121712] dark:text-white">Oct 24, 2023</span>
+</div>
+<div class="flex gap-3">
+<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-full hover:bg-[#ebefeb] dark:hover:bg-[#2a342a] text-[#668165] transition-colors relative">
+<span class="material-symbols-outlined text-[24px]">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white dark:border-[#1e261e]"></span>
+</button>
+<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-full hover:bg-[#ebefeb] dark:hover:bg-[#2a342a] text-[#668165] transition-colors">
+<span class="material-symbols-outlined text-[24px]">help</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Scrollable Content Area -->
+<div class="flex-1 overflow-y-auto p-4 md:p-8 lg:px-12 lg:py-8">
+<div class="max-w-[1200px] mx-auto flex flex-col gap-8">
+<!-- Hero Search Section -->
+<section class="flex flex-col items-center justify-center py-10 md:py-16 text-center">
+<div class="flex flex-col gap-3 mb-8 max-w-[600px]">
+<h1 class="text-[#121712] dark:text-white text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
+                        Search Vehicle
+                    </h1>
+<p class="text-[#668165] dark:text-[#8ea88d] text-base md:text-lg font-normal">
+                        Locate a vehicle by its license plate or RST number to begin the second weighment process.
+                    </p>
+</div>
+<div class="w-full max-w-[560px] relative group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-[#668165]">search</span>
+</div>
+<input class="w-full h-14 md:h-16 pl-12 pr-32 rounded-xl border border-[#ebefeb] dark:border-[#2a342a] bg-white dark:bg-[#1e261e] text-[#121712] dark:text-white placeholder-[#8a9989] focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary shadow-sm text-base md:text-lg transition-all" placeholder="Enter vehicle number or RST number..." type="text"/>
+<div class="absolute inset-y-0 right-2 flex items-center">
+<button class="h-10 md:h-12 px-6 bg-primary hover:bg-primary/90 text-white rounded-lg font-bold text-sm md:text-base shadow-md transition-colors flex items-center gap-2">
+                            Search
+                        </button>
+</div>
+</div>
+</section>
+<!-- Pending Weighments Section -->
+<section class="flex flex-col gap-6">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#ebefeb] dark:border-[#2a342a] pb-4">
+<div class="flex items-center gap-3">
+<h3 class="text-[#121712] dark:text-white text-xl font-bold">Active Pending Weighments</h3>
+<span class="bg-[#ebefeb] dark:bg-[#2a342a] text-[#668165] dark:text-[#8ea88d] text-xs font-bold px-2 py-1 rounded-full">12</span>
+</div>
+<!-- Filter Tabs -->
+<div class="flex p-1 bg-[#ebefeb] dark:bg-[#2a342a] rounded-lg self-start sm:self-auto">
+<button class="px-4 py-1.5 rounded-md bg-white dark:bg-[#1e261e] text-[#121712] dark:text-white shadow-sm text-sm font-bold">All Pending</button>
+<button class="px-4 py-1.5 rounded-md text-[#668165] hover:text-[#121712] dark:hover:text-white transition-colors text-sm font-medium">In Yard</button>
+<button class="px-4 py-1.5 rounded-md text-[#668165] hover:text-[#121712] dark:hover:text-white transition-colors text-sm font-medium">On Platform</button>
+</div>
+</div>
+<!-- Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+<!-- Card 1 -->
+<div class="bg-card-light dark:bg-card-dark rounded-xl p-5 shadow-sm border border-[#ebefeb] dark:border-[#2a342a] hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-md transition-all group cursor-pointer">
+<div class="flex justify-between items-start mb-4">
+<div class="flex flex-col">
+<span class="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded w-fit mb-1">RST #88291</span>
+<h4 class="text-lg font-extrabold text-[#121712] dark:text-white group-hover:text-primary transition-colors">KA-01-AB-1234</h4>
+</div>
+<div class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 p-2 rounded-lg">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-y-4 gap-x-2 mb-6">
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#668165] font-medium">Time In</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white">10:45 AM</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#668165] font-medium">Material</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white">Coal</span>
+</div>
+<div class="flex flex-col gap-1 col-span-2">
+<span class="text-xs text-[#668165] font-medium">Supplier</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white truncate">National Mining Corp.</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-[#ebefeb] dark:border-[#2a342a]">
+<div class="flex flex-col">
+<span class="text-xs text-[#668165] font-medium">Gross Weight</span>
+<span class="text-base font-black text-[#121712] dark:text-white">24,500 <span class="text-xs font-normal text-[#668165]">kg</span></span>
+</div>
+<button class="bg-[#ebefeb] dark:bg-[#2a342a] group-hover:bg-primary text-[#121712] dark:text-white group-hover:text-white p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-card-light dark:bg-card-dark rounded-xl p-5 shadow-sm border border-[#ebefeb] dark:border-[#2a342a] hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-md transition-all group cursor-pointer">
+<div class="flex justify-between items-start mb-4">
+<div class="flex flex-col">
+<span class="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded w-fit mb-1">RST #88295</span>
+<h4 class="text-lg font-extrabold text-[#121712] dark:text-white group-hover:text-primary transition-colors">MH-12-PQ-9988</h4>
+</div>
+<div class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 p-2 rounded-lg">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-y-4 gap-x-2 mb-6">
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#668165] font-medium">Time In</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white">11:15 AM</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#668165] font-medium">Material</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white">Limestone</span>
+</div>
+<div class="flex flex-col gap-1 col-span-2">
+<span class="text-xs text-[#668165] font-medium">Supplier</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white truncate">Valley Aggregates Ltd</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-[#ebefeb] dark:border-[#2a342a]">
+<div class="flex flex-col">
+<span class="text-xs text-[#668165] font-medium">Gross Weight</span>
+<span class="text-base font-black text-[#121712] dark:text-white">18,240 <span class="text-xs font-normal text-[#668165]">kg</span></span>
+</div>
+<button class="bg-[#ebefeb] dark:bg-[#2a342a] group-hover:bg-primary text-[#121712] dark:text-white group-hover:text-white p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-card-light dark:bg-card-dark rounded-xl p-5 shadow-sm border border-[#ebefeb] dark:border-[#2a342a] hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-md transition-all group cursor-pointer">
+<div class="flex justify-between items-start mb-4">
+<div class="flex flex-col">
+<span class="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded w-fit mb-1">RST #88301</span>
+<h4 class="text-lg font-extrabold text-[#121712] dark:text-white group-hover:text-primary transition-colors">TN-45-XY-4455</h4>
+</div>
+<div class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 p-2 rounded-lg">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-y-4 gap-x-2 mb-6">
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#668165] font-medium">Time In</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white">11:42 AM</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#668165] font-medium">Material</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white">Sand</span>
+</div>
+<div class="flex flex-col gap-1 col-span-2">
+<span class="text-xs text-[#668165] font-medium">Supplier</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white truncate">Riverbed Excavations</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-[#ebefeb] dark:border-[#2a342a]">
+<div class="flex flex-col">
+<span class="text-xs text-[#668165] font-medium">Gross Weight</span>
+<span class="text-base font-black text-[#121712] dark:text-white">32,100 <span class="text-xs font-normal text-[#668165]">kg</span></span>
+</div>
+<button class="bg-[#ebefeb] dark:bg-[#2a342a] group-hover:bg-primary text-[#121712] dark:text-white group-hover:text-white p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-card-light dark:bg-card-dark rounded-xl p-5 shadow-sm border border-[#ebefeb] dark:border-[#2a342a] hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-md transition-all group cursor-pointer">
+<div class="flex justify-between items-start mb-4">
+<div class="flex flex-col">
+<span class="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded w-fit mb-1">RST #88310</span>
+<h4 class="text-lg font-extrabold text-[#121712] dark:text-white group-hover:text-primary transition-colors">DL-02-CB-1928</h4>
+</div>
+<div class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 p-2 rounded-lg">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-y-4 gap-x-2 mb-6">
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#668165] font-medium">Time In</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white">12:05 PM</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#668165] font-medium">Material</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white">Iron Ore</span>
+</div>
+<div class="flex flex-col gap-1 col-span-2">
+<span class="text-xs text-[#668165] font-medium">Supplier</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white truncate">Global Metals Inc</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-[#ebefeb] dark:border-[#2a342a]">
+<div class="flex flex-col">
+<span class="text-xs text-[#668165] font-medium">Gross Weight</span>
+<span class="text-base font-black text-[#121712] dark:text-white">45,600 <span class="text-xs font-normal text-[#668165]">kg</span></span>
+</div>
+<button class="bg-[#ebefeb] dark:bg-[#2a342a] group-hover:bg-primary text-[#121712] dark:text-white group-hover:text-white p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Card 5 -->
+<div class="bg-card-light dark:bg-card-dark rounded-xl p-5 shadow-sm border border-[#ebefeb] dark:border-[#2a342a] hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-md transition-all group cursor-pointer opacity-80 hover:opacity-100">
+<div class="flex justify-between items-start mb-4">
+<div class="flex flex-col">
+<span class="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded w-fit mb-1">RST #88312</span>
+<h4 class="text-lg font-extrabold text-[#121712] dark:text-white group-hover:text-primary transition-colors">WB-33-JK-5678</h4>
+</div>
+<div class="bg-[#ebefeb] dark:bg-[#2a342a] text-[#668165] p-2 rounded-lg">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-y-4 gap-x-2 mb-6">
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#668165] font-medium">Time In</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white">12:30 PM</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#668165] font-medium">Material</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white">Gravel</span>
+</div>
+<div class="flex flex-col gap-1 col-span-2">
+<span class="text-xs text-[#668165] font-medium">Supplier</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white truncate">City Builders Co.</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-[#ebefeb] dark:border-[#2a342a]">
+<div class="flex flex-col">
+<span class="text-xs text-[#668165] font-medium">Gross Weight</span>
+<span class="text-base font-black text-[#121712] dark:text-white">15,800 <span class="text-xs font-normal text-[#668165]">kg</span></span>
+</div>
+<button class="bg-[#ebefeb] dark:bg-[#2a342a] group-hover:bg-primary text-[#121712] dark:text-white group-hover:text-white p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Card 6 - Different State (e.g. On Platform) -->
+<div class="bg-card-light dark:bg-card-dark rounded-xl p-5 shadow-sm border-2 border-primary/20 dark:border-primary/20 hover:border-primary hover:shadow-md transition-all group cursor-pointer relative overflow-hidden">
+<div class="absolute top-0 right-0 bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg z-10">ON PLATFORM</div>
+<div class="flex justify-between items-start mb-4">
+<div class="flex flex-col">
+<span class="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded w-fit mb-1">RST #88315</span>
+<h4 class="text-lg font-extrabold text-[#121712] dark:text-white group-hover:text-primary transition-colors">RJ-27-GH-3490</h4>
+</div>
+<div class="bg-primary/10 text-primary p-2 rounded-lg">
+<span class="material-symbols-outlined text-[20px]">scale</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-y-4 gap-x-2 mb-6">
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#668165] font-medium">Time In</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white">1:10 PM</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs text-[#668165] font-medium">Material</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white">Bauxite</span>
+</div>
+<div class="flex flex-col gap-1 col-span-2">
+<span class="text-xs text-[#668165] font-medium">Supplier</span>
+<span class="text-sm font-semibold text-[#121712] dark:text-white truncate">Alumina Supplies Ltd.</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-[#ebefeb] dark:border-[#2a342a]">
+<div class="flex flex-col">
+<span class="text-xs text-[#668165] font-medium">Gross Weight</span>
+<span class="text-base font-black text-[#121712] dark:text-white">28,950 <span class="text-xs font-normal text-[#668165]">kg</span></span>
+</div>
+<button class="bg-primary text-white p-2 rounded-lg transition-colors shadow-lg shadow-primary/30">
+<span class="material-symbols-outlined">play_arrow</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Printer &amp; RST Layout Settings - Weighbridge Management System</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 px-10 py-3 bg-white dark:bg-zinc-900">
+<div class="flex items-center gap-4 text-[#0e1b0d] dark:text-white">
+<div class="size-6 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-3xl">scale</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">Weighbridge MS</h2>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<div class="flex items-center gap-9">
+<a class="text-slate-600 dark:text-slate-300 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-slate-600 dark:text-slate-300 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Transactions</a>
+<a class="text-slate-600 dark:text-slate-300 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Inventory</a>
+<a class="text-primary text-sm font-bold leading-normal border-b-2 border-primary" href="#">Settings</a>
+</div>
+<div class="flex gap-2">
+<button class="flex min-w-[100px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-primary text-zinc-900 text-sm font-bold leading-normal hover:bg-opacity-90 transition-all">
+<span class="truncate">Save Changes</span>
+</button>
+<button class="flex min-w-[100px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white text-sm font-bold leading-normal hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
+<span class="truncate">Test Print All</span>
+</button>
+</div>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border border-slate-200 dark:border-slate-700" data-alt="User profile avatar placeholder" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBZghUOJ0I9SsFuXDhhnepup_cAmATzcvnQtXX2APt-MKKlLXGwbD_3WSmEwdOGxuKB7oKRBOVQCyDn_isnCjZewyNmeuG_SfeYRvbo-P7sz7N77ZMzXnoRJvLN4tlQo6lpiQtmtDbA5OcgFCE3MnqezfbmhqPVwXaXkKWEsvFbfO3fFbE5csppP1Vk3Xw6g0TC0Qr-gsUL9IlrCl8tGsIYl_HL-lzKg1C-ncXbJWZWbbF4pQN4UFDuamsN1ydTn24Tid3iUuEGXrM");'></div>
+</div>
+</header>
+<main class="flex-1 flex justify-center py-8">
+<div class="max-w-[1200px] w-full px-6 flex flex-col gap-6">
+<!-- Breadcrumbs -->
+<div class="flex items-center gap-2 text-sm">
+<a class="text-primary font-medium flex items-center gap-1" href="#">
+<span class="material-symbols-outlined text-sm">settings</span> Settings
+                    </a>
+<span class="text-slate-400">/</span>
+<span class="text-slate-500 dark:text-slate-400">Printer &amp; RST Layout</span>
+</div>
+<!-- Page Heading -->
+<div class="flex flex-col gap-2">
+<h1 class="text-4xl font-black leading-tight tracking-[-0.033em] text-slate-900 dark:text-white">Printer &amp; RST Layout Settings</h1>
+<p class="text-slate-500 dark:text-slate-400 text-base max-w-2xl">Manage hardware connectivity, receipt/sticker templates, automated print rules, and security protocols for weight transaction records.</p>
+</div>
+<div class="grid grid-cols-12 gap-6 mt-4">
+<!-- Left Column: Settings Configuration -->
+<div class="col-span-12 lg:col-span-8 flex flex-col gap-6">
+<!-- Printer Connectivity Section -->
+<section class="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">print</span>
+                                    Printer Connectivity &amp; Status
+                                </h2>
+<button class="text-primary text-sm font-semibold hover:underline">Scan for Hardware</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="flex items-center gap-4 p-4 rounded-lg border border-primary/30 bg-primary/5">
+<div class="w-16 h-16 bg-white dark:bg-zinc-800 rounded-lg flex items-center justify-center border border-slate-100 dark:border-zinc-700">
+<span class="material-symbols-outlined text-3xl text-slate-400">print_connect</span>
+</div>
+<div class="flex-1">
+<p class="text-slate-900 dark:text-white font-bold text-base">Default Ticket Printer</p>
+<p class="text-primary text-xs font-semibold uppercase flex items-center gap-1 mt-1">
+<span class="size-2 bg-primary rounded-full"></span> Online (USB-001)
+                                        </p>
+<div class="mt-2 flex gap-3">
+<button class="text-xs font-medium text-slate-500 hover:text-primary">Configure</button>
+<button class="text-xs font-medium text-slate-500 hover:text-primary">Test</button>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4 p-4 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50">
+<div class="w-16 h-16 bg-white dark:bg-zinc-800 rounded-lg flex items-center justify-center border border-slate-100 dark:border-zinc-700">
+<span class="material-symbols-outlined text-3xl text-slate-400">label</span>
+</div>
+<div class="flex-1">
+<p class="text-slate-900 dark:text-white font-bold text-base">Sticker Printer</p>
+<p class="text-slate-400 text-xs font-semibold uppercase flex items-center gap-1 mt-1">
+<span class="size-2 bg-slate-300 rounded-full"></span> Offline (Ethernet-192.1)
+                                        </p>
+<div class="mt-2 flex gap-3">
+<button class="text-xs font-medium text-slate-500 hover:text-primary">Reconnect</button>
+<button class="text-xs font-medium text-slate-500 hover:text-primary">Settings</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Auto-Print & Automation -->
+<section class="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm">
+<h2 class="text-xl font-bold flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary">auto_mode</span>
+                                Automation &amp; Logic
+                            </h2>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-lg">
+<div>
+<p class="font-semibold text-slate-900 dark:text-white text-base">Auto-print on RST Completion</p>
+<p class="text-sm text-slate-500">Automatically print the final weight ticket when a transaction is saved.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center justify-between p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-lg">
+<div>
+<p class="font-semibold text-slate-900 dark:text-white text-base">Multi-Copy Printing</p>
+<p class="text-sm text-slate-500">Print 2 copies by default (1 for driver, 1 for records).</p>
+</div>
+<select class="rounded-lg border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm">
+<option>1 Copy</option>
+<option selected="">2 Copies</option>
+<option>3 Copies</option>
+</select>
+</div>
+</div>
+</section>
+<!-- Sticker & Barcode Layout -->
+<section class="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm">
+<h2 class="text-xl font-bold flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary">qr_code_2</span>
+                                Sticker &amp; Barcode Configuration
+                            </h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-semibold mb-1">Barcode Standard</label>
+<select class="w-full rounded-lg border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
+<option>Code 128 (Standard)</option>
+<option>QR Code (Enhanced)</option>
+<option>DataMatrix</option>
+</select>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-semibold mb-1">Sticker Width (mm)</label>
+<input class="w-full rounded-lg border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800" type="number" value="100"/>
+</div>
+<div>
+<label class="block text-sm font-semibold mb-1">Sticker Height (mm)</label>
+<input class="w-full rounded-lg border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800" type="number" value="50"/>
+</div>
+</div>
+</div>
+<div class="flex flex-col justify-center items-center bg-slate-50 dark:bg-zinc-800 rounded-xl p-4 border border-dashed border-slate-300 dark:border-zinc-700">
+<p class="text-xs text-slate-400 uppercase font-bold mb-3">Live Sticker Reference</p>
+<div class="w-48 h-24 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded shadow-sm p-2 flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<div class="size-4 bg-primary/20"></div>
+<p class="text-[8px] text-zinc-400">STK-2024-001</p>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-32 h-8 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-lg">barcode</span>
+</div>
+<p class="text-[6px] mt-1">WB-9912039401-X</p>
+</div>
+<p class="text-[8px] text-right font-bold">24,500 KG</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: Queue & Security -->
+<div class="col-span-12 lg:col-span-4 flex flex-col gap-6">
+<!-- Print Queue Manager -->
+<div class="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-bold text-lg">Print Queue</h3>
+<span class="bg-primary/20 text-primary text-xs px-2 py-1 rounded-full font-bold">3 Pending</span>
+</div>
+<div class="space-y-3">
+<div class="flex items-center gap-3 p-3 bg-slate-50 dark:bg-zinc-800 rounded-lg">
+<span class="material-symbols-outlined text-slate-400">description</span>
+<div class="flex-1 overflow-hidden">
+<p class="text-xs font-bold truncate">TICKET_WB_102.pdf</p>
+<div class="w-full bg-slate-200 dark:bg-zinc-700 h-1 rounded-full mt-1">
+<div class="bg-primary h-1 w-2/3 rounded-full"></div>
+</div>
+</div>
+<button class="material-symbols-outlined text-sm text-slate-400 hover:text-red-500">cancel</button>
+</div>
+<div class="flex items-center gap-3 p-3 bg-slate-50 dark:bg-zinc-800 rounded-lg">
+<span class="material-symbols-outlined text-slate-400">label</span>
+<div class="flex-1 overflow-hidden">
+<p class="text-xs font-bold truncate">STICKER_002.zpl</p>
+<p class="text-[10px] text-slate-400">Waiting for printer...</p>
+</div>
+<button class="material-symbols-outlined text-sm text-slate-400 hover:text-red-500">cancel</button>
+</div>
+</div>
+<button class="w-full mt-4 py-2 border border-slate-200 dark:border-zinc-700 rounded-lg text-sm font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+                                Purge All Queues
+                            </button>
+</div>
+<!-- Security & Reprint Rules -->
+<div class="bg-zinc-900 text-white p-6 rounded-xl shadow-lg">
+<h3 class="font-bold text-lg flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary">security</span>
+                                Security &amp; Compliance
+                            </h3>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-zinc-400 uppercase mb-2">Reprint Authorization</label>
+<div class="flex items-center justify-between">
+<span class="text-sm">Require Manager PIN</span>
+<label class="relative inline-flex items-center cursor-pointer scale-90">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+<div class="pt-4 border-t border-zinc-800">
+<label class="block text-xs font-bold text-zinc-400 uppercase mb-2">Reprint Watermark</label>
+<input class="w-full bg-zinc-800 border-zinc-700 rounded-lg text-sm text-primary font-bold focus:ring-primary focus:border-primary" type="text" value="DUPLICATE COPY"/>
+<p class="text-[10px] text-zinc-500 mt-2">This text will be printed across any reprinted ticket.</p>
+</div>
+</div>
+</div>
+<!-- Help / Support Card -->
+<div class="bg-primary/10 border border-primary/20 p-5 rounded-xl">
+<p class="text-slate-900 dark:text-white font-bold text-sm mb-2">Need Hardware Help?</p>
+<p class="text-xs text-slate-600 dark:text-slate-400 mb-4">Visit our knowledge base for drivers and ESC/POS integration guides.</p>
+<a class="inline-flex items-center gap-1 text-primary text-xs font-bold hover:underline" href="#">
+                                Troubleshooting Guide
+                                <span class="material-symbols-outlined text-sm">open_in_new</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Footer for Save Status -->
+<footer class="fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 px-10 py-4 flex justify-between items-center z-50">
+<div class="flex items-center gap-2 text-slate-400 text-sm">
+<span class="material-symbols-outlined text-primary text-base">check_circle</span>
+            Last configuration sync: 2 mins ago
+        </div>
+<div class="flex gap-4">
+<button class="px-6 py-2 rounded-lg text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800">Discard Changes</button>
+<button class="px-8 py-2 bg-primary text-zinc-900 rounded-lg text-sm font-bold shadow-md hover:shadow-lg transition-all">Publish Layouts</button>
+</div>
+</footer>
+</body></html>

@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Security &amp; Access Configuration - Weighbridge Management System</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1a2e19",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem", 
+                        "lg": "0.75rem", 
+                        "xl": "1rem", 
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>/* Custom scrollbar for webkit */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px
+    }
+::-webkit-scrollbar-track {
+    background: transparent
+    }
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px
+    }
+/* Toggle Switch Styles */
+.toggle-checkbox:checked {
+    right: 0;
+    border-color: #1aec13
+    }
+.toggle-checkbox:checked + .toggle-label {
+    background-color: #1aec13
+    }
+.radio-checked-ring:checked {
+    border-color: #1aec13;
+    background-color: #1aec13;
+    background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuBcbQW9KS4AQ-pgM9kbnAocB2bNhlAEMWTOL5sIsty8dfji1hRlUQmedIVeNm7Qrj7JQrHt10yeqGPkhRRXrlLRsCb9RDg-_Feezs7KB7wuRiqqpZAbL7aYpf3-vMZxo5weTHA5HsRoafzjKi2Hm0jb06LhMHTYripist8VdXELsy96a2j3ggLKLbNbORWAwBSo_06_ZIXK3GewQkNBHA_JaCX23VtK5HftaL9m0iM3eORUqPsFiMY5FAhNnSFJLThiYkEMWAm0Hc8)
+    }</style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<!-- Main Layout Wrapper -->
+<div class="flex h-screen overflow-hidden">
+<!-- Side Navigation -->
+<aside class="w-72 bg-white dark:bg-surface-dark border-r border-slate-200 dark:border-slate-800 flex-col hidden lg:flex z-20">
+<div class="h-16 flex items-center px-6 border-b border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-2 text-slate-900 dark:text-white">
+<div class="size-8 text-primary">
+<svg class="w-full h-full" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M39.475 21.6262C40.358 21.4363 40.6863 21.5589 40.7581 21.5934C40.7876 21.655 40.8547 21.857 40.8082 22.3336C40.7408 23.0255 40.4502 24.0046 39.8572 25.2301C38.6799 27.6631 36.5085 30.6631 33.5858 33.5858C30.6631 36.5085 27.6632 38.6799 25.2301 39.8572C24.0046 40.4502 23.0255 40.7407 22.3336 40.8082C21.8571 40.8547 21.6551 40.7875 21.5934 40.7581C21.5589 40.6863 21.4363 40.358 21.6262 39.475C21.8562 38.4054 22.4689 36.9657 23.5038 35.2817C24.7575 33.2417 26.5497 30.9744 28.7621 28.762C30.9744 26.5497 33.2417 24.7574 35.2817 23.5037C36.9657 22.4689 38.4054 21.8562 39.475 21.6262ZM4.41189 29.2403L18.7597 43.5881C19.8813 44.7097 21.4027 44.9179 22.7217 44.7893C24.0585 44.659 25.5148 44.1631 26.9723 43.4579C29.9052 42.0387 33.2618 39.5667 36.4142 36.4142C39.5667 33.2618 42.0387 29.9052 43.4579 26.9723C44.1631 25.5148 44.659 24.0585 44.7893 22.7217C44.9179 21.4027 44.7097 19.8813 43.5881 18.7597L29.2403 4.41187C27.8527 3.02428 25.8765 3.02573 24.2861 3.36776C22.6081 3.72863 20.7334 4.58419 18.8396 5.74801C16.4978 7.18716 13.9881 9.18353 11.5858 11.5858C9.18354 13.988 7.18717 16.4978 5.74802 18.8396C4.58421 20.7334 3.72865 22.6081 3.36778 24.2861C3.02574 25.8765 3.02429 27.8527 4.41189 29.2403Z" fill="currentColor" fill-rule="evenodd"></path>
+</svg>
+</div>
+<span class="font-bold text-lg tracking-tight">WeighSys</span>
+</div>
+</div>
+<div class="flex flex-col gap-4 p-4 overflow-y-auto flex-1">
+<!-- User Profile Summary -->
+<div class="flex gap-3 items-center p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 border border-slate-200" data-alt="Admin user profile picture" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC54nKag7nnpTQuq4-sRfXvsKZ3aFsjBnzLAknqjyiKjcM_PWWd8SBeomK2Przw3VBQ7Bc07gJORI8fsjcQDMrkA339I4_blmk8F4pnf7IJ8bYoV9HPC-usr3pdUDH1btDW12JX_H2PRTZmkAuxnd2n1JEePOVSMA2Xq_SWn1Danh3BIDY9EqzZDUR_cuw-1DM4jjT4hUXGtB2W8Uh2AxCJBT4p7R26jXxpFjrjrxZs-Q5qaDqKajN9x4e3SvelSuUB68Sn7tPBYSM");'></div>
+<div class="flex flex-col">
+<h1 class="text-slate-900 dark:text-white text-sm font-semibold">Admin Console</h1>
+<p class="text-slate-500 dark:text-slate-400 text-xs">System Administrator</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<div class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">dashboard</span>
+<p class="text-sm font-medium">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">balance</span>
+<p class="text-sm font-medium">Weighments</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">bar_chart</span>
+<p class="text-sm font-medium">Reports</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">database</span>
+<p class="text-sm font-medium">Master Data</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">group</span>
+<p class="text-sm font-medium">Users</p>
+</a>
+<div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+<p class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Configuration</p>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-slate-900 dark:text-white font-medium border border-primary/20" href="#">
+<span class="material-symbols-outlined text-primary fill-1">settings</span>
+<p class="text-sm">Settings</p>
+</a>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-full overflow-hidden bg-background-light dark:bg-background-dark relative">
+<!-- Mobile Header -->
+<header class="lg:hidden h-16 bg-white dark:bg-surface-dark border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4">
+<div class="flex items-center gap-2">
+<div class="size-6 text-primary">
+<svg class="w-full h-full" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M39.475 21.6262C40.358 21.4363 40.6863 21.5589 40.7581 21.5934C40.7876 21.655 40.8547 21.857 40.8082 22.3336C40.7408 23.0255 40.4502 24.0046 39.8572 25.2301C38.6799 27.6631 36.5085 30.6631 33.5858 33.5858C30.6631 36.5085 27.6632 38.6799 25.2301 39.8572C24.0046 40.4502 23.0255 40.7407 22.3336 40.8082C21.8571 40.8547 21.6551 40.7875 21.5934 40.7581C21.5589 40.6863 21.4363 40.358 21.6262 39.475C21.8562 38.4054 22.4689 36.9657 23.5038 35.2817C24.7575 33.2417 26.5497 30.9744 28.7621 28.762C30.9744 26.5497 33.2417 24.7574 35.2817 23.5037C36.9657 22.4689 38.4054 21.8562 39.475 21.6262ZM4.41189 29.2403L18.7597 43.5881C19.8813 44.7097 21.4027 44.9179 22.7217 44.7893C24.0585 44.659 25.5148 44.1631 26.9723 43.4579C29.9052 42.0387 33.2618 39.5667 36.4142 36.4142C39.5667 33.2618 42.0387 29.9052 43.4579 26.9723C44.1631 25.5148 44.659 24.0585 44.7893 22.7217C44.9179 21.4027 44.7097 19.8813 43.5881 18.7597L29.2403 4.41187C27.8527 3.02428 25.8765 3.02573 24.2861 3.36776C22.6081 3.72863 20.7334 4.58419 18.8396 5.74801C16.4978 7.18716 13.9881 9.18353 11.5858 11.5858C9.18354 13.988 7.18717 16.4978 5.74802 18.8396C4.58421 20.7334 3.72865 22.6081 3.36778 24.2861C3.02574 25.8765 3.02429 27.8527 4.41189 29.2403Z" fill="currentColor" fill-rule="evenodd"></path>
+</svg>
+</div>
+<span class="font-bold text-lg">WeighSys</span>
+</div>
+<button class="text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto p-4 md:p-8 pb-32">
+<div class="max-w-[1024px] mx-auto flex flex-col gap-6">
+<!-- Breadcrumbs & Heading -->
+<div class="flex flex-col gap-2">
+<nav class="flex items-center text-sm font-medium text-slate-500 dark:text-slate-400">
+<a class="hover:text-primary transition-colors" href="#">Settings</a>
+<span class="mx-2 text-slate-400">/</span>
+<span class="text-slate-900 dark:text-slate-200">Security &amp; Access</span>
+</nav>
+<div class="flex flex-wrap justify-between items-end gap-4">
+<div>
+<h1 class="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Security &amp; Access Configuration</h1>
+<p class="text-slate-500 dark:text-slate-400 mt-1">Manage system-wide security protocols, authentication, and access controls for the weighbridge system.</p>
+</div>
+</div>
+</div>
+<!-- Layout Grid -->
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-2">
+<!-- CARD 1: Authentication -->
+<div class="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-fit">
+<div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
+<div class="flex items-center gap-3">
+<div class="bg-primary/10 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined text-[20px]">security</span>
+</div>
+<h2 class="font-bold text-lg text-slate-900 dark:text-white">Authentication</h2>
+</div>
+<span class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs px-2 py-1 rounded-full font-medium">Active</span>
+</div>
+<div class="p-6 space-y-6">
+<!-- 2FA Section -->
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-semibold text-slate-900 dark:text-white">Two-Factor Authentication (2FA)</span>
+<span class="text-sm text-slate-500 dark:text-slate-400">Require additional verification code</span>
+</div>
+<label class="flex items-center cursor-pointer relative" for="2fa-toggle">
+<input checked="" class="sr-only peer" id="2fa-toggle" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</label>
+</div>
+<!-- 2FA Method Radios -->
+<div class="pl-4 border-l-2 border-slate-100 dark:border-slate-700 space-y-3">
+<p class="text-xs font-semibold uppercase text-slate-400 tracking-wider mb-2">Primary Method</p>
+<div class="flex flex-col gap-2">
+<label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+<input class="radio-checked-ring w-4 h-4 text-primary bg-slate-100 border-slate-300 focus:ring-primary dark:bg-slate-700 dark:border-slate-600" name="2fa-method" type="radio"/>
+<span class="text-sm text-slate-700 dark:text-slate-300">Email Verification</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg bg-primary/5 border border-primary/20 transition-colors">
+<input checked="" class="radio-checked-ring w-4 h-4 text-primary bg-slate-100 border-slate-300 focus:ring-primary dark:bg-slate-700 dark:border-slate-600" name="2fa-method" type="radio"/>
+<span class="text-sm text-slate-900 dark:text-white font-medium">Authenticator App (Recommended)</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+<input class="radio-checked-ring w-4 h-4 text-primary bg-slate-100 border-slate-300 focus:ring-primary dark:bg-slate-700 dark:border-slate-600" name="2fa-method" type="radio"/>
+<span class="text-sm text-slate-700 dark:text-slate-300">SMS / Text Message</span>
+</label>
+</div>
+</div>
+<div class="h-px bg-slate-100 dark:bg-slate-800"></div>
+<!-- SSO Toggle -->
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-semibold text-slate-900 dark:text-white">Single Sign-On (SSO)</span>
+<span class="text-sm text-slate-500 dark:text-slate-400">Allow login via SAML/OIDC providers</span>
+</div>
+<label class="flex items-center cursor-pointer relative" for="sso-toggle">
+<input class="sr-only peer" id="sso-toggle" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</div>
+<!-- CARD 2: Password Policy -->
+<div class="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-fit">
+<div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
+<div class="flex items-center gap-3">
+<div class="bg-primary/10 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined text-[20px]">password</span>
+</div>
+<h2 class="font-bold text-lg text-slate-900 dark:text-white">Password Policy</h2>
+</div>
+</div>
+<div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="col-span-1">
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Minimum Length</label>
+<div class="relative">
+<input class="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-primary" type="number" value="12"/>
+<span class="absolute right-3 top-2.5 text-xs text-slate-400">chars</span>
+</div>
+</div>
+<div class="col-span-1">
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password Expiry</label>
+<select class="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-primary">
+<option>Never</option>
+<option>30 Days</option>
+<option>60 Days</option>
+<option selected="">90 Days</option>
+<option>180 Days</option>
+</select>
+</div>
+<div class="col-span-1 md:col-span-2">
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Requirements</label>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+<label class="flex items-center gap-2">
+<input checked="" class="rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-700" type="checkbox"/>
+<span class="text-sm text-slate-600 dark:text-slate-400">Require uppercase letter</span>
+</label>
+<label class="flex items-center gap-2">
+<input checked="" class="rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-700" type="checkbox"/>
+<span class="text-sm text-slate-600 dark:text-slate-400">Require number</span>
+</label>
+<label class="flex items-center gap-2">
+<input checked="" class="rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-700" type="checkbox"/>
+<span class="text-sm text-slate-600 dark:text-slate-400">Require special character</span>
+</label>
+<label class="flex items-center gap-2">
+<input class="rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-700" type="checkbox"/>
+<span class="text-sm text-slate-600 dark:text-slate-400">Prohibit common passwords</span>
+</label>
+</div>
+</div>
+</div>
+</div>
+<!-- CARD 3: Weighbridge PIN Settings (Special Domain Logic) -->
+<div class="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-fit xl:col-span-2">
+<div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
+<div class="flex items-center gap-3">
+<div class="bg-primary/10 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined text-[20px]">pin</span>
+</div>
+<h2 class="font-bold text-lg text-slate-900 dark:text-white">PIN Verification Settings</h2>
+</div>
+<span class="text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">For sensitive operations</span>
+</div>
+<div class="p-6 flex flex-col md:flex-row gap-8">
+<div class="w-full md:w-1/3 space-y-4">
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">PIN Length</label>
+<select class="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-primary">
+<option>4 Digits</option>
+<option selected="">6 Digits</option>
+</select>
+</div>
+<div class="p-4 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-100 dark:border-yellow-900/30">
+<div class="flex gap-2">
+<span class="material-symbols-outlined text-yellow-600 text-sm">info</span>
+<p class="text-xs text-yellow-800 dark:text-yellow-400">PINs are required for operators to override automated weighbridge readings.</p>
+</div>
+</div>
+</div>
+<div class="w-full md:w-2/3">
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Require PIN Entry For:</label>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+<label class="flex p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:border-primary/50 transition-colors has-[:checked]:bg-primary/5 has-[:checked]:border-primary">
+<input checked="" class="rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-700 mt-0.5 mr-3" type="checkbox"/>
+<div>
+<span class="block text-sm font-semibold text-slate-900 dark:text-white">Manual Weight Entry</span>
+<span class="block text-xs text-slate-500 mt-0.5">Typing weight instead of scale read</span>
+</div>
+</label>
+<label class="flex p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:border-primary/50 transition-colors has-[:checked]:bg-primary/5 has-[:checked]:border-primary">
+<input checked="" class="rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-700 mt-0.5 mr-3" type="checkbox"/>
+<div>
+<span class="block text-sm font-semibold text-slate-900 dark:text-white">Delete Weighment</span>
+<span class="block text-xs text-slate-500 mt-0.5">Permanently removing a record</span>
+</div>
+</label>
+<label class="flex p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:border-primary/50 transition-colors has-[:checked]:bg-primary/5 has-[:checked]:border-primary">
+<input class="rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-700 mt-0.5 mr-3" type="checkbox"/>
+<div>
+<span class="block text-sm font-semibold text-slate-900 dark:text-white">Tare Override</span>
+<span class="block text-xs text-slate-500 mt-0.5">Manually changing tare weight</span>
+</div>
+</label>
+<label class="flex p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:border-primary/50 transition-colors has-[:checked]:bg-primary/5 has-[:checked]:border-primary">
+<input class="rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-700 mt-0.5 mr-3" type="checkbox"/>
+<div>
+<span class="block text-sm font-semibold text-slate-900 dark:text-white">Reprint Ticket</span>
+<span class="block text-xs text-slate-500 mt-0.5">Printing a duplicate slip</span>
+</div>
+</label>
+</div>
+</div>
+</div>
+</div>
+<!-- CARD 4: Session Management -->
+<div class="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-fit xl:col-span-2">
+<div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
+<div class="flex items-center gap-3">
+<div class="bg-primary/10 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined text-[20px]">timer</span>
+</div>
+<h2 class="font-bold text-lg text-slate-900 dark:text-white">Session Management</h2>
+</div>
+</div>
+<div class="p-6">
+<div class="flex flex-col md:flex-row gap-6 items-end border-b border-slate-100 dark:border-slate-800 pb-6 mb-6">
+<div class="w-full md:w-1/3">
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Idle Timeout</label>
+<div class="relative">
+<input class="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-primary pl-4 pr-16" type="number" value="15"/>
+<span class="absolute right-3 top-2.5 text-xs text-slate-400">minutes</span>
+</div>
+</div>
+<div class="w-full md:w-1/3">
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Max Concurrent Sessions</label>
+<div class="relative">
+<input class="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-primary" type="number" value="3"/>
+</div>
+</div>
+<div class="w-full md:w-1/3">
+<button class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors">
+                                            Force Logout All Users
+                                        </button>
+</div>
+</div>
+<div class="space-y-4">
+<h3 class="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                        Active Sessions
+                                        <span class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-full">2 Active</span>
+</h3>
+<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+<table class="w-full text-left text-sm">
+<thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-medium">
+<tr>
+<th class="px-4 py-3">User / Role</th>
+<th class="px-4 py-3">Device / IP</th>
+<th class="px-4 py-3">Location</th>
+<th class="px-4 py-3">Last Active</th>
+<th class="px-4 py-3 text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<tr class="bg-white dark:bg-surface-dark hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-full bg-slate-200 bg-cover bg-center" data-alt="User avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuArNYnZUZoLjk-OE1JT3-YJ45VA8u_qHpam2wfmr1Iw3hPJqqb9PVKXsn8E9cVne2ubCJJzZOUFQbpa97LZy7lrKZ095NJSyljtWn0gZHvcJ-lutooY4BNlA1oPxiSkwpTUMp1woorFYdqZdI3WVWRUXmENeBRBoAHqh67dv_BcSiXmDhnn-mf2ScRUXzkuo7pBL_JxCiryi4sb8623wqtzmeBzAEVLTA3k6EArFJPzT-5VTkF8ve-3bMX4wyFB4_u1MgYvlilizEM");'></div>
+<div>
+<p class="font-medium text-slate-900 dark:text-white">Admin User <span class="text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded ml-1">You</span></p>
+<p class="text-xs text-slate-500">System Admin</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-slate-900 dark:text-white">Chrome on Windows</p>
+<p class="text-xs text-slate-500">192.168.1.45</p>
+</td>
+<td class="px-4 py-3 text-slate-600 dark:text-slate-400">
+                                                        Gate 1 Office
+                                                    </td>
+<td class="px-4 py-3 text-green-600 dark:text-green-400 font-medium text-xs flex items-center gap-1">
+<div class="size-2 rounded-full bg-green-500 animate-pulse"></div>
+                                                        Now
+                                                    </td>
+<td class="px-4 py-3 text-right">
+<span class="text-slate-400 text-xs italic">Current Session</span>
+</td>
+</tr>
+<tr class="bg-white dark:bg-surface-dark hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-full bg-slate-200 bg-cover bg-center" data-alt="Operator avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBJzqx4DESejpVKA1oOMMilXtfkeSvvUmGxq8FoEwSgO3BxyB5R66GcqIrLqzZuviOejw8qqDTpU2Hs80cr-oodHRLiNhfTBaM81yB-mdp1h-cNsB0RvcakJeBCr23rqRsD7LXqIzIqmDEgEfjxzycAEDeV4XHrUAILixg7GERwvmZNjpsz0S8TfzeXdapke-AzaRC1CfphJ1a2lIEO-I7dRWltKG753qM5yi6XNik18rN64Gq8VckAYJzoVel7AL8LeMsS_Y56BCw");'></div>
+<div>
+<p class="font-medium text-slate-900 dark:text-white">Operator John</p>
+<p class="text-xs text-slate-500">Weighbridge Operator</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-slate-900 dark:text-white">Tablet App (Android)</p>
+<p class="text-xs text-slate-500">192.168.1.102</p>
+</td>
+<td class="px-4 py-3 text-slate-600 dark:text-slate-400">
+                                                        Gate 2
+                                                    </td>
+<td class="px-4 py-3 text-slate-500 text-xs">
+                                                        5 mins ago
+                                                    </td>
+<td class="px-4 py-3 text-right">
+<button class="text-red-500 hover:text-red-700 text-xs font-medium hover:underline">Revoke</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- CARD 5: Network & Compliance -->
+<div class="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-fit">
+<div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
+<div class="flex items-center gap-3">
+<div class="bg-primary/10 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined text-[20px]">public</span>
+</div>
+<h2 class="font-bold text-lg text-slate-900 dark:text-white">IP Restrictions</h2>
+</div>
+</div>
+<div class="p-6">
+<div class="flex items-center justify-between mb-4">
+<div class="flex flex-col">
+<span class="font-semibold text-slate-900 dark:text-white">Enable IP Whitelisting</span>
+<span class="text-sm text-slate-500 dark:text-slate-400">Only allow access from specific networks</span>
+</div>
+<label class="flex items-center cursor-pointer relative" for="ip-toggle">
+<input class="sr-only peer" id="ip-toggle" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</label>
+</div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Whitelisted IP Addresses / CIDR</label>
+<textarea class="w-full h-32 rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-primary font-mono text-xs p-3 resize-none" placeholder="192.168.1.0/24
+10.0.0.5"></textarea>
+<p class="text-xs text-slate-500 mt-2">Enter one IP or CIDR range per line. Your current IP is <span class="font-mono text-slate-700 dark:text-slate-300">203.0.113.45</span></p>
+</div>
+</div>
+<!-- CARD 6: Audit & Logging -->
+<div class="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-fit">
+<div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
+<div class="flex items-center gap-3">
+<div class="bg-primary/10 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined text-[20px]">history_edu</span>
+</div>
+<h2 class="font-bold text-lg text-slate-900 dark:text-white">Audit &amp; Logging</h2>
+</div>
+</div>
+<div class="p-6 space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-semibold text-slate-900 dark:text-white">Detailed Audit Logs</span>
+<span class="text-sm text-slate-500 dark:text-slate-400">Log all data modifications</span>
+</div>
+<label class="flex items-center cursor-pointer relative" for="audit-toggle">
+<input checked="" class="sr-only peer" id="audit-toggle" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-semibold text-slate-900 dark:text-white">Access Logs</span>
+<span class="text-sm text-slate-500 dark:text-slate-400">Log login/logout and failed attempts</span>
+</div>
+<label class="flex items-center cursor-pointer relative" for="access-log-toggle">
+<input checked="" class="sr-only peer" id="access-log-toggle" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800">
+<a class="text-primary hover:text-green-500 text-sm font-medium flex items-center gap-1" href="#">
+                                        View Security Logs
+                                        <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Sticky Footer Action Bar -->
+<div class="absolute bottom-0 left-0 w-full bg-white dark:bg-surface-dark border-t border-slate-200 dark:border-slate-800 p-4 flex justify-center lg:justify-end lg:pr-12 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+<div class="flex gap-4 w-full max-w-[1024px] lg:w-auto lg:mr-auto xl:mr-auto 2xl:mr-auto mx-auto lg:mx-0 justify-end">
+<button class="px-6 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                        Cancel
+                    </button>
+<button class="px-6 py-2.5 rounded-lg bg-primary text-black font-bold hover:bg-[#15bd0f] transition-all shadow-lg shadow-green-500/20 flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">save</span>
+                        Save Security Settings
+                    </button>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Operator Linkage Approval</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-hover": "#3f6f3d",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "accent-bg": "#D6EFD8",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }
+    </style>
+</head>
+<body class="font-display bg-background-light text-gray-800 min-h-screen flex overflow-hidden">
+<aside class="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col z-10">
+<div class="h-16 flex items-center px-6 border-b border-gray-100">
+<div class="flex items-center gap-2 text-primary font-bold text-lg tracking-tight">
+<span class="material-symbols-outlined filled">scale</span>
+<span>WeighSys</span>
+</div>
+</div>
+<nav class="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+                Dashboard
+            </a>
+<div class="pt-2 pb-1">
+<p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Management</p>
+</div>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium bg-primary/10 text-primary rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px] fill-1">engineering</span>
+                Operator Requests
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span>
+                Vehicles
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">history</span>
+                Weighing Logs
+            </a>
+</nav>
+<div class="p-4 border-t border-gray-100">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">
+                    AD
+                </div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-medium text-gray-900 truncate">Admin User</p>
+<p class="text-xs text-gray-500 truncate">admin@company.com</p>
+</div>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col h-screen overflow-hidden relative">
+<header class="md:hidden h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4">
+<div class="font-bold text-gray-900 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">scale</span> WeighSys
+            </div>
+<button class="text-gray-500"><span class="material-symbols-outlined">menu</span></button>
+</header>
+<div class="flex-1 overflow-y-auto p-6 lg:p-10">
+<div class="max-w-7xl mx-auto space-y-8">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<h1 class="text-[32px] font-bold text-gray-900 leading-tight">Operator Requests</h1>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition-all">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                            Filter
+                        </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition-all">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                            Export
+                        </button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-accent-bg rounded-lg p-6 flex flex-col gap-1 shadow-sm border border-primary/10">
+<div class="flex items-center justify-between">
+<span class="text-sm font-semibold text-primary/80 uppercase tracking-wide">Pending Requests</span>
+<span class="material-symbols-outlined text-primary/60">pending_actions</span>
+</div>
+<div class="text-4xl font-bold text-gray-900 mt-2">3</div>
+<p class="text-xs text-primary/70 font-medium mt-1">Requires attention</p>
+</div>
+<div class="bg-accent-bg rounded-lg p-6 flex flex-col gap-1 shadow-sm border border-primary/10">
+<div class="flex items-center justify-between">
+<span class="text-sm font-semibold text-primary/80 uppercase tracking-wide">Approved Today</span>
+<span class="material-symbols-outlined text-primary/60">check_circle</span>
+</div>
+<div class="text-4xl font-bold text-gray-900 mt-2">5</div>
+<p class="text-xs text-primary/70 font-medium mt-1">+2 from yesterday</p>
+</div>
+<div class="bg-accent-bg rounded-lg p-6 flex flex-col gap-1 shadow-sm border border-primary/10">
+<div class="flex items-center justify-between">
+<span class="text-sm font-semibold text-primary/80 uppercase tracking-wide">Total Operators</span>
+<span class="material-symbols-outlined text-primary/60">group</span>
+</div>
+<div class="text-4xl font-bold text-gray-900 mt-2">12</div>
+<p class="text-xs text-primary/70 font-medium mt-1">Active accounts</p>
+</div>
+</div>
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+<div class="px-6 py-4 border-b border-gray-100 bg-white flex items-center justify-between">
+<h3 class="text-lg font-bold text-gray-900">Pending Requests</h3>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[18px]">search</span>
+<input class="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary focus:ring-primary w-64 transition-all" placeholder="Search requests..." type="text"/>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-gray-50 border-b border-gray-200">
+<th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
+<th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
+<th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Phone</th>
+<th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Company Code</th>
+<th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Request Date</th>
+<th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 bg-white">
+<tr class="hover:bg-gray-50/50 transition-colors group">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">JD</div>
+<span class="text-sm font-semibold text-gray-900">John Doe</span>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">john.doe@logistics.co</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">+1 (555) 123-4567</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                            LGT-8842
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Oct 24, 2023</td>
+<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+<div class="flex items-center justify-end gap-2 opacity-100 transition-opacity">
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-bold rounded shadow-sm hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all">
+<span class="material-symbols-outlined text-[16px]">check</span>
+                                                Approve
+                                            </button>
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-bold rounded shadow-sm hover:bg-red-50 hover:border-red-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all">
+<span class="material-symbols-outlined text-[16px]">close</span>
+                                                Reject
+                                            </button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50/50 transition-colors group">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold">SJ</div>
+<span class="text-sm font-semibold text-gray-900">Sarah Jenkins</span>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">s.jenkins@transcorp.net</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">+1 (555) 987-6543</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                            TRN-2021
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Oct 23, 2023</td>
+<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+<div class="flex items-center justify-end gap-2 opacity-100 transition-opacity">
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-bold rounded shadow-sm hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all">
+<span class="material-symbols-outlined text-[16px]">check</span>
+                                                Approve
+                                            </button>
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-bold rounded shadow-sm hover:bg-red-50 hover:border-red-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all">
+<span class="material-symbols-outlined text-[16px]">close</span>
+                                                Reject
+                                            </button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50/50 transition-colors group">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold">MR</div>
+<span class="text-sm font-semibold text-gray-900">Mike Ross</span>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">mike.ross@pearson.com</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">+1 (555) 444-2222</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                            PSN-9900
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Oct 23, 2023</td>
+<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+<div class="flex items-center justify-end gap-2 opacity-100 transition-opacity">
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-bold rounded shadow-sm hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all">
+<span class="material-symbols-outlined text-[16px]">check</span>
+                                                Approve
+                                            </button>
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-bold rounded shadow-sm hover:bg-red-50 hover:border-red-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all">
+<span class="material-symbols-outlined text-[16px]">close</span>
+                                                Reject
+                                            </button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+<div class="text-xs text-gray-500">Showing <strong>1-3</strong> of <strong>3</strong> pending requests</div>
+<div class="flex gap-1">
+<button class="p-1 rounded hover:bg-gray-200 text-gray-400 disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<button class="p-1 rounded hover:bg-gray-200 text-gray-600 disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+
+</body></html>

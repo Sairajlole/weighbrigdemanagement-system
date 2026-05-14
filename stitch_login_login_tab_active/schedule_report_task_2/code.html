@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Schedule Report Modal</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#8d8d4e",
+                        "primary-dark": "#757540",
+                        "background-light": "#fbfbf9",
+                        "background-dark": "#1c1c16",
+                        "surface-light": "#efefeb",
+                        "surface-dark": "#2a2a24",
+                        "border-light": "#e0e0d7",
+                        "border-dark": "#33332d",
+                        "text-main": "#171712",
+                        "text-muted": "#818165",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-gray-900 font-display text-text-main antialiased selection:bg-primary selection:text-white">
+<!-- Modal Overlay -->
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+<!-- Modal Container -->
+<div class="relative w-full max-w-[560px] flex flex-col rounded-xl bg-background-light dark:bg-background-dark shadow-2xl ring-1 ring-white/10">
+<!-- Header -->
+<div class="flex items-center justify-between px-6 py-5 border-b border-border-light dark:border-border-dark">
+<h2 class="text-xl font-bold leading-tight tracking-[-0.015em] text-text-main dark:text-white">Schedule Report</h2>
+<button class="text-text-muted hover:text-text-main dark:hover:text-white transition-colors rounded-full p-1 hover:bg-surface-light dark:hover:bg-surface-dark">
+<span class="material-symbols-outlined text-[24px]">close</span>
+</button>
+</div>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+<!-- Selected Report (Read Only) -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-medium leading-normal text-text-main dark:text-gray-200">Selected Report</label>
+<div class="flex items-center w-full rounded-lg border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-4 py-3 text-text-muted cursor-not-allowed">
+<span class="text-sm font-medium">Daily Weighbridge Summary</span>
+<span class="material-symbols-outlined ml-auto text-[18px]">lock</span>
+</div>
+</div>
+<!-- Frequency Selector -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-medium leading-normal text-text-main dark:text-gray-200">Frequency</label>
+<div class="flex w-full rounded-lg bg-surface-light dark:bg-surface-dark p-1">
+<!-- Option 1 -->
+<label class="flex-1 cursor-pointer">
+<input checked="" class="peer sr-only" name="frequency" type="radio" value="daily"/>
+<div class="flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-text-muted transition-all peer-checked:bg-white dark:peer-checked:bg-background-dark peer-checked:text-primary peer-checked:shadow-sm">
+                                Daily
+                            </div>
+</label>
+<!-- Option 2 -->
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="frequency" type="radio" value="weekly"/>
+<div class="flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-text-muted transition-all peer-checked:bg-white dark:peer-checked:bg-background-dark peer-checked:text-primary peer-checked:shadow-sm">
+                                Weekly
+                            </div>
+</label>
+<!-- Option 3 -->
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="frequency" type="radio" value="monthly"/>
+<div class="flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-text-muted transition-all peer-checked:bg-white dark:peer-checked:bg-background-dark peer-checked:text-primary peer-checked:shadow-sm">
+                                Monthly
+                            </div>
+</label>
+</div>
+</div>
+<!-- Date & Time Row -->
+<div class="flex gap-4">
+<div class="flex-1 flex flex-col gap-2">
+<label class="text-sm font-medium leading-normal text-text-main dark:text-gray-200">Start Date</label>
+<div class="relative flex items-center">
+<input class="w-full rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark px-4 py-3 text-sm text-text-main dark:text-white placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-shadow" type="text" value="Oct 24, 2023"/>
+<span class="material-symbols-outlined absolute right-3 text-text-muted pointer-events-none text-[20px]">calendar_today</span>
+</div>
+</div>
+<div class="flex-1 flex flex-col gap-2">
+<label class="text-sm font-medium leading-normal text-text-main dark:text-gray-200">Time</label>
+<div class="relative flex items-center">
+<input class="w-full rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark px-4 py-3 text-sm text-text-main dark:text-white placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-shadow" type="text" value="08:00 AM"/>
+<span class="material-symbols-outlined absolute right-3 text-text-muted pointer-events-none text-[20px]">schedule</span>
+</div>
+</div>
+</div>
+<!-- Recipients Input with Chips -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-medium leading-normal text-text-main dark:text-gray-200">Recipients</label>
+<div class="flex flex-wrap items-center gap-2 w-full rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark p-2 min-h-[50px] focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-shadow">
+<!-- Chip 1 -->
+<div class="flex items-center gap-1 rounded-full bg-primary/10 pl-3 pr-1 py-1 text-xs font-medium text-primary border border-primary/20">
+<span>admin@weighbridge.sys</span>
+<button class="flex items-center justify-center rounded-full p-0.5 hover:bg-primary/20 text-primary">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</div>
+<!-- Chip 2 -->
+<div class="flex items-center gap-1 rounded-full bg-primary/10 pl-3 pr-1 py-1 text-xs font-medium text-primary border border-primary/20">
+<span>manager@site-logistics.com</span>
+<button class="flex items-center justify-center rounded-full p-0.5 hover:bg-primary/20 text-primary">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</div>
+<!-- Input -->
+<input class="flex-1 min-w-[120px] border-none bg-transparent p-1 text-sm text-text-main dark:text-white placeholder:text-text-muted focus:ring-0" placeholder="Type email and press Enter..." type="text"/>
+</div>
+</div>
+<!-- Format Select -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-medium leading-normal text-text-main dark:text-gray-200">Export Format</label>
+<div class="relative">
+<select class="w-full appearance-none rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark px-4 py-3 text-sm text-text-main dark:text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-shadow pr-10">
+<option>PDF Document (.pdf)</option>
+<option>Excel Spreadsheet (.xlsx)</option>
+<option>Both PDF &amp; Excel</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none text-[24px]">expand_more</span>
+</div>
+</div>
+<!-- Message Textarea -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-medium leading-normal text-text-main dark:text-gray-200">Message (Optional)</label>
+<textarea class="w-full resize-none rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark px-4 py-3 text-sm text-text-main dark:text-white placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-shadow min-h-[100px]" placeholder="Add a note to include in the email body..."></textarea>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="flex items-center justify-end gap-3 px-6 py-5 border-t border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark rounded-b-xl">
+<button class="px-5 py-2.5 rounded-lg text-sm font-medium text-text-main dark:text-white border border-border-light dark:border-border-dark hover:bg-surface-light dark:hover:bg-surface-dark transition-colors">
+                    Cancel
+                </button>
+<button class="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-dark shadow-sm hover:shadow transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">calendar_add_on</span>
+                    Schedule Report
+                </button>
+</div>
+</div>
+</div>
+</body></html>

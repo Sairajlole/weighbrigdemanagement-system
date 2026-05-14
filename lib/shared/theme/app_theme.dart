@@ -4,14 +4,25 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   static const _seed = Color(0xFF059669);
 
-  static ThemeData get light {
-    final scheme = ColorScheme.fromSeed(seedColor: _seed, brightness: Brightness.light);
-    final textTheme = GoogleFonts.ibmPlexSansTextTheme(ThemeData.light().textTheme);
+  static ThemeData lightFrom({Color? seed}) {
+    return _build(seed ?? _seed, Brightness.light);
+  }
+
+  static ThemeData darkFrom({Color? seed}) {
+    return _build(seed ?? _seed, Brightness.dark);
+  }
+
+  static ThemeData get light => lightFrom();
+  static ThemeData get dark => darkFrom();
+
+  static ThemeData _build(Color seed, Brightness brightness) {
+    final scheme = ColorScheme.fromSeed(seedColor: seed, brightness: brightness);
+    final fontFamily = GoogleFonts.ibmPlexSans().fontFamily;
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      textTheme: textTheme,
+      fontFamily: fontFamily,
       scaffoldBackgroundColor: scheme.surfaceContainerLowest,
       appBarTheme: AppBarTheme(
         centerTitle: false,
@@ -19,7 +30,10 @@ class AppTheme {
         scrolledUnderElevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: scheme.onSurface,
-        titleTextStyle: textTheme.titleLarge?.copyWith(
+        titleTextStyle: TextStyle(
+          inherit: true,
+          fontFamily: fontFamily,
+          fontSize: 22,
           fontWeight: FontWeight.w600,
           color: scheme.onSurface,
         ),
@@ -37,7 +51,7 @@ class AppTheme {
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          textStyle: TextStyle(inherit: true, fontFamily: fontFamily, fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -73,19 +87,19 @@ class AppTheme {
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: scheme.error),
         ),
-        hintStyle: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-        labelStyle: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+        hintStyle: TextStyle(inherit: true, fontFamily: fontFamily, fontSize: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+        labelStyle: TextStyle(inherit: true, fontFamily: fontFamily, fontSize: 14, color: scheme.onSurfaceVariant),
       ),
       dividerTheme: DividerThemeData(color: scheme.outlineVariant.withValues(alpha: 0.4), thickness: 1, space: 1),
       chipTheme: ChipThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         side: BorderSide.none,
-        labelStyle: textTheme.labelSmall,
+        labelStyle: TextStyle(inherit: true, fontFamily: fontFamily, fontSize: 11),
       ),
       dataTableTheme: DataTableThemeData(
         headingRowColor: WidgetStateProperty.all(scheme.surfaceContainerLow),
-        headingTextStyle: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant),
-        dataTextStyle: textTheme.bodySmall?.copyWith(color: scheme.onSurface),
+        headingTextStyle: TextStyle(inherit: true, fontFamily: fontFamily, fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant),
+        dataTextStyle: TextStyle(inherit: true, fontFamily: fontFamily, fontSize: 12, color: scheme.onSurface),
         dividerThickness: 0.5,
       ),
       dialogTheme: DialogThemeData(
@@ -96,18 +110,6 @@ class AppTheme {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
-    );
-  }
-
-  static ThemeData get dark {
-    final scheme = ColorScheme.fromSeed(seedColor: _seed, brightness: Brightness.dark);
-    final textTheme = GoogleFonts.ibmPlexSansTextTheme(ThemeData.dark().textTheme);
-
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: scheme,
-      textTheme: textTheme,
-      scaffoldBackgroundColor: scheme.surfaceContainerLowest,
     );
   }
 }

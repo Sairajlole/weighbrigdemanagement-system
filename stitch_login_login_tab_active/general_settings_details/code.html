@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>General Settings Details - Weighbridge Management System</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        .sticky-bottom {
+            position: sticky;
+            bottom: 0;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen font-display text-slate-900 dark:text-slate-100 transition-colors duration-200">
+<!-- TopNavBar -->
+<header class="sticky top-0 z-50 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="flex items-center justify-between h-16">
+<div class="flex items-center gap-4">
+<div class="size-8 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined">scale</span>
+</div>
+<h1 class="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">WMS Pro</h1>
+</div>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-primary transition-colors" href="#">Tickets</a>
+<a class="text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-primary transition-colors" href="#">Reports</a>
+<a class="text-sm font-medium text-primary" href="#">Settings</a>
+</nav>
+<div class="flex items-center gap-4">
+<div class="size-9 rounded-full bg-zinc-200 dark:bg-zinc-700 bg-cover bg-center" data-alt="User avatar profile picture" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBf7OCx-SnZaf062xsseDCazhTsROR7NBxBfvD9YlfQDajRve8BMJ3w7qjc1wL_QVdk2DH8zmkePaK3Hez257fFoL0QDgoGdhk3GyAZmf9xbKxnu8JlUQNtXVYG8lHZjpUwKFqVyrb-DtE6Cxcwx0z6SqnQJpINnZDvKe2-ZhRoi7vFeewQtaHC4ESiBuE08MRYpKeAC-vcHoCkUWqYwH4rT6oQWzqc0Dpus7RBu1wh6ZXU208gJHgNuP_x7d09cYbl-ZFBN1632pQ')"></div>
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 pb-32">
+<!-- Breadcrumbs & Heading -->
+<div class="space-y-4">
+<nav class="flex items-center gap-2 text-sm">
+<a class="text-primary hover:underline flex items-center gap-1" href="#">
+<span class="material-symbols-outlined text-sm">arrow_back</span> Settings
+                </a>
+<span class="text-zinc-400">/</span>
+<span class="text-zinc-600 dark:text-zinc-400">General Settings</span>
+</nav>
+<div class="flex flex-col gap-2">
+<h2 class="text-3xl font-extrabold text-zinc-900 dark:text-white">General Settings</h2>
+<p class="text-zinc-500 dark:text-zinc-400">Manage your organization details, local preferences, and weighbridge identification.</p>
+</div>
+</div>
+<!-- Vertical Stack of Cards -->
+<div class="space-y-6">
+<!-- Company Information Card -->
+<section class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+<div class="p-6 border-b border-zinc-100 dark:border-zinc-800">
+<h3 class="text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">business</span> Company Information
+                    </h3>
+</div>
+<div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-4">
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Company Name</label>
+<input class="rounded-lg border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 focus:ring-primary focus:border-primary w-full" type="text" value="Global Logistics Corp"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Address</label>
+<textarea class="rounded-lg border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 focus:ring-primary focus:border-primary w-full" rows="3">123 Industrial Parkway, Sector 4, Metro City, 56001</textarea>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Tax Registration ID (VAT/GST)</label>
+<input class="rounded-lg border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 focus:ring-primary focus:border-primary w-full" placeholder="TX-9988-221" type="text"/>
+</div>
+</div>
+<div class="space-y-4">
+<label class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Company Logo</label>
+<div class="border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-8 flex flex-col items-center justify-center gap-3 bg-zinc-50 dark:bg-zinc-800/50 hover:border-primary/50 transition-colors cursor-pointer group">
+<div class="size-16 bg-white dark:bg-zinc-800 rounded-lg shadow-sm flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-3xl">cloud_upload</span>
+</div>
+<div class="text-center">
+<p class="text-sm font-medium">Click or drag to upload logo</p>
+<p class="text-xs text-zinc-400 mt-1">Recommended 512x512px (PNG, JPG)</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Regional Settings Card -->
+<section class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+<div class="p-6 border-b border-zinc-100 dark:border-zinc-800">
+<h3 class="text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">public</span> Regional Settings
+                    </h3>
+</div>
+<div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Country</label>
+<select class="rounded-lg border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 focus:ring-primary focus:border-primary w-full">
+<option>United States</option>
+<option>United Kingdom</option>
+<option>Germany</option>
+<option>Australia</option>
+</select>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Timezone</label>
+<select class="rounded-lg border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 focus:ring-primary focus:border-primary w-full">
+<option>(GMT-05:00) Eastern Time</option>
+<option>(GMT+00:00) UTC</option>
+<option>(GMT+01:00) Central European Time</option>
+</select>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Date Format</label>
+<div class="flex flex-wrap gap-3 mt-1">
+<label class="flex items-center gap-2 cursor-pointer">
+<input checked="" class="text-primary focus:ring-primary" name="date_format" type="radio"/>
+<span class="text-sm">DD/MM/YYYY</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="text-primary focus:ring-primary" name="date_format" type="radio"/>
+<span class="text-sm">MM/DD/YYYY</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="text-primary focus:ring-primary" name="date_format" type="radio"/>
+<span class="text-sm">YYYY-MM-DD</span>
+</label>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Currency</label>
+<select class="rounded-lg border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 focus:ring-primary focus:border-primary w-full">
+<option>USD ($)</option>
+<option>EUR (€)</option>
+<option>GBP (£)</option>
+</select>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Default Language</label>
+<select class="rounded-lg border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 focus:ring-primary focus:border-primary w-full">
+<option>English (US)</option>
+<option>English (UK)</option>
+<option>Spanish</option>
+<option>French</option>
+</select>
+</div>
+</div>
+</section>
+<!-- Weighbridge Identity Card -->
+<section class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+<div class="p-6 border-b border-zinc-100 dark:border-zinc-800">
+<h3 class="text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">sensors</span> Weighbridge Identity
+                    </h3>
+</div>
+<div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Bridge Name</label>
+<input class="rounded-lg border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 focus:ring-primary focus:border-primary w-full" type="text" value="Main Exit WB-01"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Unique Code</label>
+<input class="rounded-lg border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 w-full cursor-not-allowed" readonly="" type="text" value="WB-MC-001"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Location Coordinates</label>
+<div class="relative">
+<input class="rounded-lg border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 focus:ring-primary focus:border-primary w-full pr-10" placeholder="40.7128° N, 74.0060° W" type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-zinc-400 text-sm">my_location</span>
+</div>
+</div>
+<div class="md:col-span-3">
+<label class="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2 block">Map Preview</label>
+<div class="w-full h-48 rounded-lg bg-zinc-200 dark:bg-zinc-800 bg-cover bg-center" data-alt="Map showing location of the weighbridge" data-location="Metro City Industrial Area" style="background-image: url('https://placeholder.pics/svg/300')"></div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Sticky Bottom Bar -->
+<div class="sticky-bottom bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 py-4 px-6 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+<div class="max-w-4xl mx-auto flex items-center justify-between">
+<div class="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 text-sm">
+<span class="material-symbols-outlined text-primary text-sm">info</span>
+                Changes will affect all generated tickets and reports.
+            </div>
+<div class="flex gap-4">
+<button class="px-6 py-2 text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">
+                    Discard Changes
+                </button>
+<button class="px-8 py-2 text-sm font-bold text-white bg-primary hover:brightness-110 rounded-lg transition-all shadow-md shadow-primary/20">
+                    Save Settings
+                </button>
+</div>
+</div>
+</div>
+</body></html>

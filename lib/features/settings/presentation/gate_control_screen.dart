@@ -481,7 +481,7 @@ class _Header extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Gate Control', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-              Text('Hardware configuration for gates, barriers, and RFID', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+              Text('Barriers, RFID, and safety', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
             ],
           ),
           const Spacer(),
@@ -489,7 +489,7 @@ class _Header extends StatelessWidget {
           FilledButton.icon(
             onPressed: dirty && !saving ? onSave : null,
             icon: saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
-            label: const Text('Save Configuration'),
+            label: Text(saving ? 'Saving...' : 'Save'),
             style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
           ),
         ],

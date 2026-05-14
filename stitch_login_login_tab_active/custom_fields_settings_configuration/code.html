@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Custom Fields Settings Configuration</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#0e1b0d] dark:text-white min-h-screen">
+<!-- Header Navigation -->
+<header class="border-b border-solid border-[#e7f3e7] dark:border-[#2a3a2a] bg-white dark:bg-[#152914] px-4 md:px-10 py-3 sticky top-0 z-50">
+<div class="max-w-[1280px] mx-auto flex items-center justify-between">
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-background-light dark:hover:bg-background-dark rounded-full transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div>
+<h1 class="text-xl font-bold leading-tight tracking-tight">Custom Fields</h1>
+<p class="text-xs text-[#4e9a4c] font-medium uppercase tracking-wider">Settings Configuration</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden md:flex items-center gap-6 mr-6">
+<a class="text-sm font-semibold hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-sm font-semibold hover:text-primary transition-colors" href="#">Transactions</a>
+<a class="text-sm font-semibold text-primary" href="#">Settings</a>
+</div>
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-[#e7f3e7] dark:bg-[#203a20] text-[#0e1b0d] dark:text-white">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-10 w-10 rounded-full bg-cover bg-center border-2 border-primary" data-alt="User profile avatar placeholder" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDbX1CR6M_okj_vHoleCvuq9BW4eSQl6Bl-B9RmWyEwWos9QOAk7_rKT3BVXdXuKCgpE0BMuKL9BJnd5VDOgZ-wOzPom5ZFA3pY5WMFWTNL_8Hsxcoq72b3UCJRdjfeSpuZQinF6A3aVj9rllB0v1OrXpSsnbvdb_B1LFi6txRUNVQWMY1GG74ZlAziougK8mtBvMsV-LaasrAWpAdt5XXHxYaOub89FNqv7BlgFxpAGSyAzkd184Blp6eA-rgfcjd_jPwYVxKVLzg')">
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-[1280px] mx-auto p-4 md:p-10">
+<!-- Breadcrumbs -->
+<div class="flex items-center gap-2 mb-6">
+<a class="text-[#4e9a4c] text-sm font-medium hover:underline" href="#">Settings</a>
+<span class="material-symbols-outlined text-sm text-[#4e9a4c]">chevron_right</span>
+<span class="text-[#0e1b0d] dark:text-white text-sm font-semibold">Custom Fields</span>
+</div>
+<!-- Page Heading -->
+<div class="mb-8">
+<h2 class="text-3xl md:text-4xl font-black leading-tight tracking-tighter mb-2">Configure Custom Fields</h2>
+<p class="text-[#4e9a4c] text-base max-w-2xl">Tailor your weighing process by adding up to three additional data points. These fields will be integrated into the transaction entry screen.</p>
+</div>
+<!-- Action Panel / Info Card -->
+<div class="mb-8">
+<div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 rounded-xl border border-[#d0e7cf] bg-[#d6efd8] dark:bg-[#1e3a1e] p-5">
+<div class="flex gap-4">
+<div class="bg-white dark:bg-[#112210] rounded-full p-2 h-fit flex items-center justify-center text-primary shadow-sm">
+<span class="material-symbols-outlined">info</span>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-[#0e1b0d] dark:text-white text-base font-bold">How it works</p>
+<p class="text-[#2e5a2d] dark:text-[#a8d5a7] text-sm leading-relaxed">
+                            These fields will appear in the order configured below on the <strong>Transaction Entry screen</strong>. Ensure labels are concise for best UI display.
+                        </p>
+</div>
+</div>
+<a class="text-sm font-bold leading-normal tracking-wide flex items-center gap-2 text-[#0e1b0d] dark:text-white bg-white/50 dark:bg-black/20 px-4 py-2 rounded-lg hover:bg-white transition-all shadow-sm" href="#">
+                    View Documentation
+                    <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</a>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Left Column: Configuration Cards -->
+<div class="lg:col-span-8 space-y-4">
+<h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">settings_suggest</span>
+                    Field Configuration
+                </h3>
+<!-- Field 1: Expanded -->
+<div class="bg-white dark:bg-[#152914] rounded-xl border-2 border-primary shadow-lg overflow-hidden transition-all duration-300">
+<div class="p-5 border-b border-[#e7f3e7] dark:border-[#2a3a2a] flex items-center justify-between bg-primary/5 cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="bg-primary text-white font-bold h-7 w-7 rounded-full flex items-center justify-center text-sm">1</span>
+<span class="text-lg font-bold">Custom Field 1</span>
+<span class="px-2 py-0.5 bg-primary/20 text-primary text-[10px] font-bold rounded uppercase">Active</span>
+</div>
+<span class="material-symbols-outlined text-[#4e9a4c]">expand_less</span>
+</div>
+<div class="p-6 space-y-6">
+<!-- Toggle Enable -->
+<div class="flex items-center justify-between p-4 bg-background-light dark:bg-background-dark rounded-lg">
+<div class="flex flex-col">
+<span class="font-bold text-sm">Enable Field</span>
+<span class="text-xs text-gray-500">Enable this field on the weighing screen</span>
+</div>
+<div class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold text-[#0e1b0d] dark:text-white">Field Label</label>
+<input class="w-full border-[#d0e7cf] dark:border-[#2a3a2a] dark:bg-background-dark rounded-lg focus:ring-primary focus:border-primary" placeholder="Enter display label" type="text" value="Vehicle Source"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold text-[#0e1b0d] dark:text-white">Field Type</label>
+<select class="w-full border-[#d0e7cf] dark:border-[#2a3a2a] dark:bg-background-dark rounded-lg focus:ring-primary focus:border-primary">
+<option>Text Input</option>
+<option selected="">Dropdown</option>
+<option>Number</option>
+<option>Date</option>
+</select>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold text-[#0e1b0d] dark:text-white">Options (Comma separated)</label>
+<textarea class="w-full border-[#d0e7cf] dark:border-[#2a3a2a] dark:bg-background-dark rounded-lg focus:ring-primary focus:border-primary" placeholder="Internal, External, Contractor, Private" rows="3"></textarea>
+<p class="text-[11px] text-[#4e9a4c]">Each entry will appear as a selectable option in the dropdown list.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold text-[#0e1b0d] dark:text-white">Default Value</label>
+<input class="w-full border-[#d0e7cf] dark:border-[#2a3a2a] dark:bg-background-dark rounded-lg focus:ring-primary focus:border-primary" type="text" value="Internal"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold text-[#0e1b0d] dark:text-white">Placeholder Text</label>
+<input class="w-full border-[#d0e7cf] dark:border-[#2a3a2a] dark:bg-background-dark rounded-lg focus:ring-primary focus:border-primary" placeholder="Select source..." type="text"/>
+</div>
+</div>
+<div class="pt-4 border-t border-[#e7f3e7] dark:border-[#2a3a2a]">
+<h4 class="font-bold text-sm mb-4">Validation Settings</h4>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+<div class="flex items-center gap-3">
+<input checked="" class="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary" type="checkbox"/>
+<span class="text-sm font-medium">Required Field</span>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-xs font-bold uppercase text-gray-500">Min Length</label>
+<input class="w-full border-[#d0e7cf] dark:border-[#2a3a2a] dark:bg-background-dark rounded-lg" type="number" value="1"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-xs font-bold uppercase text-gray-500">Max Length</label>
+<input class="w-full border-[#d0e7cf] dark:border-[#2a3a2a] dark:bg-background-dark rounded-lg" type="number" value="50"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Field 2: Collapsed -->
+<div class="bg-white dark:bg-[#152914] rounded-xl border border-[#e7f3e7] dark:border-[#2a3a2a] shadow-sm hover:border-primary/50 transition-all cursor-pointer">
+<div class="p-5 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-bold h-7 w-7 rounded-full flex items-center justify-center text-sm">2</span>
+<span class="text-lg font-bold">Custom Field 2</span>
+<span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 text-[10px] font-bold rounded uppercase">Disabled</span>
+</div>
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+<!-- Field 3: Collapsed -->
+<div class="bg-white dark:bg-[#152914] rounded-xl border border-[#e7f3e7] dark:border-[#2a3a2a] shadow-sm hover:border-primary/50 transition-all cursor-pointer">
+<div class="p-5 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-bold h-7 w-7 rounded-full flex items-center justify-center text-sm">3</span>
+<span class="text-lg font-bold">Custom Field 3</span>
+<span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 text-[10px] font-bold rounded uppercase">Disabled</span>
+</div>
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+<div class="mt-8 flex gap-4">
+<button class="bg-primary hover:bg-primary/90 text-[#0e1b0d] font-bold px-8 py-4 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined">save</span>
+                        Save Custom Fields
+                    </button>
+<button class="border-2 border-[#d0e7cf] dark:border-[#2a3a2a] px-8 py-4 rounded-xl font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+                        Reset Defaults
+                    </button>
+</div>
+</div>
+<!-- Right Column: Preview Sidebar -->
+<div class="lg:col-span-4">
+<div class="sticky top-28">
+<div class="bg-white dark:bg-[#152914] rounded-xl border border-[#e7f3e7] dark:border-[#2a3a2a] shadow-xl overflow-hidden">
+<div class="p-4 bg-[#f8fcf8] dark:bg-[#112210] border-b border-[#e7f3e7] dark:border-[#2a3a2a] flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">visibility</span>
+<h4 class="font-bold text-sm">Live Preview</h4>
+</div>
+<div class="p-6">
+<p class="text-xs text-gray-500 mb-6 italic italic">This is how your custom fields will appear on the Weighbridge Entry screen.</p>
+<div class="space-y-5 border-l-4 border-primary/20 pl-4 py-2">
+<!-- Existing standard field example -->
+<div class="opacity-40">
+<label class="text-[11px] font-bold uppercase mb-1 block">Vehicle Number</label>
+<div class="h-9 w-full bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 flex items-center px-3 text-sm">
+                                        MH-12-AB-1234
+                                    </div>
+</div>
+<!-- Custom Field 1 Preview -->
+<div class="animate-pulse-subtle">
+<label class="text-[11px] font-black uppercase mb-1 block text-primary flex items-center gap-1">
+                                        Vehicle Source
+                                        <span class="text-red-500 text-lg leading-none">*</span>
+</label>
+<div class="relative">
+<div class="h-10 w-full border-2 border-primary rounded-lg flex items-center justify-between px-3 text-sm font-medium">
+                                            Internal
+                                            <span class="material-symbols-outlined">expand_more</span>
+</div>
+<div class="absolute -right-2 -top-2 h-4 w-4 bg-primary text-white text-[8px] flex items-center justify-center rounded-full ring-2 ring-white">1</div>
+</div>
+</div>
+<!-- Future placeholders -->
+<div class="h-24 w-full border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-lg flex flex-col items-center justify-center bg-gray-50 dark:bg-black/10">
+<span class="material-symbols-outlined text-gray-300">add_box</span>
+<span class="text-[10px] text-gray-400 font-medium">Field 2 (Hidden)</span>
+</div>
+<div class="h-10 w-full border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-lg flex items-center justify-center bg-gray-50 dark:bg-black/10">
+<span class="text-[10px] text-gray-400 font-medium italic">Field 3 (Hidden)</span>
+</div>
+</div>
+<div class="mt-8">
+<button class="w-full py-3 bg-gray-800 dark:bg-gray-600 text-white rounded-lg text-sm font-bold opacity-30 cursor-not-allowed">
+                                    Complete Transaction
+                                </button>
+</div>
+</div>
+</div>
+<!-- Additional tip card -->
+<div class="mt-4 p-4 rounded-xl border border-primary/20 bg-primary/5 flex gap-3">
+<span class="material-symbols-outlined text-primary">lightbulb</span>
+<div>
+<p class="text-xs font-bold">Pro Tip</p>
+<p class="text-[11px] text-[#4e9a4c]">Use Dropdowns instead of Text inputs to ensure data consistency for reporting.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<footer class="mt-20 border-t border-[#e7f3e7] dark:border-[#2a3a2a] py-8 text-center text-sm text-gray-500">
+<div class="max-w-[1280px] mx-auto flex flex-col md:flex-row justify-between items-center px-10 gap-4">
+<p>© 2024 Weighbridge Management System. All rights reserved.</p>
+<div class="flex gap-6">
+<a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-primary transition-colors" href="#">Help Center</a>
+<a class="hover:text-primary transition-colors" href="#">v2.4.1</a>
+</div>
+</div>
+</footer>
+</body></html>

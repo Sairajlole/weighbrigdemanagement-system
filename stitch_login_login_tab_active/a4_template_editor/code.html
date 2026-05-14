@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>A4 Template Editor - Weighbridge Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                    boxShadow: {
+                        "paper": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0,0,0,0.05)"
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .a4-ratio {
+            aspect-ratio: 210/297;
+        }
+        /* Custom scrollbar for better desktop feel */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display flex flex-col h-screen overflow-hidden">
+<!-- Top Navigation -->
+<header class="flex-none h-16 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a1a1a] px-6 z-20">
+<div class="flex items-center gap-4">
+<div class="size-8 text-primary">
+<svg class="w-full h-full" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M24 4C25.7818 14.2173 33.7827 22.2182 44 24C33.7827 25.7818 25.7818 33.7827 24 44C22.2182 33.7827 14.2173 25.7818 4 24C14.2173 22.2182 22.2182 14.2173 24 4Z" fill="currentColor"></path>
+</svg>
+</div>
+<h1 class="text-xl font-bold tracking-tight">Weighbridge Manager <span class="text-slate-400 font-normal mx-2">/</span> Template Editor</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+<button class="px-3 py-1.5 rounded-md bg-white dark:bg-slate-700 shadow-sm text-xs font-semibold">Desktop</button>
+<button class="px-3 py-1.5 rounded-md text-slate-500 hover:text-slate-900 dark:hover:text-white text-xs font-medium">Tablet</button>
+</div>
+<div class="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2"></div>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-9 border-2 border-slate-100 dark:border-slate-800" data-alt="User profile avatar placeholder" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBHn5O3ThHzCXFRP9exIQ39TkSF7-VVzMgMtn22yOw7m1drmx2-RWSKhp0wncIYgHEDd2XEBcYFWYLv9JY5HrEPJQc7KJXM3VyV5qmeNN7qoDJtoY-7bYvUwAOdiWLIj6XPldZ-FUZBu0nYvsZWf_6Wsui-NXijfasTEw-whn3BaaveA_nRNhv6AWkV50QfYJeN8FwFk_-vlUewGPXFMpb2oKIe2mzGX1a7_WpfAs0PTQ7K2k-G5RFB2lcryMLmzrgt2QSnFqobqmI");'></div>
+</div>
+</header>
+<!-- Main Workspace -->
+<main class="flex-1 flex overflow-hidden">
+<!-- LEFT COLUMN: Template Fields -->
+<aside class="w-80 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a1a1a] z-10">
+<div class="p-5 border-b border-slate-100 dark:border-slate-800">
+<h3 class="text-lg font-bold">Template Fields</h3>
+<p class="text-xs text-slate-500 mt-1">Manage visible fields on the RST.</p>
+</div>
+<div class="flex-1 overflow-y-auto p-4 space-y-6">
+<!-- Section: Core Data -->
+<div>
+<h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Transaction Data</h4>
+<div class="space-y-3">
+<!-- Field Item -->
+<div class="group flex flex-col gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-primary/50 transition-colors bg-slate-50 dark:bg-slate-900/50">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400 cursor-grab">drag_indicator</span>
+<span class="font-medium text-sm">RST Number</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-9 h-5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex gap-2 items-center pl-8 pt-1">
+<select class="text-xs py-1 pl-2 pr-6 border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 focus:ring-primary focus:border-primary">
+<option>10pt</option>
+<option selected="">12pt</option>
+<option>14pt</option>
+<option>16pt</option>
+</select>
+<button class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 font-bold text-xs border border-transparent hover:border-slate-300">B</button>
+</div>
+</div>
+<!-- Field Item -->
+<div class="group flex flex-col gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-primary/50 transition-colors bg-slate-50 dark:bg-slate-900/50">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400 cursor-grab">drag_indicator</span>
+<span class="font-medium text-sm">Date In / Out</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex gap-2 items-center pl-8 pt-1">
+<select class="text-xs py-1 pl-2 pr-6 border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 focus:ring-primary focus:border-primary">
+<option selected="">10pt</option>
+<option>12pt</option>
+</select>
+</div>
+</div>
+</div>
+</div>
+<!-- Section: Vehicle Data -->
+<div>
+<h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Vehicle &amp; Weight</h4>
+<div class="space-y-3">
+<!-- Field Item -->
+<div class="group flex flex-col gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-primary/50 transition-colors bg-slate-50 dark:bg-slate-900/50">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400 cursor-grab">drag_indicator</span>
+<span class="font-medium text-sm">Vehicle Reg</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex gap-2 items-center pl-8 pt-1">
+<select class="text-xs py-1 pl-2 pr-6 border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 focus:ring-primary focus:border-primary">
+<option>12pt</option>
+<option selected="">14pt</option>
+<option>18pt</option>
+</select>
+<button class="p-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white font-bold text-xs border border-slate-300 dark:border-slate-600">B</button>
+</div>
+</div>
+<!-- Field Item -->
+<div class="group flex flex-col gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-primary/50 transition-colors bg-slate-50 dark:bg-slate-900/50">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400 cursor-grab">drag_indicator</span>
+<span class="font-medium text-sm">Customer Name</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex gap-2 items-center pl-8 pt-1">
+<select class="text-xs py-1 pl-2 pr-6 border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 focus:ring-primary focus:border-primary">
+<option>12pt</option>
+<option selected="">12pt</option>
+</select>
+</div>
+</div>
+<!-- Field Item -->
+<div class="group flex flex-col gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-primary/50 transition-colors bg-slate-50 dark:bg-slate-900/50">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400 cursor-grab">drag_indicator</span>
+<span class="font-medium text-sm">Gross Weight</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex gap-2 items-center pl-8 pt-1">
+<select class="text-xs py-1 pl-2 pr-6 border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 focus:ring-primary focus:border-primary">
+<option>12pt</option>
+<option selected="">14pt</option>
+</select>
+<button class="p-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white font-bold text-xs border border-slate-300 dark:border-slate-600">B</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- CENTER COLUMN: Canvas & Workspace -->
+<section class="flex-1 bg-background-light dark:bg-background-dark relative flex flex-col min-w-0">
+<!-- Toolbar -->
+<div class="flex-none h-12 flex items-center justify-center gap-4 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#1a1a1a]/50 backdrop-blur-sm z-10">
+<div class="bg-slate-100 dark:bg-slate-800 rounded-md p-0.5 flex">
+<button class="px-4 py-1 text-xs font-bold rounded shadow-sm bg-white dark:bg-slate-600 text-slate-900 dark:text-white">A4</button>
+<button class="px-4 py-1 text-xs font-bold rounded text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">A5</button>
+</div>
+<div class="h-4 w-[1px] bg-slate-300 dark:bg-slate-700"></div>
+<div class="flex items-center gap-2 text-xs text-slate-500">
+<span class="material-symbols-outlined text-base">zoom_in</span>
+<span>100%</span>
+</div>
+</div>
+<!-- Scrollable Canvas Area -->
+<div class="flex-1 overflow-auto p-8 flex justify-center bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] bg-fixed">
+<!-- A4 Paper -->
+<div class="a4-ratio w-full max-w-[620px] bg-white shadow-paper relative flex flex-col p-[20mm]">
+<!-- Header Area -->
+<div class="flex justify-between items-start border-b-2 border-black pb-4 mb-6 group hover:outline hover:outline-2 hover:outline-primary hover:outline-dashed rounded p-1 -m-1 transition-all cursor-default">
+<div class="flex flex-col">
+<h1 class="text-3xl font-bold text-black uppercase tracking-tight">Weighbridge Ticket</h1>
+<p class="text-sm font-medium text-gray-500">Official Weight Record</p>
+</div>
+<div class="text-right">
+<!-- Logo Placeholder -->
+<div class="w-32 h-12 bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400 mb-2">
+                                YOUR LOGO
+                            </div>
+<p class="text-xs text-gray-600 font-bold">Acme Logistics Ltd.</p>
+<p class="text-[10px] text-gray-500">123 Industrial Estate<br/>Birmingham, UK</p>
+</div>
+</div>
+<!-- Data Grid (2 Columns) -->
+<div class="grid grid-cols-2 gap-x-12 gap-y-6 mb-8">
+<!-- Left Column -->
+<div class="flex flex-col gap-4">
+<div class="border-b border-gray-200 pb-1 hover:bg-primary/5 p-1 -m-1 rounded cursor-pointer transition-colors">
+<p class="text-xs text-gray-500 uppercase font-bold">RST Number</p>
+<p class="text-lg font-bold text-black font-mono">249012</p>
+</div>
+<div class="border-b border-gray-200 pb-1 hover:bg-primary/5 p-1 -m-1 rounded cursor-pointer transition-colors">
+<p class="text-xs text-gray-500 uppercase font-bold">Vehicle Reg</p>
+<p class="text-xl font-bold text-black font-mono">AB23 XYZ</p>
+</div>
+<div class="border-b border-gray-200 pb-1 hover:bg-primary/5 p-1 -m-1 rounded cursor-pointer transition-colors">
+<p class="text-xs text-gray-500 uppercase font-bold">Haulier</p>
+<p class="text-sm text-black">Express Transporters</p>
+</div>
+<div class="border-b border-gray-200 pb-1 hover:bg-primary/5 p-1 -m-1 rounded cursor-pointer transition-colors">
+<p class="text-xs text-gray-500 uppercase font-bold">Product</p>
+<p class="text-sm text-black">Aggregates / Sand Type A</p>
+</div>
+</div>
+<!-- Right Column -->
+<div class="flex flex-col gap-4">
+<div class="border-b border-gray-200 pb-1 hover:bg-primary/5 p-1 -m-1 rounded cursor-pointer transition-colors">
+<p class="text-xs text-gray-500 uppercase font-bold">Date / Time In</p>
+<p class="text-sm text-black font-mono">14/10/2023 08:45:22</p>
+</div>
+<div class="border-b border-gray-200 pb-1 hover:bg-primary/5 p-1 -m-1 rounded cursor-pointer transition-colors">
+<p class="text-xs text-gray-500 uppercase font-bold">Date / Time Out</p>
+<p class="text-sm text-black font-mono">14/10/2023 09:12:15</p>
+</div>
+<div class="mt-4 p-2 bg-gray-50 border border-gray-100 rounded hover:bg-primary/5 cursor-pointer transition-colors">
+<div class="flex justify-between items-baseline mb-1">
+<span class="text-xs text-gray-500 uppercase font-bold">Gross</span>
+<span class="text-base font-bold text-black font-mono">44,020 kg</span>
+</div>
+<div class="flex justify-between items-baseline mb-1">
+<span class="text-xs text-gray-500 uppercase font-bold">Tare</span>
+<span class="text-base font-bold text-black font-mono">14,500 kg</span>
+</div>
+<div class="border-t border-gray-300 my-1"></div>
+<div class="flex justify-between items-baseline">
+<span class="text-xs text-black uppercase font-bold">Net</span>
+<span class="text-xl font-bold text-black font-mono">29,520 kg</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Notes -->
+<div class="mb-auto pb-4">
+<p class="text-xs text-gray-500 uppercase font-bold mb-1">Remarks</p>
+<div class="h-16 border border-gray-200 rounded p-2 text-xs text-gray-400 italic">
+                            Driver confirmed load is secure.
+                        </div>
+</div>
+<!-- CCTV Snapshot Area (Footer) -->
+<div class="mt-4 border-t-2 border-dashed border-gray-300 pt-4">
+<p class="text-xs font-bold text-center text-gray-400 mb-3 uppercase tracking-widest">Visual Verification</p>
+<div class="grid grid-cols-2 gap-4 h-48">
+<!-- Slot 1 -->
+<div class="relative bg-gray-100 border border-gray-200 rounded flex flex-col overflow-hidden group">
+<div class="bg-gray-200 px-2 py-1 flex justify-between items-center text-[10px] font-bold text-gray-600">
+<span>CAM 01: FRONT</span>
+<select class="bg-transparent border-none p-0 text-[10px] focus:ring-0 text-primary cursor-pointer font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+<option>Front Cam</option>
+<option>Plate Cam</option>
+</select>
+</div>
+<div class="flex-1 bg-cover bg-center grayscale opacity-60" data-alt="Blurry CCTV snapshot of a truck front" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCn3JSZtnoN8Qn6CyKuUTD6NujPTnxGOHzkZpWYaet11BYZ5zt1CpB5PnEnX99DdcHK5LPMnoSArI2tas2Zl59QGeji0W9wrSYQMFjbd9-pChE6J8YGYjgcwblILiUfeovVmzGuJaVJRLbwRp3P1trWBHbV0jeDeSXhTFZjh-3o1S1-S_wyDTgwSIcBvo9yYLJsRMs75UESVMDBGPA7UL5JT-Z9khgzUis7WhASutSI8z1eCEz1E7Q43PTqjlgs4mCwsZfOVqwETiw");'></div>
+</div>
+<!-- Slot 2 -->
+<div class="relative bg-gray-100 border border-gray-200 rounded flex flex-col overflow-hidden group">
+<div class="bg-gray-200 px-2 py-1 flex justify-between items-center text-[10px] font-bold text-gray-600">
+<span>CAM 02: PLATE</span>
+<select class="bg-transparent border-none p-0 text-[10px] focus:ring-0 text-primary cursor-pointer font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+<option>Front Cam</option>
+<option selected="">Plate Cam</option>
+</select>
+</div>
+<div class="flex-1 bg-cover bg-center grayscale opacity-60" data-alt="Close up of a license plate" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCAZz5UIW9AECQPp678gEqH9bC_dpzWNd5gC7Q3qTBMZNDH-x-yAXAUaH4Re36-BdCxy_a6a2bhC121rqrFUT2TpKe8FN7s8pdSYS0_4z7dDSN3uPYh73GDFCluW28OfsVZMWl65s-bklBOkDgGyXgObwcRuCMAYamHhkwt2EPh8grihbjdOWaSVhj3pGe5dJrWwtwPAFlwdKgbHJPdVJ-dE8WY8lINP2vmJwVYbeRlfh2j2FKgA83i4OMoh3qpgV8aPwDflHGV6ek");'></div>
+</div>
+<!-- Slot 3 -->
+<div class="relative bg-gray-100 border border-gray-200 rounded flex flex-col overflow-hidden group">
+<div class="bg-gray-200 px-2 py-1 flex justify-between items-center text-[10px] font-bold text-gray-600">
+<span>CAM 03: TOP</span>
+<select class="bg-transparent border-none p-0 text-[10px] focus:ring-0 text-primary cursor-pointer font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+<option>Front Cam</option>
+<option selected="">Top Cam</option>
+</select>
+</div>
+<div class="flex-1 bg-cover bg-center grayscale opacity-60" data-alt="Top down view of a truck bed with sand" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAle5tp9_4Cv42b14ods2DESrXeUpJk5tbSV65ijkVdCzp1hGTrM56DTmpeVx-Tw_8WsN7ub3OpsEuSmzATk2pNgSNuITFaGKIcUNHiHnb86jC5aIoydxInK3unwOl8DRTMbWPQw6LizsmzB7LFfvVxeefYJrnRz-M3I6qb9MadUvM--RSE9_SWH-pUG49SIREZOXcliDG1zi7bO3hJuSv64n13GNBkLXapSiSKd8NUjHSpluQ8pgpx_sGuRTAVo3oDM4Kk5oBkEGQ");'></div>
+</div>
+<!-- Slot 4 -->
+<div class="relative bg-gray-100 border border-gray-200 rounded flex flex-col overflow-hidden group">
+<div class="bg-gray-200 px-2 py-1 flex justify-between items-center text-[10px] font-bold text-gray-600">
+<span>CAM 04: REAR</span>
+<select class="bg-transparent border-none p-0 text-[10px] focus:ring-0 text-primary cursor-pointer font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+<option>Front Cam</option>
+<option selected="">Rear Cam</option>
+</select>
+</div>
+<div class="flex-1 bg-cover bg-center grayscale opacity-60" data-alt="Rear view of a dump truck" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA2fnZcvNBR_rNFuCSzq9Qhf4pVsv-sohRTkz29csCXQX_S2EkTaMRths2UhGnPSd9NAnzdTH4FSXsuh_km3CgDi5tX--1fDIxSNp0xu-Iymvn10fPYgudT97-9cSrzB4YhDGZvTjLKGuwYGj1dPi4FqxQ74UTCxJoXRNgDVzn15HggRBUOffCIhXjzddQncZ6VmsrIVz_yvQqSLOuTvXpCU_LfrkHHFxKV08XLkw8-V75lahHDDLKam6IbuymX3f7oBU2gDgyRPrI");'></div>
+</div>
+</div>
+</div>
+<!-- Footer Signature -->
+<div class="mt-6 pt-4 border-t border-gray-800 flex justify-between items-end">
+<div class="text-[10px] text-gray-500">
+                            Printed: 14/10/2023 09:15 by Operator: J.Smith
+                        </div>
+<div class="w-40 border-b border-gray-400 h-8 flex items-end justify-center text-[10px] text-gray-400">
+                            Driver Signature
+                        </div>
+</div>
+</div>
+</div>
+<!-- Bottom Action Bar (Sticky) -->
+<div class="h-16 bg-white dark:bg-[#1a1a1a] border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 z-20">
+<button class="flex items-center gap-2 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors text-sm font-medium">
+<span class="material-symbols-outlined">restart_alt</span>
+                    Reset to Default
+                </button>
+<div class="flex items-center gap-4">
+<button class="px-5 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                        Preview Full Size
+                    </button>
+<button class="px-6 py-2 rounded-lg bg-primary text-[#112210] font-bold text-sm shadow-md shadow-primary/20 hover:bg-primary/90 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">save</span>
+                        Save Template
+                    </button>
+</div>
+</div>
+</section>
+<!-- RIGHT COLUMN: Settings Panel -->
+<aside class="w-80 flex flex-col border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a1a1a] z-10 overflow-y-auto">
+<div class="p-5 border-b border-slate-100 dark:border-slate-800">
+<h3 class="text-lg font-bold">Settings Panel</h3>
+<p class="text-xs text-slate-500 mt-1">Branding &amp; Global Layout</p>
+</div>
+<div class="p-5 space-y-8">
+<!-- Branding -->
+<div>
+<h4 class="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200 mb-4">
+<span class="material-symbols-outlined text-primary text-lg">branding_watermark</span>
+                        Company Branding
+                    </h4>
+<div class="mb-4">
+<label class="block text-xs font-medium text-slate-500 mb-2">Company Logo</label>
+<div class="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all">
+<span class="material-symbols-outlined text-3xl text-slate-400 mb-1">cloud_upload</span>
+<span class="text-xs font-bold text-slate-600 dark:text-slate-300">Click to upload</span>
+<span class="text-[10px] text-slate-400">PNG, JPG up to 2MB</span>
+</div>
+</div>
+<div class="space-y-3">
+<div>
+<label class="block text-xs font-medium text-slate-500 mb-1">Company Name</label>
+<input class="w-full text-sm rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:border-primary focus:ring-primary" type="text" value="Acme Logistics Ltd."/>
+</div>
+<div>
+<label class="block text-xs font-medium text-slate-500 mb-1">Address Line 1</label>
+<input class="w-full text-sm rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:border-primary focus:ring-primary" type="text" value="123 Industrial Estate"/>
+</div>
+<div>
+<label class="block text-xs font-medium text-slate-500 mb-1">Address Line 2</label>
+<input class="w-full text-sm rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:border-primary focus:ring-primary" type="text" value="Birmingham, UK"/>
+</div>
+</div>
+</div>
+<hr class="border-slate-100 dark:border-slate-800"/>
+<!-- Margins -->
+<div>
+<h4 class="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200 mb-4">
+<span class="material-symbols-outlined text-primary text-lg">format_shapes</span>
+                        Page Margins (mm)
+                    </h4>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="block text-xs text-slate-500 mb-1">Top</label>
+<input class="w-full text-sm rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:border-primary focus:ring-primary" type="number" value="20"/>
+</div>
+<div>
+<label class="block text-xs text-slate-500 mb-1">Bottom</label>
+<input class="w-full text-sm rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:border-primary focus:ring-primary" type="number" value="20"/>
+</div>
+<div>
+<label class="block text-xs text-slate-500 mb-1">Left</label>
+<input class="w-full text-sm rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:border-primary focus:ring-primary" type="number" value="15"/>
+</div>
+<div>
+<label class="block text-xs text-slate-500 mb-1">Right</label>
+<input class="w-full text-sm rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:border-primary focus:ring-primary" type="number" value="15"/>
+</div>
+</div>
+</div>
+<hr class="border-slate-100 dark:border-slate-800"/>
+<!-- CCTV Config -->
+<div>
+<h4 class="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200 mb-4">
+<span class="material-symbols-outlined text-primary text-lg">videocam</span>
+                        CCTV Headers
+                    </h4>
+<div class="space-y-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-500">1</div>
+<input class="flex-1 text-sm py-1.5 rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:border-primary focus:ring-primary" type="text" value="Front Cam"/>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-500">2</div>
+<input class="flex-1 text-sm py-1.5 rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:border-primary focus:ring-primary" type="text" value="Plate Cam"/>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-500">3</div>
+<input class="flex-1 text-sm py-1.5 rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:border-primary focus:ring-primary" type="text" value="Top Cam"/>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-500">4</div>
+<input class="flex-1 text-sm py-1.5 rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:border-primary focus:ring-primary" type="text" value="Rear Cam"/>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</main>
+</body></html>

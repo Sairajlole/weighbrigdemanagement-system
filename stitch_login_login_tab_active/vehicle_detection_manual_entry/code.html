@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vehicle Detection - WMS</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#1aec13",
+              "background-light": "#f6f8f6",
+              "background-dark": "#112210",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#111811] dark:text-white font-display overflow-hidden flex h-screen w-full">
+<!-- Sidebar -->
+<div class="hidden lg:flex w-72 flex-col justify-between border-r border-[#e5e7eb] dark:border-[#1f3b1d] bg-white dark:bg-[#162b15] p-6">
+<div class="flex flex-col gap-8">
+<div class="flex flex-col">
+<h1 class="text-[#111811] dark:text-white text-2xl font-bold leading-normal">WMS</h1>
+<p class="text-[#638961] text-sm font-normal leading-normal">Weighbridge Sys</p>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-[#637563] dark:text-[#a0bba0] hover:bg-[#f0f4f0] dark:hover:bg-[#1f3b1d] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px]">grid_view</span>
+<p class="text-sm font-medium leading-normal">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg bg-primary/20 text-[#111811] dark:text-white" href="#">
+<span class="material-symbols-outlined text-[24px] text-green-700 dark:text-primary fill-1">monitor_weight</span>
+<p class="text-sm font-bold leading-normal">Weighment</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-[#637563] dark:text-[#a0bba0] hover:bg-[#f0f4f0] dark:hover:bg-[#1f3b1d] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px]">description</span>
+<p class="text-sm font-medium leading-normal">Reports</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-[#637563] dark:text-[#a0bba0] hover:bg-[#f0f4f0] dark:hover:bg-[#1f3b1d] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px]">settings</span>
+<p class="text-sm font-medium leading-normal">Settings</p>
+</a>
+</nav>
+</div>
+<div class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#f0f4f0] dark:hover:bg-[#1f3b1d] cursor-pointer transition-colors">
+<div class="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-300">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div class="flex flex-col">
+<p class="text-[#111811] dark:text-white text-sm font-bold">Operator 01</p>
+<p class="text-[#638961] text-xs">Gate A</p>
+</div>
+</div>
+</div>
+<!-- Main Content -->
+<div class="flex-1 flex flex-col h-full overflow-auto relative">
+<div class="max-w-[1400px] w-full mx-auto px-6 py-8 flex flex-col h-full gap-6">
+<!-- Header Section -->
+<div class="flex flex-col gap-4">
+<!-- Breadcrumbs -->
+<div class="flex flex-wrap items-center gap-2">
+<a class="text-[#638961] dark:text-[#8ba889] text-sm font-medium leading-normal hover:underline" href="#">Weighment</a>
+<span class="material-symbols-outlined text-[#638961] dark:text-[#8ba889] text-[16px]">chevron_right</span>
+<span class="text-[#111811] dark:text-white text-sm font-semibold leading-normal">Manual Entry</span>
+</div>
+<!-- Page Title -->
+<div class="flex flex-col gap-1">
+<h1 class="text-[#111811] dark:text-white text-4xl font-extrabold leading-tight tracking-[-0.033em]">Vehicle Detection</h1>
+<p class="text-[#638961] text-base font-normal">Manual entry mode</p>
+</div>
+</div>
+<!-- Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-[500px]">
+<!-- LEFT COLUMN: Weight Display -->
+<div class="lg:col-span-7 flex flex-col">
+<div class="h-full w-full bg-white dark:bg-[#162b15] rounded-xl shadow-sm border border-[#e5e7eb] dark:border-[#1f3b1d] p-8 lg:p-12 flex flex-col justify-center items-center relative overflow-hidden">
+<!-- Subtle Background Pattern -->
+<div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(26,236,19,0.05),transparent_40%)]"></div>
+<div class="relative z-10 flex flex-col items-center">
+<div class="flex items-baseline gap-2 sm:gap-4">
+<h1 class="text-[#111811] dark:text-white text-[80px] sm:text-[100px] xl:text-[120px] font-bold leading-none tracking-tighter tabular-nums">24,580</h1>
+<span class="text-3xl sm:text-4xl font-medium text-[#638961]">kg</span>
+</div>
+<div class="mt-8">
+<div class="flex h-10 items-center justify-center gap-x-2 rounded-full bg-[#f0f4f0] dark:bg-[#1f3b1d] px-6 border border-transparent dark:border-[#2a4e27]">
+<span class="material-symbols-outlined text-[#111811] dark:text-primary text-[20px]">check_circle</span>
+<p class="text-[#111811] dark:text-white text-base font-bold leading-normal uppercase tracking-wide">Stable</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN: Manual Entry -->
+<div class="lg:col-span-5 flex flex-col gap-6">
+<!-- Notification Card -->
+<div class="bg-[#D6EFD8] rounded-xl p-5 border border-[#c1dec3] shadow-sm">
+<div class="flex gap-4 items-start">
+<div class="bg-white/50 p-2 rounded-lg shrink-0">
+<span class="material-symbols-outlined text-[#1f3b1d] text-[24px]">videocam_off</span>
+</div>
+<div class="flex flex-col gap-2">
+<h3 class="text-[#111811] font-bold text-base">CCTV detection not available</h3>
+<p class="text-[#1f3b1d] text-sm leading-relaxed">
+                                    Automatic vehicle recognition is currently offline. Please manually verify the vehicle registration.
+                                </p>
+<a class="inline-flex items-center gap-1 text-[#111811] text-sm font-bold hover:underline decoration-2 underline-offset-2 mt-1 group" href="#">
+                                    Upgrade to AI Features
+                                    <span class="material-symbols-outlined text-[16px] transition-transform group-hover:translate-x-1">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+<!-- Input Form -->
+<div class="bg-white dark:bg-[#162b15] rounded-xl p-8 shadow-sm border border-[#e5e7eb] dark:border-[#1f3b1d] flex-1 flex flex-col">
+<form class="flex flex-col flex-1 h-full" onsubmit="event.preventDefault();">
+<div class="flex flex-col gap-6">
+<div class="flex flex-col gap-2">
+<label class="text-[#111811] dark:text-white text-lg font-semibold" for="vehicleReg">Vehicle Number</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-gray-400">directions_car</span>
+</div>
+<input autofocus="" class="w-full h-14 pl-12 pr-4 rounded-lg border border-[#e5e7eb] dark:border-[#2a4e27] bg-[#f8fafc] dark:bg-[#112210] text-[#111811] dark:text-white text-xl font-medium placeholder:text-gray-400 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none uppercase tracking-wider" id="vehicleReg" placeholder="Enter registration number" type="text"/>
+</div>
+<p class="text-xs text-gray-500 dark:text-gray-400 pl-1">Format: XX-00-XX-0000</p>
+</div>
+</div>
+<div class="mt-auto pt-8 flex flex-col gap-4">
+<button class="w-full bg-primary hover:bg-[#15d60f] text-[#111811] h-14 rounded-lg font-bold text-lg shadow-lg shadow-primary/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2 group" type="submit">
+                                    Continue
+                                    <span class="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
+</button>
+<button class="w-full h-10 rounded-lg text-gray-500 dark:text-gray-400 font-medium text-sm hover:text-red-600 dark:hover:text-red-400 transition-colors" type="button">
+                                    Cancel Weighment
+                                </button>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

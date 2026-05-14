@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Camera Management Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#508d4e",
+              "background-light": "#f6f7f6",
+              "background-dark": "#161c16",
+              "surface-dark": "#232923",
+              "surface-darker": "#1e241e",
+              "border-dark": "#2f362f",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#131613] dark:text-white font-display min-h-screen flex overflow-hidden">
+<!-- Sidebar -->
+<aside class="w-[280px] bg-[#131613] flex flex-col justify-between border-r border-[#2f362f] hidden lg:flex shrink-0">
+<div class="flex flex-col gap-4 p-4">
+<div class="flex items-center gap-3 px-2 mb-6">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-10 w-10 bg-primary flex items-center justify-center text-white font-bold" data-alt="System Logo Placeholder">
+<span class="material-symbols-outlined text-[24px]">scale</span>
+</div>
+<h1 class="text-white text-lg font-bold leading-normal">Weighbridge Sys</h1>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#2e332e] text-[#a6b0a6] hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px] group-hover:text-white">dashboard</span>
+<p class="text-sm font-medium leading-normal">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg bg-[#2e332e] text-white" href="#">
+<span class="material-symbols-outlined text-[24px] fill-1">videocam</span>
+<p class="text-sm font-medium leading-normal">Cameras</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#2e332e] text-[#a6b0a6] hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px] group-hover:text-white">scale</span>
+<p class="text-sm font-medium leading-normal">Weighbridge</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#2e332e] text-[#a6b0a6] hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px] group-hover:text-white">description</span>
+<p class="text-sm font-medium leading-normal">Reports</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#2e332e] text-[#a6b0a6] hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px] group-hover:text-white">settings</span>
+<p class="text-sm font-medium leading-normal">Settings</p>
+</a>
+</nav>
+</div>
+<div class="p-4">
+<div class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#2e332e] cursor-pointer">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-8 w-8 bg-[#434c43]" data-alt="User Avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCcQ279Fy8XJqLfXpU2gZ8Ldsgvj3FMNtu-5PKYg1vIe1ALKZ9fVAWIOjh_bIa84yLAkBDOffhfATmBnML3zwAy90j5LEguZ-MzrRthpesqYbIQDsDwz0R3HTZpicS2MMIg92gFukrh3YdvSorzWqlCk5C0zraZ8cw7Fp9GGSIhbrHAs2JUIzRxoK2cC8XhE9ktxjNrhgy6sBzq4PcrwoeB4a3Tdm2iuNpee2WOpFHAAE1QnNlKSH8sWaI_xAFI1RDMFu-EjA8DE_s");'></div>
+<div class="flex flex-col">
+<p class="text-white text-sm font-medium">Admin User</p>
+<p class="text-[#a6b0a6] text-xs">admin@sys.com</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col h-screen overflow-y-auto">
+<!-- Header -->
+<header class="px-6 py-8 border-b border-[#2f362f] bg-background-light dark:bg-background-dark sticky top-0 z-10">
+<div class="max-w-[1400px] mx-auto w-full">
+<div class="flex flex-wrap justify-between items-center gap-4">
+<div>
+<h2 class="text-[#131613] dark:text-white text-[32px] font-bold leading-tight tracking-tight">Camera Management</h2>
+<p class="text-[#6b7280] dark:text-[#a6b0a6] text-sm mt-1">Monitor and configure surveillance points</p>
+</div>
+<button class="flex items-center gap-2 h-10 px-5 bg-primary hover:bg-[#437641] text-white text-sm font-bold rounded-lg transition-colors shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-[20px]">add</span>
+<span>Add Camera</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Content Body -->
+<div class="flex-1 px-6 py-8">
+<div class="max-w-[1400px] mx-auto w-full flex flex-col gap-8">
+<!-- Stats Row -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="flex flex-col gap-1 p-5 rounded-xl border border-gray-200 dark:border-[#2f362f] bg-white dark:bg-surface-dark shadow-sm">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-[#a6b0a6]">videocam</span>
+<p class="text-[#6b7280] dark:text-[#a6b0a6] text-sm font-medium uppercase tracking-wider">Total Cameras</p>
+</div>
+<p class="text-[#131613] dark:text-white text-3xl font-bold">6</p>
+</div>
+<div class="flex flex-col gap-1 p-5 rounded-xl border border-gray-200 dark:border-[#2f362f] bg-white dark:bg-surface-dark shadow-sm relative overflow-hidden">
+<div class="absolute right-0 top-0 p-4 opacity-5">
+<span class="material-symbols-outlined text-[80px]">check_circle</span>
+</div>
+<div class="flex items-center gap-2 mb-2">
+<div class="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></div>
+<p class="text-primary text-sm font-medium uppercase tracking-wider">Online</p>
+</div>
+<p class="text-[#131613] dark:text-white text-3xl font-bold">5</p>
+</div>
+<div class="flex flex-col gap-1 p-5 rounded-xl border border-gray-200 dark:border-[#2f362f] bg-white dark:bg-surface-dark shadow-sm relative overflow-hidden">
+<div class="absolute right-0 top-0 p-4 opacity-5">
+<span class="material-symbols-outlined text-[80px]">error</span>
+</div>
+<div class="flex items-center gap-2 mb-2">
+<div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+<p class="text-red-500 text-sm font-medium uppercase tracking-wider">Offline</p>
+</div>
+<p class="text-[#131613] dark:text-white text-3xl font-bold">1</p>
+</div>
+</div>
+<!-- Camera Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+<!-- Card 1: Main Entry -->
+<div class="group flex flex-col bg-white dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-[#2f362f] overflow-hidden hover:border-primary/50 transition-colors shadow-sm">
+<div class="relative w-full aspect-video bg-gray-800">
+<div class="absolute inset-0 bg-cover bg-center opacity-90 group-hover:opacity-100 transition-opacity" data-alt="Security camera view of main entry gate with trucks" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBXhtiYpml2sbBavx5kmsyUtncsIoSOOQkIpVZlic_1SErGDnpBsH45I6ht5HeX9KdutgtlR0WfbzmdSX_RGIpD4cGxIpJB6-v9PQGW0gTkUkQnwg36pbXDHvrdASUutlMdQZc-Q1geCrBrYOiDsJoe5rk49PPDJIXh0DMWLL3pjI7EH5LI01E-LcCzq1_6_Lzcyfixl4pFI_XHaHgfMuPd94GBo3z1Wu37M8aylLY79zR236qAZmPXuXMHxsOac-bSY3Jf1LWvHpk");'></div>
+<div class="absolute top-3 right-3">
+<span class="flex h-3 w-3 relative">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+</span>
+</div>
+<div class="absolute bottom-3 left-3">
+<span class="bg-black/60 backdrop-blur-sm text-white text-[10px] font-mono px-2 py-1 rounded">REC • 00:12:45</span>
+</div>
+</div>
+<div class="p-5 flex flex-col gap-4 flex-1">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-[#131613] dark:text-white text-lg font-bold leading-tight mb-1">Main Entry Gate</h3>
+<p class="text-[#6b7280] dark:text-[#a6b0a6] text-xs font-mono">192.168.1.101</p>
+</div>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                    LPR
+                                </span>
+</div>
+<div class="mt-auto pt-4 border-t border-gray-100 dark:border-[#2f362f] flex gap-3">
+<button class="flex-1 flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-[#2e332e] dark:hover:bg-[#3a403a] text-[#131613] dark:text-white text-sm font-medium transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+                                    Configure
+                                </button>
+<button class="flex items-center justify-center h-9 w-9 rounded-lg border border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20 text-red-500 transition-colors" title="Delete Camera">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 2: Weighbridge Deck A -->
+<div class="group flex flex-col bg-white dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-[#2f362f] overflow-hidden hover:border-primary/50 transition-colors shadow-sm">
+<div class="relative w-full aspect-video bg-gray-800">
+<div class="absolute inset-0 bg-cover bg-center opacity-90 group-hover:opacity-100 transition-opacity" data-alt="Top down view of a weighbridge scale deck" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuACkrIBkPlIDFapUhF20r414PS6T1qN5qd-02Z2w11ChsjCoZ7KF1OxFNE_Gfr8wmK7A6OHB_Ue9hkflDArGbZlWZo-zpsSA8JEMm_Uc89nMu14qyKNclBy5eHmdqpKMWzFYBHCr-mskfg1CpM-MWMbQmy4PjUeltno2HxCtDPWN4f_6VrBWqCt8FV5XWWWJtmzkDE0jgvt7-yvoSX58kCWmw6Ljp-j8koaGZbRZnDqxFrvNDDJsngCLesORPE9rFAXRCeweDExRME");'></div>
+<div class="absolute top-3 right-3">
+<span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+</div>
+<div class="absolute bottom-3 left-3">
+<span class="bg-black/60 backdrop-blur-sm text-white text-[10px] font-mono px-2 py-1 rounded">LIVE</span>
+</div>
+</div>
+<div class="p-5 flex flex-col gap-4 flex-1">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-[#131613] dark:text-white text-lg font-bold leading-tight mb-1">Weighbridge Deck A</h3>
+<p class="text-[#6b7280] dark:text-[#a6b0a6] text-xs font-mono">192.168.1.102</p>
+</div>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700/50 dark:text-gray-300">
+                                    Overhead
+                                </span>
+</div>
+<div class="mt-auto pt-4 border-t border-gray-100 dark:border-[#2f362f] flex gap-3">
+<button class="flex-1 flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-[#2e332e] dark:hover:bg-[#3a403a] text-[#131613] dark:text-white text-sm font-medium transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+                                    Configure
+                                </button>
+<button class="flex items-center justify-center h-9 w-9 rounded-lg border border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20 text-red-500 transition-colors" title="Delete Camera">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 3: Weighbridge Deck B -->
+<div class="group flex flex-col bg-white dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-[#2f362f] overflow-hidden hover:border-primary/50 transition-colors shadow-sm">
+<div class="relative w-full aspect-video bg-gray-800">
+<div class="absolute inset-0 bg-cover bg-center opacity-90 group-hover:opacity-100 transition-opacity" data-alt="Side view of weighbridge deck B" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCnuJVcf5ZTKB03JwOTduS2wf8sD5bcBpGkqO8hCvFthdN6ueBE7UTTOoItLTQNF5IA3-6hpPjnAqEa2xTwT7lYkq6UYjiwbfK1CB2N00-0PP9a7aAmYNMpDn-S9fUnRE2l-Y6nVKepvp8oPXssphd0j_Z4NMgp-EgjYx8_KAHbK_REtTwFR5pXe94eydRcsWNSEiIkJWvIGWXOrV7tnbfUyaMOrAjEW-W4IZJkMWSA6fCTf7p1zLG1bZKiCndO1cyUAh22tEE9y4w");'></div>
+<div class="absolute top-3 right-3">
+<span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+</div>
+</div>
+<div class="p-5 flex flex-col gap-4 flex-1">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-[#131613] dark:text-white text-lg font-bold leading-tight mb-1">Weighbridge Deck B</h3>
+<p class="text-[#6b7280] dark:text-[#a6b0a6] text-xs font-mono">192.168.1.103</p>
+</div>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700/50 dark:text-gray-300">
+                                    Side View
+                                </span>
+</div>
+<div class="mt-auto pt-4 border-t border-gray-100 dark:border-[#2f362f] flex gap-3">
+<button class="flex-1 flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-[#2e332e] dark:hover:bg-[#3a403a] text-[#131613] dark:text-white text-sm font-medium transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+                                    Configure
+                                </button>
+<button class="flex items-center justify-center h-9 w-9 rounded-lg border border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20 text-red-500 transition-colors" title="Delete Camera">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 4: Warehouse Loading Dock (OFFLINE) -->
+<div class="group flex flex-col bg-white dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-[#2f362f] overflow-hidden hover:border-red-500/50 transition-colors shadow-sm">
+<div class="relative w-full aspect-video bg-[#0f0f0f] flex items-center justify-center">
+<div class="text-[#a6b0a6] flex flex-col items-center gap-2">
+<span class="material-symbols-outlined text-4xl">videocam_off</span>
+<span class="text-xs uppercase tracking-widest">Signal Lost</span>
+</div>
+<div class="absolute top-3 right-3">
+<span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+</div>
+</div>
+<div class="p-5 flex flex-col gap-4 flex-1">
+<div class="flex justify-between items-start">
+<div>
+<div class="flex items-center gap-2">
+<h3 class="text-[#131613] dark:text-white text-lg font-bold leading-tight mb-1">Warehouse Dock</h3>
+<span class="material-symbols-outlined text-red-500 text-sm" title="Connection Error">warning</span>
+</div>
+<p class="text-[#6b7280] dark:text-[#a6b0a6] text-xs font-mono">192.168.1.105</p>
+</div>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700/50 dark:text-gray-300">
+                                    Surveillance
+                                </span>
+</div>
+<div class="mt-auto pt-4 border-t border-gray-100 dark:border-[#2f362f] flex gap-3">
+<button class="flex-1 flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-[#2e332e] dark:hover:bg-[#3a403a] text-[#131613] dark:text-white text-sm font-medium transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+                                    Troubleshoot
+                                </button>
+<button class="flex items-center justify-center h-9 w-9 rounded-lg border border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20 text-red-500 transition-colors" title="Delete Camera">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 5: Exit Gate -->
+<div class="group flex flex-col bg-white dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-[#2f362f] overflow-hidden hover:border-primary/50 transition-colors shadow-sm">
+<div class="relative w-full aspect-video bg-gray-800">
+<div class="absolute inset-0 bg-cover bg-center opacity-90 group-hover:opacity-100 transition-opacity" data-alt="Security camera view of exit gate road" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAOTN15cZaksS9kiQeej7WmDqRMIG8G6BG7GOfx4OTlvRzOGW8bDNNJZ8XhzDqcmSkWli2dlyc3PsDjsLKVufUtSGhxtsgLrW8o5rJnJxWj0ugaMvT_Mf7RQQOW1mR8W48-I_Gmgtmcn2eEH-JMq-yPiS4TMg0ISSRe1UWqqvp8vImoXN4ulZKOPBAg-RqlAAZuD_wXMdiZc0mvu0SaxdEs0BXqriGL2TqcmYZLLyZz3K09Mnn8wv6jtKrXNZ5cBwpGOOd4VdE5iGw");'></div>
+<div class="absolute top-3 right-3">
+<span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+</div>
+</div>
+<div class="p-5 flex flex-col gap-4 flex-1">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-[#131613] dark:text-white text-lg font-bold leading-tight mb-1">Exit Gate</h3>
+<p class="text-[#6b7280] dark:text-[#a6b0a6] text-xs font-mono">192.168.1.104</p>
+</div>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                    LPR
+                                </span>
+</div>
+<div class="mt-auto pt-4 border-t border-gray-100 dark:border-[#2f362f] flex gap-3">
+<button class="flex-1 flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-[#2e332e] dark:hover:bg-[#3a403a] text-[#131613] dark:text-white text-sm font-medium transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+                                    Configure
+                                </button>
+<button class="flex items-center justify-center h-9 w-9 rounded-lg border border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20 text-red-500 transition-colors" title="Delete Camera">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 6: Office Yard -->
+<div class="group flex flex-col bg-white dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-[#2f362f] overflow-hidden hover:border-primary/50 transition-colors shadow-sm">
+<div class="relative w-full aspect-video bg-gray-800">
+<div class="absolute inset-0 bg-cover bg-center opacity-90 group-hover:opacity-100 transition-opacity" data-alt="Wide angle view of office parking yard" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBD3AV3XHAt6eCWo0_YgtkJ8EGjYFMxqHsRQSbSdTL4M_mntf1dzPM0Vga6TJVCRd_0T9s5mmfj0z5cCcxgyKRJNhqhyeML1CCpZN6-R9JAZ5YeXw65Y0AISBhRmMZAcQHGxu9drmBR44SnQ8Ja7eCcby-7ecUUB2Pr-yom26H7Au0mfRXhW4QQER-mEPZd7JmlBL0pOoeaA2n1aHcz_FfgBpPEu9DZ98aoSGGjey64dNJ8cCiCvy6tyeNJ6HBdy3OWQRNJCNg_p0g");'></div>
+<div class="absolute top-3 right-3">
+<span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+</div>
+</div>
+<div class="p-5 flex flex-col gap-4 flex-1">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-[#131613] dark:text-white text-lg font-bold leading-tight mb-1">Office Yard</h3>
+<p class="text-[#6b7280] dark:text-[#a6b0a6] text-xs font-mono">192.168.1.108</p>
+</div>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700/50 dark:text-gray-300">
+                                    General
+                                </span>
+</div>
+<div class="mt-auto pt-4 border-t border-gray-100 dark:border-[#2f362f] flex gap-3">
+<button class="flex-1 flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-[#2e332e] dark:hover:bg-[#3a403a] text-[#131613] dark:text-white text-sm font-medium transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+                                    Configure
+                                </button>
+<button class="flex items-center justify-center h-9 w-9 rounded-lg border border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20 text-red-500 transition-colors" title="Delete Camera">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Add New Card Placeholder (Optional for better UX, showing what to do if list grows) -->
+<button class="group flex flex-col items-center justify-center min-h-[320px] rounded-xl border-2 border-dashed border-gray-300 dark:border-[#2f362f] hover:border-primary/50 hover:bg-gray-50 dark:hover:bg-white/5 transition-all gap-4">
+<div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-[#2e332e] flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined text-3xl text-gray-400 dark:text-[#a6b0a6] group-hover:text-white">add</span>
+</div>
+<p class="text-[#6b7280] dark:text-[#a6b0a6] font-medium">Add New Camera</p>
+</button>
+</div>
+</div>
+</div>
+</main>
+</body></html>

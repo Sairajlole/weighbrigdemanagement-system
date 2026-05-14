@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Customer Data Mismatch</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#232923",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display flex items-center justify-center min-h-screen p-4">
+<!-- Modal Backdrop -->
+<div aria-hidden="true" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity"></div>
+<!-- Modal Container -->
+<div class="relative w-full max-w-[600px] bg-surface-light dark:bg-surface-dark rounded-xl shadow-2xl z-50 overflow-hidden border border-gray-200 dark:border-gray-800">
+<!-- Header Section -->
+<div class="p-6 pb-2">
+<div class="flex items-center gap-3 mb-2">
+<div class="flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-500">
+<span class="material-symbols-outlined">warning</span>
+</div>
+<h2 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100">Customer Data Mismatch</h2>
+<!-- Close Button -->
+<button class="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<p class="text-gray-600 dark:text-gray-400 text-base leading-relaxed pl-[52px]">
+                Face recognition matched an existing customer, but the entered phone number is different. Please verify which data to use.
+            </p>
+</div>
+<!-- Comparison Table Section -->
+<div class="px-6 py-4">
+<div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-900">
+<div class="grid grid-cols-2 divide-x divide-gray-200 dark:divide-gray-700">
+<!-- Column 1: Face Match -->
+<div class="bg-gray-50/50 dark:bg-gray-800/20">
+<div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl">face</span>
+<span class="font-bold text-sm uppercase tracking-wide text-gray-700 dark:text-gray-300">From Face Match</span>
+</div>
+<div class="p-4 space-y-4">
+<div>
+<span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase block mb-1">Customer Name</span>
+<p class="text-gray-900 dark:text-white font-semibold">Ramesh Sharma</p>
+</div>
+<div>
+<span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase block mb-1">Phone Number</span>
+<p class="text-gray-900 dark:text-white font-medium font-mono text-lg">9876543210</p>
+</div>
+<div>
+<span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase block mb-1">Vehicle No.</span>
+<p class="text-gray-900 dark:text-white font-medium">MH 12 AB 1234</p>
+</div>
+</div>
+</div>
+<!-- Column 2: Entered Data -->
+<div class="bg-white dark:bg-transparent">
+<div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-transparent flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-500 text-xl">keyboard</span>
+<span class="font-bold text-sm uppercase tracking-wide text-gray-700 dark:text-gray-300">Entered Data</span>
+</div>
+<div class="p-4 space-y-4">
+<div>
+<span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase block mb-1">Customer Name</span>
+<p class="text-gray-400 dark:text-gray-600 italic">—</p>
+</div>
+<div class="p-2 -m-2 bg-amber-50 dark:bg-amber-900/10 rounded-md border border-amber-100 dark:border-amber-800/30">
+<span class="text-xs font-bold text-amber-600 dark:text-amber-500 uppercase block mb-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">priority_high</span> 
+                                    Mismatch
+                                </span>
+<p class="text-amber-700 dark:text-amber-400 font-bold font-mono text-lg">8765432109</p>
+</div>
+<div>
+<span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase block mb-1">Vehicle No.</span>
+<p class="text-gray-900 dark:text-white font-medium">MH 12 AB 1234</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Actions Footer -->
+<div class="p-6 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+<!-- Tertiary Action -->
+<button class="text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline decoration-gray-300 underline-offset-4 transition-colors order-3 sm:order-1">
+                Update Profile
+            </button>
+<!-- Primary Actions -->
+<div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto order-1 sm:order-2">
+<button class="flex items-center justify-center px-6 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-transparent text-gray-700 dark:text-gray-200 font-bold text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-gray-200">
+                    Use Entered Phone
+                </button>
+<button class="flex items-center justify-center px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-green-700 transition-colors shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+<span class="material-symbols-outlined text-lg mr-2">check_circle</span>
+                    Use Matched Data
+                </button>
+</div>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Custom Fields Entry - Weighbridge Management System</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#20e619",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112111",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1a2c1a", // Slightly lighter than background-dark
+                        "text-main": "#111811",
+                        "text-secondary": "#648863",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        /* Custom scrollbar to match minimalist aesthetic */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-main dark:text-white min-h-screen flex flex-col transition-colors duration-200">
+<!-- Header / TopNavBar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#e5e7eb] dark:border-[#2a382a] bg-surface-light dark:bg-surface-dark px-10 py-3 shrink-0">
+<div class="flex items-center gap-4">
+<div class="size-8 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-3xl">scale</span>
+</div>
+<h2 class="text-text-main dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Weighbridge Management System</h2>
+</div>
+<div class="flex items-center gap-4">
+<!-- User Profile / Avatar -->
+<div class="flex items-center gap-2 cursor-pointer">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-bold text-text-main dark:text-white">Operator A.</p>
+<p class="text-xs text-text-secondary dark:text-gray-400">Station 4</p>
+</div>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border border-gray-200 dark:border-gray-700" data-alt="User profile avatar showing a generic silhouette or face" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC7kxtIOysEvXW0xCNuf3ZtWiw-g4Nz0vBArwwlglZkweKt2K915j00XtACItQGzGReIZQzaYubW-8GiC5XtpVuXdebUIv-yHIzfFMhWO7yCFDxFMz2HGP9jOJm14x06e9jna5ZLmNhlrEo72I2d2i0qhYdctZbTdA1oknc7O1DFzUuTEMZzQomq-RXoAa8lEy28rA_TxaH1DwbToJaocVDQrodciDMBoxtldtQXCxPJrHYbhXeh0Sn8EUlh3HI5FbVVkmttNSFfjI");'>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col items-center justify-center p-4 md:p-8">
+<!-- Centered Card -->
+<div class="w-full max-w-lg bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-[#e5e7eb] dark:border-[#2a382a] overflow-hidden flex flex-col">
+<!-- Card Header -->
+<div class="px-8 pt-10 pb-2 text-center">
+<h1 class="text-2xl md:text-[28px] font-bold text-text-main dark:text-white tracking-tight mb-2">
+                    Additional Information
+                </h1>
+<p class="text-text-secondary dark:text-gray-400 text-base font-normal">
+                    Please provide the following details to proceed
+                </p>
+</div>
+<!-- Form Container -->
+<div class="p-8 w-full">
+<form action="#" class="flex flex-col gap-6">
+<!-- Field 1: Driver Name -->
+<div class="flex flex-col gap-2">
+<label class="text-text-main dark:text-gray-200 text-base font-medium flex gap-1" for="driver-name">
+                            Driver Name
+                            <span class="text-red-500">*</span>
+</label>
+<div class="relative group">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary">
+<span class="material-symbols-outlined text-[20px]">person</span>
+</span>
+<input class="form-input w-full rounded-lg border border-[#dce5dc] dark:border-gray-600 bg-white dark:bg-black/20 text-text-main dark:text-white h-14 pl-12 pr-4 text-base font-normal focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-text-secondary/70 transition-all" id="driver-name" placeholder="Enter driver name" required="" type="text"/>
+</div>
+</div>
+<!-- Field 2: Destination Site -->
+<div class="flex flex-col gap-2">
+<label class="text-text-main dark:text-gray-200 text-base font-medium flex gap-1" for="destination">
+                            Destination Site
+                            <span class="text-red-500">*</span>
+</label>
+<div class="relative group">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary">
+<span class="material-symbols-outlined text-[20px]">location_on</span>
+</span>
+<input class="form-input w-full rounded-lg border border-[#dce5dc] dark:border-gray-600 bg-white dark:bg-black/20 text-text-main dark:text-white h-14 pl-12 pr-4 text-base font-normal focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-text-secondary/70 transition-all" id="destination" placeholder="Enter destination" required="" type="text"/>
+</div>
+</div>
+<!-- Field 3: Material Type (Dropdown) -->
+<div class="flex flex-col gap-2">
+<label class="text-text-main dark:text-gray-200 text-base font-medium flex gap-1" for="material-type">
+                            Material Type
+                            <span class="text-red-500">*</span>
+</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary z-10">
+<span class="material-symbols-outlined text-[20px]">category</span>
+</span>
+<select class="form-select w-full appearance-none rounded-lg border border-[#dce5dc] dark:border-gray-600 bg-white dark:bg-black/20 text-text-main dark:text-white h-14 pl-12 pr-10 text-base font-normal focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer transition-all invalid:text-text-secondary/70" id="material-type" required="">
+<option disabled="" selected="" value="">Select material type...</option>
+<option value="aggregate">Aggregate</option>
+<option value="concrete">Concrete</option>
+<option value="asphalt">Asphalt</option>
+<option value="sand">Sand</option>
+</select>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none">
+<span class="material-symbols-outlined">expand_more</span>
+</span>
+</div>
+</div>
+<!-- Actions -->
+<div class="mt-4 flex flex-col gap-3">
+<button class="w-full h-14 rounded-lg bg-primary hover:bg-primary/90 text-black text-base font-bold flex items-center justify-center gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary" type="submit">
+                            Continue
+                            <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+<a class="w-full py-3 text-center text-text-secondary hover:text-text-main dark:text-gray-400 dark:hover:text-white text-base font-medium transition-colors" href="#">
+                            Cancel
+                        </a>
+</div>
+</form>
+</div>
+<!-- Progress Indicator (Optional Detail) -->
+<div class="bg-gray-100 dark:bg-black/30 px-8 py-3 flex justify-between items-center text-xs font-medium text-text-secondary dark:text-gray-500">
+<span>Step 2 of 4</span>
+<div class="flex gap-1">
+<div class="w-2 h-2 rounded-full bg-primary/30"></div>
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<div class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-700"></div>
+<div class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-700"></div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

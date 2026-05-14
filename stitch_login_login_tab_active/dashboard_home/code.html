@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Weighbridge Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-dark": "#3e6e3c",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "accent-sub": "#D6EFD8",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#131613] font-display overflow-hidden">
+<div class="flex h-screen w-full">
+<!-- Side Navigation -->
+<aside class="w-64 bg-white flex flex-col border-r border-[#e5e7eb] flex-shrink-0 z-20">
+<div class="p-6 flex items-center gap-3">
+<div class="flex items-center justify-center rounded-lg bg-primary/10 p-2">
+<span class="material-symbols-outlined text-primary" style="font-size: 28px;">scale</span>
+</div>
+<div>
+<h1 class="text-[#131613] text-base font-bold leading-tight">WeighSys</h1>
+<p class="text-[#6f7c6e] text-xs font-normal">v2.4.0</p>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-1 px-4 py-2 overflow-y-auto">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary group" href="#">
+<span class="material-symbols-outlined icon-filled">dashboard</span>
+<span class="text-sm font-bold">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#f2f3f1] text-[#6f7c6e] hover:text-[#131613] transition-colors" href="#">
+<span class="material-symbols-outlined">local_shipping</span>
+<span class="text-sm font-medium">Weighments</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#f2f3f1] text-[#6f7c6e] hover:text-[#131613] transition-colors" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="text-sm font-medium">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#f2f3f1] text-[#6f7c6e] hover:text-[#131613] transition-colors" href="#">
+<span class="material-symbols-outlined">database</span>
+<span class="text-sm font-medium">Master Data</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#f2f3f1] text-[#6f7c6e] hover:text-[#131613] transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+<div class="p-4 border-t border-[#f2f3f1]">
+<div class="flex items-center gap-3 p-2 rounded-lg hover:bg-[#f2f3f1] cursor-pointer">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10" data-alt="Portrait of Operator John" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCiLG8CngVN1jZCoJ7pGtIZfsiapG-C7_nolY_qcMXs5kqaOI4trBBevraNcz5oM0tUW68GMSJkWdqHOcu6CxBd1ULsCkOARMt6p4htXZ3ooeN8XmJcFNRtG3OBZ5xgj4w5GWX6ErRpCQhrzgIpG0X56rDndziDweLmqfm5IdrTWq88JHPG6Lh_5_5tvonb6Sbyp7Sd9fYK8ILMGTGDyA-f3cV0dIgW756nM9egMoZLSRgkkv2E3ksmbZY6Yu-ksGHQYtOWCu11rYg");'></div>
+<div class="flex flex-col overflow-hidden">
+<p class="text-[#131613] text-sm font-bold truncate">Operator John</p>
+<p class="text-[#6f7c6e] text-xs truncate">Log out</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<div class="flex-1 flex flex-col h-full min-w-0">
+<!-- Top Navigation -->
+<header class="h-16 bg-white border-b border-[#e5e7eb] flex items-center justify-between px-8 flex-shrink-0 z-10">
+<div class="flex items-center gap-4">
+<h2 class="text-[#131613] text-lg font-bold leading-tight">Dashboard Home</h2>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative w-64">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-[#6f7c6e] material-symbols-outlined" style="font-size: 20px;">search</span>
+<input class="w-full h-10 pl-10 pr-4 bg-[#f2f3f1] border-none rounded-lg text-sm text-[#131613] placeholder-[#6f7c6e] focus:ring-2 focus:ring-primary focus:bg-white transition-all" placeholder="Search RST, Vehicle..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="size-10 flex items-center justify-center rounded-lg hover:bg-[#f2f3f1] text-[#131613] relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white"></span>
+</button>
+<button class="size-10 flex items-center justify-center rounded-lg hover:bg-[#f2f3f1] text-[#131613]">
+<span class="material-symbols-outlined">chat_bubble</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Scrollable Page Content -->
+<main class="flex-1 overflow-y-auto p-8 bg-[#FAFAFA]">
+<div class="max-w-[1440px] mx-auto flex flex-col gap-8">
+<!-- Welcome & Quick Action -->
+<div class="flex flex-wrap items-end justify-between gap-4">
+<div class="flex flex-col gap-1">
+<h1 class="text-[#131613] text-3xl font-black tracking-tight">Welcome back, Operator John</h1>
+<p class="text-[#6f7c6e] text-base font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">schedule</span>
+                                Shift started at 08:00 AM • 12 Oct 2023
+                            </p>
+</div>
+<button class="flex items-center gap-2 h-12 px-6 bg-[#508d4e] hover:bg-[#437a41] text-white rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95">
+<span class="material-symbols-outlined font-bold">add</span>
+<span class="text-sm font-bold tracking-wide">Start New Weighment</span>
+</button>
+</div>
+<!-- Stats Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Card 1 -->
+<div class="flex flex-col p-5 bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#f0f0f0]">
+<div class="flex items-center gap-2 mb-2">
+<span class="p-1.5 rounded-md bg-blue-50 text-blue-600 material-symbols-outlined" style="font-size: 20px;">scale</span>
+<p class="text-[#6f7c6e] text-sm font-semibold uppercase tracking-wide">Today's Weighments</p>
+</div>
+<p class="text-[#131613] text-4xl font-bold font-display mt-auto">42</p>
+<p class="text-[#6f7c6e] text-xs font-medium mt-1">+12% from yesterday</p>
+</div>
+<!-- Card 2: Warning State -->
+<div class="flex flex-col p-5 bg-amber-50 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-amber-100 relative overflow-hidden">
+<div class="absolute -right-4 -top-4 size-24 bg-amber-100 rounded-full opacity-50"></div>
+<div class="flex items-center gap-2 mb-2 relative z-10">
+<span class="p-1.5 rounded-md bg-amber-200 text-amber-800 material-symbols-outlined" style="font-size: 20px;">warning</span>
+<p class="text-amber-800 text-sm font-bold uppercase tracking-wide">Pending Queue</p>
+</div>
+<p class="text-amber-900 text-4xl font-bold font-display mt-auto relative z-10">5</p>
+<p class="text-amber-700 text-xs font-bold mt-1 relative z-10">High traffic detected</p>
+</div>
+<!-- Card 3 -->
+<div class="flex flex-col p-5 bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#f0f0f0]">
+<div class="flex items-center gap-2 mb-2">
+<span class="p-1.5 rounded-md bg-purple-50 text-purple-600 material-symbols-outlined" style="font-size: 20px;">videocam</span>
+<p class="text-[#6f7c6e] text-sm font-semibold uppercase tracking-wide">Active Cameras</p>
+</div>
+<p class="text-[#131613] text-4xl font-bold font-display mt-auto">4<span class="text-xl text-[#a0a8a0] font-medium">/4</span></p>
+<p class="text-green-600 text-xs font-bold mt-1">All systems operational</p>
+</div>
+<!-- Card 4: Scale Status -->
+<div class="flex flex-col p-5 bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#f0f0f0]">
+<div class="flex items-center gap-2 mb-2">
+<span class="p-1.5 rounded-md bg-gray-100 text-gray-600 material-symbols-outlined" style="font-size: 20px;">power</span>
+<p class="text-[#6f7c6e] text-sm font-semibold uppercase tracking-wide">Scale Status</p>
+</div>
+<div class="mt-auto flex items-center gap-2">
+<span class="relative flex h-3 w-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+</span>
+<p class="text-[#131613] text-2xl font-bold font-display">Connected</p>
+</div>
+<p class="text-[#6f7c6e] text-xs font-medium mt-1">Ping: 12ms</p>
+</div>
+</div>
+<!-- Main Content Split -->
+<div class="grid grid-cols-1 xl:grid-cols-4 gap-8 items-start">
+<!-- Table Section (Left) -->
+<div class="xl:col-span-3 flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h3 class="text-[#131613] text-xl font-bold">Recent Weighments</h3>
+<button class="text-sm font-bold text-primary hover:text-primary-dark hover:underline">View All History</button>
+</div>
+<div class="bg-white rounded-xl shadow-sm border border-[#e5e7eb] overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-[#f8f9fa] border-b border-[#e5e7eb]">
+<th class="p-4 text-xs font-bold uppercase tracking-wider text-[#6f7c6e] w-32">RST Number</th>
+<th class="p-4 text-xs font-bold uppercase tracking-wider text-[#6f7c6e]">Vehicle No.</th>
+<th class="p-4 text-xs font-bold uppercase tracking-wider text-[#6f7c6e]">Customer</th>
+<th class="p-4 text-xs font-bold uppercase tracking-wider text-[#6f7c6e]">Material</th>
+<th class="p-4 text-xs font-bold uppercase tracking-wider text-[#6f7c6e] text-right">Net Weight</th>
+<th class="p-4 text-xs font-bold uppercase tracking-wider text-[#6f7c6e]">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#f2f3f1] text-sm text-[#131613]">
+<tr class="group hover:bg-gray-50 transition-colors">
+<td class="p-4 font-mono font-medium text-[#6f7c6e]">#RST-8821</td>
+<td class="p-4 font-bold">KA-01-HH-1234</td>
+<td class="p-4">Apex Constructions Ltd.</td>
+<td class="p-4"><span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 text-xs font-medium text-gray-800">Sand</span></td>
+<td class="p-4 text-right font-mono font-bold text-lg">24,500 <span class="text-xs font-normal text-[#6f7c6e]">kg</span></td>
+<td class="p-4"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-bold border border-green-100"><span class="size-1.5 rounded-full bg-green-600"></span>Completed</span></td>
+</tr>
+<tr class="group hover:bg-gray-50 transition-colors">
+<td class="p-4 font-mono font-medium text-[#6f7c6e]">#RST-8820</td>
+<td class="p-4 font-bold">MH-12-AB-9988</td>
+<td class="p-4">Global Cement Works</td>
+<td class="p-4"><span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 text-xs font-medium text-gray-800">Cement</span></td>
+<td class="p-4 text-right font-mono font-bold text-lg">18,200 <span class="text-xs font-normal text-[#6f7c6e]">kg</span></td>
+<td class="p-4"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-bold border border-green-100"><span class="size-1.5 rounded-full bg-green-600"></span>Completed</span></td>
+</tr>
+<tr class="group hover:bg-gray-50 transition-colors">
+<td class="p-4 font-mono font-medium text-[#6f7c6e]">#RST-8819</td>
+<td class="p-4 font-bold">TN-22-XY-4567</td>
+<td class="p-4">Urban Infra</td>
+<td class="p-4"><span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 text-xs font-medium text-gray-800">Steel</span></td>
+<td class="p-4 text-right font-mono font-bold text-lg">12,100 <span class="text-xs font-normal text-[#6f7c6e]">kg</span></td>
+<td class="p-4"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-bold border border-green-100"><span class="size-1.5 rounded-full bg-green-600"></span>Completed</span></td>
+</tr>
+<tr class="group hover:bg-gray-50 transition-colors">
+<td class="p-4 font-mono font-medium text-[#6f7c6e]">--</td>
+<td class="p-4 font-bold text-[#6f7c6e]">Processing...</td>
+<td class="p-4 text-[#6f7c6e]">--</td>
+<td class="p-4">--</td>
+<td class="p-4 text-right font-mono font-bold text-lg text-[#6f7c6e]">--</td>
+<td class="p-4"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold border border-amber-100"><span class="size-1.5 rounded-full bg-amber-600 animate-pulse"></span>Weighing</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="bg-[#f8f9fa] px-4 py-3 border-t border-[#e5e7eb] flex items-center justify-between">
+<p class="text-xs text-[#6f7c6e]">Showing 4 of 42 records</p>
+<div class="flex gap-1">
+<button class="size-8 flex items-center justify-center rounded bg-white border border-[#e5e7eb] text-[#6f7c6e] hover:bg-gray-50 disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+</button>
+<button class="size-8 flex items-center justify-center rounded bg-white border border-[#e5e7eb] text-[#6f7c6e] hover:bg-gray-50">
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Side Widget Section (Right) -->
+<div class="xl:col-span-1 flex flex-col gap-6">
+<!-- Subscription Card -->
+<div class="bg-[#D6EFD8] rounded-xl p-6 relative overflow-hidden flex flex-col gap-4">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-green-900" style="font-size: 120px;">workspace_premium</span>
+</div>
+<div class="relative z-10">
+<h4 class="text-green-900 font-bold text-lg leading-tight">Subscription Status</h4>
+<p class="text-green-800 text-sm opacity-80 mt-1">Enterprise Plan</p>
+</div>
+<div class="flex flex-col gap-3 relative z-10 bg-white/40 p-3 rounded-lg backdrop-blur-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="size-2 rounded-full bg-green-600"></span>
+<span class="text-sm font-semibold text-[#131613]">AI OCR</span>
+</div>
+<span class="material-symbols-outlined text-green-700 text-base">check_circle</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="size-2 rounded-full bg-green-600"></span>
+<span class="text-sm font-semibold text-[#131613]">SMS Alerts</span>
+</div>
+<span class="material-symbols-outlined text-green-700 text-base">check_circle</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="size-2 rounded-full bg-green-600"></span>
+<span class="text-sm font-semibold text-[#131613]">ERP Integration</span>
+</div>
+<span class="material-symbols-outlined text-green-700 text-base">check_circle</span>
+</div>
+</div>
+<button class="relative z-10 w-full bg-white text-green-900 text-xs font-bold py-2 rounded shadow-sm hover:bg-green-50 transition-colors uppercase tracking-wide">
+                                    Manage Plan
+                                </button>
+</div>
+<!-- Quick Tip or Helper (Fill Space) -->
+<div class="bg-white rounded-xl p-6 border border-[#e5e7eb] flex flex-col gap-3">
+<div class="flex items-center gap-2 text-[#6f7c6e]">
+<span class="material-symbols-outlined text-xl">lightbulb</span>
+<span class="text-xs font-bold uppercase tracking-wider">Quick Tip</span>
+</div>
+<p class="text-sm text-[#131613] leading-relaxed">
+                                    Use <span class="font-mono bg-gray-100 px-1 py-0.5 rounded text-xs border border-gray-200">Alt + N</span> to quickly start a new weighment from any screen.
+                                </p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

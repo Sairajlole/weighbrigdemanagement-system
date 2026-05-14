@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Subscribe Pack Modal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "primary-dark": "#15c50f",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for better aesthetics within modal if needed */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display antialiased text-slate-900">
+<!-- Main Container acting as the Backdrop -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity">
+<!-- Modal Card -->
+<div class="relative w-full max-w-[480px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+<!-- Close Button (Absolute) -->
+<button class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/50">
+<span class="material-symbols-outlined text-xl">close</span>
+</button>
+<!-- Scrollable Content Area -->
+<div class="overflow-y-auto p-0">
+<!-- Header Section -->
+<div class="pt-8 pb-4 px-8 text-center">
+<div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-4 text-primary-dark">
+<span class="material-symbols-outlined text-3xl">auto_awesome</span>
+</div>
+<h3 class="text-slate-900 dark:text-white tracking-tight text-2xl font-bold leading-tight">Subscribe to AI Features Pack</h3>
+<p class="text-slate-500 dark:text-slate-400 text-sm mt-2">Unlock advanced analytics and automation for your weighbridge operations.</p>
+</div>
+<!-- Features List (Reusing style from DescriptionList but simplified for modal) -->
+<div class="px-8 py-2">
+<ul class="space-y-3">
+<li class="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-primary-dark shrink-0 text-xl">check_circle</span>
+<span>Automated License Plate Recognition</span>
+</li>
+<li class="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-primary-dark shrink-0 text-xl">check_circle</span>
+<span>Smart Weighing Anomaly Detection</span>
+</li>
+<li class="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-primary-dark shrink-0 text-xl">check_circle</span>
+<span>Predictive Maintenance Alerts</span>
+</li>
+<li class="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-primary-dark shrink-0 text-xl">check_circle</span>
+<span>Cloud Data Sync &amp; Analytics</span>
+</li>
+</ul>
+</div>
+<!-- Billing Cycle Selector (Reusing RadioList Logic) -->
+<div class="px-8 py-6">
+<div class="flex flex-col gap-3">
+<!-- Option 1: Monthly -->
+<label class="group relative flex items-center gap-4 rounded-xl border border-slate-200 dark:border-slate-700 p-4 cursor-pointer hover:border-primary/50 transition-all has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:shadow-sm">
+<input class="peer h-5 w-5 border-2 border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 bg-transparent" name="billing_cycle" type="radio"/>
+<div class="flex grow flex-col">
+<span class="text-slate-900 dark:text-white text-sm font-semibold">Monthly</span>
+<span class="text-slate-500 dark:text-slate-400 text-sm">Pay as you go</span>
+</div>
+<div class="text-slate-900 dark:text-white font-bold text-sm">₹2,999<span class="font-normal text-slate-500 text-xs">/mo</span></div>
+</label>
+<!-- Option 2: Yearly -->
+<label class="group relative flex items-center gap-4 rounded-xl border border-slate-200 dark:border-slate-700 p-4 cursor-pointer hover:border-primary/50 transition-all has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:shadow-sm">
+<input checked="" class="peer h-5 w-5 border-2 border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 bg-transparent" name="billing_cycle" type="radio"/>
+<div class="flex grow flex-col">
+<div class="flex items-center gap-2">
+<span class="text-slate-900 dark:text-white text-sm font-semibold">Yearly</span>
+<span class="inline-flex items-center rounded-full bg-primary/20 px-2 py-0.5 text-xs font-medium text-green-800 dark:text-green-300">
+                                        Save 17%
+                                    </span>
+</div>
+<span class="text-slate-500 dark:text-slate-400 text-xs mt-0.5">Billed annually</span>
+</div>
+<div class="text-slate-900 dark:text-white font-bold text-sm">₹29,990<span class="font-normal text-slate-500 text-xs">/yr</span></div>
+</label>
+</div>
+</div>
+<!-- Total Summary -->
+<div class="px-8 pb-4">
+<div class="flex justify-between items-center py-3 border-t border-dashed border-slate-200 dark:border-slate-700">
+<span class="text-slate-500 dark:text-slate-400 text-sm font-medium">Total due today</span>
+<span class="text-slate-900 dark:text-white text-2xl font-bold tracking-tight">₹29,990</span>
+</div>
+</div>
+<!-- Terms Checkbox -->
+<div class="px-8 pb-4">
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 bg-transparent group-hover:border-primary transition-colors" type="checkbox"/>
+<span class="text-slate-500 dark:text-slate-400 text-xs leading-relaxed select-none">
+                            I agree to the <a class="text-[#508D4E] hover:underline hover:text-primary-dark font-medium" href="#">Terms of Service</a> and <a class="text-[#508D4E] hover:underline hover:text-primary-dark font-medium" href="#">Privacy Policy</a>. I understand my subscription will renew automatically.
+                        </span>
+</label>
+</div>
+</div>
+<!-- Footer / Actions -->
+<div class="p-6 pt-2 bg-white dark:bg-slate-900 mt-auto">
+<!-- Placeholder for Razorpay Button branding or Secure Payment indicator -->
+<div class="flex items-center justify-center gap-2 mb-4 text-xs text-slate-400 uppercase tracking-wider font-medium">
+<span class="material-symbols-outlined text-sm">lock</span>
+                    Secure Payment via Razorpay
+                </div>
+<div class="flex flex-col-reverse sm:flex-row gap-3">
+<button class="flex-1 px-4 py-3 rounded-xl border border-transparent text-slate-600 dark:text-slate-300 font-medium text-sm hover:bg-slate-50 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-colors">
+                        Cancel
+                    </button>
+<button class="flex-[2] px-4 py-3 rounded-xl bg-primary hover:bg-primary-dark text-slate-900 font-bold text-sm shadow-lg shadow-primary/25 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all flex items-center justify-center gap-2 group">
+                        Subscribe Now
+                        <span class="material-symbols-outlined text-lg transition-transform group-hover:translate-x-0.5">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

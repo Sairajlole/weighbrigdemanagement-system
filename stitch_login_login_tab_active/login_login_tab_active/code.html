@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Login - Weighbridge Manager</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        /* Override specifically for the user's requested background color while keeping the Tailwind class structure */
+        body {
+            background-color: #D6EFD8 !important;
+        }
+        /* Dark mode override */
+        .dark body {
+            background-color: #161c16 !important;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display min-h-screen flex flex-col items-center justify-center p-4">
+<!-- Main Card Container -->
+<div class="w-full max-w-[480px] bg-white dark:bg-[#1e1e1e] rounded-xl shadow-lg overflow-hidden flex flex-col">
+<!-- Header Section -->
+<div class="flex flex-col items-center pt-8 pb-4 px-8">
+<div class="w-16 h-16 bg-primary/20 rounded-lg flex items-center justify-center mb-4" data-alt="Weighbridge Manager Logo Placeholder">
+<span class="material-symbols-outlined text-primary text-[32px]">local_shipping</span>
+</div>
+<h1 class="text-[#131613] dark:text-white text-[22px] font-bold leading-tight text-center tracking-[-0.015em]">Weighbridge Manager</h1>
+</div>
+<!-- Navigation Tabs -->
+<div class="px-8 w-full mt-2">
+<div class="flex border-b border-[#dfe2df] dark:border-gray-700 w-full">
+<!-- Active Login Tab -->
+<a class="flex flex-1 items-center justify-center border-b-[3px] border-primary pb-3 pt-2" href="#">
+<p class="text-[#131613] dark:text-white text-sm font-bold leading-normal tracking-[0.015em]">Login</p>
+</a>
+<!-- Inactive Sign Up Tab -->
+<a class="flex flex-1 items-center justify-center border-b-[3px] border-transparent pb-3 pt-2 hover:border-gray-300 dark:hover:border-gray-600 transition-colors" href="#">
+<p class="text-[#6f7c6e] dark:text-gray-400 text-sm font-bold leading-normal tracking-[0.015em]">Sign Up</p>
+</a>
+</div>
+</div>
+<!-- Card Content -->
+<div class="p-8 flex flex-col gap-5">
+<!-- Social Login Buttons -->
+<div class="flex flex-col gap-3">
+<!-- Google Button (White) -->
+<button class="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-white dark:bg-gray-800 border border-[#dfe2df] dark:border-gray-600 text-[#131613] dark:text-white gap-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700">
+<span class="material-symbols-outlined text-[20px]">account_circle</span>
+<span class="truncate text-sm font-bold leading-normal tracking-[0.015em]">Continue with Google</span>
+</button>
+<!-- Apple Button (Black) -->
+<button class="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-black dark:bg-white text-white dark:text-black gap-2 transition-colors hover:bg-gray-900 dark:hover:bg-gray-200">
+<span class="material-symbols-outlined text-[20px]">smartphone</span>
+<span class="truncate text-sm font-bold leading-normal tracking-[0.015em]">Continue with Apple</span>
+</button>
+</div>
+<!-- Divider -->
+<div class="flex items-center gap-3 py-1">
+<div class="h-px bg-[#dfe2df] dark:bg-gray-700 flex-1"></div>
+<p class="text-[#6f7c6e] dark:text-gray-400 text-sm font-normal leading-normal pb-0.5">or</p>
+<div class="h-px bg-[#dfe2df] dark:bg-gray-700 flex-1"></div>
+</div>
+<!-- Login Form -->
+<form class="flex flex-col gap-4" onsubmit="event.preventDefault();">
+<!-- Email/Username Input -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-bold text-[#131613] dark:text-white leading-normal" for="email">Email or Username</label>
+<input class="h-10 w-full rounded-lg border border-[#dfe2df] dark:border-gray-600 bg-white dark:bg-gray-800 px-4 text-sm text-[#131613] dark:text-white placeholder-[#6f7c6e] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" id="email" placeholder="Enter your email" type="text"/>
+</div>
+<!-- Password Input -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-bold text-[#131613] dark:text-white leading-normal" for="password">Password</label>
+<div class="relative flex items-center">
+<input class="h-10 w-full rounded-lg border border-[#dfe2df] dark:border-gray-600 bg-white dark:bg-gray-800 px-4 pr-10 text-sm text-[#131613] dark:text-white placeholder-[#6f7c6e] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" id="password" placeholder="Enter your password" type="password"/>
+<button class="absolute right-0 top-0 bottom-0 px-3 flex items-center justify-center text-[#6f7c6e] hover:text-primary transition-colors cursor-pointer" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</div>
+<!-- Options Row -->
+<div class="flex items-center justify-between pt-1">
+<label class="flex items-center gap-2 cursor-pointer select-none group">
+<input class="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-primary bg-gray-50 dark:bg-gray-700 cursor-pointer" type="checkbox"/>
+<span class="text-sm text-[#6f7c6e] dark:text-gray-400 font-medium group-hover:text-primary transition-colors">Remember me</span>
+</label>
+<a class="text-sm font-bold text-primary hover:text-[#3e6f3d] transition-colors" href="#">Forgot Password?</a>
+</div>
+<!-- Primary Submit Button -->
+<button class="mt-2 flex w-full cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-primary text-white gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-[#437841] transition-colors shadow-sm" type="submit">
+                    Sign In
+                </button>
+</form>
+</div>
+</div>
+</body></html>

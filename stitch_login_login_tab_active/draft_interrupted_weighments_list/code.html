@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Draft &amp; Interrupted Weighments - Weighbridge Management System</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Noto+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#20e619",
+                        "primary-content": "#0e1b0e",
+                        "primary-dark": "#16a311",
+                        "secondary": "#508D4E",
+                        "background-light": "#f8fcf8",
+                        "background-dark": "#112111",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1a2c1a",
+                        "border-light": "#e8f3e7",
+                        "border-dark": "#2a3c2a",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#0e1b0e] dark:text-gray-100 font-display transition-colors duration-200">
+<div class="flex h-screen w-full overflow-hidden">
+<!-- Side Navigation -->
+<aside class="flex w-72 flex-col justify-between border-r border-border-light dark:border-border-dark bg-background-light dark:bg-surface-dark overflow-y-auto hidden lg:flex transition-colors duration-200">
+<div class="flex flex-col h-full p-4">
+<div class="flex flex-col gap-8">
+<!-- App Logo/Header -->
+<div class="flex items-center gap-3 px-2">
+<div class="flex items-center justify-center rounded-xl bg-primary/20 text-primary size-10">
+<span class="material-symbols-outlined">dataset</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-base font-bold leading-normal text-slate-900 dark:text-white">WeighBridge OS</h1>
+<p class="text-secondary text-xs font-normal">Operator Panel v2.4</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-primary dark:text-slate-400">dashboard</span>
+<span class="text-sm font-medium text-slate-700 dark:text-slate-200">Dashboard</span>
+</a>
+<div class="flex flex-col gap-1">
+<p class="px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 mt-4 mb-1">Transactions</p>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary-dark dark:text-primary" href="#">
+<span class="material-symbols-outlined icon-fill">scale</span>
+<span class="text-sm font-bold">Weighments</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-primary dark:text-slate-400">pending_actions</span>
+<span class="text-sm font-medium text-slate-700 dark:text-slate-200">Pending Tare</span>
+</a>
+</div>
+<div class="flex flex-col gap-1">
+<p class="px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 mt-4 mb-1">Data</p>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-primary dark:text-slate-400">description</span>
+<span class="text-sm font-medium text-slate-700 dark:text-slate-200">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-primary dark:text-slate-400">database</span>
+<span class="text-sm font-medium text-slate-700 dark:text-slate-200">Master Data</span>
+</a>
+</div>
+</nav>
+</div>
+<!-- Bottom Settings -->
+<div class="mt-auto">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-primary dark:text-slate-400">settings</span>
+<span class="text-sm font-medium text-slate-700 dark:text-slate-200">Settings</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex flex-1 flex-col h-full overflow-hidden relative">
+<!-- Top Header -->
+<header class="h-16 flex items-center justify-between px-6 border-b border-border-light dark:border-border-dark bg-background-light dark:bg-surface-dark transition-colors shrink-0">
+<div class="flex items-center gap-4 lg:hidden">
+<button class="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-white/5">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<span class="font-bold text-lg dark:text-white">WeighBridge OS</span>
+</div>
+<!-- Search (Desktop) -->
+<div class="hidden lg:flex flex-1 max-w-xl mx-4">
+<div class="relative w-full">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined" style="font-size: 20px;">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-white dark:bg-black/20 border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 dark:text-white placeholder-slate-400 transition-all" placeholder="Search ticket #, vehicle, or driver..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-3 ml-auto">
+<button class="relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white dark:border-surface-dark"></span>
+</button>
+<div class="h-8 w-px bg-border-light dark:bg-border-dark mx-1"></div>
+<button class="flex items-center gap-2 group">
+<div class="size-8 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden border border-slate-300 dark:border-slate-600 bg-center bg-cover" data-alt="User profile avatar placeholder" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBul59fHt0edE8eoG7qSMvVwHZym_-wVD_HnAvPQlifvl1XR3pnaL14EaPu3caLDCG6Nbfq-P9eu7FKTQR4XgFopFjkaC_1B3wsqJ0PuFm4MjKYKsgm7GTe2TmLU3SiO7E7ix9j2cdIyCb_5Gd61SCeJ43En0dlM7siUfLR7qCEDjfq8v3E4KosXTYnkOjGmDGxXB5xEUxNyzkA9aciH3tqu3jVniL4btvUb2OeclhQmJq9Hutc6y_ocJyumyKUBMYbfCQVNWFqTQQ');"></div>
+<div class="hidden md:flex flex-col items-start">
+<span class="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-primary transition-colors">Alex Morgan</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">Shift Supervisor</span>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors text-sm hidden md:block">expand_more</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto bg-[#f8fcf8] dark:bg-background-dark p-6 md:p-10 transition-colors">
+<div class="max-w-[1200px] mx-auto flex flex-col gap-6">
+<!-- Breadcrumbs & Heading -->
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-2 text-sm">
+<a class="text-secondary hover:text-primary-dark transition-colors font-medium" href="#">Home</a>
+<span class="text-slate-300 dark:text-slate-600">/</span>
+<a class="text-secondary hover:text-primary-dark transition-colors font-medium" href="#">Weighments</a>
+<span class="text-slate-300 dark:text-slate-600">/</span>
+<span class="text-slate-800 dark:text-slate-200 font-medium">Incomplete List</span>
+</div>
+<div class="flex flex-wrap justify-between items-end gap-4">
+<div class="flex flex-col gap-1">
+<h1 class="text-3xl md:text-[32px] font-bold text-slate-900 dark:text-white leading-tight">Incomplete Weighments</h1>
+<p class="text-secondary text-sm md:text-base font-normal">Manage draft, interrupted, and incomplete weighment records.</p>
+</div>
+<!-- Top Bulk Actions -->
+<div class="flex items-center gap-3">
+<button class="hidden sm:flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-red-100 dark:border-red-900/50">
+<span class="material-symbols-outlined text-[18px]">delete_sweep</span>
+                                    Discard Old (&gt;24h)
+                                </button>
+<button class="flex items-center gap-2 px-4 py-2 text-sm font-bold text-primary-content bg-primary hover:bg-primary-dark rounded-lg shadow-sm transition-colors">
+<span class="material-symbols-outlined text-[20px]">download</span>
+<span>Export List</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Filters & Controls Bar -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between sticky top-0 z-10 transition-colors">
+<div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+<!-- Date Range -->
+<div class="relative group">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined text-[20px]">calendar_today</span>
+<input class="pl-10 pr-8 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none cursor-pointer w-full sm:w-60 hover:border-slate-300 dark:hover:border-slate-600 transition-colors" readonly="" type="text" value="Oct 24, 2023 - Oct 25, 2023"/>
+<span class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined text-[18px]">expand_more</span>
+</div>
+<!-- Status Filter -->
+<div class="relative min-w-[180px]">
+<select class="appearance-none w-full pl-3 pr-10 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none hover:border-slate-300 dark:hover:border-slate-600 transition-colors cursor-pointer">
+<option>Status: All</option>
+<option>Pending Tare</option>
+<option>Data Incomplete</option>
+<option>Interrupted</option>
+</select>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Table Search -->
+<div class="w-full md:w-auto md:min-w-[280px]">
+<div class="relative w-full">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined text-[20px]">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary dark:text-white placeholder-slate-400 transition-all hover:border-slate-300 dark:hover:border-slate-600" placeholder="Search RST or Vehicle..." type="text"/>
+</div>
+</div>
+</div>
+<!-- Main Table Card -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden flex flex-col transition-colors">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-border-light dark:border-border-dark bg-slate-50/50 dark:bg-white/5">
+<th class="p-4 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 w-12 text-center">
+<input class="rounded border-slate-300 text-primary focus:ring-primary/50 size-4" type="checkbox"/>
+</th>
+<th class="p-4 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">RST ID</th>
+<th class="p-4 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Vehicle Info</th>
+<th class="p-4 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
+<th class="p-4 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Started</th>
+<th class="p-4 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Last Updated</th>
+<th class="p-4 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-light dark:divide-border-dark">
+<!-- Row 1 -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<td class="p-4 text-center">
+<input class="rounded border-slate-300 text-primary focus:ring-primary/50 size-4" type="checkbox"/>
+</td>
+<td class="p-4">
+<span class="font-bold text-slate-900 dark:text-white font-mono text-sm">RST-10045</span>
+</td>
+<td class="p-4">
+<div class="flex flex-col">
+<span class="font-semibold text-slate-900 dark:text-slate-200 text-sm">KA-01-HH-1234</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">ABC Logistics</span>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-800">
+<span class="size-1.5 rounded-full bg-amber-500"></span>
+                                                Pending Tare
+                                            </span>
+</td>
+<td class="p-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                            Oct 24, 10:00 AM
+                                        </td>
+<td class="p-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                            Oct 24, 10:05 AM
+                                        </td>
+<td class="p-4 text-right">
+<div class="flex items-center justify-end gap-3">
+<a class="text-sm font-semibold text-secondary hover:text-primary-dark transition-colors flex items-center gap-1" href="#">
+                                                    Resume
+                                                </a>
+<div class="h-4 w-px bg-slate-300 dark:bg-slate-700"></div>
+<button class="text-sm font-medium text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors">
+                                                    Discard
+                                                </button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<td class="p-4 text-center">
+<input class="rounded border-slate-300 text-primary focus:ring-primary/50 size-4" type="checkbox"/>
+</td>
+<td class="p-4">
+<span class="font-bold text-slate-900 dark:text-white font-mono text-sm">RST-10042</span>
+</td>
+<td class="p-4">
+<div class="flex flex-col">
+<span class="font-semibold text-slate-900 dark:text-slate-200 text-sm">TN-55-QQ-9988</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">Global Cements Ltd</span>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
+<span class="size-1.5 rounded-full bg-blue-500"></span>
+                                                Interrupted
+                                            </span>
+</td>
+<td class="p-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                            Oct 23, 04:30 PM
+                                        </td>
+<td class="p-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                            Oct 23, 04:32 PM
+                                        </td>
+<td class="p-4 text-right">
+<div class="flex items-center justify-end gap-3">
+<a class="text-sm font-semibold text-secondary hover:text-primary-dark transition-colors flex items-center gap-1" href="#">
+                                                    Resume
+                                                </a>
+<div class="h-4 w-px bg-slate-300 dark:bg-slate-700"></div>
+<button class="text-sm font-medium text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors">
+                                                    Discard
+                                                </button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<td class="p-4 text-center">
+<input class="rounded border-slate-300 text-primary focus:ring-primary/50 size-4" type="checkbox"/>
+</td>
+<td class="p-4">
+<span class="font-bold text-slate-900 dark:text-white font-mono text-sm">RST-10040</span>
+</td>
+<td class="p-4">
+<div class="flex flex-col">
+<span class="font-semibold text-slate-900 dark:text-slate-200 text-sm">MH-12-AB-5678</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">National Carriers</span>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
+<span class="size-1.5 rounded-full bg-blue-500"></span>
+                                                Data Incomplete
+                                            </span>
+</td>
+<td class="p-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                            Oct 23, 02:15 PM
+                                        </td>
+<td class="p-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                            Oct 23, 02:20 PM
+                                        </td>
+<td class="p-4 text-right">
+<div class="flex items-center justify-end gap-3">
+<a class="text-sm font-semibold text-secondary hover:text-primary-dark transition-colors flex items-center gap-1" href="#">
+                                                    Resume
+                                                </a>
+<div class="h-4 w-px bg-slate-300 dark:bg-slate-700"></div>
+<button class="text-sm font-medium text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors">
+                                                    Discard
+                                                </button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<td class="p-4 text-center">
+<input class="rounded border-slate-300 text-primary focus:ring-primary/50 size-4" type="checkbox"/>
+</td>
+<td class="p-4">
+<span class="font-bold text-slate-900 dark:text-white font-mono text-sm">RST-10038</span>
+</td>
+<td class="p-4">
+<div class="flex flex-col">
+<span class="font-semibold text-slate-900 dark:text-slate-200 text-sm">TS-09-ZX-1122</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">Green Earth Supplies</span>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-800">
+<span class="size-1.5 rounded-full bg-amber-500"></span>
+                                                Pending Tare
+                                            </span>
+</td>
+<td class="p-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                            Oct 22, 11:45 AM
+                                        </td>
+<td class="p-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                            Oct 22, 11:55 AM
+                                        </td>
+<td class="p-4 text-right">
+<div class="flex items-center justify-end gap-3">
+<a class="text-sm font-semibold text-secondary hover:text-primary-dark transition-colors flex items-center gap-1" href="#">
+                                                    Resume
+                                                </a>
+<div class="h-4 w-px bg-slate-300 dark:bg-slate-700"></div>
+<button class="text-sm font-medium text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors">
+                                                    Discard
+                                                </button>
+</div>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<td class="p-4 text-center">
+<input class="rounded border-slate-300 text-primary focus:ring-primary/50 size-4" type="checkbox"/>
+</td>
+<td class="p-4">
+<span class="font-bold text-slate-900 dark:text-white font-mono text-sm">RST-10035</span>
+</td>
+<td class="p-4">
+<div class="flex flex-col">
+<span class="font-semibold text-slate-900 dark:text-slate-200 text-sm">DL-3C-NB-5544</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">City Infrastructures</span>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
+<span class="size-1.5 rounded-full bg-blue-500"></span>
+                                                Interrupted
+                                            </span>
+</td>
+<td class="p-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                            Oct 22, 09:10 AM
+                                        </td>
+<td class="p-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                            Oct 22, 09:12 AM
+                                        </td>
+<td class="p-4 text-right">
+<div class="flex items-center justify-end gap-3">
+<a class="text-sm font-semibold text-secondary hover:text-primary-dark transition-colors flex items-center gap-1" href="#">
+                                                    Resume
+                                                </a>
+<div class="h-4 w-px bg-slate-300 dark:bg-slate-700"></div>
+<button class="text-sm font-medium text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors">
+                                                    Discard
+                                                </button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination Footer -->
+<div class="flex flex-col md:flex-row items-center justify-between p-4 border-t border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark transition-colors gap-4">
+<div class="text-sm text-slate-500 dark:text-slate-400">
+                                Showing <span class="font-semibold text-slate-900 dark:text-white">1-5</span> of <span class="font-semibold text-slate-900 dark:text-white">12</span> incomplete records
+                            </div>
+<div class="flex items-center gap-2">
+<button class="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500 dark:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed">
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<button class="size-8 rounded-lg bg-primary text-primary-content text-sm font-bold flex items-center justify-center">1</button>
+<button class="size-8 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300 text-sm font-medium flex items-center justify-center">2</button>
+<button class="size-8 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300 text-sm font-medium flex items-center justify-center">3</button>
+<button class="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Bottom Warning Info -->
+<div class="flex items-start gap-3 p-4 rounded-lg bg-blue-50/50 border border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/30">
+<span class="material-symbols-outlined text-blue-600 dark:text-blue-400 mt-0.5">info</span>
+<div class="flex flex-col gap-1">
+<h4 class="text-sm font-bold text-blue-900 dark:text-blue-100">About Incomplete Weighments</h4>
+<p class="text-sm text-blue-800/80 dark:text-blue-200/70">Records older than 30 days are automatically archived. Please ensure all interrupted weighments are resolved promptly to maintain accurate inventory levels.</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

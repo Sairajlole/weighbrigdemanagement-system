@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Integrations &amp; Cloud Sync - Weighbridge Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f8fcf8",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "Noto Sans", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body>
+<div class="relative flex h-screen w-full bg-background-light dark:bg-background-dark overflow-hidden group/design-root text-[#0e1b0d] dark:text-white font-display">
+<!-- Sidebar -->
+<aside class="flex-none hidden md:flex w-72 flex-col border-r border-[#e7f3e7] dark:border-[#1a2e1a] bg-background-light dark:bg-background-dark h-full">
+<div class="flex flex-col h-full p-4 justify-between">
+<div class="flex flex-col gap-6">
+<div class="flex items-center gap-3 px-2">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 shadow-sm" data-alt="Weighbridge System Logo Abstract" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD9g8z1o4BXv2lOV1CLkyoHxVK5oFb-Lmk1xeBDDfjlaxkADjJn2tUI9e4aYD0kQ6blC8sbOkqC6arcgT-wJmb-_g7kF5WJ0ZK_OQwI6hvQ_akzrHJ-X2JUnIk4_zqAs0ZU9DEMjje3DBJg1kUJkII5I7kXm9j31d6AmI7vP6pG0DDywZknDWDaoeoMCVgVHs7isQEfkjX8BbfoVlkmPccbH6yLIcnybtA7pubTGu6ajG4D2UGaanmLdhNbQvRSeGNA2TgYGAJo7ds");'></div>
+<div class="flex flex-col">
+<h1 class="text-[#0e1b0d] dark:text-white text-base font-bold leading-normal">Admin Panel</h1>
+<p class="text-[#4e9a4c] text-xs font-medium uppercase tracking-wider">Weighbridge System</p>
+</div>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#e7f3e7] dark:hover:bg-[#1a2e1a] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#0e1b0d] dark:text-gray-300 group-hover:text-[#4e9a4c]">dashboard</span>
+<p class="text-[#0e1b0d] dark:text-gray-300 text-sm font-medium">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#e7f3e7] dark:hover:bg-[#1a2e1a] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#0e1b0d] dark:text-gray-300 group-hover:text-[#4e9a4c]">local_shipping</span>
+<p class="text-[#0e1b0d] dark:text-gray-300 text-sm font-medium">Weighbridge</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#e7f3e7] dark:hover:bg-[#1a2e1a] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#0e1b0d] dark:text-gray-300 group-hover:text-[#4e9a4c]">description</span>
+<p class="text-[#0e1b0d] dark:text-gray-300 text-sm font-medium">Reports</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#e7f3e7] dark:hover:bg-[#1a2e1a] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#0e1b0d] dark:text-gray-300 group-hover:text-[#4e9a4c]">group</span>
+<p class="text-[#0e1b0d] dark:text-gray-300 text-sm font-medium">Users</p>
+</a>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#e7f3e7] dark:bg-[#1a2e1a]">
+<span class="material-symbols-outlined text-[#0e1b0d] dark:text-white icon-filled">settings</span>
+<p class="text-[#0e1b0d] dark:text-white text-sm font-bold">Settings</p>
+</div>
+</nav>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#e7f3e7] dark:hover:bg-[#1a2e1a] cursor-pointer">
+<span class="material-symbols-outlined text-[#0e1b0d] dark:text-gray-300">help</span>
+<p class="text-[#0e1b0d] dark:text-gray-300 text-sm font-medium">Help &amp; Support</p>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<div class="flex flex-col flex-1 h-full overflow-hidden">
+<!-- Header -->
+<header class="flex-none flex items-center justify-between whitespace-nowrap border-b border-[#e7f3e7] dark:border-[#1a2e1a] px-8 py-4 bg-background-light dark:bg-background-dark z-10">
+<div class="flex items-center gap-4">
+<div class="md:hidden p-2 -ml-2">
+<span class="material-symbols-outlined">menu</span>
+</div>
+<h2 class="text-[#0e1b0d] dark:text-white text-xl font-bold leading-tight">Integrations &amp; Cloud Sync</h2>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden sm:flex relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#4e9a4c]">search</span>
+<input class="w-64 h-10 rounded-lg bg-[#e7f3e7] dark:bg-[#1a2e1a] border-none pl-10 pr-4 text-sm text-[#0e1b0d] dark:text-white placeholder-[#4e9a4c] focus:ring-2 focus:ring-primary/50 focus:outline-none" placeholder="Search settings..."/>
+</div>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary" data-alt="User Avatar Profile Picture" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA-t2b9PbRsPrn8-lKla1bmGJ_upLOIKcYpR2x_dYdYCYjpScb1RxIkyrZjT47yLZvqgpo5Cy_l79YLu31y-p--J78oaQ7HwGrh50l38OaT8e2FjIFc_mDT1Xu3siD3O-ELpE_aEIMZyEBfHn6sNh9y5MRrUKA3vl_FKC1WTFQWx1yD_l3Ddk5x4SvTBsqzvtdorqrYZfC2vPVt0otDL7BS-HMTDmgPDM8WhS8aFSX2Di9eanMSRVKQGqFN38T4cyXEqigc_B9Bt4g");'></div>
+</div>
+</header>
+<!-- Scrollable Body -->
+<main class="flex-1 overflow-y-auto p-4 md:p-8 md:px-12 lg:px-24">
+<div class="max-w-5xl mx-auto flex flex-col gap-8 pb-20">
+<!-- Breadcrumbs -->
+<div class="flex items-center gap-2 text-sm">
+<a class="text-[#4e9a4c] font-medium hover:underline" href="#">Home</a>
+<span class="text-[#4e9a4c] opacity-50">/</span>
+<a class="text-[#4e9a4c] font-medium hover:underline" href="#">Settings</a>
+<span class="text-[#4e9a4c] opacity-50">/</span>
+<span class="text-[#0e1b0d] dark:text-white font-medium">Integrations</span>
+</div>
+<!-- Subscription Banner -->
+<div class="bg-cover bg-center rounded-xl overflow-hidden shadow-md relative group" data-alt="Abstract dark gradient background for subscription card" style='background-image: linear-gradient(100deg, rgba(14,27,13,0.95) 0%, rgba(14,27,13,0.7) 100%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuC4AZYZBjFOvdSdXaKONmCvrQjLbbR1SAfPfc6f7w_41TOFjJXSCbVIlBmhzbgsK6FfOO_xHb8nv8Kmy8LwekBa_ZXoSL7ntmnli0uoi5w2tOWMty8JVJpxikIPmLfYZHwoQWXyzr3PPCru1Mh0UneaVMmWnWolq1Hs9OUBJOvRhjodWcaMuSMPhaTf1P7RLd5T9Qpq-l8fdvxVKp-yZ-peyczwB9G8WATJR38Qt7geCNrAFLftCHdLl-lQ2fPGhDncB5gH-NZf_cg");'>
+<div class="p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+<div class="flex flex-col gap-2 max-w-xl">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-primary border border-primary/30 uppercase tracking-wide">Premium</span>
+<h3 class="text-white text-2xl font-bold leading-tight">ERP Sync Pack</h3>
+</div>
+<p class="text-gray-300 text-base">Automate your billing by syncing weighbridge data directly with Tally, SAP, or Oracle. Eliminate manual entry errors.</p>
+</div>
+<button class="shrink-0 bg-primary hover:bg-[#15bd0f] text-[#0e1b0d] h-10 px-6 rounded-lg font-bold text-sm transition-all transform active:scale-95 flex items-center gap-2 shadow-[0_0_15px_rgba(26,236,19,0.4)]">
+<span class="material-symbols-outlined text-[20px]">diamond</span>
+                                Upgrade Now
+                            </button>
+</div>
+</div>
+<!-- Section 1: ERP Integration (Locked State) -->
+<section class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h2 class="text-[#0e1b0d] dark:text-white text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">dns</span>
+                                ERP / Billing Integration
+                            </h2>
+</div>
+<div class="relative bg-white dark:bg-[#1a2e1a] border border-[#e7f3e7] dark:border-[#2a402a] rounded-xl shadow-sm overflow-hidden">
+<!-- Overlay -->
+<div class="absolute inset-0 z-20 backdrop-blur-[3px] bg-white/60 dark:bg-[#112210]/70 flex flex-col items-center justify-center text-center p-6">
+<div class="bg-background-light dark:bg-background-dark p-4 rounded-full shadow-lg mb-4">
+<span class="material-symbols-outlined text-4xl text-[#4e9a4c]">lock</span>
+</div>
+<h3 class="text-[#0e1b0d] dark:text-white text-xl font-bold mb-2">Integration Locked</h3>
+<p class="text-gray-600 dark:text-gray-400 max-w-md mb-6">Upgrade to the ERP Sync Pack to configure direct connections to Tally, SAP, and enable custom API webhooks.</p>
+<button class="bg-[#0e1b0d] dark:bg-white text-white dark:text-[#0e1b0d] px-6 py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity">
+                                    View Plans &amp; Pricing
+                                </button>
+</div>
+<!-- Mock Content Underneath -->
+<div class="p-6 opacity-40 pointer-events-none select-none filter blur-[1px]">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-medium text-[#0e1b0d] dark:text-gray-300">ERP Provider</label>
+<div class="h-10 w-full rounded-lg bg-[#f8fcf8] border border-[#e7f3e7] flex items-center px-4 text-gray-500 justify-between">
+<span>Select Provider...</span>
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-medium text-[#0e1b0d] dark:text-gray-300">Sync Frequency</label>
+<div class="h-10 w-full rounded-lg bg-[#f8fcf8] border border-[#e7f3e7] flex items-center px-4 text-gray-500 justify-between">
+<span>Real-time</span>
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-medium text-[#0e1b0d] dark:text-gray-300">API Username</label>
+<div class="h-10 w-full rounded-lg bg-[#f8fcf8] border border-[#e7f3e7] flex items-center px-4 text-gray-500">
+                                            admin_user
+                                        </div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-medium text-[#0e1b0d] dark:text-gray-300">API Secret</label>
+<div class="h-10 w-full rounded-lg bg-[#f8fcf8] border border-[#e7f3e7] flex items-center px-4 text-gray-500">
+                                            ••••••••••••••••
+                                        </div>
+</div>
+</div>
+<div class="border rounded-lg border-[#e7f3e7] overflow-hidden">
+<div class="bg-[#f8fcf8] px-4 py-3 border-b border-[#e7f3e7] font-medium text-sm text-gray-600">Field Mapping Preview</div>
+<div class="p-4 flex flex-col gap-2">
+<div class="h-8 bg-gray-100 rounded w-full"></div>
+<div class="h-8 bg-gray-100 rounded w-full"></div>
+<div class="h-8 bg-gray-100 rounded w-full"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: API Access -->
+<section class="flex flex-col gap-4">
+<h2 class="text-[#0e1b0d] dark:text-white text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">code</span>
+                            API Access
+                        </h2>
+<div class="bg-white dark:bg-[#1a2e1a] border border-[#e7f3e7] dark:border-[#2a402a] rounded-xl shadow-sm p-6">
+<div class="flex flex-col gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="lg:col-span-2 flex flex-col gap-2">
+<label class="text-sm font-medium text-[#0e1b0d] dark:text-gray-300">Base URL</label>
+<div class="flex items-center relative">
+<input class="w-full h-11 rounded-lg bg-[#f8fcf8] dark:bg-[#112210] border border-[#e7f3e7] dark:border-[#2a402a] text-[#0e1b0d] dark:text-gray-300 px-4 text-sm font-mono focus:ring-0 focus:border-primary" readonly="" value="https://api.weighbridge.sys/v1/client_44920"/>
+<button class="absolute right-2 p-1.5 hover:bg-[#e7f3e7] dark:hover:bg-[#2a402a] rounded text-[#4e9a4c]" title="Copy URL">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+</div>
+<p class="text-xs text-gray-500 mt-1">Rate limit: 1000 requests / minute</p>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-medium text-[#0e1b0d] dark:text-gray-300">API Key</label>
+<div class="flex gap-2">
+<div class="relative flex-1">
+<input class="w-full h-11 rounded-lg bg-[#f8fcf8] dark:bg-[#112210] border border-[#e7f3e7] dark:border-[#2a402a] text-[#0e1b0d] dark:text-gray-300 px-4 text-sm font-mono tracking-widest focus:ring-0 focus:border-primary" type="password" value="sk_live_293847293847239847"/>
+</div>
+<button class="h-11 w-11 flex items-center justify-center rounded-lg border border-[#e7f3e7] dark:border-[#2a402a] hover:bg-[#f8fcf8] dark:hover:bg-[#2a402a] text-[#4e9a4c]" title="Regenerate Key">
+<span class="material-symbols-outlined">refresh</span>
+</button>
+</div>
+<p class="text-xs text-red-500 mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">warning</span> Never share this key.
+                                        </p>
+</div>
+</div>
+<div class="border-t border-[#e7f3e7] dark:border-[#2a402a] pt-6">
+<div class="flex items-center justify-between mb-4">
+<h4 class="text-sm font-bold text-[#0e1b0d] dark:text-white">Active Webhooks</h4>
+<button class="text-xs font-bold text-primary hover:text-[#15bd0f] flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">add</span> Add Webhook
+                                        </button>
+</div>
+<div class="overflow-x-auto rounded-lg border border-[#e7f3e7] dark:border-[#2a402a]">
+<table class="w-full text-sm text-left">
+<thead class="bg-[#f8fcf8] dark:bg-[#112210] text-gray-500 font-medium">
+<tr>
+<th class="px-4 py-3">Endpoint URL</th>
+<th class="px-4 py-3">Events</th>
+<th class="px-4 py-3">Status</th>
+<th class="px-4 py-3 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#e7f3e7] dark:divide-[#2a402a]">
+<tr class="bg-white dark:bg-[#1a2e1a]">
+<td class="px-4 py-3 font-mono text-xs text-[#0e1b0d] dark:text-gray-300">.../hooks/capture</td>
+<td class="px-4 py-3"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-200">weigh_completed</span></td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-1.5">
+<div class="size-2 rounded-full bg-green-500"></div>
+<span class="text-green-700 dark:text-green-400 text-xs font-medium">Active</span>
+</div>
+</td>
+<td class="px-4 py-3 text-right">
+<button class="text-gray-400 hover:text-red-500"><span class="material-symbols-outlined text-[18px]">delete</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3 & 4: Cloud Integrations -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Google Drive -->
+<div class="bg-white dark:bg-[#1a2e1a] border border-[#e7f3e7] dark:border-[#2a402a] rounded-xl shadow-sm p-6 flex flex-col h-full">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-bold text-[#0e1b0d] dark:text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-blue-500">add_to_drive</span>
+                                    Google Drive
+                                </h3>
+<div class="px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 rounded text-[10px] font-bold uppercase">Connected</div>
+</div>
+<div class="flex flex-col gap-4 flex-1">
+<div class="flex items-center gap-3 p-3 bg-[#f8fcf8] dark:bg-[#112210] rounded-lg border border-[#e7f3e7] dark:border-[#2a402a]">
+<div class="size-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold">JD</div>
+<div class="flex flex-col overflow-hidden">
+<p class="text-xs font-bold text-[#0e1b0d] dark:text-white truncate">John Doe</p>
+<p class="text-[10px] text-gray-500 truncate">john.doe@company.com</p>
+</div>
+<button class="ml-auto text-xs text-red-500 font-medium hover:underline">Disconnect</button>
+</div>
+<div class="flex flex-col gap-2 mt-auto">
+<label class="text-sm font-medium text-[#0e1b0d] dark:text-gray-300">Target Folder</label>
+<div class="flex gap-2">
+<input class="flex-1 h-10 rounded-lg bg-[#f8fcf8] dark:bg-[#112210] border border-[#e7f3e7] dark:border-[#2a402a] text-sm px-3 focus:ring-0 focus:border-primary text-[#0e1b0d] dark:text-white" value="/Weighbridge_Backups_2024"/>
+<button class="h-10 px-3 bg-[#e7f3e7] dark:bg-[#2a402a] rounded-lg text-[#0e1b0d] dark:text-white hover:bg-[#d6e8d6] dark:hover:bg-[#354f35]">
+<span class="material-symbols-outlined text-[20px]">folder_open</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Google Sheets -->
+<div class="bg-white dark:bg-[#1a2e1a] border border-[#e7f3e7] dark:border-[#2a402a] rounded-xl shadow-sm p-6 flex flex-col h-full">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-bold text-[#0e1b0d] dark:text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-green-600">table_view</span>
+                                    Google Sheets
+                                </h3>
+<div class="px-2 py-0.5 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded text-[10px] font-bold uppercase">Ready</div>
+</div>
+<div class="flex flex-col gap-4 flex-1">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-medium text-[#0e1b0d] dark:text-gray-300">Spreadsheet ID</label>
+<input class="w-full h-10 rounded-lg bg-[#f8fcf8] dark:bg-[#112210] border border-[#e7f3e7] dark:border-[#2a402a] text-sm px-3 focus:ring-0 focus:border-primary text-[#0e1b0d] dark:text-white placeholder-gray-400" placeholder="1BxiMVs0XRA5nFK..."/>
+</div>
+<div class="flex flex-col gap-2 mt-2">
+<label class="text-sm font-medium text-[#0e1b0d] dark:text-gray-300">Sync Mode</label>
+<div class="flex flex-col gap-2">
+<label class="flex items-center gap-3 p-2 rounded border border-[#e7f3e7] dark:border-[#2a402a] cursor-pointer hover:bg-[#f8fcf8] dark:hover:bg-[#112210]">
+<input checked="" class="text-primary focus:ring-primary border-gray-300" name="sheet_sync" type="radio"/>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-[#0e1b0d] dark:text-white">Append Row</span>
+<span class="text-[10px] text-gray-500">Add new row on weigh-out completion</span>
+</div>
+</label>
+<label class="flex items-center gap-3 p-2 rounded border border-[#e7f3e7] dark:border-[#2a402a] cursor-pointer hover:bg-[#f8fcf8] dark:hover:bg-[#112210]">
+<input class="text-primary focus:ring-primary border-gray-300" name="sheet_sync" type="radio"/>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-[#0e1b0d] dark:text-white">Daily Batch</span>
+<span class="text-[10px] text-gray-500">Sync all transactions at 00:00 UTC</span>
+</div>
+</label>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex justify-end pt-4 border-t border-[#e7f3e7] dark:border-[#2a402a]">
+<div class="flex gap-4">
+<button class="px-6 py-2.5 rounded-lg text-[#0e1b0d] dark:text-gray-300 font-bold text-sm hover:bg-gray-100 dark:hover:bg-[#112210] transition-colors">
+                                Discard Changes
+                            </button>
+<button class="bg-primary hover:bg-[#15bd0f] text-[#0e1b0d] px-8 py-2.5 rounded-lg font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-95">
+                                Save Integration Settings
+                            </button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

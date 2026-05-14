@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Weighbridge Scale &amp; Rules | Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+<div class="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-background-dark">
+<span class="material-symbols-outlined text-xl">scale</span>
+</div>
+<h2 class="text-lg font-bold tracking-tight">Weighbridge MS</h2>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-sm font-semibold opacity-70 hover:opacity-100 transition-opacity" href="#">Dashboard</a>
+<a class="text-sm font-semibold opacity-70 hover:opacity-100 transition-opacity" href="#">Operations</a>
+<a class="text-sm font-semibold text-primary border-b-2 border-primary pb-1 mt-1" href="#">Settings</a>
+<a class="text-sm font-semibold opacity-70 hover:opacity-100 transition-opacity" href="#">Reports</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+<input class="bg-slate-100 dark:bg-slate-900 border-none rounded-lg pl-10 pr-4 py-2 text-sm w-64 focus:ring-2 focus:ring-primary/50" placeholder="Search settings..." type="text"/>
+</div>
+<button class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-background-light"></span>
+</button>
+<button class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<div class="max-w-[1440px] mx-auto flex gap-6 px-6 py-8">
+<!-- Sidebar Navigation -->
+<aside class="w-64 shrink-0 flex flex-col gap-6">
+<div class="flex flex-col gap-1">
+<h1 class="text-sm font-bold uppercase tracking-widest text-slate-500 px-3">System Settings</h1>
+<p class="text-[10px] font-mono opacity-50 px-3">BUILD v1.2.0-VAR-6</p>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary font-bold" href="#units">
+<span class="material-symbols-outlined text-[20px]">straighten</span>
+<span class="text-sm">Weight Units</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#capture">
+<span class="material-symbols-outlined text-[20px]">fitness_center</span>
+<span class="text-sm">Weight Capture</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#rules">
+<span class="material-symbols-outlined text-[20px]">checklist</span>
+<span class="text-sm">Weighment Rules</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#connection">
+<span class="material-symbols-outlined text-[20px]">settings_input_component</span>
+<span class="text-sm">Scale Connection</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#calibration">
+<span class="material-symbols-outlined text-[20px]">precision_manufacturing</span>
+<span class="text-sm">Calibration</span>
+</a>
+</nav>
+<div class="mt-auto p-4 bg-primary/5 rounded-xl border border-primary/20">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-bold opacity-70">Scale Status</span>
+<span class="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+</div>
+<div class="text-2xl font-black text-primary font-mono tabular-nums">1,240.00 <span class="text-xs">kg</span></div>
+<p class="text-[10px] opacity-60 mt-1">Live feed from COM3</p>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 min-w-0">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+<div class="flex flex-col gap-1">
+<h2 class="text-4xl font-black tracking-tight text-slate-900 dark:text-white">Weighbridge Scale &amp; Rules</h2>
+<p class="text-slate-500 dark:text-slate-400">Configure hardware connectivity parameters and core weighing business logic.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-5 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Discard</button>
+<button class="px-5 py-2.5 rounded-lg bg-primary text-background-dark font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform">Save Changes</button>
+</div>
+</div>
+<div class="space-y-8">
+<!-- Section: Weight Units & Display -->
+<section class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm" id="units">
+<div class="p-6 border-b border-slate-100 dark:border-slate-800">
+<h3 class="text-xl font-bold">Weight Units &amp; Display</h3>
+</div>
+<div class="p-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="group relative flex items-start gap-4 p-4 rounded-xl border-2 border-primary bg-primary/5">
+<div class="w-24 h-24 rounded-lg bg-cover bg-center shrink-0" data-alt="Metric weighing scale weights and units" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA6viWhjcrnoKrnrmHNSW5Hvctq-wDQKj39fVCZ1ZeBs3TJHcyaDlKgWGI2K0iGMLKAZL-6P64wF1ayup9TZ1zHHcdBpB_jQi-YpAxt3A6OhrbG1tR0CXNi-2UOyriJOZL8CRVAQIIAN69uKuFYrIQaY3YLZHwiuhimCHU4TFlH1uJ0O92SvcFiK-VPSnM91pX6_g9vSw_spiW7U2DjQ2G6c-77-MJyvaNLL98WLs8zBy1qCc-MfzBvteVqaWEGrAu7RyU83pY0BeQ')"></div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<p class="font-bold text-lg">Metric (kg/t)</p>
+<span class="material-symbols-outlined text-primary">check_circle</span>
+</div>
+<p class="text-sm text-slate-500">Global standard (Kilograms and Tonnes). Recommended for international trade compliance.</p>
+</div>
+</div>
+<div class="group relative flex items-start gap-4 p-4 rounded-xl border-2 border-transparent bg-slate-50 dark:bg-slate-800 hover:border-slate-300 transition-all cursor-pointer">
+<div class="w-24 h-24 rounded-lg bg-cover bg-center shrink-0" data-alt="Imperial weighing scale old style weights" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBKD-ieLO_txD8Ern91EpFsOfbIHrEaO7cBjsu0VtCSDZD-tvL0XPhcpWZnc6uclakAbeAnDYUSRjkgS62bICYgur9fAX4RIKXTx4ZpnXqDsN1AW1fYzpeo0dyFf6-d0RbvHjSUczYgBSK7IveWbXeLzgK-j1Nut4TO9823y_32mRlVf4BZYlxeFtbIqTGVAu3FB94LajOJiF7hTHRAGfsQlWMjrSYN90y8fWHy50bj83VONgi8Wi2iJlJCAJrpg9_xT57Y2I5KjBI')"></div>
+<div class="flex-1">
+<p class="font-bold text-lg mb-1">Imperial (lb/st)</p>
+<p class="text-sm text-slate-500">Pounds and Stones. Used primarily in specific North American and regional markets.</p>
+</div>
+</div>
+</div>
+<div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase mb-2">Decimal Precision</label>
+<select class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-sm">
+<option>0.00 (2 places)</option>
+<option selected="">0.000 (3 places)</option>
+<option>0.0000 (4 places)</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase mb-2">Display Refresh Rate</label>
+<select class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-sm">
+<option>100ms</option>
+<option selected="">200ms (Stable)</option>
+<option>500ms</option>
+</select>
+</div>
+</div>
+</div>
+</section>
+<!-- Section: Weight Capture Settings -->
+<section class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm" id="capture">
+<div class="p-6 border-b border-slate-100 dark:border-slate-800">
+<h3 class="text-xl font-bold">Weight Capture Settings</h3>
+</div>
+<div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase mb-2">Min Capacity</label>
+<div class="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+<input class="w-full border-none bg-transparent text-sm p-2.5 focus:ring-0" type="number" value="20"/>
+<span class="bg-slate-200 dark:bg-slate-700 px-3 py-2.5 text-xs font-bold">kg</span>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase mb-2">Max Capacity</label>
+<div class="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+<input class="w-full border-none bg-transparent text-sm p-2.5 focus:ring-0" type="number" value="60000"/>
+<span class="bg-slate-200 dark:bg-slate-700 px-3 py-2.5 text-xs font-bold">kg</span>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase mb-2">Stability Duration</label>
+<div class="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+<input class="w-full border-none bg-transparent text-sm p-2.5 focus:ring-0" type="number" value="1500"/>
+<span class="bg-slate-200 dark:bg-slate-700 px-3 py-2.5 text-xs font-bold">ms</span>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase mb-2">Zero Tolerance</label>
+<div class="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+<input class="w-full border-none bg-transparent text-sm p-2.5 focus:ring-0" type="number" value="5"/>
+<span class="bg-slate-200 dark:bg-slate-700 px-3 py-2.5 text-xs font-bold">kg</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Section: Weighment Rules -->
+<section class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm" id="rules">
+<div class="p-6 border-b border-slate-100 dark:border-slate-800">
+<h3 class="text-xl font-bold">Weighment Rules</h3>
+</div>
+<div class="p-6 space-y-6">
+<div class="flex items-center justify-between py-2">
+<div class="flex flex-col">
+<span class="font-bold">Allow Manual Weight Entry</span>
+<span class="text-sm text-slate-500">Enables the operator to override scale readings manually.</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center justify-between py-2">
+<div class="flex flex-col">
+<span class="font-bold">Require Tare First</span>
+<span class="text-sm text-slate-500">Forces a tare weighment before any gross weighment can occur.</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase mb-2">Stored Tare Validity</label>
+<select class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-sm">
+<option>Single Use</option>
+<option selected="">24 Hours</option>
+<option>7 Days</option>
+<option>Permanent (Asset-based)</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase mb-2">Overload Action</label>
+<select class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-sm">
+<option>Warning Only</option>
+<option selected="">Block Weighment</option>
+<option>Require Supervisor Bypass</option>
+</select>
+</div>
+</div>
+</div>
+</section>
+<!-- Section: Scale Connection -->
+<section class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm" id="connection">
+<div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<h3 class="text-xl font-bold">Scale Connection</h3>
+<div class="flex items-center gap-2">
+<span class="text-xs font-bold text-primary flex items-center gap-1">
+<span class="w-2 h-2 bg-primary rounded-full"></span>
+                                CONNECTED
+                            </span>
+</div>
+</div>
+<div class="p-6">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div class="lg:col-span-2 space-y-6">
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase mb-2">Interface Type</label>
+<div class="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+<button class="flex-1 py-1.5 text-sm font-bold bg-white dark:bg-slate-700 rounded shadow-sm">Serial/RS232</button>
+<button class="flex-1 py-1.5 text-sm font-bold opacity-50 hover:opacity-100">TCP/IP</button>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase mb-2">COM Port</label>
+<select class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-sm">
+<option>COM1</option>
+<option>COM2</option>
+<option selected="">COM3 (Scale Indicator)</option>
+<option>COM4</option>
+</select>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-4">
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase mb-2">Baud Rate</label>
+<select class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-sm">
+<option>4800</option>
+<option selected="">9600</option>
+<option>19200</option>
+<option>115200</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase mb-2">Data Bits</label>
+<select class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-sm">
+<option>7</option>
+<option selected="">8</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase mb-2">Parity</label>
+<select class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-sm">
+<option selected="">None</option>
+<option>Even</option>
+<option>Odd</option>
+</select>
+</div>
+</div>
+</div>
+<div class="bg-slate-900 rounded-xl p-4 flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-bold text-slate-400 uppercase">Data Stream Monitor</span>
+<button class="text-primary text-[10px] font-bold hover:underline">CLEAR</button>
+</div>
+<div class="flex-1 font-mono text-[10px] text-primary/80 space-y-1 overflow-y-auto max-h-32">
+<div>[14:02:11] ST,GS,+ 01240.00 kg</div>
+<div>[14:02:11] ST,GS,+ 01240.00 kg</div>
+<div>[14:02:12] ST,GS,+ 01240.00 kg</div>
+<div class="animate-pulse">[14:02:12] ST,GS,+ 01240.00 kg</div>
+</div>
+<button class="w-full py-2 bg-primary/20 text-primary border border-primary/30 rounded-lg font-bold text-xs flex items-center justify-center gap-2 hover:bg-primary/30 transition-colors">
+<span class="material-symbols-outlined text-sm">rebase_edit</span>
+                                    Test Connection
+                                </button>
+</div>
+</div>
+</div>
+</section>
+</div>
+<div class="mt-12 p-6 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center text-slate-400">
+<p class="text-sm">© 2024 Weighbridge Management Systems. All hardware drivers updated.</p>
+<div class="flex gap-4">
+<a class="hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined text-lg">help</span></a>
+<a class="hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined text-lg">description</span></a>
+</div>
+</div>
+</main>
+</div>
+</body></html>

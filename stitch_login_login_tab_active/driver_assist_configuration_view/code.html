@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Driver Assist Configuration</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&amp;family=Noto+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-dark": "#3e6e3c",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "text-secondary": "#616161",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom styles for specific elements not fully covered by Tailwind utilities */
+        body {
+            font-family: 'Noto Sans', sans-serif; /* Default body font */
+        }
+        h1, h2, h3, h4, h5, h6, .font-display {
+            font-family: 'Manrope', sans-serif;
+        }
+        
+        /* Face detection overlay animation */
+        .face-box {
+            animation: pulse-border 2s infinite;
+        }
+        @keyframes pulse-border {
+            0% { border-color: rgba(80, 141, 78, 0.4); }
+            50% { border-color: rgba(80, 141, 78, 1); }
+            100% { border-color: rgba(80, 141, 78, 0.4); }
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#121712] dark:text-white flex flex-col min-h-screen overflow-x-hidden">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#ebefeb] dark:border-[#2a302a] bg-white dark:bg-[#1e241e] px-10 py-3 shrink-0">
+<div class="flex items-center gap-4">
+<div class="size-6 text-primary">
+<svg fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M39.475 21.6262C40.358 21.4363 40.6863 21.5589 40.7581 21.5934C40.7876 21.655 40.8547 21.857 40.8082 22.3336C40.7408 23.0255 40.4502 24.0046 39.8572 25.2301C38.6799 27.6631 36.5085 30.6631 33.5858 33.5858C30.6631 36.5085 27.6632 38.6799 25.2301 39.8572C24.0046 40.4502 23.0255 40.7407 22.3336 40.8082C21.8571 40.8547 21.6551 40.7875 21.5934 40.7581C21.5589 40.6863 21.4363 40.358 21.6262 39.475C21.8562 38.4054 22.4689 36.9657 23.5038 35.2817C24.7575 33.2417 26.5497 30.9744 28.7621 28.762C30.9744 26.5497 33.2417 24.7574 35.2817 23.5037C36.9657 22.4689 38.4054 21.8562 39.475 21.6262ZM4.41189 29.2403L18.7597 43.5881C19.8813 44.7097 21.4027 44.9179 22.7217 44.7893C24.0585 44.659 25.5148 44.1631 26.9723 43.4579C29.9052 42.0387 33.2618 39.5667 36.4142 36.4142C39.5667 33.2618 42.0387 29.9052 43.4579 26.9723C44.1631 25.5148 44.659 24.0585 44.7893 22.7217C44.9179 21.4027 44.7097 19.8813 43.5881 18.7597L29.2403 4.41187C27.8527 3.02428 25.8765 3.02573 24.2861 3.36776C22.6081 3.72863 20.7334 4.58419 18.8396 5.74801C16.4978 7.18716 13.9881 9.18353 11.5858 11.5858C9.18354 13.988 7.18717 16.4978 5.74802 18.8396C4.58421 20.7334 3.72865 22.6081 3.36778 24.2861C3.02574 25.8765 3.02429 27.8527 4.41189 29.2403Z" fill="currentColor" fill-rule="evenodd"></path>
+</svg>
+</div>
+<h2 class="text-[#121712] dark:text-white text-lg font-bold font-display leading-tight tracking-[-0.015em]">Weighbridge Management System</h2>
+</div>
+<div class="flex items-center gap-4">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 ring-2 ring-gray-100 dark:ring-gray-700" data-alt="User profile avatar showing a generic silhouette" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC5nOQqdazXjVj5ERDsT6kv2b6C5-F6QmXHCugWvbL_QcFpRWV1gm_JNUAjrOIaYvwcuhvpEwYrMlbaWmPzKdlH8zPKC99ZpvYpq7L4Mo6FLgh1JeLYJVY1LayiC8sYy7TmWxFpJqyx_MYJM19EwA2cfvfjGJXZ5bWbWn-n2GuXZp0JcM9h38ZSOZA7SuymM5AU-NyV0r9dpdrZ-Gvs2hTN0jo99Kkbmc_D9ii6QSrZ5gKMDyOCkHk5-Z5xCDJGK6TTv5tOMq_IVFg");'></div>
+</div>
+</header>
+<div class="layout-container flex flex-col flex-1">
+<div class="px-6 md:px-20 lg:px-40 flex flex-1 justify-center py-8">
+<div class="layout-content-container flex flex-col max-w-[960px] flex-1 gap-8">
+<!-- Page Header -->
+<div class="flex flex-wrap justify-between items-end gap-4 pb-2 border-b border-gray-200 dark:border-gray-800">
+<div class="flex flex-col gap-2">
+<h1 class="text-[#121712] dark:text-white tracking-tight text-[32px] font-bold font-display leading-tight">Driver Assist Configuration</h1>
+<div class="flex items-center gap-3">
+<span class="text-text-secondary dark:text-gray-400 text-sm font-normal">Weighment ID: #99283-AX</span>
+<span class="text-gray-300 dark:text-gray-600">•</span>
+<div class="flex items-center gap-1.5 bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+<span class="text-primary text-xs font-semibold uppercase tracking-wide">AI System Active</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 1: Live Camera Feeds -->
+<section class="flex flex-col gap-4">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Feed 1 -->
+<div class="flex flex-col gap-2 group">
+<div class="relative w-full aspect-video bg-black rounded-lg overflow-hidden shadow-sm">
+<div class="w-full h-full bg-cover bg-center opacity-90" data-alt="Live camera feed showing truck driver inside the cabin from the front" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC5SStKg_8QDkoVNAAVeaQuRToQ6gD2jOQCXAlAG5oYBOsaCSXL8c3uIi0u5VVk_h9s84KKQ6BtgavCTmMScEx0CbnupbsoDbfciGdJEZVVOt90ZK0SzFK02tnkoorxPgW0Sn6RqMPx15iSxfcMu0PxDTeEBu5b941F75Cebg959E0W9Qrkcg3xiU7pCpBeiqp-DWmJ2Mi-pYKToPyqRs97yANMnksJqI5ohSxj-q2Mqm7epigUgrITuFM6z6XF_bPQMLeObs7qCo8");'></div>
+<!-- Simulated Face Detection Box -->
+<div class="absolute top-[25%] left-[45%] w-[18%] h-[28%] border border-primary face-box shadow-[0_0_15px_rgba(80,141,78,0.3)]">
+<div class="absolute -top-4 left-0 bg-primary/90 text-white text-[9px] px-1 py-0.5 rounded-sm">FACE 98%</div>
+</div>
+<!-- Rec Indicator -->
+<div class="absolute top-2 right-2 flex items-center gap-1 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded text-white text-[10px]">
+<span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                    LIVE
+                                </div>
+</div>
+<p class="text-text-secondary dark:text-gray-400 text-[12px] font-medium leading-none flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">videocam</span>
+                                Cam 01 - Front
+                            </p>
+</div>
+<!-- Feed 2 -->
+<div class="flex flex-col gap-2 group">
+<div class="relative w-full aspect-video bg-black rounded-lg overflow-hidden shadow-sm">
+<div class="w-full h-full bg-cover bg-center opacity-90" data-alt="Live camera feed showing side profile of truck driver" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA06fKrIYZGQ9anLb1gV71qKNYKddKS44gcKXN8R18wlwhAPa73Fd7r8XCw-HvfiNn9En1Bz17dtY1tDqYoXt9rRWzATST-AatoqmZuuJMG4jkCcOPccUBoQk3Dqj-X5eTEK6kA4QndtRcWL6aMepqeo5twjf9jCbHKdPgkhnheIqmHpzX4WrA6etcklTBjGX587lYdM7DqWQjOnDonpsMkQ7ejK8kzhpY0jf5c9k0A7dTC4CfZvR-9-isGeTgR_Y1kg06O0roZDEQ");'></div>
+<!-- Simulated Detection Box -->
+<div class="absolute top-[30%] left-[30%] w-[15%] h-[25%] border border-primary/60"></div>
+</div>
+<p class="text-text-secondary dark:text-gray-400 text-[12px] font-medium leading-none flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">videocam</span>
+                                Cam 02 - Side
+                            </p>
+</div>
+<!-- Feed 3 -->
+<div class="flex flex-col gap-2 group">
+<div class="relative w-full aspect-video bg-black rounded-lg overflow-hidden shadow-sm">
+<div class="w-full h-full bg-cover bg-center opacity-90" data-alt="Live camera feed showing overhead view of the truck cabin" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD2wzE_qgRkEgUSK2ebvCl3e6X1zsjr13olEiyK5ew5AxaNzQrxyRcy6EFIhvfExExaqaZYMgAUC8rbxTfO6oVz7O-kEakq4f5ZtWp8AZpJFF8uarJafPLDZLjXGACIofUcjHRzxgDQ-Bh1fgsedAsuVwLNqe_pnWFNXzxEhzzVdBc7Zb9vYOCCG80Rj-j_LOy0CqE8eVnHJ8lhUV9GiCebGYYjtmNFHC9PJfR_qEitfDvrPXnsFG1puBrai19R6GIhXiPqfsgjOPY");'></div>
+</div>
+<p class="text-text-secondary dark:text-gray-400 text-[12px] font-medium leading-none flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">videocam</span>
+                                Cam 03 - Overhead
+                            </p>
+</div>
+</div>
+</section>
+<!-- Section 2: Image Selection -->
+<section class="flex flex-col gap-6 bg-white dark:bg-[#1e241e] p-6 rounded-xl shadow-sm border border-gray-100 dark:border-[#2a302a]">
+<div>
+<h2 class="text-[#121712] dark:text-white text-lg font-bold font-display leading-tight">Select Best Driver Image</h2>
+<p class="text-text-secondary dark:text-gray-400 text-sm mt-1">Please verify and select the clearest image of the driver for the record.</p>
+</div>
+<!-- Thumbnails Row -->
+<div class="flex flex-wrap gap-6 items-start">
+<!-- Option 1 (Selected) -->
+<label class="cursor-pointer group">
+<input checked="" class="peer sr-only" name="driver-image" type="radio"/>
+<div class="flex flex-col items-center gap-3">
+<div class="relative">
+<div class="w-[120px] h-[120px] bg-gray-100 rounded-lg overflow-hidden border-2 border-primary transition-all shadow-md group-hover:shadow-lg">
+<div class="w-full h-full bg-cover bg-center" data-alt="Close up thumbnail of driver face, high clarity" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD1DgCM2kkfmoxoo4V0Eu7R_VpuwPHj2g5zYi4_6vG6WPtBs5Xfp2RT_9atwZEezp-iMj-HcyXy_3Fk5aIFV8trP4m0PAvW5VWQN9lKZiy3QQIUtcuNX069ciTUxADwSq6K-nOCrxRciYyYl0rNHUcRKYQFciOiQEbtCBaDzhNLRx8PaZdD5o0QWr55CBDUTmy31un8e2Yl9OJend7C0u_3bV4wodJPlNDQRDujOXBf0LKdM2hntIUDRtyBQsMGR6s-inDqPCf_eE4");'></div>
+</div>
+<div class="absolute -top-2 -right-2 bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm border border-white dark:border-gray-800">92%</div>
+<div class="absolute inset-0 bg-primary/10 pointer-events-none rounded-lg hidden peer-checked:block"></div>
+</div>
+<div class="flex items-center gap-2">
+<div class="size-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center bg-white dark:bg-black peer-checked:border-primary peer-checked:bg-primary group-hover:border-primary">
+<div class="size-2.5 rounded-full bg-primary peer-checked:bg-white"></div>
+</div>
+<span class="text-sm font-medium text-primary">Best Match</span>
+</div>
+</div>
+</label>
+<!-- Option 2 -->
+<label class="cursor-pointer group">
+<input class="peer sr-only" name="driver-image" type="radio"/>
+<div class="flex flex-col items-center gap-3">
+<div class="relative">
+<div class="w-[120px] h-[120px] bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border-2 border-transparent peer-checked:border-primary transition-all group-hover:border-gray-300 dark:group-hover:border-gray-600">
+<div class="w-full h-full bg-cover bg-center grayscale-[30%] group-hover:grayscale-0 transition-all" data-alt="Thumbnail of driver face, slightly blurry" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD-tWN1hEa7ERiLv8oTulIuZb2T0tSOkcINy1909V79nbe0b7QSYOdGsFDdawHvxXfp-iYJ2kVUhmI_9xKH42zTLzpxRuzhp_k7b0kMB2zVrZNFKRLtWJnT3p1XkDNfkFAgbW3bc5rxbdZ5AH0x40D2ZJ5tQKWWjH8oKgc5fCgw-A55qGFGMEN1QXmOWiyE7l-eslpbjB4r1vv85ANWiFSMuldmXbz3RE8YFNyqTjLtrdWzYpGwjqrqxrrqABi8IFKS2AMnBwt7lzU");'></div>
+</div>
+<div class="absolute -top-2 -right-2 bg-gray-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm border border-white dark:border-gray-800">88%</div>
+</div>
+<div class="flex items-center gap-2">
+<div class="size-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center bg-white dark:bg-black group-hover:border-gray-400">
+<div class="size-2.5 rounded-full bg-transparent peer-checked:bg-primary"></div>
+</div>
+<span class="text-sm text-text-secondary dark:text-gray-400">Capture 2</span>
+</div>
+</div>
+</label>
+<!-- Option 3 -->
+<label class="cursor-pointer group">
+<input class="peer sr-only" name="driver-image" type="radio"/>
+<div class="flex flex-col items-center gap-3">
+<div class="relative">
+<div class="w-[120px] h-[120px] bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border-2 border-transparent peer-checked:border-primary transition-all group-hover:border-gray-300 dark:group-hover:border-gray-600">
+<div class="w-full h-full bg-cover bg-center grayscale-[50%] group-hover:grayscale-0 transition-all" data-alt="Thumbnail of driver face with obstruction" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCyVi5AJd867GjSgGoMYUs5iwHgdRAS27ZNvBZ0Xy0AFiIqEUyeHGK-h2gddeLjAZfCZ__YtN7e0UbqA3XiM-3R5Frtbk5yiDdrJY9KmiYI3-_kp3M3FUyg2NmKqkRafORgDDS-y8vx1-B6hasa-maMKwZTEXhDfuPVplcvzRGmJEEcFSluNi_jqaJc4fWQNnIzuXXuKcbs5ICqILe-mc1cnwOMxItJkew-vpYt4Z_cTWwPG-WKf7Qhc2CNz2PEqOmKqymgns5yHoA");'></div>
+</div>
+<div class="absolute -top-2 -right-2 bg-gray-400 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm border border-white dark:border-gray-800">64%</div>
+</div>
+<div class="flex items-center gap-2">
+<div class="size-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center bg-white dark:bg-black group-hover:border-gray-400">
+<div class="size-2.5 rounded-full bg-transparent peer-checked:bg-primary"></div>
+</div>
+<span class="text-sm text-text-secondary dark:text-gray-400">Capture 3</span>
+</div>
+</div>
+</label>
+<!-- Option 4 -->
+<label class="cursor-pointer group">
+<input class="peer sr-only" name="driver-image" type="radio"/>
+<div class="flex flex-col items-center gap-3">
+<div class="relative">
+<div class="w-[120px] h-[120px] bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border-2 border-transparent peer-checked:border-primary transition-all group-hover:border-gray-300 dark:group-hover:border-gray-600">
+<div class="w-full h-full bg-cover bg-center grayscale-[80%] opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all" data-alt="Low quality thumbnail of driver face" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAeNKGn3HxZ86T8XgnpSMsaMzJVGxBX5aAWEI13yHem0J-bcGLRdn6sryfy_yR8MH_d78kvrwaIUNz_SJwH2UqRzV9ASx2xJQ8MgW3JeG1pKOJsZjzeZoWmVdrBr_RG8R1dDBQDwCU5N9CJ8TopfEMlEz7AauJ9g9kB9yV6jf7Xdq_pPwlqVPm8O-PJubJGjtq7LFDXJ3leh3IY4_GzIAI66A_t_y5rU4qAbDtOpbXDcsM9c1-reCz58OP9B7ROf2rqwp8zQwBrb2s");'></div>
+</div>
+<div class="absolute -top-2 -right-2 bg-gray-300 dark:bg-gray-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm border border-white dark:border-gray-800">45%</div>
+</div>
+<div class="flex items-center gap-2">
+<div class="size-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center bg-white dark:bg-black group-hover:border-gray-400">
+<div class="size-2.5 rounded-full bg-transparent peer-checked:bg-primary"></div>
+</div>
+<span class="text-sm text-text-secondary dark:text-gray-400">Capture 4</span>
+</div>
+</div>
+</label>
+</div>
+<!-- Footer Actions -->
+<div class="flex flex-col sm:flex-row items-center gap-6 mt-4 pt-4 border-t border-gray-100 dark:border-[#2a302a]">
+<button class="w-full sm:w-auto px-8 h-[48px] bg-primary hover:bg-primary-dark text-white text-base font-bold rounded-md shadow-sm transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">check_circle</span>
+                            Confirm Driver Image
+                        </button>
+<a class="text-text-secondary dark:text-gray-400 hover:text-[#121712] dark:hover:text-white text-sm font-semibold transition-colors flex items-center gap-1 group" href="#">
+                            Skip Driver Assist
+                            <span class="material-symbols-outlined text-[16px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+</a>
+</div>
+</section>
+</div>
+</div>
+</div>
+</body></html>

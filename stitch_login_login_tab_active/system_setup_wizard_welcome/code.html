@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>System Setup Wizard - Welcome</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-hover": "#3f703d",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "card-light": "#ffffff",
+                        "card-dark": "#222b22",
+                        "text-main-light": "#121712",
+                        "text-main-dark": "#e0e6e0",
+                        "text-sub-light": "#668165",
+                        "text-sub-dark": "#9ab099",
+                        "border-light": "#d7e0d7",
+                        "border-dark": "#2f3e2f",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-text-main-light dark:text-text-main-dark min-h-screen flex flex-col">
+<div class="relative flex flex-col min-h-screen overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col justify-center items-center py-12 px-4">
+<!-- Main Card Container -->
+<div class="w-full max-w-[640px] bg-card-light dark:bg-card-dark rounded-2xl shadow-xl border border-border-light dark:border-border-dark overflow-hidden">
+<!-- Hero Image Section -->
+<div class="w-full h-40 bg-primary/10 relative overflow-hidden">
+<div class="absolute inset-0 bg-center bg-cover opacity-80" data-alt="Industrial weighbridge logistics center blurred background" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDl1gbYKL7xfMjUAvVP9V6NgZMHZGLCzcTVdw9L4imBScHENMBFImLyRe_9_EXczzsc1bO7h7XZQmupckMfUai6VGMpgklkGP7N4GN24eXstBmBkLSgTIAVSy6YNvWYTxTCLbzS_TkBSqnxUlHwY6bbulfrbVbpscDWuL5LWR4FQx1ROoF8YsuC1vrFVZM3Re3YI2JlahgbcYBDxD0djA6wR9ySPYstgbPEe0FStzuRFiwxldkabne_Mtyb1H3cj4zb7mIDBnFGfkc");'>
+</div>
+<div class="absolute inset-0 bg-gradient-to-t from-card-light dark:from-card-dark to-transparent"></div>
+<div class="absolute bottom-6 left-8 flex items-center gap-3">
+<div class="bg-primary p-2 rounded-lg text-white">
+<span class="material-symbols-outlined text-3xl">scale</span>
+</div>
+<h2 class="text-2xl font-bold tracking-tight text-white drop-shadow-md">Weighbridge Manager</h2>
+</div>
+</div>
+<!-- Content Body -->
+<div class="px-8 pt-6 pb-10">
+<!-- Page Heading -->
+<div class="mb-8">
+<h1 class="text-3xl md:text-4xl font-black leading-tight tracking-tight mb-3">Welcome to setup</h1>
+<p class="text-text-sub-light dark:text-text-sub-dark text-base font-normal leading-relaxed">
+                            Let's get your manual and fallback operations configured. This wizard will guide you through the initial setup process to ensure your station is ready for operation.
+                        </p>
+</div>
+<!-- Steps Timeline -->
+<div class="mb-10 bg-background-light dark:bg-background-dark/50 rounded-xl p-6 border border-border-light dark:border-border-dark">
+<h3 class="text-sm font-bold uppercase tracking-wider text-text-sub-light dark:text-text-sub-dark mb-4 pl-2">Configuration Steps</h3>
+<div class="grid grid-cols-[32px_1fr] gap-x-4">
+<!-- Step 1 -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg">domain</span>
+</div>
+<div class="w-[2px] bg-border-light dark:bg-border-dark h-full min-h-[24px]"></div>
+</div>
+<div class="pb-6 pt-1">
+<p class="text-base font-bold">Company Information</p>
+<p class="text-sm text-text-sub-light dark:text-text-sub-dark">Basic site details and branding</p>
+</div>
+<!-- Step 2 -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-background-light dark:bg-background-dark border-2 border-border-light dark:border-border-dark flex items-center justify-center text-text-sub-light dark:text-text-sub-dark">
+<span class="material-symbols-outlined text-lg">balance</span>
+</div>
+<div class="w-[2px] bg-border-light dark:bg-border-dark h-full min-h-[24px]"></div>
+</div>
+<div class="pb-6 pt-1 opacity-75">
+<p class="text-base font-medium">Scale Connection</p>
+</div>
+<!-- Step 3 -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-background-light dark:bg-background-dark border-2 border-border-light dark:border-border-dark flex items-center justify-center text-text-sub-light dark:text-text-sub-dark">
+<span class="material-symbols-outlined text-lg">videocam</span>
+</div>
+<div class="w-[2px] bg-border-light dark:bg-border-dark h-full min-h-[24px]"></div>
+</div>
+<div class="pb-6 pt-1 opacity-75">
+<p class="text-base font-medium">Cameras Setup</p>
+</div>
+<!-- Step 4 -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-background-light dark:bg-background-dark border-2 border-border-light dark:border-border-dark flex items-center justify-center text-text-sub-light dark:text-text-sub-dark">
+<span class="material-symbols-outlined text-lg">sensor_door</span>
+</div>
+<div class="w-[2px] bg-border-light dark:bg-border-dark h-full min-h-[24px]"></div>
+</div>
+<div class="pb-6 pt-1 opacity-75">
+<p class="text-base font-medium">Gates Configuration</p>
+</div>
+<!-- Step 5 -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-background-light dark:bg-background-dark border-2 border-border-light dark:border-border-dark flex items-center justify-center text-text-sub-light dark:text-text-sub-dark">
+<span class="material-symbols-outlined text-lg">inventory_2</span>
+</div>
+<div class="w-[2px] bg-border-light dark:bg-border-dark h-full min-h-[24px]"></div>
+</div>
+<div class="pb-6 pt-1 opacity-75">
+<p class="text-base font-medium">Materials Database</p>
+</div>
+<!-- Step 6 -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-background-light dark:bg-background-dark border-2 border-border-light dark:border-border-dark flex items-center justify-center text-text-sub-light dark:text-text-sub-dark">
+<span class="material-symbols-outlined text-lg">manage_accounts</span>
+</div>
+</div>
+<div class="pt-1 opacity-75">
+<p class="text-base font-medium">Operator Account</p>
+</div>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="flex flex-col gap-6">
+<button class="w-full flex cursor-pointer items-center justify-center rounded-xl h-14 px-5 bg-primary hover:bg-primary-hover text-white text-lg font-bold transition-all shadow-lg shadow-primary/20">
+<span>Get Started</span>
+<span class="material-symbols-outlined ml-2">arrow_forward</span>
+</button>
+<!-- Progress Bar (Subtle) -->
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-end">
+<p class="text-text-main-light dark:text-text-main-dark text-sm font-semibold">Step 0 of 6</p>
+<p class="text-text-sub-light dark:text-text-sub-dark text-xs font-medium">Not started</p>
+</div>
+<div class="w-full h-1.5 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 2%;"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Simple Footer Copyright/Help -->
+<div class="mt-8 text-center">
+<p class="text-text-sub-light dark:text-text-sub-dark text-sm">Need help? <a class="text-primary hover:underline font-medium" href="#">View Installation Guide</a></p>
+</div>
+</div>
+</div>
+</body></html>

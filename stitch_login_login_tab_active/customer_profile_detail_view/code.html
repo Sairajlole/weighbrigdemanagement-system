@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Customer Profile - WeighSys</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for better aesthetic */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#111811] dark:text-gray-100 font-display min-h-screen flex flex-col md:flex-row overflow-hidden">
+<!-- Side Navigation -->
+<aside class="hidden md:flex flex-col w-64 bg-white dark:bg-[#1A2C19] border-r border-[#f0f4f0] dark:border-[#2a3c29] h-screen shrink-0">
+<div class="p-6 flex items-center gap-3">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" data-alt="Abstract green geometric logo" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBYhGoDCLBoMA06DsWUhM4wwfStoXvnr_H5kCxzBqYb1JcPDamDKkBFkco8XRvoIY6_FgzyJ0FvpW93S5bWUMWqem-IazR5lm4-3pqGKEocpawzEyzRxEv-GuisOJTwyk8_rnC4OW0YO5VVngLkm5PWdY0vwHWa-or0Ga32zGi0KLFrWZvWwfMlKI4dyAzE63F22cApWmUGBNO8Y3tEkd13Gx_ewXxjFp_qUeLjqqRBATOYRyT7-SZKugTThnA1MLuz2j4ksLT3dLw");'></div>
+<div class="flex flex-col">
+<h1 class="text-[#111811] dark:text-white text-base font-bold leading-normal">WeighSys</h1>
+<p class="text-[#638961] text-xs font-normal leading-normal">Admin Panel</p>
+</div>
+</div>
+<nav class="flex flex-col gap-2 px-4 mt-4">
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#f0f4f0] dark:hover:bg-[#253824] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#638961] group-hover:text-[#111811] dark:text-[#8ba889] dark:group-hover:text-white">dashboard</span>
+<p class="text-[#111811] dark:text-gray-300 text-sm font-medium">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg bg-[#f0f4f0] dark:bg-[#253824]" href="#">
+<span class="material-symbols-outlined text-[#111811] dark:text-white fill-1">group</span>
+<p class="text-[#111811] dark:text-white text-sm font-bold">Customers</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#f0f4f0] dark:hover:bg-[#253824] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#638961] group-hover:text-[#111811] dark:text-[#8ba889] dark:group-hover:text-white">scale</span>
+<p class="text-[#111811] dark:text-gray-300 text-sm font-medium">Weighments</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#f0f4f0] dark:hover:bg-[#253824] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#638961] group-hover:text-[#111811] dark:text-[#8ba889] dark:group-hover:text-white">description</span>
+<p class="text-[#111811] dark:text-gray-300 text-sm font-medium">Reports</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#f0f4f0] dark:hover:bg-[#253824] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#638961] group-hover:text-[#111811] dark:text-[#8ba889] dark:group-hover:text-white">settings</span>
+<p class="text-[#111811] dark:text-gray-300 text-sm font-medium">Settings</p>
+</a>
+</nav>
+<div class="mt-auto p-4 border-t border-[#f0f4f0] dark:border-[#2a3c29]">
+<div class="flex items-center gap-3 p-2">
+<div class="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">JD</div>
+<div class="flex flex-col">
+<p class="text-sm font-bold dark:text-white">John Doe</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">Operator</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Layout -->
+<div class="flex-1 flex flex-col h-screen overflow-hidden relative">
+<!-- Top Header -->
+<header class="flex items-center justify-between whitespace-nowrap bg-white dark:bg-[#1A2C19] border-b border-[#f0f4f0] dark:border-[#2a3c29] px-6 py-4 shrink-0 z-20">
+<div class="flex items-center gap-4">
+<button class="md:hidden p-2 text-gray-600">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="flex items-center gap-2 text-[#111811] dark:text-white">
+<span class="material-symbols-outlined text-primary">local_shipping</span>
+<h2 class="text-lg font-bold leading-tight tracking-tight">Weighbridge Management System</h2>
+</div>
+</div>
+<div class="flex flex-1 justify-end gap-6 items-center">
+<div class="hidden sm:flex relative min-w-[240px]">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-gray-400 text-[20px]">search</span>
+</div>
+<input class="block w-full rounded-lg border-none bg-[#f0f4f0] dark:bg-[#253824] dark:text-white pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-primary placeholder-gray-500" placeholder="Search customer, vehicle or RST..." type="text"/>
+</div>
+<button class="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full"></span>
+</button>
+</div>
+</header>
+<!-- Scrollable Page Content -->
+<main class="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark p-6 md:p-10">
+<div class="max-w-7xl mx-auto flex flex-col gap-8 pb-20">
+<!-- Breadcrumbs & Heading -->
+<div class="flex flex-col gap-4">
+<a class="inline-flex items-center gap-1 text-[#638961] hover:text-primary transition-colors text-sm font-medium w-fit" href="#">
+<span class="material-symbols-outlined text-[18px]">arrow_back</span>
+                        Back to Customers
+                    </a>
+<div class="flex flex-wrap justify-between items-end gap-4">
+<h1 class="text-[#111811] dark:text-white text-3xl md:text-4xl font-black leading-tight tracking-tight">Customer Profile</h1>
+<span class="px-3 py-1 rounded-full bg-primary/10 text-green-700 dark:text-green-400 text-sm font-bold border border-primary/20">Active Account</span>
+</div>
+</div>
+<!-- Two Column Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<!-- Left Column: Profile Card (Span 4) -->
+<div class="lg:col-span-4 xl:col-span-3 flex flex-col gap-6">
+<div class="bg-white dark:bg-[#1A2C19] rounded-xl border border-[#f0f4f0] dark:border-[#2a3c29] overflow-hidden shadow-sm p-6">
+<div class="flex flex-col items-center text-center">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-32 mb-4 border-4 border-[#f0f4f0] dark:border-[#253824]" data-alt="Portrait of a business representative" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAG6Z76uVPLn7wco8NXSKhLRZKYP4gcsKEFEjK0ZhYs1LmZZiwmFsGbb4WbPRgJGWEwYsDGq4wHqaiqjX9eMZ1y5sKrAM-s_AOrRdSMGy9c08DKyL_vZQkOoMdh_Bft5fhYBJuk0BacaZY-ysUy8BRJqjFdNyGir4r6qYyAh4wDfttnr_cRWkLBjkh9F4XeW6vOW27MyYNgSf_Q3vjW0vvrJjVGk3GBi4Y3xiMV5Ry679T4ovQsGVEYJYPOwWru1YmRJR1p2mEmHl0");'></div>
+<h2 class="text-[#111811] dark:text-white text-2xl font-bold leading-tight mb-1">Acme Logistics Ltd.</h2>
+<p class="text-[#638961] dark:text-gray-400 text-sm font-medium mb-6">ID: CUST-8291</p>
+<div class="w-full flex flex-col gap-4 text-left border-t border-[#f0f4f0] dark:border-[#2a3c29] pt-6">
+<div class="flex items-start gap-3">
+<div class="p-2 rounded-lg bg-[#f0f4f0] dark:bg-[#253824] text-gray-700 dark:text-gray-300">
+<span class="material-symbols-outlined text-[20px]">call</span>
+</div>
+<div>
+<p class="text-xs text-[#638961] dark:text-gray-500 uppercase font-bold tracking-wider">Phone</p>
+<p class="text-[#111811] dark:text-gray-200 text-sm font-medium">+1 (555) 019-2834</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<div class="p-2 rounded-lg bg-[#f0f4f0] dark:bg-[#253824] text-gray-700 dark:text-gray-300">
+<span class="material-symbols-outlined text-[20px]">mail</span>
+</div>
+<div>
+<p class="text-xs text-[#638961] dark:text-gray-500 uppercase font-bold tracking-wider">Email</p>
+<p class="text-[#111811] dark:text-gray-200 text-sm font-medium">accounts@acmelogistics.com</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<div class="p-2 rounded-lg bg-[#f0f4f0] dark:bg-[#253824] text-gray-700 dark:text-gray-300">
+<span class="material-symbols-outlined text-[20px]">location_on</span>
+</div>
+<div>
+<p class="text-xs text-[#638961] dark:text-gray-500 uppercase font-bold tracking-wider">Billing Address</p>
+<p class="text-[#111811] dark:text-gray-200 text-sm font-medium leading-relaxed">123 Industrial Park, Sector 4<br/>Springfield, IL 62704</p>
+</div>
+</div>
+</div>
+<button class="mt-8 w-full flex items-center justify-center gap-2 rounded-lg h-12 bg-primary hover:bg-[#15bd0f] text-[#111811] text-sm font-bold transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+                                    Edit Profile
+                                </button>
+</div>
+</div>
+<!-- Map Preview Card -->
+<div class="bg-white dark:bg-[#1A2C19] rounded-xl border border-[#f0f4f0] dark:border-[#2a3c29] overflow-hidden shadow-sm h-48 relative group cursor-pointer">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Map showing location of Springfield Illinois" data-location="Springfield, IL" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAHOqKiQKypOskbWuz6n4IOQNd-YfkZ45vniL2RuyZYsWk-fhNThjcGmWjXjypNvV8HaV-_LaBxY-g2_G4Y782KdYZr3EjQkHJ3vu7xkjoaiV-NQzCyfloALwfmHPQ_Ghk4eEptXGEUSH-iiLF5snAP1m8BYJGAJTnKbc5xNHmZ8ErYecIbsJbZYxLYJbEPZ0JSIsL_qidQjwiu9hEnzzaNdiTOMQLyDorv-8CAbKw8AUoCH0MoIwDtallrpjZ_AOege5WvnBLgNSY");'></div>
+<div class="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors"></div>
+<div class="absolute bottom-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded text-xs font-bold text-gray-800 shadow-sm">View on Map</div>
+</div>
+</div>
+<!-- Right Column: Stats & Data (Span 8) -->
+<div class="lg:col-span-8 xl:col-span-9 flex flex-col gap-6">
+<!-- Stats Row -->
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+<div class="bg-white dark:bg-[#1A2C19] p-5 rounded-xl border border-[#f0f4f0] dark:border-[#2a3c29] shadow-sm flex items-center justify-between">
+<div>
+<p class="text-[#638961] dark:text-gray-400 text-sm font-medium mb-1">Total Weighments</p>
+<p class="text-3xl font-black text-[#111811] dark:text-white">1,245</p>
+</div>
+<div class="size-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[28px]">scale</span>
+</div>
+</div>
+<div class="bg-white dark:bg-[#1A2C19] p-5 rounded-xl border border-[#f0f4f0] dark:border-[#2a3c29] shadow-sm flex items-center justify-between">
+<div>
+<p class="text-[#638961] dark:text-gray-400 text-sm font-medium mb-1">Last Visit</p>
+<p class="text-3xl font-black text-[#111811] dark:text-white">Oct 24</p>
+<p class="text-xs text-gray-400 dark:text-gray-500">2023, 14:30 PM</p>
+</div>
+<div class="size-12 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+<span class="material-symbols-outlined text-[28px]">calendar_today</span>
+</div>
+</div>
+<div class="bg-white dark:bg-[#1A2C19] p-5 rounded-xl border border-[#f0f4f0] dark:border-[#2a3c29] shadow-sm flex items-center justify-between">
+<div>
+<p class="text-[#638961] dark:text-gray-400 text-sm font-medium mb-1">Total Tonnage</p>
+<p class="text-3xl font-black text-[#111811] dark:text-white">45.2k</p>
+<p class="text-xs text-gray-400 dark:text-gray-500">Metric Tons</p>
+</div>
+<div class="size-12 rounded-full bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-600 dark:text-orange-400">
+<span class="material-symbols-outlined text-[28px]">weight</span>
+</div>
+</div>
+</div>
+<!-- Data Table Section -->
+<div class="bg-white dark:bg-[#1A2C19] rounded-xl border border-[#f0f4f0] dark:border-[#2a3c29] shadow-sm flex flex-col flex-1">
+<div class="px-6 py-4 border-b border-[#f0f4f0] dark:border-[#2a3c29] flex justify-between items-center">
+<h3 class="text-lg font-bold text-[#111811] dark:text-white">Recent Weighments</h3>
+<button class="text-sm text-primary font-bold hover:underline flex items-center gap-1">
+                                    View All History
+                                    <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-[#fcfdfc] dark:bg-[#20341f] border-b border-[#f0f4f0] dark:border-[#2a3c29]">
+<th class="py-4 px-6 text-xs font-bold text-[#638961] uppercase tracking-wider">RST #</th>
+<th class="py-4 px-6 text-xs font-bold text-[#638961] uppercase tracking-wider">Date &amp; Time</th>
+<th class="py-4 px-6 text-xs font-bold text-[#638961] uppercase tracking-wider">Vehicle</th>
+<th class="py-4 px-6 text-xs font-bold text-[#638961] uppercase tracking-wider">Material</th>
+<th class="py-4 px-6 text-xs font-bold text-[#638961] uppercase tracking-wider text-right">Net Weight</th>
+<th class="py-4 px-6 text-xs font-bold text-[#638961] uppercase tracking-wider text-center">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#f0f4f0] dark:divide-[#2a3c29]">
+<tr class="group hover:bg-[#f6f8f6] dark:hover:bg-[#20341f] transition-colors">
+<td class="py-4 px-6 font-mono text-sm font-medium text-[#111811] dark:text-gray-200">#49281</td>
+<td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">Oct 24, 14:30</td>
+<td class="py-4 px-6 text-sm font-bold text-[#111811] dark:text-gray-200">KA-01-HH-1234</td>
+<td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">
+<span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-xs font-medium">Steel Scraps</span>
+</td>
+<td class="py-4 px-6 text-sm font-mono font-bold text-[#111811] dark:text-white text-right">12,450 kg</td>
+<td class="py-4 px-6 text-center">
+<span class="material-symbols-outlined text-green-500 text-[20px]" title="Completed">check_circle</span>
+</td>
+</tr>
+<tr class="group hover:bg-[#f6f8f6] dark:hover:bg-[#20341f] transition-colors">
+<td class="py-4 px-6 font-mono text-sm font-medium text-[#111811] dark:text-gray-200">#49280</td>
+<td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">Oct 23, 09:15</td>
+<td class="py-4 px-6 text-sm font-bold text-[#111811] dark:text-gray-200">MH-04-AB-9876</td>
+<td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">
+<span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-xs font-medium">Coal</span>
+</td>
+<td class="py-4 px-6 text-sm font-mono font-bold text-[#111811] dark:text-white text-right">24,100 kg</td>
+<td class="py-4 px-6 text-center">
+<span class="material-symbols-outlined text-green-500 text-[20px]" title="Completed">check_circle</span>
+</td>
+</tr>
+<tr class="group hover:bg-[#f6f8f6] dark:hover:bg-[#20341f] transition-colors">
+<td class="py-4 px-6 font-mono text-sm font-medium text-[#111811] dark:text-gray-200">#49278</td>
+<td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">Oct 22, 16:45</td>
+<td class="py-4 px-6 text-sm font-bold text-[#111811] dark:text-gray-200">TN-22-XY-4567</td>
+<td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">
+<span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-xs font-medium">Limestone</span>
+</td>
+<td class="py-4 px-6 text-sm font-mono font-bold text-[#111811] dark:text-white text-right">18,350 kg</td>
+<td class="py-4 px-6 text-center">
+<span class="material-symbols-outlined text-green-500 text-[20px]" title="Completed">check_circle</span>
+</td>
+</tr>
+<tr class="group hover:bg-[#f6f8f6] dark:hover:bg-[#20341f] transition-colors">
+<td class="py-4 px-6 font-mono text-sm font-medium text-[#111811] dark:text-gray-200">#49275</td>
+<td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">Oct 21, 11:20</td>
+<td class="py-4 px-6 text-sm font-bold text-[#111811] dark:text-gray-200">KA-53-ZZ-1122</td>
+<td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">
+<span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-xs font-medium">Iron Ore</span>
+</td>
+<td class="py-4 px-6 text-sm font-mono font-bold text-[#111811] dark:text-white text-right">31,000 kg</td>
+<td class="py-4 px-6 text-center">
+<span class="material-symbols-outlined text-green-500 text-[20px]" title="Completed">check_circle</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-6 py-4 border-t border-[#f0f4f0] dark:border-[#2a3c29] bg-[#fcfdfc] dark:bg-[#20341f] rounded-b-xl flex justify-between items-center text-sm text-gray-500">
+<p>Showing recent 4 of 1,245 entries</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Danger Zone -->
+<div class="w-full mt-8 pt-8 border-t border-gray-200 dark:border-gray-800">
+<div class="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+<div class="flex flex-col gap-1">
+<h3 class="text-red-700 dark:text-red-400 text-lg font-bold">Delete Customer</h3>
+<p class="text-red-600/80 dark:text-red-400/70 text-sm">This action cannot be undone. All weighment history associated with this customer will be permanently archived or deleted.</p>
+</div>
+<button class="shrink-0 bg-white dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-600 hover:text-white dark:hover:bg-red-900 dark:hover:text-red-100 px-6 py-3 rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+                            Delete Customer
+                        </button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

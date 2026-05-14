@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Custom Fields Configuration</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-hover": "#3f6f3d",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "accent-bg": "#D6EFD8",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
+    </style>
+</head>
+<body class="font-display bg-background-light min-h-screen flex items-center justify-center py-10 px-4">
+<div class="bg-white rounded-lg shadow-xl w-full max-w-3xl overflow-hidden flex flex-col relative">
+<div class="p-8 sm:p-10 border-b border-gray-100 pb-6">
+<div class="space-y-2">
+<h1 class="text-[32px] font-bold text-gray-900 tracking-tight leading-none">Custom Fields</h1>
+<p class="text-gray-500 text-base">Configure up to 3 additional fields for weighment data</p>
+</div>
+</div>
+<div class="p-8 sm:p-10 flex flex-col gap-8 bg-gray-50/50">
+<div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">1</div>
+<h3 class="font-bold text-gray-800 text-lg">Custom Field 1</h3>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+<span class="ml-3 text-sm font-medium text-gray-600">Enabled</span>
+</label>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+<div class="space-y-1.5">
+<label class="text-sm font-semibold text-gray-700 block">Field Label</label>
+<input class="w-full rounded-lg border-gray-300 bg-white text-gray-900 focus:border-primary focus:ring-primary placeholder:text-gray-400 h-10 text-sm shadow-sm transition-all" type="text" value="Driver License No."/>
+</div>
+<div class="space-y-1.5">
+<label class="text-sm font-semibold text-gray-700 block">Field Type</label>
+<select class="w-full rounded-lg border-gray-300 bg-white text-gray-900 focus:border-primary focus:ring-primary h-10 text-sm shadow-sm transition-all">
+<option value="text">Text Input</option>
+<option value="number">Numeric</option>
+<option value="dropdown">Dropdown Selection</option>
+</select>
+</div>
+<div class="sm:col-span-2 pt-2">
+<label class="inline-flex items-center gap-2 cursor-pointer">
+<input class="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="text-sm text-gray-600">Mark as required field</span>
+</label>
+</div>
+</div>
+</div>
+<div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">2</div>
+<h3 class="font-bold text-gray-800 text-lg">Custom Field 2</h3>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+<span class="ml-3 text-sm font-medium text-gray-600">Enabled</span>
+</label>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+<div class="space-y-1.5">
+<label class="text-sm font-semibold text-gray-700 block">Field Label</label>
+<input class="w-full rounded-lg border-gray-300 bg-white text-gray-900 focus:border-primary focus:ring-primary placeholder:text-gray-400 h-10 text-sm shadow-sm transition-all" type="text" value="Material Source"/>
+</div>
+<div class="space-y-1.5">
+<label class="text-sm font-semibold text-gray-700 block">Field Type</label>
+<select class="w-full rounded-lg border-gray-300 bg-white text-gray-900 focus:border-primary focus:ring-primary h-10 text-sm shadow-sm transition-all">
+<option value="text">Text Input</option>
+<option value="number">Numeric</option>
+<option selected="" value="dropdown">Dropdown Selection</option>
+</select>
+</div>
+<div class="sm:col-span-2 space-y-1.5">
+<label class="text-sm font-semibold text-gray-700 block">Dropdown Options <span class="text-gray-400 font-normal ml-1">(One per line)</span></label>
+<textarea class="w-full rounded-lg border-gray-300 bg-white text-gray-900 focus:border-primary focus:ring-primary placeholder:text-gray-400 text-sm shadow-sm transition-all min-h-[80px]" placeholder="Option 1
+Option 2
+Option 3">Quarry A
+Quarry B
+External Supplier</textarea>
+</div>
+<div class="sm:col-span-2 pt-1">
+<label class="inline-flex items-center gap-2 cursor-pointer">
+<input checked="" class="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="text-sm text-gray-600">Mark as required field</span>
+</label>
+</div>
+</div>
+</div>
+<div class="bg-gray-50 p-6 rounded-xl border border-gray-200 border-dashed shadow-sm relative overflow-hidden opacity-80">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-sm">3</div>
+<h3 class="font-bold text-gray-600 text-lg">Custom Field 3</h3>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+<span class="ml-3 text-sm font-medium text-gray-500">Disabled</span>
+</label>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-6 opacity-50 pointer-events-none select-none">
+<div class="space-y-1.5">
+<label class="text-sm font-semibold text-gray-500 block">Field Label</label>
+<input class="w-full rounded-lg border-gray-200 bg-gray-100 text-gray-400 h-10 text-sm shadow-sm" disabled="" placeholder="e.g. Reference No" type="text"/>
+</div>
+<div class="space-y-1.5">
+<label class="text-sm font-semibold text-gray-500 block">Field Type</label>
+<select class="w-full rounded-lg border-gray-200 bg-gray-100 text-gray-400 h-10 text-sm shadow-sm" disabled="">
+<option value="text">Text Input</option>
+</select>
+</div>
+<div class="sm:col-span-2 pt-2">
+<label class="inline-flex items-center gap-2 cursor-not-allowed">
+<input class="rounded border-gray-300 text-gray-400 h-4 w-4" disabled="" type="checkbox"/>
+<span class="text-sm text-gray-400">Mark as required field</span>
+</label>
+</div>
+</div>
+</div>
+<div class="bg-accent-bg rounded-lg p-4 flex gap-3 border border-primary/20">
+<span class="material-symbols-outlined text-primary mt-0.5">info</span>
+<div class="text-sm text-gray-800">
+<p class="font-semibold text-primary mb-1">Display Information</p>
+<p>Enabled custom fields will appear on the main weighment entry screen immediately after saving. Ensure labels are clear for operators.</p>
+</div>
+</div>
+<div class="flex justify-end pt-2">
+<button class="flex items-center justify-center rounded-lg bg-primary px-8 py-3 text-base font-bold text-white shadow hover:bg-primary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors" type="button">
+                Save Settings
+            </button>
+</div>
+</div>
+</div>
+
+</body></html>

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gate Control - WMS Pro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#232923",
+                        "text-primary-light": "#131613",
+                        "text-secondary-light": "#6f7c6e",
+                        "text-primary-dark": "#e0e3e0",
+                        "text-secondary-dark": "#9aa59a",
+                        "border-light": "#dfe2df",
+                        "border-dark": "#363c36",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom gate animation simulation */
+        .gate-arm {
+            transform-origin: left center;
+            transition: transform 3s ease-in-out;
+        }
+        .gate-opening {
+            transform: rotate(-75deg);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark font-display antialiased overflow-hidden">
+<div class="flex h-screen w-full flex-row">
+<!-- Side Navigation -->
+<div class="hidden lg:flex flex-col w-72 h-full border-r border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark">
+<div class="flex flex-col h-full justify-between p-4">
+<div class="flex flex-col gap-6">
+<div class="px-2">
+<h1 class="text-xl font-bold tracking-tight text-primary">WMS Pro</h1>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">v4.2.0</p>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary-light dark:text-text-secondary-dark hover:bg-background-light dark:hover:bg-background-dark hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary dark:text-primary" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">scale</span>
+<span class="text-sm font-bold">Weighbridge</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary-light dark:text-text-secondary-dark hover:bg-background-light dark:hover:bg-background-dark hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="text-sm font-medium">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary-light dark:text-text-secondary-dark hover:bg-background-light dark:hover:bg-background-dark hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary-light dark:text-text-secondary-dark hover:bg-background-light dark:hover:bg-background-dark hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="text-sm font-medium">Users</span>
+</a>
+</nav>
+</div>
+<div class="flex items-center gap-3 px-3 py-4 border-t border-border-light dark:border-border-dark mt-auto">
+<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+                        JD
+                    </div>
+<div class="flex flex-col">
+<p class="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">John Doe</p>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark">Operator</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col h-full overflow-hidden relative">
+<!-- Top Bar / Breadcrumbs -->
+<header class="h-16 border-b border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark flex items-center justify-between px-6 lg:px-8 shrink-0">
+<div class="flex items-center gap-2 text-sm">
+<a class="text-text-secondary-light dark:text-text-secondary-dark hover:text-primary transition-colors" href="#">Home</a>
+<span class="text-text-secondary-light dark:text-text-secondary-dark">/</span>
+<a class="text-text-secondary-light dark:text-text-secondary-dark hover:text-primary transition-colors" href="#">Weighbridge</a>
+<span class="text-text-secondary-light dark:text-text-secondary-dark">/</span>
+<span class="text-text-primary-light dark:text-text-primary-dark font-medium">Gate Control</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-xs font-medium px-2 py-1 rounded bg-background-light dark:bg-background-dark text-text-secondary-light border border-border-light dark:border-border-dark">System Online</span>
+</div>
+</header>
+<!-- Scrollable Content -->
+<main class="flex-1 overflow-y-auto p-6 lg:p-8">
+<div class="max-w-5xl mx-auto flex flex-col gap-6">
+<!-- Page Heading -->
+<div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+<div class="flex flex-col gap-1">
+<h1 class="text-3xl font-extrabold tracking-tight text-text-primary-light dark:text-text-primary-dark">Gate Control</h1>
+<p class="text-text-secondary-light dark:text-text-secondary-dark text-base">Monitoring Point A • Lane 01</p>
+</div>
+<div class="flex items-center gap-2">
+<div class="h-2 w-2 rounded-full bg-primary animate-pulse"></div>
+<span class="text-sm font-medium text-primary">Live Connection</span>
+</div>
+</div>
+<!-- Main Dashboard Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Visualizer (Span 2 cols on large screens) -->
+<div class="lg:col-span-2 flex flex-col">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-6 flex flex-col h-full min-h-[400px]">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-bold text-lg">Live Platform View</h3>
+<span class="material-symbols-outlined text-text-secondary-light">videocam</span>
+</div>
+<!-- Schematic Diagram -->
+<div class="relative flex-1 bg-background-light dark:bg-background-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden flex items-center justify-center p-8 group">
+<!-- Road Markings -->
+<div class="absolute inset-0 flex items-center justify-center opacity-10">
+<div class="w-full h-32 border-y-2 border-dashed border-text-primary-light"></div>
+</div>
+<!-- Weighbridge Platform -->
+<div class="relative w-full max-w-md aspect-[3/1] bg-[#e5e7e5] dark:bg-[#2a302a] border-2 border-[#d1d5d1] dark:border-[#3e453e] rounded shadow-inner flex items-center justify-center">
+<!-- Truck Placeholder -->
+<div class="absolute inset-0 m-auto w-3/4 h-3/4 border-2 border-dashed border-primary/30 rounded flex items-center justify-center">
+<span class="text-xs font-medium text-primary/50 uppercase tracking-widest">Vehicle Position</span>
+</div>
+<!-- Entry Gate (Left) -->
+<div class="absolute -left-12 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
+<div class="w-4 h-8 bg-text-secondary-light rounded-sm relative shadow-md z-10"></div> <!-- Post -->
+<!-- Barrier Arm -->
+<div class="absolute left-2 top-2 h-1.5 w-24 bg-red-500 rounded-full origin-left shadow-sm gate-arm gate-opening" style="background: repeating-linear-gradient(45deg, #ef4444, #ef4444 10px, #ffffff 10px, #ffffff 20px);"></div>
+<span class="text-[10px] font-bold uppercase text-text-secondary-light mt-8">Entry</span>
+</div>
+<!-- Exit Gate (Right) -->
+<div class="absolute -right-12 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
+<div class="w-4 h-8 bg-text-secondary-light rounded-sm relative shadow-md z-10"></div> <!-- Post -->
+<!-- Barrier Arm -->
+<div class="absolute right-2 top-2 h-1.5 w-24 bg-red-500 rounded-full origin-right shadow-sm gate-arm" style="background: repeating-linear-gradient(-45deg, #ef4444, #ef4444 10px, #ffffff 10px, #ffffff 20px);"></div>
+<span class="text-[10px] font-bold uppercase text-text-secondary-light mt-8">Exit</span>
+</div>
+</div>
+<!-- Helper Labels -->
+<div class="absolute bottom-4 right-4 bg-white/80 dark:bg-black/50 backdrop-blur px-2 py-1 rounded text-[10px] text-text-secondary-light border border-border-light dark:border-border-dark">
+                                        Scale ID: WB-01
+                                    </div>
+</div>
+</div>
+</div>
+<!-- Controls & Status Column -->
+<div class="flex flex-col gap-4">
+<!-- Entry Gate Status Card (Active) -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border-2 border-primary/20 p-5 flex flex-col gap-3 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-3 opacity-10">
+<span class="material-symbols-outlined text-4xl text-primary">sensor_door</span>
+</div>
+<div class="flex items-center gap-2 mb-1">
+<span class="flex h-3 w-3 relative">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+</span>
+<h2 class="text-sm font-bold text-primary uppercase tracking-wider">Entry Gate</h2>
+</div>
+<div>
+<p class="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">Opening...</p>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">Barrier lifting to 90°</p>
+</div>
+<div class="w-full bg-background-light dark:bg-background-dark rounded-full h-1.5 mt-2">
+<div class="bg-primary h-1.5 rounded-full w-2/3 transition-all duration-1000 ease-linear"></div>
+</div>
+</div>
+<!-- Exit Gate Status Card (Inactive) -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-5 flex flex-col gap-3 relative">
+<div class="absolute top-0 right-0 p-3 opacity-5">
+<span class="material-symbols-outlined text-4xl text-text-primary-light">sensor_door</span>
+</div>
+<div class="flex items-center gap-2 mb-1">
+<span class="h-3 w-3 rounded-full bg-text-secondary-light/50"></span>
+<h2 class="text-sm font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider">Exit Gate</h2>
+</div>
+<div>
+<p class="text-2xl font-bold text-text-secondary-light dark:text-text-secondary-dark">Closed</p>
+<p class="text-xs text-text-secondary-light/70 dark:text-text-secondary-dark/70 mt-1">Waiting for weighing complete</p>
+</div>
+</div>
+<!-- Manual Override / Action Box -->
+<div class="mt-auto bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5 flex flex-col gap-4">
+<div class="flex items-center gap-3">
+<div class="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
+<p class="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Proceeding automatically...</p>
+</div>
+<button class="w-full py-2.5 px-4 rounded-lg border border-border-light dark:border-border-dark hover:bg-red-50 dark:hover:bg-red-900/10 hover:border-red-200 dark:hover:border-red-800 hover:text-red-600 dark:hover:text-red-400 text-text-secondary-light dark:text-text-secondary-dark text-sm font-medium transition-colors flex items-center justify-center gap-2 group">
+<span class="material-symbols-outlined text-lg group-hover:text-red-600 dark:group-hover:text-red-400">pan_tool</span>
+                                    Skip Gate Control
+                                </button>
+</div>
+</div>
+</div>
+<!-- Additional Info / Timeline (Optional Context) -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-6">
+<h3 class="font-bold text-base mb-4">Process Timeline</h3>
+<div class="flex flex-wrap gap-4 items-center w-full">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold shadow-sm">
+<span class="material-symbols-outlined text-[14px]">check</span>
+</div>
+<span class="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">ID Check</span>
+</div>
+<div class="h-0.5 w-8 bg-primary"></div>
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-primary/20 text-primary border border-primary flex items-center justify-center text-xs font-bold shadow-sm ring-4 ring-primary/10">
+<span class="material-symbols-outlined text-[14px] animate-pulse">gate</span>
+</div>
+<span class="text-sm font-bold text-primary">Gate Entry</span>
+</div>
+<div class="h-0.5 w-8 bg-border-light dark:bg-border-dark"></div>
+<div class="flex items-center gap-2 opacity-50">
+<div class="w-6 h-6 rounded-full bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark flex items-center justify-center text-xs font-bold text-text-secondary-light">3</div>
+<span class="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Positioning</span>
+</div>
+<div class="h-0.5 w-8 bg-border-light dark:bg-border-dark"></div>
+<div class="flex items-center gap-2 opacity-50">
+<div class="w-6 h-6 rounded-full bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark flex items-center justify-center text-xs font-bold text-text-secondary-light">4</div>
+<span class="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Weighing</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

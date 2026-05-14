@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Cameras &amp; AI Configuration - Weighbridge Management System</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: #e7f3e7;
+            height: 6px;
+            border-radius: 3px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            background: #1aec13;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -6px;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-[#0e1b0d] dark:text-[#e7f3e7] min-h-screen">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-30 bg-background-light dark:bg-background-dark border-b border-[#d0e7cf] dark:border-[#2a3a2a] px-6 lg:px-40 py-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-4">
+<a class="p-2 hover:bg-[#e7f3e7] dark:hover:bg-[#1a2e1a] rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-2xl align-middle">arrow_back</span>
+</a>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-3xl">precision_manufacturing</span>
+<h1 class="text-xl font-bold leading-tight tracking-tight">Cameras &amp; AI Configuration</h1>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-full">
+<span class="material-symbols-outlined text-primary text-sm">workspace_premium</span>
+<span class="text-xs font-bold uppercase tracking-wider text-[#0e1b0d] dark:text-primary">AI Pack Subscription Active</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-cover bg-center border-2 border-primary" data-alt="User profile avatar image" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCb-T9HRlXNZOVlWwlnDCN1FVVf9cSyLqLgKs0hixI1Mf4PtCSRz2VwU546vQyOXdiEaucAmo1Y0Po9RfZRaX65OvMzf_bqM2pIpufDx43DxF7Z-YBnkvJmMMncfgixR_npBDyTRZwizOK3sRBbeQ5l31TJkmXGXu7PSA79jUzQF9kT7Af2UbEnbAzurXv70rebgDeEu7na_Tb3Q8LUcUM4hxflqQKRwLZE5CEpGRehiA3evH9gmzHe41XnRIp1WaMpI7ZOQ4oncF4');"></div>
+</div>
+</div>
+</header>
+<main class="max-w-[1280px] mx-auto px-6 lg:px-40 py-8">
+<!-- Breadcrumbs -->
+<div class="flex items-center gap-2 mb-6">
+<a class="text-[#4e9a4c] text-sm font-medium hover:underline" href="#">Settings</a>
+<span class="material-symbols-outlined text-sm text-[#4e9a4c]">chevron_right</span>
+<span class="text-[#0e1b0d] dark:text-[#e7f3e7] text-sm font-semibold">Cameras &amp; AI</span>
+</div>
+<!-- Page Heading -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+<div class="max-w-2xl">
+<h2 class="text-4xl font-black tracking-tight mb-2">Configure Intelligent Systems</h2>
+<p class="text-[#4e9a4c] text-base">Fine-tune computer vision parameters for vehicle identification and material recognition across all connected weighbridges.</p>
+</div>
+<button class="bg-[#e7f3e7] dark:bg-[#1a2e1a] hover:bg-[#d8e7d8] px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all">
+<span class="material-symbols-outlined text-sm">receipt_long</span>
+                View Billing Details
+            </button>
+</div>
+<!-- Configuration Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+<!-- Card 1: License Plate Recognition -->
+<div class="bg-white dark:bg-[#1a2e1a] rounded-xl shadow-sm border border-[#d0e7cf] dark:border-[#2a3a2a] overflow-hidden flex flex-col">
+<div class="p-5 flex items-center justify-between border-b border-[#d0e7cf] dark:border-[#2a3a2a]">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">license</span>
+<h3 class="font-bold text-lg">License Plate Recognition</h3>
+</div>
+<label class="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full bg-[#e7f3e7] dark:bg-[#2a3a2a] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-primary">
+<div class="h-full w-[27px] rounded-full bg-white shadow-md"></div>
+<input checked="" class="invisible absolute" type="checkbox"/>
+</label>
+</div>
+<div class="p-6 space-y-6">
+<div>
+<label class="block text-sm font-bold mb-2">Input Camera Source</label>
+<select class="w-full bg-[#f8fcf8] dark:bg-[#112210] border border-[#d0e7cf] dark:border-[#2a3a2a] rounded-lg p-2.5 text-sm focus:ring-primary focus:border-primary">
+<option>Front Gate - Lane 1 (IP: 192.168.1.54)</option>
+<option>Rear Gate - Lane 2 (IP: 192.168.1.55)</option>
+</select>
+</div>
+<div>
+<div class="flex justify-between mb-2">
+<label class="text-sm font-bold">Detection Confidence Threshold</label>
+<span class="text-primary font-bold">85%</span>
+</div>
+<input class="w-full cursor-pointer accent-primary" max="100" min="0" type="range" value="85"/>
+</div>
+<div class="relative group">
+<div class="w-full h-40 bg-center bg-cover rounded-lg border border-[#d0e7cf] dark:border-[#2a3a2a] relative overflow-hidden" data-alt="LPR detection preview showing a truck plate" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDNwcJOSobrnMMI6Q4BMOtCOuV9sArgVtiM_g3qlJAWt__ogwlhVLfEVmX02MEcQfyUPZDeU7aubz98uxePe40zPzcbEl-6n2jWSejtC1nJUqDehAuKUprxXdirlhXG6VvSYVuEZ3cGHPWXE113Qid_kOHPPgq_0OJXBqwWjEGXoCwX-fZ8Xn7McmE-S8evNjwyf8oj4xpwEbyEyQ8Q7MyjTP70dJuQpWP44m0YAQH1v4skjlqyy2jn4YQ4bz0el3EmWCrL4zOincc');">
+<!-- Simulated AI Overlay -->
+<div class="absolute top-1/2 left-1/3 border-2 border-primary w-24 h-10 flex items-start">
+<span class="bg-primary text-[10px] text-white px-1 font-bold">ABC-1234 (0.98)</span>
+</div>
+</div>
+<div class="mt-2 text-[11px] text-[#4e9a4c] italic">Real-time preview from selected source. Detection latency: 45ms</div>
+</div>
+</div>
+</div>
+<!-- Card 2: Driver Assist (Locked Variant Example) -->
+<div class="bg-white dark:bg-[#1a2e1a] rounded-xl shadow-sm border border-[#d0e7cf] dark:border-[#2a3a2a] overflow-hidden flex flex-col relative">
+<div class="p-5 flex items-center justify-between border-b border-[#d0e7cf] dark:border-[#2a3a2a]">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">distance</span>
+<h3 class="font-bold text-lg">Driver Assist &amp; Positioning</h3>
+</div>
+<label class="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full bg-[#e7f3e7] dark:bg-[#2a3a2a] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-primary">
+<div class="h-full w-[27px] rounded-full bg-white shadow-md"></div>
+<input class="invisible absolute" type="checkbox"/>
+</label>
+</div>
+<div class="p-6 space-y-6">
+<div>
+<label class="block text-sm font-bold mb-2">Select Peripheral Cameras</label>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1.5 bg-[#e7f3e7] dark:bg-[#2a3a2a] rounded-full text-xs font-medium border border-primary/30 flex items-center gap-1">
+                                Left Wing <span class="material-symbols-outlined text-xs">close</span>
+</span>
+<span class="px-3 py-1.5 bg-[#e7f3e7] dark:bg-[#2a3a2a] rounded-full text-xs font-medium border border-primary/30 flex items-center gap-1">
+                                Right Wing <span class="material-symbols-outlined text-xs">close</span>
+</span>
+<button class="px-3 py-1.5 border border-dashed border-[#d0e7cf] rounded-full text-xs font-medium text-[#4e9a4c]">+ Add Camera</button>
+</div>
+</div>
+<div>
+<label class="block text-sm font-bold mb-2">Processing Stream Quality</label>
+<select class="w-full bg-[#f8fcf8] dark:bg-[#112210] border border-[#d0e7cf] dark:border-[#2a3a2a] rounded-lg p-2.5 text-sm">
+<option>High Definition (1080p, 30fps)</option>
+<option selected="">Standard (720p, 24fps)</option>
+<option>Performance (480p, 15fps)</option>
+</select>
+</div>
+<div class="p-4 bg-primary/5 rounded-lg border border-primary/20">
+<p class="text-xs text-[#4e9a4c] font-medium leading-relaxed">
+<span class="font-bold">Pro Tip:</span> Driver Assist uses ultrasonic and vision sensors to guide drivers to the center of the weighbridge plate for 99.9% accuracy.
+                        </p>
+</div>
+</div>
+</div>
+<!-- Card 3: Material Recognition -->
+<div class="bg-white dark:bg-[#1a2e1a] rounded-xl shadow-sm border border-[#d0e7cf] dark:border-[#2a3a2a] overflow-hidden flex flex-col">
+<div class="p-5 flex items-center justify-between border-b border-[#d0e7cf] dark:border-[#2a3a2a]">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">category</span>
+<h3 class="font-bold text-lg">Material Recognition</h3>
+</div>
+<label class="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full bg-[#e7f3e7] dark:bg-[#2a3a2a] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-primary">
+<div class="h-full w-[27px] rounded-full bg-white shadow-md"></div>
+<input checked="" class="invisible absolute" type="checkbox"/>
+</label>
+</div>
+<div class="p-6 space-y-6 flex-1 flex flex-col">
+<div>
+<label class="block text-sm font-bold mb-2">Top-View Camera</label>
+<select class="w-full bg-[#f8fcf8] dark:bg-[#112210] border border-[#d0e7cf] dark:border-[#2a3a2a] rounded-lg p-2.5 text-sm focus:ring-primary focus:border-primary">
+<option>Overhead 01 - Load Check</option>
+<option>Overhead 02 - Hopper View</option>
+</select>
+</div>
+<div class="flex-1 flex flex-col justify-center items-center py-4 text-center border-2 border-dashed border-[#d0e7cf] rounded-xl bg-background-light dark:bg-background-dark/30">
+<span class="material-symbols-outlined text-4xl text-[#4e9a4c] mb-2">model_training</span>
+<p class="text-sm font-bold">Custom Model Training</p>
+<p class="text-xs text-[#4e9a4c] mt-1 mb-4">You have 1,420 unlabelled images in the dataset.</p>
+<button class="text-primary text-sm font-bold hover:underline">Launch Training Dashboard →</button>
+</div>
+</div>
+</div>
+<!-- Card 4: Customer Booth (Locked Section Example) -->
+<div class="bg-white dark:bg-[#1a2e1a] rounded-xl shadow-sm border border-[#d0e7cf] dark:border-[#2a3a2a] overflow-hidden flex flex-col relative">
+<!-- Overlay Lock -->
+<div class="absolute inset-0 z-20 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center">
+<div class="w-12 h-12 bg-white dark:bg-[#1a2e1a] rounded-full flex items-center justify-center shadow-lg mb-4">
+<span class="material-symbols-outlined text-primary text-2xl">lock</span>
+</div>
+<h4 class="font-bold text-lg mb-1">Enterprise Feature</h4>
+<p class="text-xs text-[#4e9a4c] mb-4">Face Matching and Booth Surveillance require the Enterprise AI Add-on.</p>
+<button class="bg-primary text-[#0e1b0d] px-6 py-2 rounded-lg font-bold text-sm shadow-md hover:scale-105 transition-transform">Upgrade Now</button>
+</div>
+<div class="p-5 flex items-center justify-between border-b border-[#d0e7cf] dark:border-[#2a3a2a] opacity-50">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">face</span>
+<h3 class="font-bold text-lg">Customer Booth AI</h3>
+</div>
+<label class="relative flex h-[31px] w-[51px] cursor-not-allowed items-center rounded-full bg-[#e7f3e7] dark:bg-[#2a3a2a] p-0.5">
+<div class="h-full w-[27px] rounded-full bg-white shadow-md"></div>
+</label>
+</div>
+<div class="p-6 space-y-6 opacity-30">
+<div>
+<label class="block text-sm font-bold mb-2">Booth Camera</label>
+<select class="w-full bg-[#f8fcf8] dark:bg-[#112210] border border-[#d0e7cf] dark:border-[#2a3a2a] rounded-lg p-2.5 text-sm" disabled="">
+<option>Booth Internal 01</option>
+</select>
+</div>
+<div class="flex items-center justify-between p-4 rounded-lg border border-[#d0e7cf] bg-background-light">
+<div class="flex flex-col gap-1">
+<p class="text-sm font-bold">Biometric Face Matching</p>
+<p class="text-xs">Compare driver against registered database</p>
+</div>
+<label class="relative flex h-[24px] w-[40px] cursor-not-allowed items-center rounded-full bg-[#e7f3e7] p-0.5">
+<div class="h-full w-[20px] rounded-full bg-white"></div>
+</label>
+</div>
+</div>
+</div>
+</div>
+<!-- Global Action Panel -->
+<div class="flex items-center justify-end gap-4 border-t border-[#d0e7cf] dark:border-[#2a3a2a] pt-8">
+<button class="px-6 py-2.5 rounded-lg text-sm font-bold text-[#4e9a4c] hover:bg-[#e7f3e7] transition-colors">
+                Discard Changes
+            </button>
+<button class="px-8 py-2.5 bg-primary text-[#0e1b0d] rounded-lg text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-lg leading-none">save</span>
+                Save AI Settings
+            </button>
+</div>
+</main>
+<!-- Simple Footer -->
+<footer class="max-w-[1280px] mx-auto px-6 lg:px-40 py-10 opacity-60">
+<div class="flex flex-col md:flex-row justify-between items-center gap-4 text-[11px] font-medium border-t border-[#d0e7cf] dark:border-[#2a3a2a] pt-6">
+<div class="flex items-center gap-6">
+<span>System Status: <span class="text-primary font-bold">OPTIMAL</span></span>
+<span>AI Core v4.2.1-stable</span>
+</div>
+<div class="flex items-center gap-6 uppercase tracking-widest">
+<a class="hover:text-primary" href="#">Docs</a>
+<a class="hover:text-primary" href="#">Support</a>
+<a class="hover:text-primary" href="#">Legal</a>
+</div>
+</div>
+</footer>
+</body></html>

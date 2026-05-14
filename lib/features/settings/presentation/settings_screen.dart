@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:weighbridgemanagement/shared/l10n/app_strings.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -9,6 +10,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final strings = ref.watch(stringsProvider);
 
     return Padding(
       padding: const EdgeInsets.all(28),
@@ -16,7 +18,7 @@ class SettingsScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Settings',
+            strings.settings,
             style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5),
           ),
           const SizedBox(height: 4),
@@ -44,7 +46,7 @@ class SettingsScreen extends ConsumerWidget {
               child: Wrap(
                 spacing: 16,
                 runSpacing: 16,
-                children: _settingsItems.map((item) => _SettingsTile(
+                children: _settingsItems(strings).map((item) => _SettingsTile(
                   item: item,
                   onTap: () => _navigate(context, item.route),
                 )).toList(),
@@ -83,79 +85,79 @@ class _SettingsItemData {
   });
 }
 
-const _settingsItems = [
+List<_SettingsItemData> _settingsItems(AppStrings s) => [
   _SettingsItemData(
     icon: Icons.settings_rounded,
-    title: 'General',
-    subtitle: 'System language, time zone, and basic info',
+    title: s.general,
+    subtitle: 'Company, region, and site identity',
     route: 'general',
   ),
   _SettingsItemData(
     icon: Icons.text_fields_rounded,
-    title: 'Custom Fields',
-    subtitle: 'Define additional data points for transactions',
+    title: s.customFields,
+    subtitle: 'Additional fields on dockets',
     route: 'custom-fields',
   ),
   _SettingsItemData(
     icon: Icons.inventory_2_rounded,
-    title: 'Materials',
-    subtitle: 'Manage product lists and categories',
+    title: s.materials,
+    subtitle: 'Product list and categories',
     route: 'materials',
   ),
   _SettingsItemData(
     icon: Icons.sensor_door_rounded,
-    title: 'Gate Control',
-    subtitle: 'Hardware configuration for gates and barriers',
+    title: s.gateControl,
+    subtitle: 'Barriers, RFID, and safety',
     route: 'gate-control',
   ),
   _SettingsItemData(
     icon: Icons.scale_rounded,
-    title: 'Weighbridge',
-    subtitle: 'Terminal settings and scale calibration',
+    title: s.weighbridge,
+    subtitle: 'Scale and indicator setup',
     route: 'weighbridge',
   ),
   _SettingsItemData(
     icon: Icons.videocam_rounded,
-    title: 'Cameras & AI',
-    subtitle: 'Configure visual recognition and OCR',
+    title: s.cameras,
+    subtitle: 'ANPR, CCTV, and detection',
     route: 'cameras',
     badge: 'AI',
-    badgeColor: Color(0xFF059669),
+    badgeColor: const Color(0xFF059669),
   ),
   _SettingsItemData(
     icon: Icons.notifications_rounded,
-    title: 'Notifications',
-    subtitle: 'Email and system alert preferences',
+    title: s.notifications,
+    subtitle: 'Alerts and event triggers',
     route: 'notifications',
   ),
   _SettingsItemData(
     icon: Icons.print_rounded,
-    title: 'Printing',
-    subtitle: 'Docket templates and printer routing',
+    title: s.printing,
+    subtitle: 'Docket layout and printers',
     route: 'printing',
   ),
   _SettingsItemData(
     icon: Icons.backup_rounded,
-    title: 'Data & Backup',
-    subtitle: 'Export tools and cloud backup schedule',
+    title: s.dataBackup,
+    subtitle: 'Backups and data retention',
     route: 'backup',
   ),
   _SettingsItemData(
     icon: Icons.shield_rounded,
-    title: 'Security',
-    subtitle: 'Role-based access and password policies',
+    title: s.security,
+    subtitle: 'Access control and audit',
     route: 'mfa',
   ),
   _SettingsItemData(
     icon: Icons.hub_rounded,
-    title: 'Integrations',
-    subtitle: 'Connect with ERP and third-party APIs',
+    title: s.integrations,
+    subtitle: 'Tally, displays, and cloud sync',
     route: 'integrations',
   ),
   _SettingsItemData(
     icon: Icons.palette_rounded,
-    title: 'Appearance',
-    subtitle: 'Theme, colors, and layout preferences',
+    title: s.appearance,
+    subtitle: 'Theme, colors, and language',
     route: 'appearance',
   ),
 ];
@@ -187,7 +189,8 @@ class _SettingsTileState extends State<_SettingsTile> {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
           width: 260,
-          padding: const EdgeInsets.all(20),
+          height: 88,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           transform: Matrix4.translationValues(0, _hovered ? -3 : 0, 0),
           decoration: BoxDecoration(
             color: scheme.surface,

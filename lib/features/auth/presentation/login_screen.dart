@@ -1,12 +1,16 @@
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/features/auth/presentation/animated_background.dart';
+import 'package:weighbridgemanagement/features/auth/presentation/change_password_screen.dart';
 import 'package:weighbridgemanagement/features/auth/presentation/mfa_verify_screen.dart';
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/google_auth_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -58,6 +62,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
         email: _email.text.trim(),
         password: _password.text,
       );
+
+      // Post-login enforcement checks
+      final enforceResult = await _postLoginChecks(_email.text.trim());
+      if (enforceResult != null) {
+        await ref.read(firebaseAuthProvider).signOut();
+        if (mounted) setState(() => _error = enforceResult);
+        return;
+      }
+
+      ref.read(auditServiceProvider).logLogin(success: true, email: _email.text.trim());
+      _updateLoginStats(_email.text.trim());
+
+      // Password change check (doesn't sign out, redirects)
+      if (mounted) await _checkPasswordChange(_email.text.trim());
     } on FirebaseAuthMultiFactorException catch (e) {
       if (mounted) {
         await Navigator.of(context).push(
@@ -65,9 +83,59 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
         );
       }
     } catch (e) {
+      ref.read(auditServiceProvider).logLogin(success: false, email: _email.text.trim());
       if (mounted) setState(() => _error = _parseError(e.toString()));
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _updateLoginStats(String email) {
+    final db = ref.read(firestoreProvider);
+    db.collection('operators').where('email', isEqualTo: email).limit(1).get().then((snap) {
+      if (snap.docs.isNotEmpty) {
+        snap.docs.first.reference.update({
+          'lastLoginAt': FieldValue.serverTimestamp(),
+          'loginCount': FieldValue.increment(1),
+        });
+      } else {
+        // Admin — track in settings/adminProfile
+        db.collection('settings').doc('adminProfile').set({
+          'lastLoginAt': FieldValue.serverTimestamp(),
+          'loginCount': FieldValue.increment(1),
+          'email': email,
+        }, SetOptions(merge: true));
+      }
+    });
+  }
+
+  Future<String?> _postLoginChecks(String email) async {
+    final settings = ref.read(securitySettingsProvider).valueOrNull ?? const SecuritySettings();
+    final db = ref.read(firestoreProvider);
+
+    // IP whitelist check
+    final ipAllowed = await isIpAllowed(settings);
+    if (!ipAllowed) return 'Access denied: your IP address is not whitelisted.';
+
+    // Shift-based login check
+    final shiftResult = await validateShiftLogin(db, email, settings);
+    if (!shiftResult.allowed) return shiftResult.message;
+
+    return null;
+  }
+
+  Future<void> _checkPasswordChange(String email) async {
+    final settings = ref.read(securitySettingsProvider).valueOrNull ?? const SecuritySettings();
+    final db = ref.read(firestoreProvider);
+
+    final pwResult = await checkPasswordStatus(db, email, settings);
+    if (pwResult.mustChange && mounted) {
+      final changed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => ChangePasswordScreen(reason: pwResult.reason ?? 'Password change required.')),
+      );
+      if (changed != true && mounted) {
+        await ref.read(firebaseAuthProvider).signOut();
+      }
     }
   }
 
@@ -75,6 +143,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
     setState(() { _loading = true; _error = null; });
     try {
       await ref.read(googleSignInServiceProvider).signIn();
+      final email = FirebaseAuth.instance.currentUser?.email ?? '';
+
+      final enforceResult = await _postLoginChecks(email);
+      if (enforceResult != null) {
+        await ref.read(firebaseAuthProvider).signOut();
+        if (mounted) setState(() => _error = enforceResult);
+        return;
+      }
+
+      ref.read(auditServiceProvider).logLogin(success: true, email: email);
     } on FirebaseAuthMultiFactorException catch (e) {
       if (mounted) {
         await Navigator.of(context).push(
@@ -82,6 +160,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
         );
       }
     } catch (e) {
+      ref.read(auditServiceProvider).logLogin(success: false, email: null);
       debugPrint('Google Sign-In error: $e');
       if (mounted) setState(() => _error = e.toString());
     } finally {

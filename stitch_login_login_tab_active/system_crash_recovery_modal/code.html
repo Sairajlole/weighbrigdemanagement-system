@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Weighbridge System Recovery</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-hover": "#3f703d",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1e231e",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom Scrollbar for refined look */
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+        }
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: #475569;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display antialiased text-slate-900 dark:text-slate-100 h-screen w-full overflow-hidden flex flex-col relative">
+<!-- Background Decoration (Abstract representation of the main app behind the modal) -->
+<div class="absolute inset-0 z-0 opacity-20 pointer-events-none" data-alt="Abstract blurred background representing the weighbridge management dashboard">
+<div class="w-full h-full bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-800 dark:to-black"></div>
+</div>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm transition-opacity">
+<!-- Modal Card -->
+<div class="relative w-full max-w-[560px] bg-surface-light dark:bg-surface-dark rounded-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in-95 duration-200">
+<!-- Header Section -->
+<div class="px-6 pt-6 pb-4 shrink-0 bg-surface-light dark:bg-surface-dark z-20">
+<div class="flex items-start gap-4">
+<div class="shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 mt-1">
+<span class="material-symbols-outlined">warning</span>
+</div>
+<div class="flex-1">
+<h2 class="text-xl font-bold text-slate-900 dark:text-white leading-tight mb-1">
+                            Incomplete Weighments Found
+                        </h2>
+<p class="text-[15px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                            The system detected an improper shutdown. Select weighments you wish to resume or discard.
+                        </p>
+</div>
+</div>
+</div>
+<!-- Table Section -->
+<div class="flex-1 overflow-y-auto scrollbar-thin border-y border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a1f1a]">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 z-10 bg-slate-50 dark:bg-[#232923] shadow-sm">
+<tr>
+<th class="py-3 px-4 w-[50px] border-b border-slate-200 dark:border-slate-700">
+<input class="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary focus:ring-offset-0 bg-white dark:bg-slate-800 cursor-pointer" type="checkbox"/>
+</th>
+<th class="py-3 px-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
+                                RST No.
+                            </th>
+<th class="py-3 px-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
+                                Vehicle No.
+                            </th>
+<th class="py-3 px-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
+                                Status
+                            </th>
+<th class="py-3 px-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 w-[100px]">
+                                Time
+                            </th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
+<!-- Row 1 -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<td class="py-3 px-4 relative">
+<div class="absolute inset-y-0 left-0 w-0.5 bg-transparent group-hover:bg-primary transition-colors"></div>
+<input checked="" class="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary focus:ring-offset-0 bg-transparent cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3 px-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                                RST-8821
+                            </td>
+<td class="py-3 px-2 text-sm text-slate-600 dark:text-slate-300 font-mono">
+                                MH12AB1234
+                            </td>
+<td class="py-3 px-2">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300 ring-1 ring-inset ring-blue-700/10 dark:ring-blue-400/20">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></span>
+                                    Gross Captured
+                                </span>
+</td>
+<td class="py-3 px-4 text-right text-sm text-slate-500 dark:text-slate-400 font-mono">
+                                10:42 AM
+                            </td>
+</tr>
+<!-- Row 2 -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<td class="py-3 px-4 relative">
+<div class="absolute inset-y-0 left-0 w-0.5 bg-transparent group-hover:bg-primary transition-colors"></div>
+<input class="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary focus:ring-offset-0 bg-transparent cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3 px-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                                RST-8822
+                            </td>
+<td class="py-3 px-2 text-sm text-slate-600 dark:text-slate-300 font-mono">
+                                KA01HG9921
+                            </td>
+<td class="py-3 px-2">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 ring-1 ring-inset ring-amber-600/20 dark:ring-amber-400/20">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400"></span>
+                                    Tare Pending
+                                </span>
+</td>
+<td class="py-3 px-4 text-right text-sm text-slate-500 dark:text-slate-400 font-mono">
+                                10:45 AM
+                            </td>
+</tr>
+<!-- Row 3 -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<td class="py-3 px-4 relative">
+<div class="absolute inset-y-0 left-0 w-0.5 bg-transparent group-hover:bg-primary transition-colors"></div>
+<input class="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary focus:ring-offset-0 bg-transparent cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3 px-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                                RST-8823
+                            </td>
+<td class="py-3 px-2 text-sm text-slate-600 dark:text-slate-300 font-mono">
+                                TN02X4455
+                            </td>
+<td class="py-3 px-2">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300 ring-1 ring-inset ring-red-600/10 dark:ring-red-400/20">
+<span class="w-1.5 h-1.5 rounded-full bg-red-500 dark:bg-red-400 animate-pulse"></span>
+                                    Weight Unstable
+                                </span>
+</td>
+<td class="py-3 px-4 text-right text-sm text-slate-500 dark:text-slate-400 font-mono">
+                                10:48 AM
+                            </td>
+</tr>
+<!-- Row 4 -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<td class="py-3 px-4 relative">
+<div class="absolute inset-y-0 left-0 w-0.5 bg-transparent group-hover:bg-primary transition-colors"></div>
+<input class="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary focus:ring-offset-0 bg-transparent cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3 px-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                                RST-8824
+                            </td>
+<td class="py-3 px-2 text-sm text-slate-600 dark:text-slate-300 font-mono">
+                                MH04JK1122
+                            </td>
+<td class="py-3 px-2">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 ring-1 ring-inset ring-emerald-600/20 dark:ring-emerald-400/20">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
+                                    Entry Created
+                                </span>
+</td>
+<td class="py-3 px-4 text-right text-sm text-slate-500 dark:text-slate-400 font-mono">
+                                11:05 AM
+                            </td>
+</tr>
+<!-- Row 5 -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<td class="py-3 px-4 relative">
+<div class="absolute inset-y-0 left-0 w-0.5 bg-transparent group-hover:bg-primary transition-colors"></div>
+<input checked="" class="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary focus:ring-offset-0 bg-transparent cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3 px-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                                RST-8825
+                            </td>
+<td class="py-3 px-2 text-sm text-slate-600 dark:text-slate-300 font-mono">
+                                AP16TX2020
+                            </td>
+<td class="py-3 px-2">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300 ring-1 ring-inset ring-blue-700/10 dark:ring-blue-400/20">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></span>
+                                    Gross Captured
+                                </span>
+</td>
+<td class="py-3 px-4 text-right text-sm text-slate-500 dark:text-slate-400 font-mono">
+                                11:10 AM
+                            </td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Footer / Action Area -->
+<div class="p-6 bg-slate-50 dark:bg-[#1c221c] border-t border-slate-200 dark:border-slate-700 shrink-0">
+<div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+<!-- Left Action -->
+<button class="w-full sm:w-auto text-sm font-medium text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 transition-colors px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center justify-center gap-2 group">
+<span class="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform">delete</span>
+                        Discard Selected
+                    </button>
+<!-- Right Actions -->
+<div class="flex gap-3 w-full sm:w-auto">
+<button class="flex-1 sm:flex-none px-5 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-white dark:hover:bg-slate-700 hover:border-slate-400 dark:hover:border-slate-500 transition-all shadow-sm">
+                            Resume All
+                        </button>
+<button class="flex-1 sm:flex-none px-5 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold shadow-md shadow-primary/20 hover:shadow-primary/40 transition-all flex items-center justify-center gap-2 transform active:scale-95">
+<span>Resume Selected</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

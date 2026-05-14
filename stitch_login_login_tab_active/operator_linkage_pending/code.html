@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Operator Linkage Pending</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Noto+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="font-display">
+<div class="relative flex min-h-screen w-full flex-col items-center justify-center bg-[#D6EFD8] p-4 group/design-root overflow-x-hidden">
+<!-- Main Card Container -->
+<div class="flex w-full max-w-[480px] flex-col gap-8 rounded-xl bg-white p-8 shadow-xl dark:bg-[#1C1C1C]">
+<!-- Header Section: Icon + Title + Description -->
+<div class="flex flex-col items-center gap-5 text-center">
+<!-- Success Icon Placeholder -->
+<div class="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+<span aria-hidden="true" class="material-symbols-outlined text-5xl text-primary">check_circle</span>
+</div>
+<div class="space-y-3">
+<h1 class="text-[22px] font-bold leading-tight tracking-[-0.015em] text-[#131613] dark:text-white">
+                        Linkage Request Submitted
+                    </h1>
+<p class="text-base font-normal leading-normal text-[#6f7c6e] dark:text-[#A0A0A0]">
+                        Your request to join <span class="font-bold text-[#131613] dark:text-white">Global Logistics Ltd.</span> has been sent to the administrator. Please wait for approval.
+                    </p>
+</div>
+</div>
+<!-- Info Card Section -->
+<div class="rounded-lg bg-[#F5F5F5] px-5 py-4 dark:bg-[#2A2A2A]">
+<div class="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+<p class="text-sm font-normal leading-normal text-[#6f7c6e] dark:text-[#A0A0A0]">Company Code</p>
+<p class="text-sm font-bold leading-normal text-[#131613] text-right dark:text-white font-mono tracking-wide">AX-9928</p>
+</div>
+<div class="flex justify-between items-center py-2 pt-3">
+<p class="text-sm font-normal leading-normal text-[#6f7c6e] dark:text-[#A0A0A0]">Request Date</p>
+<p class="text-sm font-bold leading-normal text-[#131613] text-right dark:text-white">Oct 24, 2023</p>
+</div>
+</div>
+<!-- Actions Section -->
+<div class="flex flex-col gap-4 pt-2">
+<!-- Primary Action -->
+<button class="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-primary h-12 px-5 text-white text-base font-bold leading-normal tracking-[0.015em] transition-all hover:bg-[#40723e] active:scale-[0.98]">
+<span class="truncate">Refresh Status</span>
+</button>
+<!-- Secondary Link -->
+<button class="flex w-full cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-transparent text-[#D32F2F] text-sm font-bold leading-normal tracking-[0.015em] hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
+<span class="truncate">Sign Out</span>
+</button>
+</div>
+</div>
+</div>
+</body></html>

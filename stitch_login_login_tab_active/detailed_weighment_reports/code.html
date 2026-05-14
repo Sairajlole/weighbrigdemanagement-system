@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detailed Weighment Reports</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1a331a",
+                        "text-main": "#0e1b0d",
+                        "text-sub": "#4e9a4c",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for clean look */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+        
+        /* Chart Animations */
+        @keyframes growUp {
+            from { height: 0; }
+        }
+        .bar-animate {
+            animation: growUp 1s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-main dark:text-gray-100 font-display min-h-screen flex flex-col overflow-x-hidden">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#e7f3e7] dark:border-white/10 px-6 py-3 bg-surface-light dark:bg-surface-dark sticky top-0 z-50 shadow-sm">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-4 text-text-main dark:text-white">
+<div class="size-8 text-primary flex items-center justify-center bg-primary/10 rounded-lg p-1">
+<span class="material-symbols-outlined text-3xl">scale</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">WeighSys</h2>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-text-main/70 dark:text-gray-400 hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">Dashboard</a>
+<a class="text-text-main dark:text-white text-sm font-bold leading-normal border-b-2 border-primary pb-0.5" href="#">Reports</a>
+<a class="text-text-main/70 dark:text-gray-400 hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">Weighments</a>
+<a class="text-text-main/70 dark:text-gray-400 hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex flex-1 justify-end gap-6">
+<label class="hidden md:flex flex-col min-w-40 h-10 max-w-64">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full border border-gray-200 dark:border-white/10 focus-within:border-primary transition-colors bg-background-light dark:bg-black/20">
+<div class="text-text-sub dark:text-gray-400 flex items-center justify-center pl-3 rounded-l-lg">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</div>
+<input class="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg bg-transparent text-text-main dark:text-white focus:outline-none placeholder:text-text-sub/50 dark:placeholder:text-gray-600 px-3 text-sm font-normal leading-normal" placeholder="Search report..."/>
+</div>
+</label>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 ring-2 ring-white dark:ring-white/10 cursor-pointer" data-alt="User profile avatar showing a smiling person" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDYJ6tNd0Uw1lXjJ4MQWX5LlGuCfENPfYRe-71iSXtB9vDZWhvPIlFNV4Jv7r6BbDGb-1MG5ZQK1VhPIfKGICXIjiVWs4x_IsEbHxcD0i5n6s9kg0qUmh6hr7C3PlISbB8RMJ7hOi8vL0bJkh7UAIdFe2fnllHTXGsRjF4BdzZ1Ld4ud2tb4ktN6k2zDJXIEfNYih7-iuvicQT1DcUIRFasWv3qBybxVTVZSC_hOvm-M8eHdj-TaqFl2ifrk1Pxp5Dr5s04G-qdG6k");'></div>
+</div>
+</header>
+<main class="flex-1 flex flex-col pb-24">
+<!-- Breadcrumbs -->
+<div class="px-6 md:px-10 py-4">
+<div class="flex flex-wrap gap-2 items-center text-sm">
+<a class="text-text-sub dark:text-primary/80 hover:underline font-medium" href="#">Reports</a>
+<span class="text-text-sub dark:text-gray-500 font-medium">/</span>
+<span class="text-text-main dark:text-white font-medium">Weighment Reports</span>
+</div>
+</div>
+<!-- Heading Section -->
+<div class="px-6 md:px-10 pb-6">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div class="flex flex-col gap-2">
+<h1 class="text-text-main dark:text-white tracking-tight text-[32px] font-bold leading-tight">Detailed Weighment Reports</h1>
+<p class="text-text-sub dark:text-gray-400 text-sm font-normal max-w-2xl">Analyze weighbridge performance, track material flow trends, and export compliance data.</p>
+</div>
+</div>
+</div>
+<!-- Sticky Filter Bar -->
+<div class="sticky top-[64px] z-40 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md border-b border-[#e7f3e7] dark:border-white/10 px-6 md:px-10 py-3 shadow-sm transition-all">
+<div class="flex flex-wrap items-center justify-between gap-4">
+<div class="flex flex-wrap items-center gap-3">
+<!-- Date Range Picker -->
+<button class="group flex items-center gap-2 bg-surface-light dark:bg-surface-dark border border-gray-200 dark:border-white/10 hover:border-primary dark:hover:border-primary rounded-lg px-4 py-2 transition-all shadow-sm">
+<span class="material-symbols-outlined text-text-main dark:text-white text-[20px]">calendar_today</span>
+<div class="flex flex-col items-start">
+<span class="text-[10px] uppercase tracking-wider text-text-sub dark:text-gray-400 font-bold">Date Range</span>
+<span class="text-text-main dark:text-white text-sm font-medium">Last 30 Days</span>
+</div>
+<span class="material-symbols-outlined text-text-sub dark:text-gray-400 text-[16px] group-hover:text-primary">expand_more</span>
+</button>
+<div class="h-8 w-px bg-gray-200 dark:bg-white/10 hidden sm:block"></div>
+<!-- Filter Chips -->
+<button class="flex items-center gap-2 bg-surface-light dark:bg-surface-dark border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 rounded-full px-4 py-2 text-sm font-medium text-text-main dark:text-white transition-colors">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                        More Filters
+                    </button>
+<button class="flex items-center gap-2 bg-surface-light dark:bg-surface-dark border border-dashed border-gray-300 dark:border-gray-600 hover:border-primary rounded-full px-3 py-2 text-sm text-text-sub dark:text-gray-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                        Material
+                    </button>
+<button class="flex items-center gap-2 bg-surface-light dark:bg-surface-dark border border-dashed border-gray-300 dark:border-gray-600 hover:border-primary rounded-full px-3 py-2 text-sm text-text-sub dark:text-gray-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                        Customer
+                    </button>
+</div>
+<button class="text-text-sub hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400 text-sm font-medium flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[16px]">restart_alt</span>
+                    Reset
+                </button>
+</div>
+</div>
+<!-- Content Container -->
+<div class="px-6 md:px-10 py-8 flex flex-col gap-8 max-w-[1600px] mx-auto w-full">
+<!-- Summary Stats Row -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Card 1 -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-5 border border-[#d0e7cf] dark:border-white/10 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+<div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl text-primary">local_shipping</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<div class="flex items-center gap-2 mb-2">
+<span class="text-text-sub dark:text-gray-400 text-sm font-medium">Total Weighments</span>
+</div>
+<div class="flex items-end gap-3">
+<span class="text-text-main dark:text-white text-3xl font-bold tracking-tight">312</span>
+<span class="flex items-center text-xs font-bold text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded mb-1">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span> 12%
+                            </span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-5 border border-[#d0e7cf] dark:border-white/10 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+<div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl text-primary">weight</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<div class="flex items-center gap-2 mb-2">
+<span class="text-text-sub dark:text-gray-400 text-sm font-medium">Total Net Weight</span>
+</div>
+<div class="flex items-end gap-3">
+<span class="text-text-main dark:text-white text-3xl font-bold tracking-tight">4,567 <span class="text-lg text-text-sub font-normal">T</span></span>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-5 border border-[#d0e7cf] dark:border-white/10 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+<div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl text-primary">analytics</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<div class="flex items-center gap-2 mb-2">
+<span class="text-text-sub dark:text-gray-400 text-sm font-medium">Avg Net Weight</span>
+</div>
+<div class="flex items-end gap-3">
+<span class="text-text-main dark:text-white text-3xl font-bold tracking-tight">14.6 <span class="text-lg text-text-sub font-normal">T</span></span>
+<span class="flex items-center text-xs font-bold text-red-600 bg-red-100 dark:bg-red-900/30 dark:text-red-400 px-1.5 py-0.5 rounded mb-1">
+<span class="material-symbols-outlined text-[14px]">arrow_downward</span> 2%
+                            </span>
+</div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-5 border border-[#d0e7cf] dark:border-white/10 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+<div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl text-primary">schedule</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<div class="flex items-center gap-2 mb-2">
+<span class="text-text-sub dark:text-gray-400 text-sm font-medium">Avg Processing Time</span>
+</div>
+<div class="flex items-end gap-3">
+<span class="text-text-main dark:text-white text-3xl font-bold tracking-tight">4m 12s</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Visualization Tabs -->
+<div class="border-b border-gray-200 dark:border-white/10">
+<nav aria-label="Tabs" class="-mb-px flex space-x-8">
+<a class="border-primary text-primary whitespace-nowrap border-b-2 py-4 px-1 text-sm font-bold" href="#">
+                        Overview
+                    </a>
+<a class="border-transparent text-text-sub dark:text-gray-400 hover:border-gray-300 hover:text-text-main dark:hover:text-white whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium" href="#">
+                        Trends
+                    </a>
+<a class="border-transparent text-text-sub dark:text-gray-400 hover:border-gray-300 hover:text-text-main dark:hover:text-white whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium" href="#">
+                        Distribution
+                    </a>
+<a class="border-transparent text-text-sub dark:text-gray-400 hover:border-gray-300 hover:text-text-main dark:hover:text-white whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium" href="#">
+                        Details Table
+                    </a>
+</nav>
+</div>
+<!-- Overview Charts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Chart 1: Weighments Over Time (Bar/Line Combo) -->
+<div class="lg:col-span-2 bg-surface-light dark:bg-surface-dark rounded-xl border border-[#d0e7cf] dark:border-white/10 p-6 shadow-sm">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-lg font-bold text-text-main dark:text-white">Weighments Over Time</h3>
+<div class="flex gap-2">
+<button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/5 text-text-sub dark:text-gray-400">
+<span class="material-symbols-outlined text-[20px]">bar_chart</span>
+</button>
+<button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/5 text-text-sub/50 dark:text-gray-600">
+<span class="material-symbols-outlined text-[20px]">show_chart</span>
+</button>
+</div>
+</div>
+<!-- CSS Chart Container -->
+<div class="h-64 w-full flex items-end justify-between gap-2 md:gap-4 pt-4 px-2 relative">
+<!-- Y-axis lines -->
+<div class="absolute inset-0 flex flex-col justify-between text-xs text-gray-400 -z-0 pointer-events-none">
+<div class="border-b border-gray-100 dark:border-white/5 w-full h-0"></div>
+<div class="border-b border-gray-100 dark:border-white/5 w-full h-0"></div>
+<div class="border-b border-gray-100 dark:border-white/5 w-full h-0"></div>
+<div class="border-b border-gray-100 dark:border-white/5 w-full h-0"></div>
+<div class="border-b border-gray-100 dark:border-white/5 w-full h-0"></div>
+</div>
+<!-- Bars -->
+<!-- Bar 1 -->
+<div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer z-10">
+<div class="w-full max-w-[40px] bg-primary/20 dark:bg-primary/20 rounded-t-sm relative h-[40%] group-hover:bg-primary/40 transition-all bar-animate">
+<div class="absolute bottom-0 left-0 right-0 h-[60%] bg-primary rounded-t-sm"></div>
+<!-- Tooltip -->
+<div class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                                    Oct 01: 42 loads
+                                </div>
+</div>
+<span class="text-[10px] text-gray-500">01</span>
+</div>
+<!-- Bar 2 -->
+<div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer z-10">
+<div class="w-full max-w-[40px] bg-primary/20 dark:bg-primary/20 rounded-t-sm relative h-[55%] group-hover:bg-primary/40 transition-all bar-animate">
+<div class="absolute bottom-0 left-0 right-0 h-[70%] bg-primary rounded-t-sm"></div>
+<div class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                                    Oct 02: 56 loads
+                                </div>
+</div>
+<span class="text-[10px] text-gray-500">02</span>
+</div>
+<!-- Bar 3 -->
+<div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer z-10">
+<div class="w-full max-w-[40px] bg-primary/20 dark:bg-primary/20 rounded-t-sm relative h-[35%] group-hover:bg-primary/40 transition-all bar-animate">
+<div class="absolute bottom-0 left-0 right-0 h-[40%] bg-primary rounded-t-sm"></div>
+</div>
+<span class="text-[10px] text-gray-500">03</span>
+</div>
+<!-- Bar 4 -->
+<div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer z-10">
+<div class="w-full max-w-[40px] bg-primary/20 dark:bg-primary/20 rounded-t-sm relative h-[75%] group-hover:bg-primary/40 transition-all bar-animate">
+<div class="absolute bottom-0 left-0 right-0 h-[80%] bg-primary rounded-t-sm"></div>
+</div>
+<span class="text-[10px] text-gray-500">04</span>
+</div>
+<!-- Bar 5 -->
+<div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer z-10">
+<div class="w-full max-w-[40px] bg-primary/20 dark:bg-primary/20 rounded-t-sm relative h-[60%] group-hover:bg-primary/40 transition-all bar-animate">
+<div class="absolute bottom-0 left-0 right-0 h-[65%] bg-primary rounded-t-sm"></div>
+</div>
+<span class="text-[10px] text-gray-500">05</span>
+</div>
+<!-- Bar 6 -->
+<div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer z-10">
+<div class="w-full max-w-[40px] bg-primary/20 dark:bg-primary/20 rounded-t-sm relative h-[85%] group-hover:bg-primary/40 transition-all bar-animate">
+<div class="absolute bottom-0 left-0 right-0 h-[75%] bg-primary rounded-t-sm"></div>
+</div>
+<span class="text-[10px] text-gray-500">06</span>
+</div>
+<!-- Bar 7 -->
+<div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer z-10">
+<div class="w-full max-w-[40px] bg-primary/20 dark:bg-primary/20 rounded-t-sm relative h-[50%] group-hover:bg-primary/40 transition-all bar-animate">
+<div class="absolute bottom-0 left-0 right-0 h-[50%] bg-primary rounded-t-sm"></div>
+</div>
+<span class="text-[10px] text-gray-500">07</span>
+</div>
+</div>
+</div>
+<!-- Chart 2: Weight Volume (Donut Chart Simulation) -->
+<div class="lg:col-span-1 bg-surface-light dark:bg-surface-dark rounded-xl border border-[#d0e7cf] dark:border-white/10 p-6 shadow-sm flex flex-col">
+<h3 class="text-lg font-bold text-text-main dark:text-white mb-6">Weight Volume</h3>
+<div class="flex-1 flex items-center justify-center relative">
+<!-- Donut Chart -->
+<div class="size-48 rounded-full relative" data-alt="Donut chart showing material distribution: 45% Coal, 30% Iron Ore, 25% Limestone" style="background: conic-gradient(#1aec13 0% 45%, #15803d 45% 75%, #dcfce7 75% 100%);">
+<div class="absolute inset-4 bg-surface-light dark:bg-surface-dark rounded-full flex flex-col items-center justify-center">
+<span class="text-3xl font-bold text-text-main dark:text-white">4.5k</span>
+<span class="text-xs text-text-sub uppercase tracking-wide">Tonnes</span>
+</div>
+</div>
+</div>
+<!-- Legend -->
+<div class="mt-6 space-y-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="size-3 rounded-full bg-primary"></div>
+<span class="text-sm text-text-main dark:text-white">Coal</span>
+</div>
+<span class="text-sm font-bold text-text-main dark:text-white">45%</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="size-3 rounded-full bg-green-700"></div>
+<span class="text-sm text-text-main dark:text-white">Iron Ore</span>
+</div>
+<span class="text-sm font-bold text-text-main dark:text-white">30%</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="size-3 rounded-full bg-green-100 dark:bg-green-900"></div>
+<span class="text-sm text-text-main dark:text-white">Limestone</span>
+</div>
+<span class="text-sm font-bold text-text-main dark:text-white">25%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Activity Table Snippet (Optional filler) -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-[#d0e7cf] dark:border-white/10 overflow-hidden shadow-sm">
+<div class="px-6 py-4 border-b border-[#e7f3e7] dark:border-white/10 flex justify-between items-center">
+<h3 class="text-lg font-bold text-text-main dark:text-white">Recent Transactions</h3>
+<a class="text-primary text-sm font-bold hover:underline" href="#">View All</a>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-sm text-left">
+<thead class="text-xs text-text-sub uppercase bg-gray-50 dark:bg-white/5">
+<tr>
+<th class="px-6 py-3 font-medium">Ticket ID</th>
+<th class="px-6 py-3 font-medium">Date &amp; Time</th>
+<th class="px-6 py-3 font-medium">Vehicle No.</th>
+<th class="px-6 py-3 font-medium">Material</th>
+<th class="px-6 py-3 font-medium text-right">Net Weight</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 dark:divide-white/5">
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-6 py-4 font-medium text-text-main dark:text-white">#WB-2023-001</td>
+<td class="px-6 py-4 text-gray-500 dark:text-gray-400">Oct 24, 10:42 AM</td>
+<td class="px-6 py-4 text-text-main dark:text-white">KA-01-AB-1234</td>
+<td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Coal</span></td>
+<td class="px-6 py-4 text-right font-bold text-text-main dark:text-white">24.5 T</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-6 py-4 font-medium text-text-main dark:text-white">#WB-2023-002</td>
+<td class="px-6 py-4 text-gray-500 dark:text-gray-400">Oct 24, 11:15 AM</td>
+<td class="px-6 py-4 text-text-main dark:text-white">MH-12-CD-5678</td>
+<td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">Sand</span></td>
+<td class="px-6 py-4 text-right font-bold text-text-main dark:text-white">18.2 T</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+<!-- Sticky Bottom Actions Bar -->
+<div class="fixed bottom-0 left-0 right-0 bg-surface-light dark:bg-surface-dark border-t border-[#e7f3e7] dark:border-white/10 p-4 md:px-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50">
+<div class="max-w-[1600px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-2 text-sm text-text-sub dark:text-gray-400 hidden sm:flex">
+<span class="material-symbols-outlined text-[18px]">info</span>
+<span>Data updated: Just now</span>
+</div>
+<div class="flex items-center gap-3 w-full sm:w-auto">
+<button class="flex-1 sm:flex-none justify-center items-center gap-2 bg-surface-light dark:bg-surface-dark border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-white/5 text-text-main dark:text-white font-medium rounded-lg px-4 py-2.5 transition-colors">
+<span class="material-symbols-outlined text-[20px] text-red-500">picture_as_pdf</span>
+                    Export PDF
+                </button>
+<button class="flex-1 sm:flex-none justify-center items-center gap-2 bg-surface-light dark:bg-surface-dark border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-white/5 text-text-main dark:text-white font-medium rounded-lg px-4 py-2.5 transition-colors">
+<span class="material-symbols-outlined text-[20px] text-green-600">table_view</span>
+                    Export Excel
+                </button>
+<div class="w-px h-8 bg-gray-300 dark:bg-white/10 hidden sm:block mx-1"></div>
+<button class="flex-1 sm:flex-none justify-center items-center gap-2 bg-primary hover:bg-green-400 text-black font-bold rounded-lg px-6 py-2.5 shadow-sm shadow-primary/20 transition-all transform active:scale-95">
+<span class="material-symbols-outlined text-[20px]">schedule_send</span>
+                    Schedule
+                </button>
+</div>
+</div>
+</div>
+</body></html>

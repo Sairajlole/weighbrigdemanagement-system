@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Notification Settings - Weighbridge Management System</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-[#111811] dark:text-white transition-colors duration-200">
+<div class="relative flex min-h-screen flex-col">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-50 w-full border-b border-solid border-gray-200 bg-white dark:bg-background-dark dark:border-gray-800 px-4 lg:px-40 py-3">
+<div class="mx-auto flex max-w-[1200px] items-center justify-between">
+<div class="flex items-center gap-4">
+<button class="flex size-10 items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700">
+<span class="material-symbols-outlined text-xl">arrow_back</span>
+</button>
+<div class="flex items-center gap-2">
+<div class="size-6 text-primary">
+<svg fill="currentColor" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M39.475 21.6262C40.358 21.4363 40.6863 21.5589 40.7581 21.5934C40.7876 21.655 40.8547 21.857 40.8082 22.3336C40.7408 23.0255 40.4502 24.0046 39.8572 25.2301C38.6799 27.6631 36.5085 30.6631 33.5858 33.5858C30.6631 36.5085 27.6632 38.6799 25.2301 39.8572C24.0046 40.4502 23.0255 40.7407 22.3336 40.8082C21.8571 40.8547 21.6551 40.7875 21.5934 40.7581C21.5589 40.6863 21.4363 40.358 21.6262 39.475C21.8562 38.4054 22.4689 36.9657 23.5038 35.2817C24.7575 33.2417 26.5497 30.9744 28.7621 28.762C30.9744 26.5497 33.2417 24.7574 35.2817 23.5037C36.9657 22.4689 38.4054 21.8562 39.475 21.6262ZM4.41189 29.2403L18.7597 43.5881C19.8813 44.7097 21.4027 44.9179 22.7217 44.7893C24.0585 44.659 25.5148 44.1631 26.9723 43.4579C29.9052 42.0387 33.2618 39.5667 36.4142 36.4142C39.5667 33.2618 42.0387 29.9052 43.4579 26.9723C44.1631 25.5148 44.659 24.0585 44.7893 22.7217C44.9179 21.4027 44.7097 19.8813 43.5881 18.7597L29.2403 4.41187C27.8527 3.02428 25.8765 3.02573 24.2861 3.36776C22.6081 3.72863 20.7334 4.58419 18.8396 5.74801C16.4978 7.18716 13.9881 9.18353 11.5858 11.5858C9.18354 13.988 7.18717 16.4978 5.74802 18.8396C4.58421 20.7334 3.72865 22.6081 3.36778 24.2861C3.02574 25.8765 3.02429 27.8527 4.41189 29.2403Z" fill-rule="evenodd"></path>
+</svg>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-tight">Notification Settings</h2>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden md:flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-black hover:brightness-90">
+<span>Save Changes</span>
+</button>
+<div class="size-10 rounded-full bg-cover bg-center border border-gray-200" data-alt="User avatar profile picture" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBM-N90clJr3katygvld2NaIvD8v4GVIDWmKpqGukuRejj-aQ7T9OuUQXRtPvGYuRjFBKOQAv5qWSOmU0d9F55aDfv_KXsSqSyfoh4g4DrsmYAoVIjEwgqYB9bVY4wEGB30tH7ILFAAr8whdyfsTingNfx9XYDG3bFtpja7JsmObCeUx6U7SjADTTyxpbhc9Nh1FMlbze9L_axj5K0IPKtDy3C4yYJuU4Rb0ooLBK_OUY0F4TVi2dioDPLDIntL6AX9ioK6Rw0BpNw");'></div>
+</div>
+</div>
+</header>
+<main class="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-6 px-4 lg:px-40 py-8">
+<!-- Page Heading -->
+<div class="flex flex-col gap-1 px-4">
+<h1 class="text-4xl font-black tracking-tight">Notifications</h1>
+<p class="text-base text-gray-500 dark:text-gray-400">Configure your communication channels and automated weight triggers.</p>
+</div>
+<!-- Subscription Notice Card -->
+<div class="px-4">
+<div class="flex items-stretch justify-between gap-6 rounded-xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+<div class="flex flex-[2_2_0px] flex-col justify-between gap-4">
+<div class="flex flex-col gap-1">
+<span class="text-sm font-semibold uppercase tracking-wider text-primary">Subscription Status</span>
+<h3 class="text-xl font-bold">SMS &amp; WhatsApp Pack Active</h3>
+<p class="text-sm text-gray-500 dark:text-gray-400">Your current enterprise credit pack has <span class="font-bold text-gray-900 dark:text-white">1,248 credits</span> remaining. Estimated expiry in 45 days based on usage.</p>
+</div>
+<button class="flex w-fit items-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-800 px-4 py-2 text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700">
+<span class="material-symbols-outlined text-sm">refresh</span>
+                            Renew Pack
+                        </button>
+</div>
+<div class="hidden md:block w-48 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 dark:from-primary/10 dark:to-transparent flex items-center justify-center border border-primary/20">
+<span class="material-symbols-outlined text-4xl text-primary">chat_bubble_outline</span>
+</div>
+</div>
+</div>
+<!-- SMS Settings -->
+<div class="px-4">
+<div class="rounded-xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+<div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-4 mb-6">
+<div class="flex items-center gap-3">
+<div class="rounded-lg bg-primary/10 p-2 text-primary">
+<span class="material-symbols-outlined">sms</span>
+</div>
+<h2 class="text-xl font-bold">SMS Settings</h2>
+</div>
+<button class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-black hover:brightness-90">
+<span class="material-symbols-outlined text-sm">send</span>
+                            Send Test SMS
+                        </button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-medium mb-1.5">SMS Provider</label>
+<select class="w-full rounded-lg border-gray-200 dark:border-gray-800 dark:bg-gray-800 text-sm focus:border-primary focus:ring-primary">
+<option>Twilio API</option>
+<option>Infobip</option>
+<option>MessageBird</option>
+<option>Custom Gateway</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium mb-1.5">API Key / Auth Token</label>
+<input class="w-full rounded-lg border-gray-200 dark:border-gray-800 dark:bg-gray-800 text-sm focus:border-primary focus:ring-primary" type="password" value="••••••••••••••••"/>
+</div>
+</div>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between mb-1.5">
+<label class="block text-sm font-medium">Transaction Complete Template</label>
+<span class="text-[10px] text-gray-400 uppercase font-bold">142/160 chars</span>
+</div>
+<textarea class="w-full rounded-lg border-gray-200 dark:border-gray-800 dark:bg-gray-800 text-sm focus:border-primary focus:ring-primary" placeholder="Enter message template..." rows="3">Vehicle {RegNo} completed weighing. Gross: {GrossWeight}kg, Tare: {TareWeight}kg. Net: {NetWeight}kg. Ticket: {TicketID}.</textarea>
+<p class="mt-1.5 text-xs text-gray-400 italic">Available variables: {RegNo}, {GrossWeight}, {TareWeight}, {NetWeight}, {TicketID}</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- WhatsApp Settings with Overlay -->
+<div class="px-4 relative group">
+<div class="rounded-xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+<div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-4 mb-6">
+<div class="flex items-center gap-3">
+<div class="rounded-lg bg-green-500/10 p-2 text-green-500">
+<span class="material-symbols-outlined text-2xl">chat</span>
+</div>
+<h2 class="text-xl font-bold">WhatsApp Settings</h2>
+</div>
+<div class="flex items-center gap-3">
+<label class="relative inline-flex cursor-pointer items-center">
+<input checked="" class="peer sr-only" type="checkbox"/>
+<div class="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none"></div>
+<span class="ml-3 text-sm font-medium text-gray-500">Enabled</span>
+</label>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-40 grayscale pointer-events-none">
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-medium mb-1.5">WhatsApp API Endpoint</label>
+<input class="w-full rounded-lg border-gray-200 dark:border-gray-800 dark:bg-gray-800 text-sm" type="text" value="https://graph.facebook.com/v17.0/"/>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex-1">
+<label class="block text-sm font-medium mb-1.5">Business Phone ID</label>
+<input class="w-full rounded-lg border-gray-200 dark:border-gray-800 dark:bg-gray-800 text-sm" type="text" value="1092837465"/>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+<div>
+<p class="font-bold text-sm">Attach PDF Receipt</p>
+<p class="text-xs text-gray-500">Send weighment slip as document</p>
+</div>
+<input checked="" class="rounded border-gray-300 text-primary focus:ring-primary" type="checkbox"/>
+</div>
+</div>
+</div>
+<!-- Lock Overlay -->
+<div class="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-xl bg-white/60 dark:bg-background-dark/80 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity">
+<div class="rounded-full bg-gray-900 p-3 text-white shadow-xl mb-3">
+<span class="material-symbols-outlined">lock</span>
+</div>
+<p class="font-bold text-gray-900 dark:text-white">Professional Feature</p>
+<p class="text-sm text-gray-600 dark:text-gray-400 mb-4">API configuration is restricted for your role.</p>
+<button class="rounded-lg bg-gray-900 dark:bg-primary px-4 py-2 text-xs font-bold text-white dark:text-black hover:brightness-110">Contact Administrator</button>
+</div>
+</div>
+</div>
+<!-- Triggers Table -->
+<div class="px-4">
+<div class="rounded-xl bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+<div class="p-6 border-b border-gray-100 dark:border-gray-800">
+<h2 class="text-xl font-bold">Event Triggers Matrix</h2>
+<p class="text-sm text-gray-500">Decide which channels are used for specific weighbridge events.</p>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm">
+<thead class="bg-gray-50 dark:bg-gray-800/50 uppercase text-[10px] font-bold tracking-widest text-gray-500">
+<tr>
+<th class="px-6 py-4">Event Description</th>
+<th class="px-6 py-4 text-center">SMS</th>
+<th class="px-6 py-4 text-center">WhatsApp</th>
+<th class="px-6 py-4 text-center">Email</th>
+<th class="px-6 py-4 text-center">In-App</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+<td class="px-6 py-4 font-medium">Vehicle Arrival / Entry</td>
+<td class="px-6 py-4 text-center"><input checked="" class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input checked="" class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+<td class="px-6 py-4 font-medium">Gross Weight Captured</td>
+<td class="px-6 py-4 text-center"><input class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input checked="" class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+<td class="px-6 py-4 font-medium">Tare Weight Captured</td>
+<td class="px-6 py-4 text-center"><input class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input checked="" class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+<td class="px-6 py-4 font-medium">Transaction Completed (Full)</td>
+<td class="px-6 py-4 text-center"><input checked="" class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input checked="" class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input checked="" class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input checked="" class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+<td class="px-6 py-4 font-medium text-red-500">Weight Discrepancy Alert</td>
+<td class="px-6 py-4 text-center"><input checked="" class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input checked="" class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input checked="" class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+<td class="px-6 py-4 text-center"><input checked="" class="rounded border-gray-300 text-primary focus:ring-primary size-5" type="checkbox"/></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Email Settings -->
+<div class="px-4 pb-12">
+<div class="rounded-xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+<div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-4 mb-6">
+<div class="flex items-center gap-3">
+<div class="rounded-lg bg-blue-500/10 p-2 text-blue-500">
+<span class="material-symbols-outlined text-2xl">mail</span>
+</div>
+<h2 class="text-xl font-bold">Email (SMTP) Settings</h2>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="md:col-span-1 space-y-4">
+<div>
+<label class="block text-sm font-medium mb-1.5">SMTP Server</label>
+<input class="w-full rounded-lg border-gray-200 dark:border-gray-800 dark:bg-gray-800 text-sm focus:border-primary focus:ring-primary" placeholder="smtp.gmail.com" type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-medium mb-1.5">Port</label>
+<input class="w-full rounded-lg border-gray-200 dark:border-gray-800 dark:bg-gray-800 text-sm" placeholder="587" type="text"/>
+</div>
+<div>
+<label class="block text-sm font-medium mb-1.5">Security</label>
+<select class="w-full rounded-lg border-gray-200 dark:border-gray-800 dark:bg-gray-800 text-sm">
+<option>STARTTLS</option>
+<option>SSL/TLS</option>
+</select>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium mb-1.5">Username</label>
+<input class="w-full rounded-lg border-gray-200 dark:border-gray-800 dark:bg-gray-800 text-sm" placeholder="notifications@company.com" type="email"/>
+</div>
+</div>
+<div class="md:col-span-2 space-y-4">
+<div>
+<label class="block text-sm font-medium mb-1.5">HTML Body Template (Summary)</label>
+<div class="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+<div class="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 px-3 py-2 border-b border-gray-200 dark:border-gray-800">
+<span class="material-symbols-outlined text-lg cursor-pointer">format_bold</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">format_italic</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">link</span>
+<div class="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+<span class="material-symbols-outlined text-lg cursor-pointer">code</span>
+</div>
+<textarea class="w-full border-0 dark:bg-gray-900 text-sm font-mono focus:ring-0" placeholder="&lt;html&gt;...&lt;/html&gt;" rows="6">&lt;div style="font-family: Arial;"&gt;
+  &lt;h3&gt;Weighment Complete&lt;/h3&gt;
+  &lt;p&gt;Vehicle &lt;b&gt;{RegNo}&lt;/b&gt; has completed a transaction.&lt;/p&gt;
+  &lt;table border="1"&gt;
+    &lt;tr&gt;&lt;td&gt;Gross&lt;/td&gt;&lt;td&gt;{GrossWeight}&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td&gt;Net&lt;/td&gt;&lt;td&gt;{NetWeight}&lt;/td&gt;&lt;/tr&gt;
+  &lt;/table&gt;
+&lt;/div&gt;
+                                    </textarea>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Action (Mobile Only) -->
+<div class="sticky bottom-0 z-40 md:hidden w-full border-t border-gray-200 bg-white dark:bg-gray-900 dark:border-gray-800 p-4">
+<button class="w-full rounded-lg bg-primary py-4 text-center font-bold text-black shadow-lg">
+                Save All Settings
+            </button>
+</div>
+</div>
+</body></html>

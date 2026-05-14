@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Printing Settings Configuration</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d0e7cf;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-[#0e1b0d] dark:text-white antialiased min-h-screen">
+<div class="flex flex-col h-full min-h-screen">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-[#e7f3e7] dark:border-white/10 px-6 py-3">
+<div class="max-w-[1200px] mx-auto flex items-center justify-between">
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center size-10 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+<span class="material-symbols-outlined text-[#0e1b0d] dark:text-white">arrow_back</span>
+</button>
+<div class="flex items-center gap-3">
+<div class="size-8 bg-primary/20 flex items-center justify-center rounded-lg">
+<span class="material-symbols-outlined text-primary">print</span>
+</div>
+<h1 class="text-xl font-bold tracking-tight">Printing Settings</h1>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-sm font-semibold">
+<span class="material-symbols-outlined text-sm">restart_alt</span>
+                        Restore Defaults
+                    </button>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 p-6 overflow-y-auto">
+<div class="max-w-[1200px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 pb-24">
+<!-- Card 1: Default Printer -->
+<div class="bg-white dark:bg-white/5 rounded-xl border border-[#e7f3e7] dark:border-white/10 p-6 shadow-sm flex flex-col gap-6">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">settings_input_component</span>
+<h2 class="text-lg font-bold">Default Printer</h2>
+</div>
+<div class="flex items-center gap-2 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
+<span class="size-2 bg-primary rounded-full"></span>
+                            Ready
+                        </div>
+</div>
+<div class="flex flex-col gap-4">
+<label class="flex flex-col gap-1.5">
+<span class="text-sm font-medium text-[#0e1b0d]/70 dark:text-white/70">Select Primary Device</span>
+<select class="w-full h-12 px-4 rounded-lg border border-[#d0e7cf] dark:border-white/20 bg-background-light dark:bg-background-dark focus:ring-2 focus:ring-primary/50 outline-none transition-all">
+<option value="hpoffice">HP OfficeJet Pro 9010 (USB)</option>
+<option value="epson">Epson TM-T88VI (Network)</option>
+<option value="zebra">Zebra ZT411 (Label Printer)</option>
+</select>
+</label>
+<button class="flex items-center justify-center gap-2 w-full h-11 px-4 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 font-bold text-sm transition-colors">
+<span class="material-symbols-outlined text-lg">print_connect</span>
+                            Print Test Page
+                        </button>
+</div>
+</div>
+<!-- Card 2: Auto-Print -->
+<div class="bg-white dark:bg-white/5 rounded-xl border border-[#e7f3e7] dark:border-white/10 p-6 shadow-sm flex flex-col gap-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">auto_mode</span>
+<h2 class="text-lg font-bold">Auto-Print Workflow</h2>
+</div>
+<div class="flex flex-col gap-5">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-base font-semibold">Enable Auto-Print</span>
+<span class="text-sm text-[#0e1b0d]/60 dark:text-white/60">Generate receipt after weighing</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-white/10 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-base font-semibold">Copies to Print</span>
+<span class="text-sm text-[#0e1b0d]/60 dark:text-white/60">Number of receipts per entry</span>
+</div>
+<input class="w-20 h-10 px-3 rounded-lg border border-[#d0e7cf] dark:border-white/20 bg-background-light dark:bg-background-dark focus:ring-primary outline-none text-center font-bold" max="10" min="1" type="number" value="1"/>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-base font-semibold">Show Print Preview</span>
+<span class="text-sm text-[#0e1b0d]/60 dark:text-white/60">Manual review before output</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-white/10 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</div>
+<!-- Card 3: Sticker Printing -->
+<div class="lg:col-span-2 bg-white dark:bg-white/5 rounded-xl border border-[#e7f3e7] dark:border-white/10 p-6 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="md:col-span-2 flex flex-col gap-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">label</span>
+<h2 class="text-lg font-bold">Sticker Printing</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col gap-4">
+<p class="text-sm font-bold uppercase tracking-wider text-[#0e1b0d]/50 dark:text-white/50">Label Dimension</p>
+<div class="flex flex-wrap gap-2">
+<button class="px-4 py-2 rounded-lg bg-primary text-white font-bold text-sm">4 x 6 inch</button>
+<button class="px-4 py-2 rounded-lg bg-black/5 dark:bg-white/5 border border-[#d0e7cf] dark:border-white/10 font-medium text-sm">3 x 2 inch</button>
+<button class="px-4 py-2 rounded-lg bg-black/5 dark:bg-white/5 border border-[#d0e7cf] dark:border-white/10 font-medium text-sm">Custom</button>
+</div>
+</div>
+<div class="flex flex-col gap-4">
+<p class="text-sm font-bold uppercase tracking-wider text-[#0e1b0d]/50 dark:text-white/50">Barcode Content</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/30 text-xs font-bold flex items-center gap-1">
+                                        Weight ID <span class="material-symbols-outlined text-xs">close</span>
+</span>
+<span class="px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/30 text-xs font-bold flex items-center gap-1">
+                                        Vehicle No <span class="material-symbols-outlined text-xs">close</span>
+</span>
+<button class="px-3 py-1.5 rounded-full bg-black/5 dark:bg-white/5 border border-dashed border-[#d0e7cf] dark:border-white/20 text-xs font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">add</span> Add Field
+                                    </button>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4 p-4 rounded-lg bg-background-light dark:bg-background-dark/50 border border-[#d0e7cf] dark:border-white/10">
+<span class="material-symbols-outlined text-primary">info</span>
+<p class="text-sm">Sticker printing is automatically enabled for thermal printers. Layout updates instantly below.</p>
+</div>
+</div>
+<div class="flex flex-col gap-4">
+<p class="text-sm font-bold text-center uppercase tracking-wider text-[#0e1b0d]/50 dark:text-white/50">Layout Preview</p>
+<div class="aspect-[4/6] w-full max-w-[200px] mx-auto bg-white dark:bg-white/10 border-2 border-dashed border-primary/40 rounded-lg p-4 shadow-inner flex flex-col gap-4">
+<div class="h-8 bg-black/5 dark:bg-white/5 rounded flex items-center justify-center">
+<span class="text-[10px] font-bold">WEIGHBRIDGE LOGO</span>
+</div>
+<div class="flex-1 border-y border-black/5 dark:border-white/5 flex flex-col justify-center gap-2">
+<div class="h-2 w-3/4 bg-primary/20 rounded"></div>
+<div class="h-2 w-1/2 bg-primary/20 rounded"></div>
+<div class="h-2 w-2/3 bg-primary/20 rounded"></div>
+</div>
+<div class="h-12 bg-black dark:bg-white rounded-sm flex items-center justify-center overflow-hidden">
+<div class="w-full h-full flex gap-[1px] items-end px-2">
+<div class="h-3/4 w-1 bg-white/20 dark:bg-black/20"></div>
+<div class="h-1/2 w-[2px] bg-white/20 dark:bg-black/20"></div>
+<div class="h-full w-1 bg-white/20 dark:bg-black/20"></div>
+<div class="h-2/3 w-[1px] bg-white/20 dark:bg-black/20"></div>
+<div class="h-full w-2 bg-white/20 dark:bg-black/20"></div>
+<div class="h-3/4 w-[1px] bg-white/20 dark:bg-black/20"></div>
+<div class="h-1/2 w-1 bg-white/20 dark:bg-black/20"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 4: Reprint Rules -->
+<div class="bg-white dark:bg-white/5 rounded-xl border border-[#e7f3e7] dark:border-white/10 p-6 shadow-sm flex flex-col gap-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">security</span>
+<h2 class="text-lg font-bold">Security &amp; Reprint Rules</h2>
+</div>
+<div class="flex flex-col gap-5">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-base font-semibold">Require PIN for Reprinting</span>
+<span class="text-sm text-[#0e1b0d]/60 dark:text-white/60">Admin authorization required</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-white/10 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-base font-semibold">Enable Watermark</span>
+<span class="text-sm text-[#0e1b0d]/60 dark:text-white/60">Add 'DUPLICATE' to non-original prints</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-white/10 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</div>
+<!-- Card 5: Print Queue -->
+<div class="bg-white dark:bg-white/5 rounded-xl border border-[#e7f3e7] dark:border-white/10 p-6 shadow-sm flex flex-col gap-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">queue_play_next</span>
+<h2 class="text-lg font-bold">Print Queue &amp; Failure</h2>
+</div>
+<div class="flex flex-col gap-5">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-base font-semibold">Retry Failed Prints</span>
+<span class="text-sm text-[#0e1b0d]/60 dark:text-white/60">Automatically attempt to resend</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-white/10 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-base font-semibold">Maximum Retries</span>
+<span class="text-sm text-[#0e1b0d]/60 dark:text-white/60">Stop after N failed attempts</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-xs font-bold text-[#0e1b0d]/40 dark:text-white/40">3 ATTEMPTS</span>
+<input class="w-24 accent-primary" max="5" min="1" type="range" value="3"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Action Bar -->
+<footer class="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-background-dark/80 backdrop-blur-lg border-t border-[#e7f3e7] dark:border-white/10 p-4">
+<div class="max-w-[1200px] mx-auto flex justify-end gap-3">
+<button class="px-6 py-3 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 font-bold transition-colors">
+                    Discard Changes
+                </button>
+<button class="px-8 py-3 rounded-lg bg-primary text-[#0e1b0d] hover:brightness-110 shadow-lg shadow-primary/20 font-bold flex items-center gap-2 transition-all">
+<span class="material-symbols-outlined font-bold">save</span>
+                    Save Print Settings
+                </button>
+</div>
+</footer>
+</div>
+</body></html>

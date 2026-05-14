@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Operation Timing Analysis - Weighbridge Manager</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1e261e",
+                        "text-main-light": "#121712",
+                        "text-main-dark": "#e0e6e0",
+                        "text-sub-light": "#668165",
+                        "text-sub-dark": "#8a9e89",
+                        "border-light": "#ebefeb",
+                        "border-dark": "#2a332a",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        /* Custom scrollbar for better look in containers */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-main-light dark:text-text-main-dark transition-colors duration-200">
+<div class="relative flex min-h-screen flex-col overflow-x-hidden">
+<!-- TopNavBar -->
+<header class="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-4 sm:px-10 py-3 shadow-sm transition-colors duration-200">
+<div class="flex items-center gap-4 sm:gap-8">
+<div class="flex items-center gap-3 text-text-main-light dark:text-text-main-dark">
+<div class="size-8 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[32px]">local_shipping</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em] hidden sm:block">Weighbridge Manager</h2>
+</div>
+<nav class="hidden md:flex items-center gap-6 lg:gap-9">
+<a class="text-text-sub-light dark:text-text-sub-dark hover:text-primary dark:hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">Dashboard</a>
+<a class="text-text-sub-light dark:text-text-sub-dark hover:text-primary dark:hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">Weigh-ins</a>
+<a class="text-primary font-bold text-sm leading-normal" href="#">Reports</a>
+<a class="text-text-sub-light dark:text-text-sub-dark hover:text-primary dark:hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex flex-1 justify-end gap-4 sm:gap-8 items-center">
+<label class="hidden sm:flex flex-col min-w-40 !h-10 max-w-64">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark overflow-hidden">
+<div class="flex items-center justify-center pl-3 text-text-sub-light dark:text-text-sub-dark">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</div>
+<input class="flex w-full min-w-0 flex-1 resize-none bg-transparent text-text-main-light dark:text-text-main-dark focus:outline-0 h-full placeholder:text-text-sub-light dark:placeholder:text-text-sub-dark px-3 text-sm font-normal leading-normal" placeholder="Search reports..." value=""/>
+</div>
+</label>
+<div class="flex items-center gap-3">
+<button class="flex items-center justify-center rounded-full size-10 bg-background-light dark:bg-surface-dark text-text-sub-light dark:text-text-sub-dark hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 border border-border-light dark:border-border-dark" data-alt="User profile picture placeholder" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAKReK-YYRvlNmfeYFFdegbx1_pNYvw26AFoRuVwJrYzB5IBaH6ot9oiDlLliP8hbc8ywK7X80NMY8ZW7FtNcT38ZA9j46lN5-ZFTnW6nEJPN-IKd_eIdHGLdAFFMVR2ljvLqG-kIDjT-FqtxtIVyB7XG66XAyc8mAKUuLXzexaj4dKO_8SMi0EWQJdoE1vSPSMDhMnj8eXM-dwAtu3InQ5QZUA_lwk-Ypyzz7q8Kmb4Ju7LrqwbDFCGthzTMZd8yuz2hW_e2dwGOo");'></div>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 px-4 sm:px-10 py-6 sm:py-8 lg:px-40 flex justify-center">
+<div class="w-full max-w-[1200px] flex flex-col gap-6">
+<!-- Breadcrumbs & Heading Section -->
+<div class="flex flex-col gap-4">
+<!-- Breadcrumbs -->
+<div class="flex flex-wrap items-center gap-2 text-sm">
+<a class="text-text-sub-light dark:text-text-sub-dark hover:text-primary transition-colors font-medium" href="#">Home</a>
+<span class="text-text-sub-light dark:text-text-sub-dark font-medium">/</span>
+<a class="text-text-sub-light dark:text-text-sub-dark hover:text-primary transition-colors font-medium" href="#">Reports</a>
+<span class="text-text-sub-light dark:text-text-sub-dark font-medium">/</span>
+<span class="text-text-main-light dark:text-text-main-dark font-medium">Operation Timing Analysis</span>
+</div>
+<!-- Page Heading and Actions -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div class="flex flex-col gap-2">
+<h1 class="text-3xl sm:text-4xl font-black tracking-tight text-text-main-light dark:text-text-main-dark">Operation Timing Analysis</h1>
+<p class="text-text-sub-light dark:text-text-sub-dark text-base max-w-2xl">Analyze operational efficiency, identify bottlenecks, and optimize traffic patterns over time.</p>
+</div>
+<div class="flex flex-wrap items-center gap-3">
+<!-- Date Range Picker Mockup -->
+<div class="relative flex items-center">
+<span class="absolute left-3 text-text-sub-light dark:text-text-sub-dark material-symbols-outlined text-[20px]">calendar_today</span>
+<select class="h-10 pl-10 pr-8 rounded-lg border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark text-text-main-light dark:text-text-main-dark text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer appearance-none">
+<option>Last 7 Days</option>
+<option>Last 30 Days</option>
+<option>This Quarter</option>
+<option>Year to Date</option>
+</select>
+<span class="absolute right-2 text-text-sub-light dark:text-text-sub-dark material-symbols-outlined text-[20px] pointer-events-none">arrow_drop_down</span>
+</div>
+<button class="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-white text-sm font-bold shadow-sm hover:bg-primary/90 transition-colors">
+<span class="material-symbols-outlined text-[20px]">download</span>
+<span>Export Report</span>
+</button>
+</div>
+</div>
+</div>
+<!-- KPI Cards Section -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+<!-- Card 1: Busiest Hour -->
+<div class="flex flex-col p-6 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark shadow-sm group hover:border-primary/30 transition-colors">
+<div class="flex items-center justify-between mb-4">
+<p class="text-text-sub-light dark:text-text-sub-dark text-sm font-medium">Busiest Hour</p>
+<div class="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">schedule</span>
+</div>
+</div>
+<div class="flex items-end gap-3">
+<h3 class="text-2xl font-bold text-text-main-light dark:text-text-main-dark">14:00 - 15:00</h3>
+<div class="flex items-center text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded text-xs font-bold mb-1">
+<span class="material-symbols-outlined text-[14px] mr-0.5">trending_up</span>
+                                +15%
+                            </div>
+</div>
+<p class="text-text-sub-light dark:text-text-sub-dark text-xs mt-2">Compared to last week average</p>
+</div>
+<!-- Card 2: Slowest Day -->
+<div class="flex flex-col p-6 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark shadow-sm group hover:border-primary/30 transition-colors">
+<div class="flex items-center justify-between mb-4">
+<p class="text-text-sub-light dark:text-text-sub-dark text-sm font-medium">Slowest Day</p>
+<div class="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">calendar_month</span>
+</div>
+</div>
+<div class="flex items-end gap-3">
+<h3 class="text-2xl font-bold text-text-main-light dark:text-text-main-dark">Sunday</h3>
+</div>
+<p class="text-text-sub-light dark:text-text-sub-dark text-xs mt-2">Avg. 12 trucks per day</p>
+</div>
+<!-- Card 3: Avg Processing Time -->
+<div class="flex flex-col p-6 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark shadow-sm group hover:border-primary/30 transition-colors">
+<div class="flex items-center justify-between mb-4">
+<p class="text-text-sub-light dark:text-text-sub-dark text-sm font-medium">Avg Processing Time</p>
+<div class="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">timer</span>
+</div>
+</div>
+<div class="flex items-end gap-3">
+<h3 class="text-2xl font-bold text-text-main-light dark:text-text-main-dark">12m 30s</h3>
+<div class="flex items-center text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded text-xs font-bold mb-1">
+<span class="material-symbols-outlined text-[14px] mr-0.5">trending_flat</span>
+                                +2.5%
+                            </div>
+</div>
+<p class="text-text-sub-light dark:text-text-sub-dark text-xs mt-2">Target: &lt; 10m 00s</p>
+</div>
+</div>
+<!-- Charts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Chart 1: Hourly Distribution (Wide) -->
+<div class="lg:col-span-2 flex flex-col p-6 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="text-lg font-bold text-text-main-light dark:text-text-main-dark">Hourly Traffic Distribution</h3>
+<p class="text-xs text-text-sub-light dark:text-text-sub-dark">Average vehicles per hour over selected period</p>
+</div>
+<button class="text-text-sub-light dark:text-text-sub-dark hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</div>
+<!-- CSS Bar Chart Implementation -->
+<div class="flex-1 flex items-end gap-2 sm:gap-3 h-64 w-full pt-4 pb-2 px-2 overflow-x-auto">
+<!-- Y-axis Label -->
+<div class="absolute left-0 top-0 bottom-0 w-8 flex flex-col justify-between text-xs text-text-sub-light dark:text-text-sub-dark opacity-50 pointer-events-none hidden sm:flex">
+<span>50</span><span>40</span><span>30</span><span>20</span><span>10</span><span>0</span>
+</div>
+<!-- Bars -->
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-primary/20 dark:bg-primary/20 rounded-t-sm h-[10%] group-hover:bg-primary/30 transition-all relative">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-dark text-white text-xs py-1 px-2 rounded shadow-lg transition-opacity whitespace-nowrap z-10">5 trucks</div>
+</div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center">08:00</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-primary/20 dark:bg-primary/20 rounded-t-sm h-[25%] group-hover:bg-primary/30 transition-all relative">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-dark text-white text-xs py-1 px-2 rounded shadow-lg transition-opacity whitespace-nowrap z-10">12 trucks</div>
+</div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center">09:00</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-primary/20 dark:bg-primary/20 rounded-t-sm h-[40%] group-hover:bg-primary/30 transition-all relative">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-dark text-white text-xs py-1 px-2 rounded shadow-lg transition-opacity whitespace-nowrap z-10">20 trucks</div>
+</div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center">10:00</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-primary/20 dark:bg-primary/20 rounded-t-sm h-[55%] group-hover:bg-primary/30 transition-all relative">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-dark text-white text-xs py-1 px-2 rounded shadow-lg transition-opacity whitespace-nowrap z-10">28 trucks</div>
+</div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center">11:00</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-primary/20 dark:bg-primary/20 rounded-t-sm h-[45%] group-hover:bg-primary/30 transition-all relative">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-dark text-white text-xs py-1 px-2 rounded shadow-lg transition-opacity whitespace-nowrap z-10">23 trucks</div>
+</div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center">12:00</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-primary/20 dark:bg-primary/20 rounded-t-sm h-[35%] group-hover:bg-primary/30 transition-all relative">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-dark text-white text-xs py-1 px-2 rounded shadow-lg transition-opacity whitespace-nowrap z-10">18 trucks</div>
+</div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center">13:00</span>
+</div>
+<!-- Peak Hour -->
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-primary shadow-[0_0_10px_rgba(80,141,78,0.4)] rounded-t-sm h-[85%] group-hover:opacity-90 transition-all relative">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-dark text-white text-xs py-1 px-2 rounded shadow-lg transition-opacity whitespace-nowrap z-10">42 trucks (Peak)</div>
+</div>
+<span class="text-[10px] font-bold text-primary mt-2 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center">14:00</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-primary/20 dark:bg-primary/20 rounded-t-sm h-[60%] group-hover:bg-primary/30 transition-all relative">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-dark text-white text-xs py-1 px-2 rounded shadow-lg transition-opacity whitespace-nowrap z-10">30 trucks</div>
+</div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center">15:00</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-primary/20 dark:bg-primary/20 rounded-t-sm h-[40%] group-hover:bg-primary/30 transition-all relative">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-dark text-white text-xs py-1 px-2 rounded shadow-lg transition-opacity whitespace-nowrap z-10">20 trucks</div>
+</div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center">16:00</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-primary/20 dark:bg-primary/20 rounded-t-sm h-[20%] group-hover:bg-primary/30 transition-all relative">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-dark text-white text-xs py-1 px-2 rounded shadow-lg transition-opacity whitespace-nowrap z-10">10 trucks</div>
+</div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center">17:00</span>
+</div>
+</div>
+</div>
+<!-- Recommendation Panel (Side) -->
+<div class="lg:col-span-1 flex flex-col rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark shadow-sm overflow-hidden h-full">
+<div class="bg-primary/10 p-4 border-b border-border-light dark:border-border-dark flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">lightbulb</span>
+<h3 class="text-lg font-bold text-text-main-light dark:text-text-main-dark">Insights &amp; Actions</h3>
+</div>
+<div class="p-6 flex flex-col gap-5 flex-1 overflow-y-auto">
+<!-- Insight 1 -->
+<div class="flex gap-3 items-start">
+<div class="mt-0.5 size-2 rounded-full bg-amber-500 shrink-0"></div>
+<div class="flex flex-col gap-1">
+<p class="text-sm font-bold text-text-main-light dark:text-text-main-dark">Staffing Shortage Alert</p>
+<p class="text-xs text-text-sub-light dark:text-text-sub-dark leading-relaxed">High volume detected between <span class="font-medium text-text-main-light dark:text-text-main-dark">14:00 - 15:00</span>. Consider adding 1 extra weighbridge operator during this shift.</p>
+</div>
+</div>
+<hr class="border-border-light dark:border-border-dark"/>
+<!-- Insight 2 -->
+<div class="flex gap-3 items-start">
+<div class="mt-0.5 size-2 rounded-full bg-primary shrink-0"></div>
+<div class="flex flex-col gap-1">
+<p class="text-sm font-bold text-text-main-light dark:text-text-main-dark">Efficiency Opportunity</p>
+<p class="text-xs text-text-sub-light dark:text-text-sub-dark leading-relaxed">Traffic volume on <span class="font-medium text-text-main-light dark:text-text-main-dark">Sundays</span> is consistently low (&lt; 15 trucks). Consider reducing gate hours to 08:00 - 12:00.</p>
+</div>
+</div>
+<div class="mt-auto pt-4">
+<button class="w-full py-2.5 px-4 rounded-lg border border-border-light dark:border-border-dark text-text-main-light dark:text-text-main-dark text-sm font-bold hover:bg-background-light dark:hover:bg-background-dark transition-colors">
+                                    Generate Staffing Schedule
+                                </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Row Charts -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Chart 2: Daily Distribution -->
+<div class="flex flex-col p-6 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-lg font-bold text-text-main-light dark:text-text-main-dark">Daily Distribution</h3>
+<div class="flex gap-2">
+<span class="size-2 rounded-full bg-primary mt-1.5"></span>
+<span class="text-xs text-text-sub-light dark:text-text-sub-dark">Vehicles</span>
+</div>
+</div>
+<div class="flex items-end justify-between gap-2 h-48 w-full px-2">
+<!-- Day Bars -->
+<div class="flex flex-col items-center flex-1 h-full justify-end group cursor-pointer">
+<div class="w-3/4 sm:w-8 bg-primary/80 rounded-t-sm h-[60%] group-hover:bg-primary transition-colors"></div>
+<span class="text-xs text-text-sub-light dark:text-text-sub-dark mt-2 font-medium">Mon</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group cursor-pointer">
+<div class="w-3/4 sm:w-8 bg-primary/80 rounded-t-sm h-[75%] group-hover:bg-primary transition-colors"></div>
+<span class="text-xs text-text-sub-light dark:text-text-sub-dark mt-2 font-medium">Tue</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group cursor-pointer">
+<div class="w-3/4 sm:w-8 bg-primary/80 rounded-t-sm h-[80%] group-hover:bg-primary transition-colors"></div>
+<span class="text-xs text-text-sub-light dark:text-text-sub-dark mt-2 font-medium">Wed</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group cursor-pointer">
+<div class="w-3/4 sm:w-8 bg-primary/80 rounded-t-sm h-[65%] group-hover:bg-primary transition-colors"></div>
+<span class="text-xs text-text-sub-light dark:text-text-sub-dark mt-2 font-medium">Thu</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group cursor-pointer">
+<div class="w-3/4 sm:w-8 bg-primary/80 rounded-t-sm h-[90%] group-hover:bg-primary transition-colors"></div>
+<span class="text-xs text-text-sub-light dark:text-text-sub-dark mt-2 font-medium">Fri</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group cursor-pointer">
+<div class="w-3/4 sm:w-8 bg-text-sub-light/30 dark:bg-text-sub-dark/30 rounded-t-sm h-[40%] group-hover:bg-text-sub-light/50 transition-colors"></div>
+<span class="text-xs text-text-sub-light dark:text-text-sub-dark mt-2 font-medium">Sat</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group cursor-pointer">
+<div class="w-3/4 sm:w-8 bg-text-sub-light/30 dark:bg-text-sub-dark/30 rounded-t-sm h-[15%] group-hover:bg-text-sub-light/50 transition-colors"></div>
+<span class="text-xs text-text-sub-light dark:text-text-sub-dark mt-2 font-medium">Sun</span>
+</div>
+</div>
+</div>
+<!-- Chart 3: Processing Time Histogram -->
+<div class="flex flex-col p-6 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-lg font-bold text-text-main-light dark:text-text-main-dark">Processing Duration Frequency</h3>
+<button class="text-xs font-bold text-primary hover:underline">View Details</button>
+</div>
+<div class="flex items-end gap-1 h-48 w-full px-2 relative">
+<!-- Dashed guideline for visual aid -->
+<div class="absolute w-full top-1/2 border-t border-dashed border-border-light dark:border-border-dark opacity-50"></div>
+<!-- Histogram Bars -->
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-slate-300 dark:bg-slate-700 rounded-sm h-[20%] group-hover:bg-slate-400 transition-colors mx-0.5"></div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 text-center leading-tight">0-5m</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-slate-300 dark:bg-slate-700 rounded-sm h-[45%] group-hover:bg-slate-400 transition-colors mx-0.5"></div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 text-center leading-tight">5-10m</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-primary rounded-sm h-[70%] shadow-sm mx-0.5 relative">
+<!-- Tooltip -->
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-dark text-white text-[10px] py-1 px-2 rounded shadow transition-opacity whitespace-nowrap">Most Common</div>
+</div>
+<span class="text-[10px] font-bold text-primary mt-2 text-center leading-tight">10-15m</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-slate-300 dark:bg-slate-700 rounded-sm h-[30%] group-hover:bg-slate-400 transition-colors mx-0.5"></div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 text-center leading-tight">15-20m</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-slate-300 dark:bg-slate-700 rounded-sm h-[15%] group-hover:bg-slate-400 transition-colors mx-0.5"></div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 text-center leading-tight">20-30m</span>
+</div>
+<div class="flex flex-col items-center flex-1 h-full justify-end group">
+<div class="w-full bg-red-300 dark:bg-red-900/50 rounded-sm h-[5%] group-hover:bg-red-400 transition-colors mx-0.5"></div>
+<span class="text-[10px] text-text-sub-light dark:text-text-sub-dark mt-2 text-center leading-tight">&gt;30m</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

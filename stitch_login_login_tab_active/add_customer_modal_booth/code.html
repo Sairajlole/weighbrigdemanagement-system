@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Add Customer Modal Booth</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for textarea to look cleaner */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+        textarea::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background-color: #dce6db;
+            border-radius: 4px;
+        }
+        .dark textarea::-webkit-scrollbar-thumb {
+            background-color: #374151;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-[#111811] dark:text-gray-100 flex min-h-screen items-center justify-center p-4">
+<!-- Modal Container -->
+<div class="relative flex w-full max-w-[560px] flex-col overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-[#181a18] dark:ring-white/10 group/design-root">
+<!-- Header -->
+<div class="flex items-center justify-between border-b border-[#f0f4f0] px-6 py-4 dark:border-gray-800">
+<h3 class="text-lg font-bold leading-tight tracking-[-0.015em] text-[#111811] dark:text-white">
+                Add New Customer
+            </h3>
+<button class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200">
+<span class="material-symbols-outlined text-xl">close</span>
+</button>
+</div>
+<!-- Body Content -->
+<div class="flex flex-col gap-6 p-6 sm:flex-row">
+<!-- Left Column: Camera Booth -->
+<div class="flex w-full shrink-0 flex-col gap-3 sm:w-[220px]">
+<!-- Camera Feed -->
+<div class="relative aspect-square w-full overflow-hidden rounded-lg bg-[#111811] shadow-inner ring-1 ring-[#dce6db] dark:ring-gray-700">
+<!-- Live Feed Badge -->
+<div class="absolute left-2 top-2 z-10 flex items-center gap-1 rounded bg-red-500/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
+<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-white"></span>
+                        LIVE
+                    </div>
+<!-- Simulated Camera View -->
+<div class="h-full w-full bg-cover bg-center opacity-90 transition-transform duration-700 hover:scale-105" data-alt="Portrait of a smiling man in a white shirt acting as camera feed" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD4vYTTX5spKnIzoYaZMiuA0jC62V5y11nTeGmMIRN0b3-n3Cccyr4usH7z3ZBY7EWxGl7Na2FR_1wnyTu00iArq9sM-o10wTDJvMaNQNSCeeDZYdIhnQvWYP0ghsFbkcQjfPhEsQa18WR_x2BowRKOGRN-4Mvy-fCbtCmDtTZ5UpgptAR4p9EczNyIBVFXAZcTS8NsQsXqsWrY1pVL3L8vTv6FVH4L4NL-GAvVBSRBrevGBmBe2hZ-_iuzJL1rrureg-ns2DGDZAU");'>
+</div>
+<!-- Overlay Grid (Camera UI effect) -->
+<div class="pointer-events-none absolute inset-0 opacity-20">
+<div class="absolute left-4 top-4 h-4 w-4 border-l-2 border-t-2 border-white"></div>
+<div class="absolute right-4 top-4 h-4 w-4 border-r-2 border-t-2 border-white"></div>
+<div class="absolute bottom-4 left-4 h-4 w-4 border-b-2 border-l-2 border-white"></div>
+<div class="absolute bottom-4 right-4 h-4 w-4 border-b-2 border-r-2 border-white"></div>
+</div>
+</div>
+<!-- Capture Button -->
+<button class="group flex h-10 w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg bg-[#f0f4f0] px-4 text-sm font-bold leading-normal tracking-[0.015em] text-[#111811] transition-colors hover:bg-[#e0e6e0] dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700">
+<span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110" data-icon="Camera">photo_camera</span>
+<span class="truncate">Capture Photo</span>
+</button>
+</div>
+<!-- Right Column: Data Form -->
+<div class="flex min-w-0 flex-1 flex-col gap-4">
+<!-- Phone Number -->
+<label class="flex flex-col gap-1.5">
+<span class="text-xs font-semibold text-[#111811] dark:text-gray-300">Phone Number</span>
+<div class="relative">
+<input class="form-input flex h-11 w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg border border-[#dce6db] bg-white px-3 text-base font-normal leading-normal text-[#111811] placeholder:text-[#638961]/60 focus:border-primary focus:outline-0 focus:ring-1 focus:ring-primary dark:border-gray-700 dark:bg-[#222522] dark:text-white dark:placeholder:text-gray-500" placeholder="+1 (555) 000-0000"/>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-[#638961] dark:text-gray-500">phone</span>
+</div>
+</label>
+<!-- Full Name -->
+<label class="flex flex-col gap-1.5">
+<span class="text-xs font-semibold text-[#111811] dark:text-gray-300">Full Name</span>
+<div class="relative">
+<input class="form-input flex h-11 w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg border border-[#dce6db] bg-white px-3 text-base font-normal leading-normal text-[#111811] placeholder:text-[#638961]/60 focus:border-primary focus:outline-0 focus:ring-1 focus:ring-primary dark:border-gray-700 dark:bg-[#222522] dark:text-white dark:placeholder:text-gray-500" placeholder="Enter customer name"/>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-[#638961] dark:text-gray-500">person</span>
+</div>
+</label>
+<!-- Address -->
+<label class="flex flex-1 flex-col gap-1.5">
+<span class="text-xs font-semibold text-[#111811] dark:text-gray-300">Address</span>
+<textarea class="form-textarea flex w-full min-w-0 flex-1 resize-none rounded-lg border border-[#dce6db] bg-white px-3 py-2.5 text-base font-normal leading-normal text-[#111811] placeholder:text-[#638961]/60 focus:border-primary focus:outline-0 focus:ring-1 focus:ring-primary dark:border-gray-700 dark:bg-[#222522] dark:text-white dark:placeholder:text-gray-500" placeholder="Enter billing address..." rows="3"></textarea>
+</label>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="flex items-center justify-end gap-3 border-t border-[#f0f4f0] bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-[#181a18]">
+<button class="flex h-10 min-w-[84px] cursor-pointer items-center justify-center rounded-lg border border-transparent px-4 text-sm font-bold text-[#638961] transition-colors hover:bg-[#f0f4f0] hover:text-[#111811] dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white">
+                Cancel
+            </button>
+<button class="flex h-10 min-w-[84px] cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-6 text-sm font-bold text-[#112210] shadow-sm transition-all hover:brightness-110 focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 dark:focus:ring-offset-gray-900">
+<span class="material-symbols-outlined text-[18px]">check</span>
+                Save Customer
+            </button>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Weighment Complete Modal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display antialiased text-slate-900 dark:text-white h-screen w-full overflow-hidden relative">
+<!-- Blurred Background Context (Simulating the application behind the modal) -->
+<div aria-hidden="true" class="absolute inset-0 flex flex-col opacity-30 pointer-events-none select-none blur-[2px]">
+<!-- Mock App Header -->
+<div class="h-16 bg-white dark:bg-[#1a1d1a] border-b border-gray-200 dark:border-[#2a302a] flex items-center justify-between px-8">
+<div class="flex items-center gap-4">
+<div class="w-8 h-8 bg-primary rounded-lg"></div>
+<div class="h-4 w-32 bg-gray-200 dark:bg-[#2a302a] rounded"></div>
+</div>
+<div class="flex gap-4">
+<div class="h-8 w-8 bg-gray-200 dark:bg-[#2a302a] rounded-full"></div>
+<div class="h-8 w-8 bg-gray-200 dark:bg-[#2a302a] rounded-full"></div>
+</div>
+</div>
+<!-- Mock App Content -->
+<div class="flex-1 p-8 grid grid-cols-12 gap-6 bg-background-light dark:bg-background-dark">
+<div class="col-span-8 flex flex-col gap-6">
+<div class="bg-white dark:bg-[#1a1d1a] rounded-xl h-64 w-full shadow-sm"></div>
+<div class="bg-white dark:bg-[#1a1d1a] rounded-xl flex-1 w-full shadow-sm"></div>
+</div>
+<div class="col-span-4 bg-white dark:bg-[#1a1d1a] rounded-xl h-full shadow-sm"></div>
+</div>
+</div>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-all">
+<!-- Modal Card Container -->
+<div class="relative w-full max-w-[480px] flex flex-col bg-white dark:bg-[#1a1d1a] rounded-2xl shadow-2xl overflow-hidden ring-1 ring-black/5 dark:ring-white/10 animate-[scaleIn_0.2s_ease-out]">
+<!-- Close Button (Absolute Top Right) -->
+<button aria-label="Close modal" class="absolute top-4 right-4 p-2 rounded-full text-[#6f7c6e] hover:bg-gray-100 hover:text-[#131613] dark:text-neutral-400 dark:hover:bg-white/5 dark:hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+<!-- Header Section -->
+<div class="flex flex-col items-center pt-10 pb-6 px-6 text-center">
+<!-- Success Icon -->
+<div class="mb-5 flex h-[88px] w-[88px] items-center justify-center rounded-full bg-[#508d4e]/10 dark:bg-[#508d4e]/20 ring-4 ring-[#508d4e]/5">
+<span class="material-symbols-outlined text-[#508d4e] text-[48px]" style="font-size: 48px;">check_circle</span>
+</div>
+<h2 class="text-[28px] leading-tight font-extrabold text-[#131613] dark:text-white tracking-tight">Weighment Captured</h2>
+<p class="mt-2 text-sm font-medium text-[#6f7c6e] dark:text-neutral-400">Transaction successfully recorded</p>
+</div>
+<!-- Summary Data List -->
+<div class="px-8 pb-4">
+<div class="flex flex-col divide-y divide-gray-100 dark:divide-[#2a302a]">
+<div class="flex justify-between items-center py-3 group">
+<span class="text-sm font-medium text-[#6f7c6e] dark:text-neutral-400">RST Number</span>
+<span class="text-sm font-bold text-[#131613] dark:text-white font-mono">RST-8902</span>
+</div>
+<div class="flex justify-between items-center py-3 group">
+<span class="text-sm font-medium text-[#6f7c6e] dark:text-neutral-400">Vehicle</span>
+<span class="text-sm font-bold text-[#131613] dark:text-white">KA-05-MJ-4050</span>
+</div>
+<div class="flex justify-between items-center py-3 group">
+<span class="text-sm font-medium text-[#6f7c6e] dark:text-neutral-400">Customer</span>
+<span class="text-sm font-bold text-[#131613] dark:text-white">Global Infra</span>
+</div>
+<div class="flex justify-between items-center py-3 group">
+<span class="text-sm font-medium text-[#6f7c6e] dark:text-neutral-400">Material</span>
+<span class="text-sm font-bold text-[#131613] dark:text-white">Cement</span>
+</div>
+<!-- Highlighted Field: Gross Weight -->
+<div class="flex justify-between items-center py-4 my-2 px-4 -mx-4 rounded-lg bg-[#508d4e]/5 dark:bg-[#508d4e]/10 border border-[#508d4e]/10">
+<span class="text-sm font-bold text-[#508d4e]">Gross Weight</span>
+<span class="text-xl font-extrabold text-[#131613] dark:text-white tracking-tight">12,500 kg</span>
+</div>
+<div class="flex justify-between items-center py-3 group">
+<span class="text-sm font-medium text-[#6f7c6e] dark:text-neutral-400">Timestamp</span>
+<span class="text-sm font-bold text-[#131613] dark:text-white">14 Oct, 10:42 AM</span>
+</div>
+</div>
+</div>
+<!-- Action Buttons Footer -->
+<div class="p-8 pt-4 flex flex-col gap-3">
+<!-- Primary Action: Print -->
+<button class="group relative flex w-full items-center justify-center gap-2.5 rounded-xl bg-[#508d4e] px-6 h-12 text-base font-bold text-white shadow-lg shadow-[#508d4e]/20 transition-all hover:bg-[#437a41] hover:shadow-[#508d4e]/30 active:scale-[0.98]">
+<span class="material-symbols-outlined text-[20px]">print</span>
+<span class="tracking-wide">Print RST</span>
+</button>
+<!-- Secondary Action: New Weighment -->
+<button class="flex w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-transparent h-12 text-base font-bold text-[#131613] dark:text-white transition-all hover:bg-gray-50 dark:hover:bg-white/5 active:bg-gray-100 active:scale-[0.98]">
+<span class="material-symbols-outlined text-[20px]">add</span>
+<span class="tracking-wide">New Weighment</span>
+</button>
+<!-- Tertiary Action: Close Link -->
+<button class="mt-2 flex w-full items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold text-[#6f7c6e] hover:text-[#131613] hover:underline dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors">
+                    Close
+                </button>
+</div>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Materials Configuration Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #1aec13;
+        }
+        .toggle-checkbox:checked + .toggle-label .toggle-dot {
+            transform: translateX(100%);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen text-[#111811] dark:text-white">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#dce6db] dark:border-[#2d3d2d] bg-white dark:bg-[#1a2a1a] px-10 py-3">
+<div class="flex items-center gap-4">
+<div class="text-primary">
+<span class="material-symbols-outlined text-3xl">weight</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">Weighbridge Management System</h2>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<div class="flex items-center gap-9">
+<a class="text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Transactions</a>
+<a class="text-sm font-bold leading-normal text-primary" href="#">Materials</a>
+<a class="text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Settings</a>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center justify-center rounded-lg h-10 bg-[#f0f4f0] dark:bg-[#2d3d2d] px-2.5">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="flex items-center justify-center rounded-lg h-10 bg-[#f0f4f0] dark:bg-[#2d3d2d] px-2.5">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<main class="max-w-[1100px] mx-auto py-8 px-6">
+<!-- Page Heading with Back Arrow -->
+<div class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center size-10 rounded-lg bg-white dark:bg-[#1a2a1a] border border-[#dce6db] dark:border-[#2d3d2d] hover:bg-[#f0f4f0] dark:hover:bg-[#253525]">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-4xl font-black leading-tight tracking-[-0.033em]">Materials</h1>
+</div>
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-white dark:bg-[#1a2a1a] border border-[#dce6db] dark:border-[#2d3d2d] text-sm font-bold hover:bg-[#f0f4f0]">
+<span>Export Configuration</span>
+</button>
+</div>
+<!-- Quick Add Material Bar -->
+<div class="bg-white dark:bg-[#1a2a1a] p-4 rounded-xl border border-[#dce6db] dark:border-[#2d3d2d] flex items-end gap-4 mb-6 shadow-sm">
+<div class="flex-1">
+<p class="text-sm font-semibold pb-2 px-1">Add New Material</p>
+<div class="relative">
+<input class="w-full rounded-lg border border-[#dce6db] dark:border-[#2d3d2d] bg-white dark:bg-[#112210] h-12 px-4 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" placeholder="Enter material name (e.g. Cotton Bales)"/>
+</div>
+</div>
+<button class="flex min-w-[140px] items-center justify-center rounded-lg h-12 px-6 bg-primary text-[#111811] font-bold gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined">add</span>
+<span>Add Material</span>
+</button>
+</div>
+<!-- Materials List Table -->
+<div class="bg-white dark:bg-[#1a2a1a] rounded-xl border border-[#dce6db] dark:border-[#2d3d2d] shadow-sm overflow-hidden mb-6">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-[#f0f4f0] dark:bg-[#253525] border-b border-[#dce6db] dark:border-[#2d3d2d]">
+<th class="w-12 px-4 py-3"></th>
+<th class="px-4 py-3 text-sm font-bold uppercase tracking-wider">Material Name</th>
+<th class="px-4 py-3 text-sm font-bold uppercase tracking-wider text-center">Default</th>
+<th class="px-4 py-3 text-sm font-bold uppercase tracking-wider text-center">Status</th>
+<th class="px-4 py-3 text-sm font-bold uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#dce6db] dark:divide-[#2d3d2d]">
+<!-- Row 1 -->
+<tr class="hover:bg-[#f9faf9] dark:hover:bg-[#1d2d1d] transition-colors group">
+<td class="px-4 py-4 text-gray-400 cursor-grab active:cursor-grabbing">
+<span class="material-symbols-outlined">drag_indicator</span>
+</td>
+<td class="px-4 py-4 font-medium">
+<div class="flex items-center gap-2">
+<span class="editable-text">Cotton Bales</span>
+<span class="material-symbols-outlined text-xs text-gray-400 opacity-0 group-hover:opacity-100 cursor-pointer">edit</span>
+</div>
+</td>
+<td class="px-4 py-4 text-center">
+<input checked="" class="w-5 h-5 text-primary focus:ring-primary border-[#dce6db] dark:border-[#2d3d2d] dark:bg-[#112210]" name="default_material" type="radio"/>
+</td>
+<td class="px-4 py-4">
+<div class="flex justify-center items-center">
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only toggle-checkbox" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full toggle-label transition-colors">
+<div class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform"></div>
+</div>
+<span class="ml-3 text-sm font-medium">Active</span>
+</label>
+</div>
+</td>
+<td class="px-4 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-[#f0f4f0] dark:hover:bg-[#253525] rounded-lg text-gray-600 dark:text-gray-300">
+<span class="material-symbols-outlined">edit</span>
+</button>
+<button class="p-2 hover:bg-red-50 text-red-500 rounded-lg">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-[#f9faf9] dark:hover:bg-[#1d2d1d] transition-colors group">
+<td class="px-4 py-4 text-gray-400 cursor-grab">
+<span class="material-symbols-outlined">drag_indicator</span>
+</td>
+<td class="px-4 py-4 font-medium">
+<div class="flex items-center gap-2">
+<span class="editable-text">Cotton Seeds</span>
+<span class="material-symbols-outlined text-xs text-gray-400 opacity-0 group-hover:opacity-100 cursor-pointer">edit</span>
+</div>
+</td>
+<td class="px-4 py-4 text-center">
+<input class="w-5 h-5 text-primary focus:ring-primary border-[#dce6db] dark:border-[#2d3d2d] dark:bg-[#112210]" name="default_material" type="radio"/>
+</td>
+<td class="px-4 py-4">
+<div class="flex justify-center items-center">
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only toggle-checkbox" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full toggle-label transition-colors">
+<div class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform"></div>
+</div>
+<span class="ml-3 text-sm font-medium">Active</span>
+</label>
+</div>
+</td>
+<td class="px-4 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-[#f0f4f0] dark:hover:bg-[#253525] rounded-lg text-gray-600 dark:text-gray-300">
+<span class="material-symbols-outlined">edit</span>
+</button>
+<button class="p-2 hover:bg-red-50 text-red-500 rounded-lg">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-[#f9faf9] dark:hover:bg-[#1d2d1d] transition-colors group">
+<td class="px-4 py-4 text-gray-400 cursor-grab">
+<span class="material-symbols-outlined">drag_indicator</span>
+</td>
+<td class="px-4 py-4 font-medium">
+<div class="flex items-center gap-2">
+<span class="editable-text">Maize</span>
+<span class="material-symbols-outlined text-xs text-gray-400 opacity-0 group-hover:opacity-100 cursor-pointer">edit</span>
+</div>
+</td>
+<td class="px-4 py-4 text-center">
+<input class="w-5 h-5 text-primary focus:ring-primary border-[#dce6db] dark:border-[#2d3d2d] dark:bg-[#112210]" name="default_material" type="radio"/>
+</td>
+<td class="px-4 py-4">
+<div class="flex justify-center items-center">
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only toggle-checkbox" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full toggle-label transition-colors">
+<div class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform"></div>
+</div>
+<span class="ml-3 text-sm font-medium">Active</span>
+</label>
+</div>
+</td>
+<td class="px-4 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-[#f0f4f0] dark:hover:bg-[#253525] rounded-lg text-gray-600 dark:text-gray-300">
+<span class="material-symbols-outlined">edit</span>
+</button>
+<button class="p-2 hover:bg-red-50 text-red-500 rounded-lg">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Material Settings Card -->
+<div class="bg-white dark:bg-[#1a2a1a] rounded-xl border border-[#dce6db] dark:border-[#2d3d2d] shadow-sm mb-10">
+<div class="px-6 py-4 border-b border-[#dce6db] dark:border-[#2d3d2d]">
+<h3 class="text-lg font-bold">Material Settings</h3>
+</div>
+<div class="p-6 space-y-6">
+<div class="flex items-center justify-between">
+<div>
+<p class="font-bold">Allow 'Other' material entry</p>
+<p class="text-sm text-gray-500 dark:text-gray-400">Enable users to manually type a material name if it's not in the list</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only toggle-checkbox" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full toggle-label transition-colors">
+<div class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform"></div>
+</div>
+</label>
+</div>
+<div class="flex items-center justify-between">
+<div>
+<p class="font-bold">Require material selection</p>
+<p class="text-sm text-gray-500 dark:text-gray-400">Transactions cannot be completed without a material selected</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only toggle-checkbox" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full toggle-label transition-colors">
+<div class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform"></div>
+</div>
+</label>
+</div>
+<div class="flex items-center justify-between">
+<div>
+<p class="font-bold">Show material list in RST</p>
+<p class="text-sm text-gray-500 dark:text-gray-400">Sync this list with Remote Station Terminals</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only toggle-checkbox" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full toggle-label transition-colors">
+<div class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform"></div>
+</div>
+</label>
+</div>
+</div>
+</div>
+<!-- Footer Action -->
+<div class="flex justify-end pt-4 pb-12 border-t border-[#dce6db] dark:border-[#2d3d2d]">
+<button class="flex min-w-[200px] items-center justify-center rounded-lg h-14 px-8 bg-primary text-[#111811] font-black text-lg gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">
+<span class="material-symbols-outlined">save</span>
+<span>Save Configuration</span>
+</button>
+</div>
+</main>
+</body></html>

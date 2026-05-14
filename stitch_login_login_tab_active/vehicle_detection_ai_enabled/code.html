@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vehicle Detection - Weighbridge Management System</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Roboto+Mono:wght@500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "plate-light": "#D6EFD8",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "mono": ["Roboto Mono", "monospace"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark text-[#131613] dark:text-gray-100 overflow-hidden">
+<div class="flex h-screen w-full">
+<!-- Sidebar -->
+<div class="hidden lg:flex flex-col w-64 border-r border-[#e5e7eb] dark:border-gray-800 bg-white dark:bg-[#1c241c] flex-shrink-0">
+<div class="p-6">
+<div class="flex flex-col gap-1">
+<h1 class="text-xl font-bold tracking-tight text-[#131613] dark:text-white">WMS Pro</h1>
+<p class="text-sm text-[#6f7c6e] dark:text-gray-400">Station 01</p>
+</div>
+</div>
+<nav class="flex flex-col gap-2 px-3">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-[#6f7c6e] dark:text-gray-300 transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary dark:text-primary-400 transition-colors" href="#">
+<span class="material-symbols-outlined fill-1">videocam</span>
+<span class="text-sm font-medium">Gate A Control</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-[#6f7c6e] dark:text-gray-300 transition-colors" href="#">
+<span class="material-symbols-outlined">videocam_off</span>
+<span class="text-sm font-medium">Gate B Control</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-[#6f7c6e] dark:text-gray-300 transition-colors" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="text-sm font-medium">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-[#6f7c6e] dark:text-gray-300 transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+<div class="mt-auto p-6 border-t border-[#e5e7eb] dark:border-gray-800">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full bg-cover bg-center" data-alt="User avatar profile picture" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuALl5mchZILA6werX-iDmhPIW5Q5jxoNOtDUUkd61h0KD_TvCnbtht7yyd5_2BEHS8l10-EZo4W1lHlN-8U-RtS30EER3kiYQ8VifOWDeNK_1fqJ8WXsAd5KemvNyLvreUNXYRxGYfZYHaqfCgoC3hKYmh0jauId12T6SPzXquA9M_i5kzzipQfsaM0HGhJHHO4Pw8dTNx5DLI7skuwG_IKcaBmVdu1qLxt3uEO5Y5Xk_S5DcWDM1PxgN9VG_vyrzM2iTMgsksOh40');"></div>
+<div>
+<p class="text-sm font-bold dark:text-white">Operator John</p>
+<p class="text-xs text-[#6f7c6e] dark:text-gray-400">ID: 8492</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Main Content Wrapper -->
+<div class="flex flex-col flex-1 h-full overflow-hidden relative">
+<!-- Top Header -->
+<header class="flex items-center justify-between border-b border-[#e5e7eb] dark:border-gray-800 bg-white dark:bg-[#1c241c] px-6 py-4 flex-shrink-0 z-20">
+<div class="flex items-center gap-4">
+<button class="lg:hidden p-1 rounded hover:bg-gray-100 dark:hover:bg-white/10">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="flex flex-col">
+<h2 class="text-lg font-bold leading-tight">Weighbridge Management System</h2>
+<span class="text-xs text-primary font-semibold flex items-center gap-1">
+<span class="size-2 rounded-full bg-primary animate-pulse"></span>
+                            System Online
+                        </span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-[#6f7c6e] dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 rounded-full relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white dark:border-[#1c241c]"></span>
+</button>
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<span class="material-symbols-outlined text-sm">help</span>
+<span class="text-sm font-medium">Help</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Content -->
+<main class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 relative">
+<div class="max-w-[1400px] mx-auto flex flex-col h-full gap-6">
+<!-- Page Heading -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+<div>
+<h1 class="text-3xl font-black tracking-tight text-[#131613] dark:text-white">Vehicle Detection - Gate A</h1>
+<p class="text-[#6f7c6e] dark:text-gray-400 mt-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">smart_toy</span>
+                                Live Camera Feed &amp; AI Verification Active
+                            </p>
+</div>
+<div class="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-semibold border border-primary/20">
+                            Detection Mode: Automatic
+                        </div>
+</div>
+<!-- 3 Column Layout -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-1 min-h-[500px]">
+<!-- Left Column: Camera Grid (Takes up half width on large screens) -->
+<div class="xl:col-span-6 flex flex-col gap-4">
+<h3 class="font-bold text-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">videocam</span>
+                                Live Feeds
+                            </h3>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 h-full min-h-[400px]">
+<!-- Camera 1 (Active) -->
+<div class="relative group bg-black rounded-lg overflow-hidden border-4 border-primary shadow-lg ring-1 ring-primary/50 aspect-video sm:aspect-auto">
+<div class="absolute inset-0 bg-cover bg-center opacity-90" data-alt="CCTV view of a truck license plate closeup" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDubnCX_Q6QlzrPstj0ucXYVSl09OC9LTZeauM6VUzOCR2l-iHthkP2dDtCGjsqqaXpKmnM075-7eQ_fi8yKTUeZYXQjwDLaALkI6vgo4s5egx6BC_WHXGc_eyoFav7jxwGw5OjVVdmxbUomMsxccwDYTQmO3OvKpUfJj2XdCgeld_8pXmsNt3iyvPTs5iBG9LKTTOHxIMUQnj8ZyAI3w91PsorrYaeqbEKVgS4gQnrm3DhldTJ8U9EeejwCdIXm4nWa2y5eUJSILE');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+<div class="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1 animate-pulse">
+<span class="size-1.5 rounded-full bg-white"></span> LIVE
+                                    </div>
+<div class="absolute bottom-3 left-3 right-3 text-white">
+<p class="font-bold text-sm">Cam 01: License Plate</p>
+<p class="text-xs opacity-80 font-mono">Signal: Excellent</p>
+</div>
+<div class="absolute top-3 right-3 text-primary bg-white/90 dark:bg-black/80 rounded px-1.5 py-0.5 text-xs font-bold shadow-sm">
+                                        AI ACTIVE
+                                    </div>
+</div>
+<!-- Camera 2 -->
+<div class="relative group bg-black rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 aspect-video sm:aspect-auto">
+<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="CCTV view of truck driver face inside cabin" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDxTkywh47b4-mjhPLxbH-fXSPemDuY3acFSGB3t7ap0GZjg8AWkfh4W-rv0T9mE5y0KiPe9y8np2i9hpnTp6D7SyAWJiDM7efMLRh24z3pQrA6uYX9rBVK7kA9jw-ExmRzN1AmagDY_aD79izP3GgYYIsHbnehuoJQQ9zrZfbZCkzAdtBBcfhNXwOn1SfTLrTHpJMiVkLteATSICpaXI3zDpmtT5STH8BuSIMdosCq7hevOZNk-wIphPhfXgWjqMUI-w4cQ7BBb6w');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute bottom-3 left-3 text-white">
+<p class="font-medium text-sm">Cam 02: Driver Face</p>
+</div>
+</div>
+<!-- Camera 3 -->
+<div class="relative group bg-black rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 aspect-video sm:aspect-auto">
+<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="Wide CCTV view of truck entering the weighbridge gate" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB-ET3zWGwROagOgoUttpaJzSILAWI9CXVumofVV9Ygi5hX9TM2TrgmbUYeDCQIzAwKynOHIYwaNo9aX833Ja9U4XL0fZI7mRYXD6sh31MIoeYGNTSAE-2tuW21ZHsE8dydSdZLJw46OTY15C9x2OZ57P58KViXhuu718m4te7apzETtTjLgHFh0rHbc21JJfth4S1jMhXjGGVFiH4NfkWdXzua_oIJoNFo5BMNMMITt_t3w3p_qYrHPDFJ4ghxWZBF7LaZfNgNmDE');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute bottom-3 left-3 text-white">
+<p class="font-medium text-sm">Cam 03: Entry View</p>
+</div>
+</div>
+<!-- Camera 4 -->
+<div class="relative group bg-black rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 aspect-video sm:aspect-auto">
+<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="Wide CCTV view of truck exiting the weighbridge" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBr3e10--51EFSSEhDvbW4gnLSEaJmjA_8OJ5t2ir208wVdydyUga5LSslPsHuvNYO18hTGvc1d5bp7fNi_5YCgCrD9OLAqt5qxS4YxZWJkjrN3f6-IVjFWonoDsG2AppwfehgoBqlbK2_wZAIYygzoQiMCMnX-hqcZ6-_4rZO0aJnsI7WDEldmZKpejJyJssicHHGrid2cr-wPs16RSWSEXegahrj0BsBZiiMNEKUKAc6zn1f-QsCQDXaEQtWsr8qDIFHxVHpjTCM');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute bottom-3 left-3 text-white">
+<p class="font-medium text-sm">Cam 04: Exit View</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Center Column: Detection (Takes up 3/12) -->
+<div class="xl:col-span-3 md:col-span-6 flex flex-col gap-4">
+<h3 class="font-bold text-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">analytics</span>
+                                Detection
+                            </h3>
+<div class="bg-white dark:bg-[#1c241c] rounded-xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm h-full flex flex-col justify-between">
+<div class="flex flex-col gap-6">
+<div>
+<h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Detected License Plate</h4>
+<div class="bg-plate-light dark:bg-primary/20 border-2 border-primary/30 dark:border-primary/50 rounded-lg p-6 text-center relative overflow-hidden group">
+<p class="text-3xl lg:text-4xl font-mono font-bold text-gray-900 dark:text-white tracking-wider break-all leading-tight">
+                                                KA53<br class="md:hidden"/>EW9204
+                                            </p>
+<!-- Scanline animation effect -->
+<div class="absolute top-0 left-0 w-full h-1 bg-primary/30 animate-[scan_2s_ease-in-out_infinite]"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between items-end mb-2">
+<span class="text-sm font-medium">AI Confidence</span>
+<span class="text-sm font-bold text-primary">94%</span>
+</div>
+<div class="h-2 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 94%"></div>
+</div>
+<p class="text-xs text-gray-500 mt-2">OCR Engine v2.4 • 120ms latency</p>
+</div>
+</div>
+<button class="mt-6 flex items-center justify-center gap-2 w-full py-3 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-bold transition-all">
+<span class="material-symbols-outlined text-lg">edit</span>
+                                    Edit Manually
+                                </button>
+</div>
+</div>
+<!-- Right Column: Weight (Takes up 3/12) -->
+<div class="xl:col-span-3 md:col-span-6 flex flex-col gap-4">
+<h3 class="font-bold text-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">scale</span>
+                                Weighing
+                            </h3>
+<div class="bg-white dark:bg-[#1c241c] rounded-xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm h-full flex flex-col justify-between">
+<div class="flex flex-col gap-2">
+<h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Gross Weight</h4>
+<div class="flex items-baseline gap-2 mt-2">
+<span class="text-5xl xl:text-6xl font-black tracking-tight text-[#131613] dark:text-white">24,500</span>
+<span class="text-xl font-bold text-gray-500">kg</span>
+</div>
+<div class="flex items-center gap-2 mt-4 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-full w-fit">
+<span class="size-2.5 rounded-full bg-green-500 animate-pulse"></span>
+<span class="text-sm font-bold">Scale Stable</span>
+</div>
+</div>
+<div class="mt-8 space-y-3">
+<div class="flex justify-between text-sm py-2 border-b border-gray-100 dark:border-gray-800">
+<span class="text-gray-500">Tare Weight (Stored)</span>
+<span class="font-medium">8,200 kg</span>
+</div>
+<div class="flex justify-between text-sm py-2 border-b border-gray-100 dark:border-gray-800">
+<span class="text-gray-500">Net Weight (Est.)</span>
+<span class="font-medium">16,300 kg</span>
+</div>
+<div class="flex justify-between text-sm py-2">
+<span class="text-gray-500">Last Calibration</span>
+<span class="font-medium">2 Days ago</span>
+</div>
+</div>
+<div class="mt-auto pt-4 flex justify-end">
+<button class="text-primary hover:text-primary/80 text-sm font-semibold flex items-center gap-1">
+                                        View Scale Logs <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Action Bar -->
+<div class="border-t border-[#e5e7eb] dark:border-gray-800 bg-white dark:bg-[#1c241c] p-4 md:px-8 z-30">
+<div class="max-w-[1400px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-2 text-sm text-gray-500 hidden md:flex">
+<span class="material-symbols-outlined">info</span>
+<span>Confirm detection to capture weight and generate ticket.</span>
+</div>
+<div class="flex w-full sm:w-auto gap-3">
+<button class="flex-1 sm:flex-none px-6 py-3 rounded-lg border border-gray-300 dark:border-gray-600 font-bold hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                            Enter Manually
+                        </button>
+<button class="flex-1 sm:flex-none px-8 py-3 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">check_circle</span>
+                            Confirm Vehicle Number
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<style>
+        @keyframes scan {
+            0% { transform: translateY(0); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(100px); opacity: 0; }
+        }
+    </style>
+</body></html>

@@ -1,12 +1,19 @@
+// ignore_for_file: unused_element
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 
 final _customersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final db = ref.watch(firestoreProvider);
-  return db.collection('customers').orderBy('name').snapshots().map(
-        (snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList(),
+  return db.collection('customers').snapshots().map(
+        (snap) {
+          final list = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+          list.sort((a, b) => (a['name'] as String? ?? '').compareTo(b['name'] as String? ?? ''));
+          return list;
+        },
       );
 });
 
@@ -20,11 +27,26 @@ class CustomersScreen extends ConsumerStatefulWidget {
 class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   String _search = '';
 
+  /// Masks a phone number to show only last 4 digits: ****1234
+  String _maskPhone(String? phone) {
+    if (phone == null || phone.isEmpty) return '--';
+    if (phone.length <= 4) return '****$phone';
+    return '****${phone.substring(phone.length - 4)}';
+  }
+
+  /// Masks a PAN field to show only last 5 chars: *****1234A
+  String _maskPan(String? pan) {
+    if (pan == null || pan.isEmpty) return '--';
+    if (pan.length <= 5) return '*****$pan';
+    return '*****${pan.substring(pan.length - 5)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final customersAsync = ref.watch(_customersProvider);
+    final shouldMask = ref.watch(permissionServiceProvider).shouldMaskSensitive;
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -100,7 +122,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                       ],
                       rows: filtered.map((c) => DataRow(cells: [
                             DataCell(Text(c['name'] ?? '--')),
-                            DataCell(Text(c['phone'] ?? '--')),
+                            DataCell(Text(shouldMask ? _maskPhone(c['phone'] as String?) : (c['phone'] ?? '--'))),
                             DataCell(Text(c['address'] ?? '--')),
                             DataCell(Text('${c['totalWeighments'] ?? 0}')),
                             DataCell(IconButton(

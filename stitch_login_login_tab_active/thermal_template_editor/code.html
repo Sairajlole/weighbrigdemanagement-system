@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Thermal Template Editor</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "paper-white": "#FFFFFF",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "mono": ["Courier Prime", "Courier New", "monospace"], 
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for cleaner look in panels */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }
+
+        /* Zigzag bottom edge for receipt */
+        .receipt-zigzag {
+            background: 
+                linear-gradient(-45deg, transparent 8px, #ffffff 8px) 0 100%,
+                linear-gradient(45deg, transparent 8px, #ffffff 8px) 0 100%;
+            background-repeat: repeat-x;
+            background-size: 16px 16px;
+            padding-bottom: 16px; 
+        }
+        
+        /* Dotted grid pattern for editor background */
+        .bg-grid-pattern {
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-[#131613] dark:text-gray-100 h-screen flex flex-col overflow-hidden">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#e5e7eb] dark:border-gray-800 px-6 py-3 bg-white dark:bg-[#1e1e1e] shrink-0 z-20">
+<div class="flex items-center gap-4">
+<div class="size-8 text-primary">
+<span class="material-symbols-outlined text-3xl">print</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">Weighbridge Management System</h2>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-[20px]">help</span>
+                Help
+            </button>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-9 border border-gray-200" data-alt="User avatar profile picture" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAdWJ0X3oHPAF5YWP6dCR1hEMUISbf9uub5IuJVX-oi3sLI6gEC4We3gi7Fcv5HqRzGLDbnhb7eKs4xjrygMaHcS5nuAzH4iQMnixZAluSoJ7fTctbuYZwkz2N4aMEBoUK_Qd183kSY_VEOf060oZTPiOeD1EBHdJ5fXenBfXuutbMWFVHzhNM2kfa8hyVkVVlAFrzeoZQvfYJRqK7tNmgYvQ2SqsZDatBOkXhsEw-UA64Dsik3EWE8b64VMpETHCoNtmQnKJNWzt8");'></div>
+</div>
+</header>
+<!-- Breadcrumbs & Heading -->
+<div class="bg-white dark:bg-[#1e1e1e] border-b border-[#e5e7eb] dark:border-gray-800 px-6 py-3 shrink-0 flex justify-between items-center z-10 shadow-sm">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<a class="text-gray-500 text-sm font-medium hover:text-primary transition-colors" href="#">Dashboard</a>
+<span class="material-symbols-outlined text-gray-400 text-sm">chevron_right</span>
+<a class="text-gray-500 text-sm font-medium hover:text-primary transition-colors" href="#">Templates</a>
+<span class="material-symbols-outlined text-gray-400 text-sm">chevron_right</span>
+<span class="text-primary text-sm font-medium">RST Thermal Editor</span>
+</div>
+<h1 class="text-2xl font-bold leading-tight">Thermal 80mm Template Editor</h1>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+<span class="material-symbols-outlined text-[20px]">history</span>
+                Reset
+            </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#3f723d] text-white rounded-lg text-sm font-medium shadow-sm transition-colors">
+<span class="material-symbols-outlined text-[20px]">save</span>
+                Save Changes
+            </button>
+</div>
+</div>
+<!-- Main 3-Column Layout -->
+<main class="flex flex-1 overflow-hidden">
+<!-- LEFT COLUMN: Field Palette -->
+<aside class="w-80 bg-white dark:bg-[#1e1e1e] border-r border-[#e5e7eb] dark:border-gray-800 flex flex-col shrink-0 z-10">
+<div class="p-4 border-b border-[#e5e7eb] dark:border-gray-800">
+<h3 class="font-bold text-sm uppercase tracking-wider text-gray-500 mb-3">Data Fields</h3>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[20px]">search</span>
+<input class="w-full bg-[#f6f7f6] dark:bg-[#2c2c2c] border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 placeholder:text-gray-400 text-gray-800 dark:text-gray-200" placeholder="Search fields..." type="text"/>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-4 space-y-2">
+<!-- Field Item -->
+<div class="group flex items-center gap-3 p-3 bg-white dark:bg-[#252525] border border-gray-100 dark:border-gray-700 rounded-lg hover:border-primary/50 hover:shadow-md cursor-grab active:cursor-grabbing transition-all">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary">drag_indicator</span>
+<div class="flex-1">
+<p class="text-sm font-medium">Ticket Number</p>
+<p class="text-xs text-gray-500">Unique ID</p>
+</div>
+<span class="material-symbols-outlined text-gray-400 text-[18px]">add_circle</span>
+</div>
+<!-- Field Item -->
+<div class="group flex items-center gap-3 p-3 bg-white dark:bg-[#252525] border border-gray-100 dark:border-gray-700 rounded-lg hover:border-primary/50 hover:shadow-md cursor-grab active:cursor-grabbing transition-all">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary">drag_indicator</span>
+<div class="flex-1">
+<p class="text-sm font-medium">Date In / Time In</p>
+<p class="text-xs text-gray-500">Entry timestamp</p>
+</div>
+<span class="material-symbols-outlined text-gray-400 text-[18px]">add_circle</span>
+</div>
+<!-- Field Item -->
+<div class="group flex items-center gap-3 p-3 bg-white dark:bg-[#252525] border border-gray-100 dark:border-gray-700 rounded-lg hover:border-primary/50 hover:shadow-md cursor-grab active:cursor-grabbing transition-all">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary">drag_indicator</span>
+<div class="flex-1">
+<p class="text-sm font-medium">Vehicle Reg</p>
+<p class="text-xs text-gray-500">Plate number</p>
+</div>
+<span class="material-symbols-outlined text-gray-400 text-[18px]">add_circle</span>
+</div>
+<!-- Field Item -->
+<div class="group flex items-center gap-3 p-3 bg-white dark:bg-[#252525] border border-gray-100 dark:border-gray-700 rounded-lg hover:border-primary/50 hover:shadow-md cursor-grab active:cursor-grabbing transition-all">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary">drag_indicator</span>
+<div class="flex-1">
+<p class="text-sm font-medium">Hauler Name</p>
+<p class="text-xs text-gray-500">Company</p>
+</div>
+<span class="material-symbols-outlined text-gray-400 text-[18px]">add_circle</span>
+</div>
+<!-- Field Item -->
+<div class="group flex items-center gap-3 p-3 bg-white dark:bg-[#252525] border border-gray-100 dark:border-gray-700 rounded-lg hover:border-primary/50 hover:shadow-md cursor-grab active:cursor-grabbing transition-all">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary">drag_indicator</span>
+<div class="flex-1">
+<p class="text-sm font-medium">Product</p>
+<p class="text-xs text-gray-500">Material type</p>
+</div>
+<span class="material-symbols-outlined text-gray-400 text-[18px]">add_circle</span>
+</div>
+<!-- Field Item -->
+<div class="group flex items-center gap-3 p-3 bg-white dark:bg-[#252525] border border-gray-100 dark:border-gray-700 rounded-lg hover:border-primary/50 hover:shadow-md cursor-grab active:cursor-grabbing transition-all">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary">drag_indicator</span>
+<div class="flex-1">
+<p class="text-sm font-medium">Gross Weight</p>
+<p class="text-xs text-gray-500">kg/tonnes</p>
+</div>
+<span class="material-symbols-outlined text-gray-400 text-[18px]">add_circle</span>
+</div>
+<!-- Field Item -->
+<div class="group flex items-center gap-3 p-3 bg-white dark:bg-[#252525] border border-gray-100 dark:border-gray-700 rounded-lg hover:border-primary/50 hover:shadow-md cursor-grab active:cursor-grabbing transition-all">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary">drag_indicator</span>
+<div class="flex-1">
+<p class="text-sm font-medium">Tare Weight</p>
+<p class="text-xs text-gray-500">kg/tonnes</p>
+</div>
+<span class="material-symbols-outlined text-gray-400 text-[18px]">add_circle</span>
+</div>
+<!-- Field Item -->
+<div class="group flex items-center gap-3 p-3 bg-white dark:bg-[#252525] border border-gray-100 dark:border-gray-700 rounded-lg hover:border-primary/50 hover:shadow-md cursor-grab active:cursor-grabbing transition-all">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary">drag_indicator</span>
+<div class="flex-1">
+<p class="text-sm font-medium">Net Weight</p>
+<p class="text-xs text-gray-500">Calculated</p>
+</div>
+<span class="material-symbols-outlined text-gray-400 text-[18px]">add_circle</span>
+</div>
+</div>
+<!-- Global Typography Controls -->
+<div class="p-4 bg-gray-50 dark:bg-[#252525] border-t border-[#e5e7eb] dark:border-gray-800">
+<h4 class="text-xs font-semibold text-gray-500 uppercase mb-3">Default Typography</h4>
+<div class="flex flex-col gap-4">
+<div>
+<div class="flex justify-between mb-1">
+<label class="text-sm text-gray-600 dark:text-gray-300">Font Size</label>
+<span class="text-sm font-mono text-primary">10pt</span>
+</div>
+<input class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary" max="12" min="6" type="range" value="10"/>
+<div class="flex justify-between text-[10px] text-gray-400 mt-1">
+<span>6pt</span>
+<span>12pt</span>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 py-1.5 rounded bg-white dark:bg-[#333] border border-gray-200 dark:border-gray-600 text-sm hover:border-primary text-gray-600 dark:text-gray-300">Left</button>
+<button class="flex-1 py-1.5 rounded bg-white dark:bg-[#333] border border-primary text-primary text-sm font-medium">Center</button>
+<button class="flex-1 py-1.5 rounded bg-white dark:bg-[#333] border border-gray-200 dark:border-gray-600 text-sm hover:border-primary text-gray-600 dark:text-gray-300">Right</button>
+</div>
+</div>
+</div>
+</aside>
+<!-- CENTER COLUMN: Canvas Area -->
+<section class="flex-1 bg-[#f0f2f5] dark:bg-[#121212] relative overflow-hidden flex flex-col items-center justify-center bg-grid-pattern">
+<div class="absolute top-4 bg-black/5 dark:bg-white/10 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-gray-500 dark:text-gray-300 z-10">
+                80mm Thermal (Scale 100%)
+            </div>
+<div class="h-full w-full overflow-y-auto flex justify-center py-10">
+<!-- The Receipt Paper -->
+<!-- Width ~302px represents ~80mm at screen dpi typically used for preview -->
+<div class="w-[320px] bg-white shadow-2xl relative shrink-0 flex flex-col min-h-[600px] receipt-zigzag">
+<!-- Paper Texture/Shadow overlay for realism -->
+<div class="absolute inset-0 bg-gradient-to-b from-gray-100/20 to-transparent pointer-events-none"></div>
+<!-- Safe Area Guides (Left/Right) -->
+<div class="absolute inset-y-0 left-[10px] w-px border-l border-dashed border-red-300/50 pointer-events-none"></div>
+<div class="absolute inset-y-0 right-[10px] w-px border-r border-dashed border-red-300/50 pointer-events-none"></div>
+<!-- Content -->
+<div class="p-4 flex flex-col gap-1 text-black font-mono leading-tight">
+<!-- Logo Placeholder -->
+<div class="h-16 w-full border-2 border-dashed border-gray-200 flex items-center justify-center mb-4 group cursor-pointer hover:border-primary/50 bg-gray-50">
+<div class="text-center opacity-40 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-2xl">image</span>
+<p class="text-[10px] uppercase font-bold">Logo Area</p>
+</div>
+</div>
+<!-- Static Header Text -->
+<div class="text-center mb-4 hover:ring-1 ring-primary/30 p-1 rounded cursor-text">
+<h2 class="font-bold text-lg uppercase">ACME Logistics</h2>
+<p class="text-xs">123 Industrial Park Rd</p>
+<p class="text-xs">Springfield, ST 12345</p>
+<p class="text-xs">Tel: (555) 123-4567</p>
+</div>
+<!-- Separator -->
+<div class="border-b border-black my-2 border-dashed"></div>
+<div class="text-center font-bold text-sm mb-2">WEIGHBRIDGE TICKET</div>
+<!-- Dynamic Fields Area -->
+<div class="space-y-1">
+<div class="flex justify-between text-xs hover:bg-primary/10 cursor-pointer p-0.5 rounded group relative">
+<span class="font-bold">Ticket No:</span>
+<span>109283</span>
+<div class="absolute -right-6 top-0 hidden group-hover:flex text-gray-400 hover:text-red-500">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</div>
+</div>
+<div class="flex justify-between text-xs hover:bg-primary/10 cursor-pointer p-0.5 rounded">
+<span class="font-bold">Date:</span>
+<span>2023-10-24 14:30</span>
+</div>
+<div class="flex justify-between text-xs hover:bg-primary/10 cursor-pointer p-0.5 rounded">
+<span class="font-bold">Vehicle:</span>
+<span>AB-123-CD</span>
+</div>
+<div class="flex justify-between text-xs hover:bg-primary/10 cursor-pointer p-0.5 rounded">
+<span class="font-bold">Product:</span>
+<span>Limestone Agg.</span>
+</div>
+<!-- Separator -->
+<div class="border-b border-black my-2 border-dashed"></div>
+<div class="flex justify-between text-xs hover:bg-primary/10 cursor-pointer p-0.5 rounded">
+<span class="font-bold">Gross:</span>
+<span>42,500 kg</span>
+</div>
+<div class="flex justify-between text-xs hover:bg-primary/10 cursor-pointer p-0.5 rounded">
+<span class="font-bold">Tare:</span>
+<span>18,200 kg</span>
+</div>
+<div class="flex justify-between text-sm hover:bg-primary/10 cursor-pointer p-0.5 rounded border border-transparent hover:border-primary/20 bg-primary/5">
+<span class="font-bold">NET:</span>
+<span class="font-bold">24,300 kg</span>
+</div>
+</div>
+<!-- Footer Area -->
+<div class="mt-8 pt-4 border-t border-black border-dashed text-center">
+<p class="text-[10px] italic">Thank you for your business.</p>
+<p class="text-[10px]">Drivers must remain in vehicle.</p>
+<div class="h-10 mt-2 w-full bg-gray-100 flex items-center justify-center">
+<span class="text-[8px] tracking-[4px]">BARCODE</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- RIGHT COLUMN: Settings -->
+<aside class="w-80 bg-white dark:bg-[#1e1e1e] border-l border-[#e5e7eb] dark:border-gray-800 flex flex-col shrink-0 overflow-y-auto">
+<div class="p-4 border-b border-[#e5e7eb] dark:border-gray-800">
+<h3 class="font-bold text-sm uppercase tracking-wider text-gray-500">Template Settings</h3>
+</div>
+<!-- Branding Section -->
+<div class="p-4 border-b border-gray-100 dark:border-gray-800">
+<div class="flex items-center justify-between mb-3">
+<h4 class="font-bold text-sm text-gray-800 dark:text-gray-200">Branding</h4>
+<span class="material-symbols-outlined text-gray-400 text-sm">branding_watermark</span>
+</div>
+<div class="mb-4">
+<label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Logo Image</label>
+<div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 flex flex-col items-center justify-center text-center hover:border-primary cursor-pointer transition-colors bg-gray-50 dark:bg-[#252525]">
+<span class="material-symbols-outlined text-gray-400 text-3xl mb-1">cloud_upload</span>
+<span class="text-xs text-primary font-medium">Click to upload</span>
+<span class="text-[10px] text-gray-400 mt-1">Monochrome .PNG or .BMP</span>
+</div>
+</div>
+<div class="mb-2">
+<label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Logo Alignment</label>
+<div class="flex bg-gray-100 dark:bg-[#2c2c2c] rounded-lg p-1">
+<button class="flex-1 py-1 rounded shadow-sm bg-white dark:bg-[#3d3d3d] text-gray-800 dark:text-gray-200 text-xs font-medium">Left</button>
+<button class="flex-1 py-1 rounded text-gray-500 hover:bg-white/50 dark:hover:bg-white/10 text-xs">Center</button>
+<button class="flex-1 py-1 rounded text-gray-500 hover:bg-white/50 dark:hover:bg-white/10 text-xs">Right</button>
+</div>
+</div>
+</div>
+<!-- Printer Settings -->
+<div class="p-4 border-b border-gray-100 dark:border-gray-800">
+<div class="flex items-center justify-between mb-3">
+<h4 class="font-bold text-sm text-gray-800 dark:text-gray-200">Printer Config</h4>
+<span class="material-symbols-outlined text-gray-400 text-sm">print_connect</span>
+</div>
+<div class="grid grid-cols-2 gap-3 mb-4">
+<div>
+<label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Top Margin (mm)</label>
+<input class="w-full bg-[#f6f7f6] dark:bg-[#2c2c2c] border-gray-200 dark:border-gray-600 rounded px-2 py-1.5 text-sm focus:ring-1 focus:ring-primary focus:border-primary" type="number" value="5"/>
+</div>
+<div>
+<label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Bottom Margin</label>
+<input class="w-full bg-[#f6f7f6] dark:bg-[#2c2c2c] border-gray-200 dark:border-gray-600 rounded px-2 py-1.5 text-sm focus:ring-1 focus:ring-primary focus:border-primary" type="number" value="10"/>
+</div>
+</div>
+<div class="mb-4">
+<label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Cut Mode</label>
+<select class="w-full bg-[#f6f7f6] dark:bg-[#2c2c2c] border-gray-200 dark:border-gray-600 rounded px-2 py-1.5 text-sm focus:ring-1 focus:ring-primary focus:border-primary">
+<option>Full Cut</option>
+<option>Partial Cut</option>
+<option>No Cut</option>
+</select>
+</div>
+<div class="flex items-center justify-between mb-2">
+<label class="text-xs font-medium text-gray-600 dark:text-gray-400">Print Density</label>
+<span class="text-xs font-mono text-primary">Dark</span>
+</div>
+<input class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary mb-4" type="range"/>
+</div>
+<!-- Header/Footer Text -->
+<div class="p-4 flex-1">
+<div class="flex items-center justify-between mb-3">
+<h4 class="font-bold text-sm text-gray-800 dark:text-gray-200">Header &amp; Footer</h4>
+<span class="material-symbols-outlined text-gray-400 text-sm">short_text</span>
+</div>
+<div class="mb-4">
+<label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Footer Message</label>
+<textarea class="w-full bg-[#f6f7f6] dark:bg-[#2c2c2c] border-gray-200 dark:border-gray-600 rounded px-2 py-2 text-sm focus:ring-1 focus:ring-primary focus:border-primary resize-none" rows="3">Thank you for your business.
+Drivers must remain in vehicle.</textarea>
+</div>
+<div class="flex items-center gap-2">
+<input checked="" class="rounded text-primary focus:ring-primary border-gray-300 bg-gray-100 dark:bg-[#2c2c2c] dark:border-gray-600" type="checkbox"/>
+<label class="text-xs text-gray-600 dark:text-gray-300">Show Barcode at Bottom</label>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="p-4 bg-gray-50 dark:bg-[#252525] border-t border-[#e5e7eb] dark:border-gray-800">
+<button class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-[#333] border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary transition-colors mb-2">
+<span class="material-symbols-outlined text-[18px]">print</span>
+                    Test Print
+                </button>
+</div>
+</aside>
+</main>
+</body></html>

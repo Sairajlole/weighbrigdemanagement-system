@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Customer Analytics Report</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-dark": "#3e6f3d",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1e241e",
+                        "text-main": "#121712",
+                        "text-secondary": "#668165",
+                        "border-color": "#d7e0d7",
+                        "border-dark": "#2a332a",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for table if needed */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d7e0d7; 
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #508d4e; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-main dark:text-gray-100 font-display min-h-screen flex flex-col">
+<!-- Main Container -->
+<div class="layout-container flex h-full grow flex-col">
+<!-- Content Wrapper -->
+<div class="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+<!-- Breadcrumbs -->
+<div class="flex flex-wrap gap-2 items-center text-sm">
+<a class="text-text-secondary dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-colors font-medium" href="#">Reports</a>
+<span class="text-text-secondary dark:text-gray-500 font-medium">/</span>
+<a class="text-text-secondary dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-colors font-medium" href="#">Analytics</a>
+<span class="text-text-secondary dark:text-gray-500 font-medium">/</span>
+<span class="text-text-main dark:text-gray-200 font-medium">Customer Analytics Report</span>
+</div>
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex flex-col gap-1">
+<h1 class="text-text-main dark:text-white text-3xl md:text-4xl font-extrabold tracking-tight">Customer Analytics Report</h1>
+<p class="text-text-secondary dark:text-gray-400 text-base">Analyze customer performance, weighbridge trends, and segments.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="group flex items-center justify-center gap-2 rounded-lg h-10 px-4 bg-primary/10 dark:bg-primary/20 hover:bg-primary/20 dark:hover:bg-primary/30 text-primary dark:text-primary font-bold transition-all">
+<span class="material-symbols-outlined text-[20px]">print</span>
+<span class="truncate">Print</span>
+</button>
+<button class="flex items-center justify-center gap-2 rounded-lg h-10 px-6 bg-primary hover:bg-primary-dark text-white shadow-sm font-bold transition-colors">
+<span class="material-symbols-outlined text-[20px]">download</span>
+<span class="truncate">Export Report</span>
+</button>
+</div>
+</div>
+<!-- Filter Bar -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-color dark:border-border-dark p-4 shadow-sm">
+<div class="flex flex-wrap items-end gap-4">
+<!-- Date Filter -->
+<label class="flex flex-col min-w-[200px] flex-1">
+<span class="text-text-main dark:text-gray-300 text-xs font-semibold uppercase tracking-wider mb-1.5 ml-1">Date Range</span>
+<div class="relative">
+<select class="w-full appearance-none rounded-lg border border-border-color dark:border-border-dark bg-background-light dark:bg-background-dark text-text-main dark:text-white py-2.5 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow font-medium">
+<option>Jan 1 - Jan 31, 2024</option>
+<option>Last 30 Days</option>
+<option>This Quarter</option>
+<option>Last Year</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary">calendar_today</span>
+</div>
+</label>
+<!-- Segment Filter -->
+<label class="flex flex-col min-w-[180px] flex-1">
+<span class="text-text-main dark:text-gray-300 text-xs font-semibold uppercase tracking-wider mb-1.5 ml-1">Customer Segment</span>
+<div class="relative">
+<select class="w-full appearance-none rounded-lg border border-border-color dark:border-border-dark bg-background-light dark:bg-background-dark text-text-main dark:text-white py-2.5 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow font-medium">
+<option>All Segments</option>
+<option>Industrial</option>
+<option>Commercial</option>
+<option>Private</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary">expand_more</span>
+</div>
+</label>
+<!-- Material Filter -->
+<label class="flex flex-col min-w-[180px] flex-1">
+<span class="text-text-main dark:text-gray-300 text-xs font-semibold uppercase tracking-wider mb-1.5 ml-1">Material</span>
+<div class="relative">
+<select class="w-full appearance-none rounded-lg border border-border-color dark:border-border-dark bg-background-light dark:bg-background-dark text-text-main dark:text-white py-2.5 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-shadow font-medium">
+<option>All Materials</option>
+<option>Gravel</option>
+<option>Sand</option>
+<option>Concrete</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary">expand_more</span>
+</div>
+</label>
+<!-- Apply Button -->
+<button class="h-[46px] px-6 rounded-lg bg-text-main dark:bg-white text-white dark:text-text-main font-bold hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors">
+                        Apply
+                    </button>
+</div>
+</div>
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Stat Card 1 -->
+<div class="flex flex-col p-5 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-color dark:border-border-dark shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<p class="text-text-secondary dark:text-gray-400 text-sm font-semibold">Total Customers</p>
+<span class="p-1 rounded bg-primary/10 text-primary"><span class="material-symbols-outlined text-[18px]">group</span></span>
+</div>
+<div class="flex items-baseline gap-2 mt-auto">
+<p class="text-3xl font-extrabold text-text-main dark:text-white">156</p>
+<p class="text-primary text-sm font-semibold flex items-center">
+<span class="material-symbols-outlined text-[16px] mr-0.5">trending_up</span>+5%
+                        </p>
+</div>
+</div>
+<!-- Stat Card 2 -->
+<div class="flex flex-col p-5 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-color dark:border-border-dark shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<p class="text-text-secondary dark:text-gray-400 text-sm font-semibold">Active This Period</p>
+<span class="p-1 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400"><span class="material-symbols-outlined text-[18px]">engineering</span></span>
+</div>
+<div class="flex items-baseline gap-2 mt-auto">
+<p class="text-3xl font-extrabold text-text-main dark:text-white">89</p>
+<p class="text-primary text-sm font-semibold flex items-center">
+<span class="material-symbols-outlined text-[16px] mr-0.5">trending_up</span>+12%
+                        </p>
+</div>
+</div>
+<!-- Stat Card 3 -->
+<div class="flex flex-col p-5 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-color dark:border-border-dark shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<p class="text-text-secondary dark:text-gray-400 text-sm font-semibold">New Customers</p>
+<span class="p-1 rounded bg-orange-500/10 text-orange-600 dark:text-orange-400"><span class="material-symbols-outlined text-[18px]">person_add</span></span>
+</div>
+<div class="flex items-baseline gap-2 mt-auto">
+<p class="text-3xl font-extrabold text-text-main dark:text-white">12</p>
+<p class="text-red-500 text-sm font-semibold flex items-center">
+<span class="material-symbols-outlined text-[16px] mr-0.5">trending_down</span>-2%
+                        </p>
+</div>
+</div>
+<!-- Stat Card 4 -->
+<div class="flex flex-col p-5 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-color dark:border-border-dark shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<p class="text-text-secondary dark:text-gray-400 text-sm font-semibold">Returning Rate</p>
+<span class="p-1 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400"><span class="material-symbols-outlined text-[18px]">history</span></span>
+</div>
+<div class="flex items-baseline gap-2 mt-auto">
+<p class="text-3xl font-extrabold text-text-main dark:text-white">78%</p>
+<p class="text-primary text-sm font-semibold flex items-center">
+<span class="material-symbols-outlined text-[16px] mr-0.5">trending_up</span>+4%
+                        </p>
+</div>
+</div>
+</div>
+<!-- Tabs Navigation -->
+<div class="border-b border-border-color dark:border-border-dark overflow-x-auto">
+<nav aria-label="Tabs" class="flex space-x-8">
+<a class="border-b-[3px] border-primary text-primary whitespace-nowrap py-4 px-1 text-sm font-bold" href="#">
+                        Overview
+                    </a>
+<a class="border-b-[3px] border-transparent text-text-secondary dark:text-gray-400 hover:text-text-main dark:hover:text-gray-200 hover:border-gray-300 whitespace-nowrap py-4 px-1 text-sm font-medium transition-colors" href="#">
+                        Top Customers
+                    </a>
+<a class="border-b-[3px] border-transparent text-text-secondary dark:text-gray-400 hover:text-text-main dark:hover:text-gray-200 hover:border-gray-300 whitespace-nowrap py-4 px-1 text-sm font-medium transition-colors" href="#">
+                        Activity Analysis
+                    </a>
+<a class="border-b-[3px] border-transparent text-text-secondary dark:text-gray-400 hover:text-text-main dark:hover:text-gray-200 hover:border-gray-300 whitespace-nowrap py-4 px-1 text-sm font-medium transition-colors" href="#">
+                        Customer List
+                    </a>
+</nav>
+</div>
+<!-- Dashboard Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Left Column (Analytics) -->
+<div class="lg:col-span-2 flex flex-col gap-6">
+<!-- Line Chart Section -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-color dark:border-border-dark p-6 shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-lg font-bold text-text-main dark:text-white">Customer Activity Over Time</h3>
+<div class="flex items-center gap-2">
+<span class="h-3 w-3 rounded-full bg-primary"></span>
+<span class="text-xs text-text-secondary dark:text-gray-400">Total Weight (Tons)</span>
+</div>
+</div>
+<!-- Simple CSS/SVG Chart Representation -->
+<div class="relative h-64 w-full">
+<!-- Grid Lines -->
+<div class="absolute inset-0 flex flex-col justify-between text-xs text-text-secondary dark:text-gray-500">
+<div class="border-b border-dashed border-gray-200 dark:border-gray-800 w-full h-0"></div>
+<div class="border-b border-dashed border-gray-200 dark:border-gray-800 w-full h-0"></div>
+<div class="border-b border-dashed border-gray-200 dark:border-gray-800 w-full h-0"></div>
+<div class="border-b border-dashed border-gray-200 dark:border-gray-800 w-full h-0"></div>
+<div class="border-b border-gray-200 dark:border-gray-800 w-full h-0"></div>
+</div>
+<!-- Chart Line (Simulated with SVG) -->
+<svg class="absolute inset-0 h-full w-full" preserveaspectratio="none">
+<defs>
+<lineargradient id="gradientOpacity" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#508d4e" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="#508d4e" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<path d="M0 200 C 50 200, 100 150, 150 160 C 200 170, 250 100, 300 120 C 350 140, 400 80, 450 60 C 500 40, 550 90, 600 80 C 650 70, 700 30, 800 50 L 800 256 L 0 256 Z" fill="url(#gradientOpacity)" stroke="none"></path>
+<path d="M0 200 C 50 200, 100 150, 150 160 C 200 170, 250 100, 300 120 C 350 140, 400 80, 450 60 C 500 40, 550 90, 600 80 C 650 70, 700 30, 800 50" fill="none" stroke="#508d4e" stroke-linecap="round" stroke-width="3"></path>
+</svg>
+<!-- Tooltip Simulation -->
+<div class="absolute top-[20%] left-[55%] bg-text-main dark:bg-white text-white dark:text-text-main text-xs font-bold px-2 py-1 rounded transform -translate-x-1/2 shadow-lg z-10">
+                                480 Tons
+                                <div class="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-text-main dark:bg-white rotate-45"></div>
+</div>
+<div class="absolute top-[28%] left-[55%] w-3 h-3 bg-white border-2 border-primary rounded-full transform -translate-x-1/2 -translate-y-1/2 z-10 shadow-sm"></div>
+</div>
+<div class="flex justify-between mt-4 text-xs text-text-secondary dark:text-gray-500 px-2">
+<span>Jan 1</span>
+<span>Jan 7</span>
+<span>Jan 14</span>
+<span>Jan 21</span>
+<span>Jan 28</span>
+</div>
+</div>
+<!-- Donut Chart & Segments -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-color dark:border-border-dark p-6 shadow-sm flex flex-col justify-center items-center">
+<h3 class="text-lg font-bold text-text-main dark:text-white w-full text-left mb-4">Customer Segments</h3>
+<div class="relative w-48 h-48">
+<!-- CSS Conic Gradient Donut -->
+<div class="w-full h-full rounded-full" style="background: conic-gradient(#508d4e 0% 45%, #8abf88 45% 75%, #d7e0d7 75% 100%);"></div>
+<div class="absolute inset-0 m-auto w-32 h-32 bg-surface-light dark:bg-surface-dark rounded-full flex flex-col items-center justify-center">
+<span class="text-xs text-text-secondary dark:text-gray-400 font-medium">Total</span>
+<span class="text-2xl font-extrabold text-text-main dark:text-white">100%</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-color dark:border-border-dark p-6 shadow-sm flex flex-col justify-center">
+<h3 class="text-lg font-bold text-text-main dark:text-white mb-4">Segment Breakdown</h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-primary"></div>
+<span class="text-sm font-medium text-text-main dark:text-white">Industrial</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-sm font-bold text-text-main dark:text-white">45%</span>
+<span class="text-xs text-text-secondary dark:text-gray-500">70 Customers</span>
+</div>
+</div>
+<div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5">
+<div class="bg-primary h-1.5 rounded-full" style="width: 45%"></div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-[#8abf88]"></div>
+<span class="text-sm font-medium text-text-main dark:text-white">Commercial</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-sm font-bold text-text-main dark:text-white">30%</span>
+<span class="text-xs text-text-secondary dark:text-gray-500">47 Customers</span>
+</div>
+</div>
+<div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5">
+<div class="bg-[#8abf88] h-1.5 rounded-full" style="width: 30%"></div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-[#d7e0d7]"></div>
+<span class="text-sm font-medium text-text-main dark:text-white">Private</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-sm font-bold text-text-main dark:text-white">25%</span>
+<span class="text-xs text-text-secondary dark:text-gray-500">39 Customers</span>
+</div>
+</div>
+<div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5">
+<div class="bg-[#d7e0d7] h-1.5 rounded-full" style="width: 25%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column (Top Customers) -->
+<div class="flex flex-col gap-6">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-color dark:border-border-dark p-0 shadow-sm overflow-hidden h-full">
+<div class="p-5 border-b border-border-color dark:border-border-dark flex justify-between items-center">
+<h3 class="text-lg font-bold text-text-main dark:text-white">Top Customers</h3>
+<a class="text-primary text-sm font-bold hover:underline" href="#">View All</a>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-sm text-left">
+<thead class="text-xs text-text-secondary dark:text-gray-400 uppercase bg-background-light dark:bg-background-dark">
+<tr>
+<th class="px-5 py-3 font-semibold" scope="col">Customer</th>
+<th class="px-5 py-3 font-semibold text-right" scope="col">Weight</th>
+<th class="px-5 py-3 font-semibold text-right" scope="col">Trips</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-color dark:divide-border-dark">
+<tr class="bg-white dark:bg-surface-dark hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<td class="px-5 py-4 font-medium text-text-main dark:text-white">
+                                            Atlas Construction
+                                            <div class="text-xs text-text-secondary font-normal mt-0.5">Industrial</div>
+</td>
+<td class="px-5 py-4 text-right font-bold text-text-main dark:text-white">1,240t</td>
+<td class="px-5 py-4 text-right text-text-secondary dark:text-gray-400">42</td>
+</tr>
+<tr class="bg-white dark:bg-surface-dark hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<td class="px-5 py-4 font-medium text-text-main dark:text-white">
+                                            Green Valley Farms
+                                            <div class="text-xs text-text-secondary font-normal mt-0.5">Commercial</div>
+</td>
+<td class="px-5 py-4 text-right font-bold text-text-main dark:text-white">980t</td>
+<td class="px-5 py-4 text-right text-text-secondary dark:text-gray-400">35</td>
+</tr>
+<tr class="bg-white dark:bg-surface-dark hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<td class="px-5 py-4 font-medium text-text-main dark:text-white">
+                                            City Logistics
+                                            <div class="text-xs text-text-secondary font-normal mt-0.5">Commercial</div>
+</td>
+<td class="px-5 py-4 text-right font-bold text-text-main dark:text-white">850t</td>
+<td class="px-5 py-4 text-right text-text-secondary dark:text-gray-400">28</td>
+</tr>
+<tr class="bg-white dark:bg-surface-dark hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<td class="px-5 py-4 font-medium text-text-main dark:text-white">
+                                            Metro Builders
+                                            <div class="text-xs text-text-secondary font-normal mt-0.5">Industrial</div>
+</td>
+<td class="px-5 py-4 text-right font-bold text-text-main dark:text-white">720t</td>
+<td class="px-5 py-4 text-right text-text-secondary dark:text-gray-400">19</td>
+</tr>
+<tr class="bg-white dark:bg-surface-dark hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<td class="px-5 py-4 font-medium text-text-main dark:text-white">
+                                            Roadworks Inc.
+                                            <div class="text-xs text-text-secondary font-normal mt-0.5">Industrial</div>
+</td>
+<td class="px-5 py-4 text-right font-bold text-text-main dark:text-white">650t</td>
+<td class="px-5 py-4 text-right text-text-secondary dark:text-gray-400">15</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Quick Action Card -->
+<div class="bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 p-5 flex flex-col gap-3">
+<h4 class="font-bold text-primary dark:text-primary-dark">Need a detailed breakdown?</h4>
+<p class="text-sm text-text-secondary dark:text-gray-400">Download the full CSV report to analyze individual transaction logs for all customers.</p>
+<button class="mt-2 w-full py-2.5 bg-white dark:bg-surface-dark text-primary font-bold border border-primary/20 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm">
+                            Download CSV
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

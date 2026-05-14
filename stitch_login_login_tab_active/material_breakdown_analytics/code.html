@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Material Breakdown Analytics - WMS</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "primary-dark": "#15bd0f",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1A2C19",
+                        "text-main": "#0e1b0d",
+                        "text-muted": "#4e9a4c",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom Utilities for Charts */
+        .conic-chart {
+            background: conic-gradient(
+                #1aec13 0% 45%, 
+                #4e9a4c 45% 70%, 
+                #112210 70% 85%, 
+                #dcfce7 85% 100%
+            );
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-text-main dark:text-gray-100 antialiased overflow-hidden">
+<div class="flex h-screen w-full overflow-hidden">
+<!-- SideNavBar -->
+<aside class="w-64 flex-shrink-0 flex flex-col border-r border-gray-200 dark:border-gray-800 bg-surface-light dark:bg-surface-dark transition-colors duration-300 hidden md:flex">
+<div class="flex h-full flex-col justify-between p-4">
+<div class="flex flex-col gap-6">
+<!-- Brand -->
+<div class="flex gap-3 items-center px-2">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 bg-gray-200" data-alt="Abstract green logo for WMS" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCWAGXm6R8YKLs4AVeRhCzH8bnxzG1a28JbxC9GATAuIijsLWh0CxnTn_bjSAa31sHGOx95nT_jz1stxbxjJzV_xS1dPYzK--fjdaqaBRYmgWzn0GdMiDsiZVw62Eps51zxt7q0A6o6iutnwauNKXUuxPiNiGmSkMASQIPVrBwczQ8phGx44fcoUmNLE4B0zfAwvE3qYHlWA2QsW3p5sM6fcIYV3DqJAwZmUySAVFQrrbSwX8VdMplKzZvrfH4skFhJ0IQncsKHGHk");'></div>
+<div class="flex flex-col">
+<h1 class="text-text-main dark:text-white text-base font-bold leading-normal">WMS</h1>
+<p class="text-text-muted text-xs font-normal leading-normal">Management System</p>
+</div>
+</div>
+<!-- Nav Items -->
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 dark:text-gray-400 group-hover:text-primary transition-colors">dashboard</span>
+<p class="text-text-main dark:text-gray-200 text-sm font-medium">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 dark:text-gray-400 group-hover:text-primary transition-colors">scale</span>
+<p class="text-text-main dark:text-gray-200 text-sm font-medium">Weighbridge</p>
+</a>
+<!-- Active Item -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/20 dark:bg-primary/10 border-l-4 border-primary" href="#">
+<span class="material-symbols-outlined text-primary-dark dark:text-primary">description</span>
+<p class="text-text-main dark:text-white text-sm font-bold">Reports</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 dark:text-gray-400 group-hover:text-primary transition-colors">group</span>
+<p class="text-text-main dark:text-gray-200 text-sm font-medium">Users</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 dark:text-gray-400 group-hover:text-primary transition-colors">settings</span>
+<p class="text-text-main dark:text-gray-200 text-sm font-medium">Settings</p>
+</a>
+</nav>
+</div>
+<!-- User Profile (Bottom) -->
+<div class="flex items-center gap-3 px-3 py-3 mt-auto border-t border-gray-100 dark:border-gray-800">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-8 bg-gray-300" data-alt="Profile picture of logged in user" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC92fQbkXT-HUPeXbyCyY11FHcMdTgjuccp44JnI4iT7-kpPD9YcIfXj1icMAlwOqJfo229LjfE7x1rq72WDs_2DzXvXx7oYpF1enXuu6CvcXYlK8hHHXg_dwaAQ_WZ6LZT2RjRuSVTNL1z9K0KEgLG6NQ3yqlrsi0UFSYxGtmbbXR8___AvZoiAhmrAYxVrUYiTtKiepb5kpWKCpWW2KjGKFMg4hLE1GCPRyt3sacL6dtnq5SeUt5VIVvXMvuekSL_RaPybYA74dA");'></div>
+<div class="flex flex-col">
+<p class="text-text-main dark:text-white text-sm font-bold">Alex Morgan</p>
+<p class="text-text-muted text-xs">Facility Manager</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col h-full overflow-hidden relative">
+<!-- TopNavBar -->
+<header class="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-surface-light dark:bg-surface-dark px-6 py-4 flex-shrink-0 z-20">
+<div class="flex items-center gap-4 text-text-main dark:text-white">
+<!-- Mobile Menu Button (Hidden on Desktop) -->
+<button class="md:hidden p-1 text-gray-500">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h2 class="text-lg font-bold leading-tight tracking-tight">Material Reports</h2>
+</div>
+<div class="flex items-center gap-4">
+<!-- Search -->
+<div class="hidden md:flex items-center bg-background-light dark:bg-background-dark rounded-lg px-3 py-2 h-10 w-64 border border-transparent focus-within:border-primary/50 transition-colors">
+<span class="material-symbols-outlined text-text-muted text-xl">search</span>
+<input class="bg-transparent border-none text-sm text-text-main dark:text-white placeholder-text-muted focus:ring-0 w-full ml-2" placeholder="Search report..." type="text"/>
+</div>
+<!-- Actions -->
+<div class="flex gap-2">
+<button class="flex items-center justify-center size-10 rounded-lg bg-background-light dark:bg-background-dark text-text-main dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors relative">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-2.5 right-2.5 size-2 bg-red-500 rounded-full border border-white dark:border-surface-dark"></span>
+</button>
+<button class="flex items-center justify-center size-10 rounded-lg bg-background-light dark:bg-background-dark text-text-main dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto scrollbar-hide bg-background-light dark:bg-background-dark p-6">
+<div class="max-w-7xl mx-auto flex flex-col gap-8">
+<!-- Breadcrumbs & Heading -->
+<div class="flex flex-col gap-4">
+<nav class="flex items-center text-sm font-medium text-text-muted">
+<a class="hover:text-primary transition-colors" href="#">Home</a>
+<span class="mx-2">/</span>
+<a class="hover:text-primary transition-colors" href="#">Reports</a>
+<span class="mx-2">/</span>
+<span class="text-text-main dark:text-white">Material Analytics</span>
+</nav>
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h1 class="text-3xl md:text-4xl font-black text-text-main dark:text-white tracking-tight">Material Breakdown Analytics</h1>
+<p class="text-text-muted mt-2 text-base">Detailed insights into material flow, weight statistics, and trends.</p>
+</div>
+<!-- Filter Bar -->
+<div class="flex flex-wrap gap-3 items-end bg-surface-light dark:bg-surface-dark p-2 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
+<div class="flex flex-col px-2">
+<label class="text-xs font-semibold text-text-muted mb-1 uppercase tracking-wider">Date Range</label>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-400 text-lg">calendar_today</span>
+<input class="bg-transparent border-none p-0 text-sm font-bold text-text-main dark:text-white focus:ring-0 w-32 cursor-pointer" type="text" value="Oct 10 - Nov 10"/>
+</div>
+</div>
+<div class="w-px h-10 bg-gray-200 dark:bg-gray-700 mx-1"></div>
+<div class="flex flex-col px-2">
+<label class="text-xs font-semibold text-text-muted mb-1 uppercase tracking-wider">Material Type</label>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-400 text-lg">category</span>
+<select class="bg-transparent border-none p-0 text-sm font-bold text-text-main dark:text-white focus:ring-0 w-32 cursor-pointer">
+<option>All Materials</option>
+<option>Limestone</option>
+<option>Iron Ore</option>
+</select>
+</div>
+</div>
+<button class="bg-primary hover:bg-primary-dark text-black font-bold h-10 px-4 rounded-lg text-sm ml-2 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">filter_alt</span>
+                                Filter
+                            </button>
+</div>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Card 1 -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+<div class="flex justify-between items-start mb-4">
+<p class="text-text-muted font-medium text-sm">Materials Tracked</p>
+<div class="p-2 bg-background-light dark:bg-background-dark rounded-lg text-text-main dark:text-white group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined">dataset</span>
+</div>
+</div>
+<h3 class="text-3xl font-bold text-text-main dark:text-white">5</h3>
+<p class="text-xs text-text-muted mt-1">Active categories</p>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+<div class="flex justify-between items-start mb-4">
+<p class="text-text-muted font-medium text-sm">Total Weight</p>
+<div class="p-2 bg-background-light dark:bg-background-dark rounded-lg text-text-main dark:text-white group-hover:text-blue-500 transition-colors">
+<span class="material-symbols-outlined">weight</span>
+</div>
+</div>
+<h3 class="text-3xl font-bold text-text-main dark:text-white">4,567 <span class="text-lg font-medium text-gray-400">T</span></h3>
+<p class="text-xs text-green-600 font-bold mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">trending_up</span> +12% vs last month
+                        </p>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1 h-full bg-orange-400"></div>
+<div class="flex justify-between items-start mb-4">
+<p class="text-text-muted font-medium text-sm">Most Popular</p>
+<div class="p-2 bg-background-light dark:bg-background-dark rounded-lg text-text-main dark:text-white group-hover:text-orange-400 transition-colors">
+<span class="material-symbols-outlined">star</span>
+</div>
+</div>
+<h3 class="text-3xl font-bold text-text-main dark:text-white truncate" title="Limestone">Limestone</h3>
+<p class="text-xs text-text-muted mt-1">32% of total loads</p>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
+<div class="flex justify-between items-start mb-4">
+<p class="text-text-muted font-medium text-sm">Heaviest Load</p>
+<div class="p-2 bg-background-light dark:bg-background-dark rounded-lg text-text-main dark:text-white group-hover:text-purple-500 transition-colors">
+<span class="material-symbols-outlined">local_shipping</span>
+</div>
+</div>
+<h3 class="text-3xl font-bold text-text-main dark:text-white truncate" title="Iron Ore">Iron Ore</h3>
+<p class="text-xs text-text-muted mt-1">Avg 32T per truck</p>
+</div>
+</div>
+<!-- Charts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-96">
+<!-- Donut Chart -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-bold text-text-main dark:text-white text-lg">Distribution by Weight</h3>
+<button class="text-gray-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">more_horiz</span></button>
+</div>
+<div class="flex flex-1 items-center justify-center gap-8">
+<!-- CSS Only Donut Chart -->
+<div class="relative size-48 rounded-full conic-chart shadow-inner flex items-center justify-center">
+<div class="size-32 bg-surface-light dark:bg-surface-dark rounded-full flex flex-col items-center justify-center">
+<span class="text-3xl font-bold text-text-main dark:text-white">4.5k</span>
+<span class="text-xs text-text-muted uppercase font-bold">Total Tons</span>
+</div>
+</div>
+<!-- Legend -->
+<div class="flex flex-col gap-3 justify-center">
+<div class="flex items-center gap-2">
+<span class="size-3 rounded-full bg-primary"></span>
+<span class="text-sm text-text-main dark:text-gray-300">Limestone (45%)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="size-3 rounded-full bg-[#4e9a4c]"></span>
+<span class="text-sm text-text-main dark:text-gray-300">Iron Ore (25%)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="size-3 rounded-full bg-[#112210]"></span>
+<span class="text-sm text-text-main dark:text-gray-300">Coal (15%)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="size-3 rounded-full bg-[#dcfce7]"></span>
+<span class="text-sm text-text-main dark:text-gray-300">Others (15%)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Line Chart -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 lg:col-span-2 flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-bold text-text-main dark:text-white text-lg">Material Trends Over Time</h3>
+<div class="flex gap-2">
+<span class="flex items-center gap-1 text-xs font-medium text-text-muted"><span class="size-2 rounded-full bg-primary"></span> Limestone</span>
+<span class="flex items-center gap-1 text-xs font-medium text-text-muted"><span class="size-2 rounded-full bg-gray-300"></span> Iron Ore</span>
+</div>
+</div>
+<div class="flex-1 w-full h-full relative px-2 pb-6">
+<!-- Y-Axis Labels -->
+<div class="absolute left-0 top-0 bottom-6 w-8 flex flex-col justify-between text-xs text-gray-400 font-medium text-right pr-2">
+<span>100T</span>
+<span>75T</span>
+<span>50T</span>
+<span>25T</span>
+<span>0T</span>
+</div>
+<!-- Chart Area -->
+<div class="ml-10 h-full border-l border-b border-gray-200 dark:border-gray-700 relative">
+<!-- Grid Lines -->
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none">
+<div class="border-t border-gray-100 dark:border-gray-800 w-full h-0"></div>
+<div class="border-t border-gray-100 dark:border-gray-800 w-full h-0"></div>
+<div class="border-t border-gray-100 dark:border-gray-800 w-full h-0"></div>
+<div class="border-t border-gray-100 dark:border-gray-800 w-full h-0"></div>
+<div class="w-full h-0"></div> <!-- Bottom line is handled by border-b container -->
+</div>
+<!-- Line 1 (Green/Primary) -->
+<svg class="absolute inset-0 w-full h-full overflow-visible" preserveaspectratio="none">
+<path class="drop-shadow-md" d="M0,80 Q50,40 100,60 T200,30 T300,50 T400,20 T500,40 T600,10" fill="none" stroke="#1aec13" stroke-width="3" vector-effect="non-scaling-stroke"></path>
+<!-- Points -->
+<circle class="fill-surface-light dark:fill-surface-dark stroke-primary stroke-2" cx="0%" cy="80" r="4"></circle>
+<circle class="fill-surface-light dark:fill-surface-dark stroke-primary stroke-2" cx="20%" cy="60" r="4"></circle>
+<circle class="fill-surface-light dark:fill-surface-dark stroke-primary stroke-2" cx="40%" cy="30" r="4"></circle>
+<circle class="fill-surface-light dark:fill-surface-dark stroke-primary stroke-2" cx="60%" cy="50" r="4"></circle>
+<circle class="fill-surface-light dark:fill-surface-dark stroke-primary stroke-2" cx="80%" cy="20" r="4"></circle>
+<circle class="fill-surface-light dark:fill-surface-dark stroke-primary stroke-2" cx="100%" cy="10" r="4"></circle>
+</svg>
+<!-- Line 2 (Gray/Secondary) -->
+<svg class="absolute inset-0 w-full h-full overflow-visible" preserveaspectratio="none">
+<path d="M0,90 Q70,80 140,85 T280,70 T420,75 T560,60" fill="none" stroke="#cbd5e1" stroke-dasharray="5,5" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+</svg>
+</div>
+<!-- X-Axis Labels -->
+<div class="ml-10 mt-2 flex justify-between text-xs text-gray-400 font-medium px-2">
+<span>Oct 10</span>
+<span>Oct 15</span>
+<span>Oct 20</span>
+<span>Oct 25</span>
+<span>Oct 30</span>
+<span>Nov 05</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Table Section -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-10">
+<div class="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+<h3 class="font-bold text-text-main dark:text-white text-lg">Detailed Breakdown</h3>
+<button class="text-primary hover:text-primary-dark font-medium text-sm flex items-center gap-1 transition-colors">
+                            Export Report <span class="material-symbols-outlined text-lg">download</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-gray-50/50 dark:bg-gray-800/50 text-text-muted text-xs uppercase tracking-wider font-semibold">
+<th class="px-6 py-4">Material Name</th>
+<th class="px-6 py-4 text-right">Total Weight (T)</th>
+<th class="px-6 py-4 text-right">Truck Count</th>
+<th class="px-6 py-4 text-right">Avg Weight / Load</th>
+<th class="px-6 py-4 text-right">Trend (MoM)</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+<!-- Row 1 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded bg-primary/20 flex items-center justify-center text-primary-dark dark:text-primary font-bold text-xs">Li</div>
+<span class="text-text-main dark:text-white font-semibold">Limestone</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">1,200</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">45</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">26.6 T</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1 text-green-600 dark:text-primary bg-green-50 dark:bg-primary/10 px-2 py-1 rounded text-xs font-bold">
+<span class="material-symbols-outlined text-sm">arrow_upward</span> 12%
+                                        </span>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold text-xs">Ir</div>
+<span class="text-text-main dark:text-white font-semibold">Iron Ore</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">1,800</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">60</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">30.0 T</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1 text-green-600 dark:text-primary bg-green-50 dark:bg-primary/10 px-2 py-1 rounded text-xs font-bold">
+<span class="material-symbols-outlined text-sm">arrow_upward</span> 5%
+                                        </span>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold text-xs">Co</div>
+<span class="text-text-main dark:text-white font-semibold">Coal</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">900</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">35</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">25.7 T</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1 text-red-500 bg-red-50 dark:bg-red-500/10 px-2 py-1 rounded text-xs font-bold">
+<span class="material-symbols-outlined text-sm">arrow_downward</span> 2%
+                                        </span>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold text-xs">Sa</div>
+<span class="text-text-main dark:text-white font-semibold">Sand</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">400</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">20</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">20.0 T</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1 text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-bold">
+<span class="material-symbols-outlined text-sm">remove</span> 0%
+                                        </span>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold text-xs">Cl</div>
+<span class="text-text-main dark:text-white font-semibold">Clay</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">267</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">15</td>
+<td class="px-6 py-4 text-right font-medium text-text-main dark:text-gray-200">17.8 T</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1 text-red-500 bg-red-50 dark:bg-red-500/10 px-2 py-1 rounded text-xs font-bold">
+<span class="material-symbols-outlined text-sm">arrow_downward</span> 8%
+                                        </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="p-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center">
+<p class="text-xs text-text-muted">Showing 5 of 13 materials</p>
+<div class="flex gap-2">
+<button class="size-8 flex items-center justify-center rounded border border-gray-200 dark:border-gray-700 text-text-main dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50">
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+</button>
+<button class="size-8 flex items-center justify-center rounded border border-gray-200 dark:border-gray-700 text-text-main dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700">
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

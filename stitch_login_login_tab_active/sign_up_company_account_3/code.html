@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Admin Control Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-hover": "#3f6f3d",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "accent-bg": "#D6EFD8",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
+    </style>
+</head>
+<body class="font-display bg-background-light min-h-screen flex flex-col text-gray-800">
+<nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="flex justify-between h-16">
+<div class="flex items-center gap-3">
+<div class="flex h-8 w-8 items-center justify-center rounded bg-primary text-white">
+<span class="material-symbols-outlined text-[20px]">scale</span>
+</div>
+<span class="text-lg font-bold tracking-tight text-gray-900">Weighbridge<span class="text-primary">Sys</span></span>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100 transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500 border border-white"></span>
+</button>
+<div class="h-6 w-px bg-gray-200"></div>
+<div class="flex items-center gap-3">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-bold text-gray-900 leading-none">Admin User</p>
+<p class="text-xs text-gray-500 mt-1 leading-none">Company Administrator</p>
+</div>
+<div class="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold">
+                             A
+                        </div>
+</div>
+</div>
+</div>
+</div>
+</nav>
+<main class="flex-1 py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+<div class="mb-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+<div>
+<h1 class="text-[32px] font-bold text-gray-900 leading-tight">Admin Panel</h1>
+<p class="text-gray-600 mt-2 text-base">High-level management hub for the Company admin.</p>
+</div>
+<div class="text-sm text-gray-500 bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-100 flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-green-500"></span>
+                System Operational
+            </div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+<div class="group bg-white rounded-xl shadow-sm border border-gray-200 p-8 flex flex-col gap-6 hover:shadow-lg hover:border-primary/30 transition-all duration-300 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-[100px] text-primary">manage_accounts</span>
+</div>
+<div class="flex items-start justify-between z-10">
+<div class="h-14 w-14 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
+<span class="material-symbols-outlined text-[32px]">manage_accounts</span>
+</div>
+</div>
+<div class="z-10">
+<h3 class="text-xl font-bold text-gray-900 mb-2">User Management</h3>
+<p class="text-gray-500 leading-relaxed text-sm">Manage operators, update user profiles, and configure system permissions for your staff.</p>
+</div>
+<button class="z-10 mt-auto w-full py-3 rounded-lg border border-gray-200 bg-white font-bold text-gray-700 hover:border-primary hover:bg-primary hover:text-white transition-all duration-200 flex items-center justify-center gap-2">
+                    Open
+                    <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+<div class="group bg-white rounded-xl shadow-sm border border-gray-200 p-8 flex flex-col gap-6 hover:shadow-lg hover:border-primary/30 transition-all duration-300 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-[100px] text-amber-600">badge</span>
+</div>
+<div class="flex items-start justify-between z-10">
+<div class="h-14 w-14 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors duration-300 relative">
+<span class="material-symbols-outlined text-[32px]">badge</span>
+</div>
+<span class="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-200 flex items-center gap-1">
+<span class="h-1.5 w-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+                        Action Required
+                     </span>
+</div>
+<div class="z-10">
+<h3 class="text-xl font-bold text-gray-900 mb-2">Operator Requests</h3>
+<p class="text-gray-500 leading-relaxed text-sm">Review and approve/reject operator linkages and handle pending badge requests.</p>
+</div>
+<button class="z-10 mt-auto w-full py-3 rounded-lg border border-gray-200 bg-white font-bold text-gray-700 hover:border-primary hover:bg-primary hover:text-white transition-all duration-200 flex items-center justify-center gap-2">
+                    Open
+                    <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+<div class="group bg-white rounded-xl shadow-sm border border-gray-200 p-8 flex flex-col gap-6 hover:shadow-lg hover:border-primary/30 transition-all duration-300 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-[100px] text-purple-600">visibility</span>
+</div>
+<div class="flex items-start justify-between z-10">
+<div class="h-14 w-14 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors duration-300">
+<span class="material-symbols-outlined text-[32px]">visibility</span>
+</div>
+</div>
+<div class="z-10">
+<h3 class="text-xl font-bold text-gray-900 mb-2">Audit Log</h3>
+<p class="text-gray-500 leading-relaxed text-sm">View detailed system activity logs, security events, and historical transaction data.</p>
+</div>
+<button class="z-10 mt-auto w-full py-3 rounded-lg border border-gray-200 bg-white font-bold text-gray-700 hover:border-primary hover:bg-primary hover:text-white transition-all duration-200 flex items-center justify-center gap-2">
+                    Open
+                    <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+<div class="group bg-white rounded-xl shadow-sm border border-gray-200 p-8 flex flex-col gap-6 hover:shadow-lg hover:border-primary/30 transition-all duration-300 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-[100px] text-emerald-600">cloud_download</span>
+</div>
+<div class="flex items-start justify-between z-10">
+<div class="h-14 w-14 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors duration-300">
+<span class="material-symbols-outlined text-[32px]">cloud_download</span>
+</div>
+</div>
+<div class="z-10">
+<h3 class="text-xl font-bold text-gray-900 mb-2">Backup &amp; Export</h3>
+<p class="text-gray-500 leading-relaxed text-sm">Create manual database backups, configure schedules, and export system data.</p>
+</div>
+<button class="z-10 mt-auto w-full py-3 rounded-lg border border-gray-200 bg-white font-bold text-gray-700 hover:border-primary hover:bg-primary hover:text-white transition-all duration-200 flex items-center justify-center gap-2">
+                    Open
+                    <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</main>
+
+</body></html>

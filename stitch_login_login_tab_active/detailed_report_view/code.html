@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WeighSys - Detailed Report View</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;family=Noto+Sans:wght@300..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1a3318",
+                        "text-main-light": "#0e1b0d",
+                        "text-main-dark": "#e8f5e8",
+                        "text-secondary-light": "#4e9a4c",
+                        "text-secondary-dark": "#8bc489",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for table */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: #9ca3af;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-main-light dark:text-text-main-dark font-display antialiased overflow-x-hidden transition-colors duration-200">
+<div class="flex h-screen w-full overflow-hidden">
+<!-- Sidebar Navigation -->
+<aside class="hidden lg:flex w-72 flex-col bg-surface-light dark:bg-surface-dark border-r border-gray-200 dark:border-gray-800 transition-colors duration-200">
+<div class="p-6 flex items-center gap-3">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-10 w-10 shadow-sm relative" data-alt="WeighSys Logo Abstract" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB9XrjZeWbNK6tw_amtX2Bf4gV_qLkw7QaAihTOs92BRXU4IlTv8YRk7gPo_GkdN5c_lMzIR2lHL9gHVRuk7qJVzePLmBgA7IbYG1uAMm8YEg7dZCa1PpZC_uL1n4Zv0Z0KKAKDQhH64jA4M62sYormcpRKCSlyyQpv5CGAUPWTh3LX2M_ucJWtM1_CGgkMKh_VksbYQDJEoCJ_vVxVPh0xb1gSOAydKyyk7ij1cbL7l-PU0u1PvsuLrrzYl0ACpTURzhWmNrcxu6I");'>
+<div class="absolute inset-0 bg-primary/20 rounded-full"></div>
+</div>
+<div class="flex flex-col">
+<h1 class="text-text-main-light dark:text-white text-lg font-bold leading-tight">WeighSys</h1>
+<p class="text-text-secondary-light dark:text-text-secondary-dark text-xs font-medium">Enterprise Management</p>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-2 py-4">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 group transition-colors" href="#">
+<span class="material-symbols-outlined text-gray-500 dark:text-gray-400 group-hover:text-primary transition-colors">dashboard</span>
+<span class="text-sm font-medium text-gray-700 dark:text-gray-200">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 group transition-colors" href="#">
+<span class="material-symbols-outlined text-gray-500 dark:text-gray-400 group-hover:text-primary transition-colors">balance</span>
+<span class="text-sm font-medium text-gray-700 dark:text-gray-200">Weighbridge</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary/10 dark:bg-primary/20 text-primary border-l-4 border-primary" href="#">
+<span class="material-symbols-outlined fill-1">analytics</span>
+<span class="text-sm font-bold">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 group transition-colors" href="#">
+<span class="material-symbols-outlined text-gray-500 dark:text-gray-400 group-hover:text-primary transition-colors">local_shipping</span>
+<span class="text-sm font-medium text-gray-700 dark:text-gray-200">Trucks</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 group transition-colors" href="#">
+<span class="material-symbols-outlined text-gray-500 dark:text-gray-400 group-hover:text-primary transition-colors">settings</span>
+<span class="text-sm font-medium text-gray-700 dark:text-gray-200">Settings</span>
+</a>
+</nav>
+<div class="p-4 border-t border-gray-200 dark:border-gray-800">
+<div class="flex items-center gap-3 p-2 rounded-lg bg-gray-50 dark:bg-white/5">
+<div class="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300">JD</div>
+<div class="flex flex-col">
+<p class="text-xs font-bold text-text-main-light dark:text-white">John Doe</p>
+<p class="text-[10px] text-text-secondary-light dark:text-gray-400">Logistics Manager</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-full overflow-hidden bg-background-light dark:bg-background-dark relative">
+<!-- Top Sticky Header -->
+<header class="sticky top-0 z-20 w-full bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800">
+<div class="flex flex-col md:flex-row md:items-center justify-between px-6 py-4 md:py-6 gap-4">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-3">
+<a class="md:hidden p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700" href="#">
+<span class="material-symbols-outlined">menu</span>
+</a>
+<h1 class="text-2xl md:text-3xl font-black text-text-main-light dark:text-white tracking-tight">Q3 Logistics Efficiency Report</h1>
+</div>
+<p class="text-sm text-text-secondary-light dark:text-text-secondary-dark font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+                            Generated: Oct 24, 2023 14:30
+                        </p>
+</div>
+<div class="flex items-center gap-2 md:gap-3 flex-wrap">
+<button class="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-200 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[18px]">share</span>
+<span class="hidden sm:inline">Share</span>
+</button>
+<button class="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-200 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[18px]">download</span>
+<span class="hidden sm:inline">Export</span>
+</button>
+<button class="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-200 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[18px]">print</span>
+<span class="hidden sm:inline">Print</span>
+</button>
+<button class="flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto custom-scrollbar p-6">
+<div class="max-w-7xl mx-auto space-y-6">
+<!-- Executive Summary Cards -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+<!-- Card 1 -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+<div class="flex justify-between items-start mb-4">
+<div>
+<p class="text-text-secondary-light dark:text-text-secondary-dark text-sm font-semibold uppercase tracking-wider">Total Tonnage</p>
+<h3 class="text-3xl font-bold text-text-main-light dark:text-white mt-1">45,230t</h3>
+</div>
+<div class="bg-primary/10 dark:bg-primary/20 p-2 rounded-lg">
+<span class="material-symbols-outlined text-primary">weight</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="flex items-center text-primary text-sm font-bold bg-primary/10 px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+                                    12%
+                                </span>
+<span class="text-gray-500 dark:text-gray-400 text-sm">vs last period</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+<div class="flex justify-between items-start mb-4">
+<div>
+<p class="text-text-secondary-light dark:text-text-secondary-dark text-sm font-semibold uppercase tracking-wider">Total Vehicles</p>
+<h3 class="text-3xl font-bold text-text-main-light dark:text-white mt-1">1,240</h3>
+</div>
+<div class="bg-primary/10 dark:bg-primary/20 p-2 rounded-lg">
+<span class="material-symbols-outlined text-primary">local_shipping</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="flex items-center text-gray-500 dark:text-gray-400 text-sm font-bold bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[16px]">trending_flat</span>
+                                    0%
+                                </span>
+<span class="text-gray-500 dark:text-gray-400 text-sm">vs last period</span>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+<div class="flex justify-between items-start mb-4">
+<div>
+<p class="text-text-secondary-light dark:text-text-secondary-dark text-sm font-semibold uppercase tracking-wider">Avg. Weigh Time</p>
+<h3 class="text-3xl font-bold text-text-main-light dark:text-white mt-1">4m 12s</h3>
+</div>
+<div class="bg-primary/10 dark:bg-primary/20 p-2 rounded-lg">
+<span class="material-symbols-outlined text-primary">timer</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="flex items-center text-green-600 dark:text-green-400 text-sm font-bold bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[16px]">trending_down</span>
+                                    5%
+                                </span>
+<span class="text-gray-500 dark:text-gray-400 text-sm">Faster than avg</span>
+</div>
+</div>
+</section>
+<!-- Charts Section -->
+<section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- Bar Chart Card -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<h4 class="text-lg font-bold text-text-main-light dark:text-white">Throughput by Material</h4>
+<button class="text-xs font-semibold text-primary hover:text-green-600 dark:hover:text-green-400">View Details</button>
+</div>
+<div class="flex-1 min-h-[250px] flex items-end justify-between gap-4 px-2">
+<!-- Chart Bars -->
+<div class="flex flex-col items-center gap-2 flex-1 group">
+<div class="w-full bg-gray-100 dark:bg-white/5 rounded-t-lg relative h-48 overflow-hidden">
+<div class="absolute bottom-0 w-full bg-primary/80 group-hover:bg-primary transition-all duration-300" style="height: 45%;"></div>
+</div>
+<span class="text-xs font-medium text-gray-500 dark:text-gray-400">Coal</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1 group">
+<div class="w-full bg-gray-100 dark:bg-white/5 rounded-t-lg relative h-48 overflow-hidden">
+<div class="absolute bottom-0 w-full bg-primary/80 group-hover:bg-primary transition-all duration-300" style="height: 75%;"></div>
+</div>
+<span class="text-xs font-medium text-gray-500 dark:text-gray-400">Sand</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1 group">
+<div class="w-full bg-gray-100 dark:bg-white/5 rounded-t-lg relative h-48 overflow-hidden">
+<div class="absolute bottom-0 w-full bg-primary/80 group-hover:bg-primary transition-all duration-300" style="height: 30%;"></div>
+</div>
+<span class="text-xs font-medium text-gray-500 dark:text-gray-400">Gravel</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1 group">
+<div class="w-full bg-gray-100 dark:bg-white/5 rounded-t-lg relative h-48 overflow-hidden">
+<div class="absolute bottom-0 w-full bg-primary/80 group-hover:bg-primary transition-all duration-300" style="height: 60%;"></div>
+</div>
+<span class="text-xs font-medium text-gray-500 dark:text-gray-400">Lime</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1 group">
+<div class="w-full bg-gray-100 dark:bg-white/5 rounded-t-lg relative h-48 overflow-hidden">
+<div class="absolute bottom-0 w-full bg-primary/80 group-hover:bg-primary transition-all duration-300" style="height: 20%;"></div>
+</div>
+<span class="text-xs font-medium text-gray-500 dark:text-gray-400">Other</span>
+</div>
+</div>
+</div>
+<!-- Line Chart Card -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<h4 class="text-lg font-bold text-text-main-light dark:text-white">Daily Traffic Volume</h4>
+<div class="flex items-center gap-2 text-xs">
+<span class="flex items-center gap-1 text-gray-500 dark:text-gray-400"><span class="w-2 h-2 rounded-full bg-primary"></span>Current</span>
+<span class="flex items-center gap-1 text-gray-500 dark:text-gray-400"><span class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></span>Prev</span>
+</div>
+</div>
+<div class="flex-1 min-h-[250px] relative">
+<!-- SVG Line Chart -->
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 400 150">
+<defs>
+<lineargradient id="gradientPrimary" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#1aec13" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="#1aec13" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<!-- Grid lines -->
+<line class="dark:stroke-gray-800" stroke="#e5e7eb" stroke-width="1" x1="0" x2="400" y1="120" y2="120"></line>
+<line class="dark:stroke-gray-800" stroke="#e5e7eb" stroke-width="1" x1="0" x2="400" y1="80" y2="80"></line>
+<line class="dark:stroke-gray-800" stroke="#e5e7eb" stroke-width="1" x1="0" x2="400" y1="40" y2="40"></line>
+<!-- Data Line -->
+<path d="M0 100 C 50 100, 50 60, 100 60 S 150 90, 200 80 S 250 40, 300 50 S 350 20, 400 40" fill="none" stroke="#1aec13" stroke-linecap="round" stroke-width="3"></path>
+<!-- Area under line -->
+<path d="M0 100 C 50 100, 50 60, 100 60 S 150 90, 200 80 S 250 40, 300 50 S 350 20, 400 40 V 150 H 0 Z" fill="url(#gradientPrimary)" opacity="0.5"></path>
+</svg>
+<div class="flex justify-between mt-2 px-2 text-xs font-medium text-gray-400">
+<span>Mon</span>
+<span>Tue</span>
+<span>Wed</span>
+<span>Thu</span>
+<span>Fri</span>
+<span>Sat</span>
+<span>Sun</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Data Tables Section -->
+<section class="bg-surface-light dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col">
+<div class="p-6 border-b border-gray-200 dark:border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div>
+<h4 class="text-lg font-bold text-text-main-light dark:text-white">Transaction Logs</h4>
+<p class="text-sm text-gray-500 dark:text-gray-400">Detailed record of weigh-ins for this period</p>
+</div>
+<div class="flex items-center gap-3">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary text-[20px]">search</span>
+<input class="pl-10 pr-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-surface-dark focus:ring-2 focus:ring-primary/20 focus:border-primary w-full md:w-64 transition-all" placeholder="Search ID, Reg, Hauler..." type="text"/>
+</div>
+<button class="p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-surface-dark text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">
+<span class="material-symbols-outlined text-[20px]">filter_list</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm whitespace-nowrap">
+<thead class="bg-gray-50 dark:bg-white/5 border-b border-gray-200 dark:border-gray-800">
+<tr>
+<th class="px-6 py-4 font-semibold text-gray-600 dark:text-gray-300 cursor-pointer hover:text-primary transition-colors" scope="col">
+<div class="flex items-center gap-1">Trans ID <span class="material-symbols-outlined text-[14px]">unfold_more</span></div>
+</th>
+<th class="px-6 py-4 font-semibold text-gray-600 dark:text-gray-300" scope="col">Date/Time</th>
+<th class="px-6 py-4 font-semibold text-gray-600 dark:text-gray-300" scope="col">Vehicle Reg</th>
+<th class="px-6 py-4 font-semibold text-gray-600 dark:text-gray-300" scope="col">Hauler</th>
+<th class="px-6 py-4 font-semibold text-gray-600 dark:text-gray-300" scope="col">Material</th>
+<th class="px-6 py-4 font-semibold text-gray-600 dark:text-gray-300 text-right" scope="col">Net Weight</th>
+<th class="px-6 py-4 font-semibold text-gray-600 dark:text-gray-300 text-right" scope="col">Variance</th>
+<th class="px-6 py-4 font-semibold text-gray-600 dark:text-gray-300 text-center" scope="col">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 dark:divide-gray-800 font-body text-gray-600 dark:text-gray-300">
+<!-- Row 1 -->
+<tr class="hover:bg-gray-50/80 dark:hover:bg-white/5 transition-colors">
+<td class="px-6 py-4 font-medium text-text-main-light dark:text-white">TRX-8821</td>
+<td class="px-6 py-4">Oct 24, 10:42 AM</td>
+<td class="px-6 py-4"><span class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono font-bold text-gray-700 dark:text-gray-200">AB-99-XD</span></td>
+<td class="px-6 py-4">FastTrack Logistics</td>
+<td class="px-6 py-4">Sand</td>
+<td class="px-6 py-4 text-right font-medium">12,450 kg</td>
+<td class="px-6 py-4 text-right text-green-600 dark:text-green-400 font-medium">0.2%</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</span>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-gray-50/80 dark:hover:bg-white/5 transition-colors">
+<td class="px-6 py-4 font-medium text-text-main-light dark:text-white">TRX-8822</td>
+<td class="px-6 py-4">Oct 24, 11:15 AM</td>
+<td class="px-6 py-4"><span class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono font-bold text-gray-700 dark:text-gray-200">KY-32-PL</span></td>
+<td class="px-6 py-4">BuildMore Inc.</td>
+<td class="px-6 py-4">Gravel</td>
+<td class="px-6 py-4 text-right font-medium">18,200 kg</td>
+<td class="px-6 py-4 text-right text-red-500 dark:text-red-400 font-medium">+1.5%</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</span>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-gray-50/80 dark:hover:bg-white/5 transition-colors">
+<td class="px-6 py-4 font-medium text-text-main-light dark:text-white">TRX-8823</td>
+<td class="px-6 py-4">Oct 24, 11:30 AM</td>
+<td class="px-6 py-4"><span class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono font-bold text-gray-700 dark:text-gray-200">MN-55-TR</span></td>
+<td class="px-6 py-4">City Supply Co.</td>
+<td class="px-6 py-4">Coal</td>
+<td class="px-6 py-4 text-right font-medium">22,100 kg</td>
+<td class="px-6 py-4 text-right text-green-600 dark:text-green-400 font-medium">-0.1%</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400">
+<span class="material-symbols-outlined text-[16px]">priority_high</span>
+</span>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-gray-50/80 dark:hover:bg-white/5 transition-colors">
+<td class="px-6 py-4 font-medium text-text-main-light dark:text-white">TRX-8824</td>
+<td class="px-6 py-4">Oct 24, 12:05 PM</td>
+<td class="px-6 py-4"><span class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono font-bold text-gray-700 dark:text-gray-200">ZX-11-AA</span></td>
+<td class="px-6 py-4">Global Freight</td>
+<td class="px-6 py-4">Limestone</td>
+<td class="px-6 py-4 text-right font-medium">15,600 kg</td>
+<td class="px-6 py-4 text-right text-green-600 dark:text-green-400 font-medium">0.0%</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</span>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-gray-50/80 dark:hover:bg-white/5 transition-colors">
+<td class="px-6 py-4 font-medium text-text-main-light dark:text-white">TRX-8825</td>
+<td class="px-6 py-4">Oct 24, 12:45 PM</td>
+<td class="px-6 py-4"><span class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono font-bold text-gray-700 dark:text-gray-200">BB-88-CC</span></td>
+<td class="px-6 py-4">FastTrack Logistics</td>
+<td class="px-6 py-4">Sand</td>
+<td class="px-6 py-4 text-right font-medium">12,500 kg</td>
+<td class="px-6 py-4 text-right text-green-600 dark:text-green-400 font-medium">0.3%</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="p-4 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+<p class="text-sm text-gray-500 dark:text-gray-400">Showing <span class="font-medium text-text-main-light dark:text-white">1-5</span> of <span class="font-medium text-text-main-light dark:text-white">128</span> entries</p>
+<div class="flex items-center gap-2">
+<button class="p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-surface-dark text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-white/5" disabled="">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white font-bold text-sm shadow-sm">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-surface-dark text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-sm">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-surface-dark text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-sm">3</button>
+<span class="text-gray-400 px-1">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-surface-dark text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-sm">12</button>
+<button class="p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-surface-dark text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Footer Notes -->
+<footer class="bg-gray-100 dark:bg-surface-dark/50 rounded-lg p-6 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-800/50">
+<div class="flex flex-col md:flex-row justify-between gap-6">
+<div class="space-y-2 max-w-2xl">
+<h5 class="font-bold text-text-main-light dark:text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">info</span>
+                                    Methodology &amp; Notes
+                                </h5>
+<p class="leading-relaxed">
+                                    Data displayed in this report includes all completed weigh-in transactions from Bridge A (Main Gate) and Bridge B (Secondary Gate). 
+                                    Transactions marked as 'Void' or 'Incomplete' are excluded from throughput calculations but are available in the raw audit logs.
+                                    Variance is calculated based on standard tare weights stored in the vehicle database.
+                                </p>
+</div>
+<div class="flex flex-col gap-1 text-right md:text-right">
+<p>Report ID: <span class="font-mono">RPT-2023-Q3-LOG-004</span></p>
+<p>System Version: <span class="font-mono">v4.2.1 (Build 8900)</span></p>
+<div class="mt-2">
+<a class="text-primary hover:underline font-medium" href="#">Contact Support</a>
+</div>
+</div>
+</div>
+</footer>
+<!-- Spacer for scroll -->
+<div class="h-6"></div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Payment Successful - Weighbridge Management System</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                        "success-bg": "#D6EFD8", // Custom background color requested
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-success-bg min-h-screen flex items-center justify-center p-4">
+<!-- Central Card Container -->
+<div class="w-full max-w-md bg-white dark:bg-background-dark rounded-xl shadow-xl overflow-hidden animate-fade-in-up">
+<!-- Header Section with Icon -->
+<div class="flex flex-col items-center pt-10 pb-6 px-8 text-center">
+<div class="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-5xl text-[#1aec13]" style="font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 48;">check_circle</span>
+</div>
+<h1 class="text-[#111811] dark:text-white text-2xl font-bold tracking-tight mb-2 font-display">
+                Payment Successful
+            </h1>
+<p class="text-gray-500 dark:text-gray-400 text-sm font-medium leading-relaxed max-w-[280px]">
+                Your subscription to AI Features Pack is now active.
+            </p>
+</div>
+<!-- Receipt Details Section -->
+<div class="px-8 pb-8">
+<div class="bg-gray-50 dark:bg-[#1A2E19] rounded-lg border border-gray-100 dark:border-[#2C4A2A] p-4 space-y-4">
+<!-- Detail Item 1 -->
+<div class="flex justify-between items-center border-b border-gray-200 dark:border-[#2C4A2A] pb-3 last:border-0 last:pb-0">
+<span class="text-gray-500 dark:text-gray-400 text-sm font-medium">Pack Name</span>
+<span class="text-[#111811] dark:text-white text-sm font-semibold text-right">AI Features Pack</span>
+</div>
+<!-- Detail Item 2 -->
+<div class="flex justify-between items-center border-b border-gray-200 dark:border-[#2C4A2A] pb-3 last:border-0 last:pb-0">
+<span class="text-gray-500 dark:text-gray-400 text-sm font-medium">Amount Paid</span>
+<span class="text-[#111811] dark:text-white text-sm font-semibold text-right">$199.00</span>
+</div>
+<!-- Detail Item 3 -->
+<div class="flex justify-between items-center pb-1">
+<span class="text-gray-500 dark:text-gray-400 text-sm font-medium">Next Billing Date</span>
+<span class="text-[#111811] dark:text-white text-sm font-semibold text-right">October 24, 2024</span>
+</div>
+</div>
+</div>
+<!-- Action Button Section -->
+<div class="px-8 pb-10">
+<button class="w-full flex items-center justify-center h-12 rounded-lg bg-primary hover:bg-[#18d611] transition-colors duration-200 text-[#111811] text-base font-bold tracking-wide shadow-sm">
+                Go to Dashboard
+            </button>
+<!-- Optional Secondary Link for user flow completeness -->
+<div class="mt-4 text-center">
+<a class="text-gray-400 dark:text-gray-500 text-xs font-medium hover:text-gray-600 dark:hover:text-gray-300 transition-colors" href="#">
+                    Download Receipt PDF
+                </a>
+</div>
+</div>
+</div>
+</body></html>

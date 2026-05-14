@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Global System Status Dashboard</title>
+<!-- Google Fonts: Manrope -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#19e619",
+              "primary-dark": "#14b814", 
+              "background-light": "#f6f8f6",
+              "background-dark": "#112111",
+              "text-main": "#131613",
+              "text-main-dark": "#e2e4e2",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {
+              "DEFAULT": "0.25rem", 
+              "lg": "0.5rem", 
+              "xl": "0.75rem", 
+              "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-main dark:text-text-main-dark font-display antialiased min-h-screen flex flex-col overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="w-full h-16 bg-white dark:bg-[#1a1d1a] border-b border-[#e7f3e7] dark:border-[#2A2F2A] flex items-center justify-between px-6 z-40 relative shadow-sm">
+<!-- Left: Branding -->
+<div class="flex items-center gap-3">
+<div class="size-8 rounded bg-primary/20 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined icon-filled">local_shipping</span>
+</div>
+<h1 class="text-lg font-bold tracking-tight text-[#0e1b0e] dark:text-white">Weighbridge Manager</h1>
+</div>
+<!-- Right: Actions & Status -->
+<div class="flex items-center gap-4">
+<!-- Global Search (Hidden on small screens) -->
+<div class="hidden md:flex items-center bg-background-light dark:bg-[#252a25] rounded-lg px-3 py-2 w-64 border border-transparent focus-within:border-primary/50 transition-colors">
+<span class="material-symbols-outlined text-gray-400 text-[20px]">search</span>
+<input class="bg-transparent border-none text-sm outline-none w-full ml-2 placeholder-gray-400 text-text-main dark:text-white" placeholder="Search vehicle ID..." type="text"/>
+</div>
+<div class="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
+<!-- Status Trigger Button (Active State) -->
+<div class="relative group">
+<button class="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#FFFBEB] border border-[#FEF3C7] text-[#92400E] hover:bg-[#FEF3C7] transition-all cursor-pointer dark:bg-[#422006] dark:border-[#78350f] dark:text-[#fcd34d]">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+</span>
+<span class="text-sm font-bold">2 Issues Detected</span>
+<span class="material-symbols-outlined text-[20px]">expand_more</span>
+</button>
+<!-- Status Dropdown (Simulating Open State) -->
+<div class="absolute right-0 top-full mt-2 w-[340px] bg-white dark:bg-[#1e231e] rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 dark:border-[#333] z-50 overflow-hidden ring-1 ring-black/5">
+<!-- Dropdown Header -->
+<div class="px-5 py-4 border-b border-gray-100 dark:border-[#333] flex justify-between items-center bg-gray-50/50 dark:bg-[#252a25]">
+<h3 class="font-bold text-text-main dark:text-white">System Health</h3>
+<span class="text-xs font-medium text-gray-500 dark:text-gray-400">Last check: 1m ago</span>
+</div>
+<!-- Dropdown Content List -->
+<div class="flex flex-col p-2">
+<!-- Item 1: Scale (Connected) -->
+<div class="flex items-center justify-between p-3 hover:bg-background-light dark:hover:bg-[#2A2F2A] rounded-lg transition-colors group/item">
+<div class="flex items-center gap-3">
+<div class="size-9 rounded-full bg-[#e7f3e7] dark:bg-[#1a331a] text-green-700 dark:text-green-400 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">balance</span>
+</div>
+<span class="font-semibold text-sm text-text-main dark:text-gray-200">Main Scale</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-bold border border-green-100 dark:border-green-800">
+<div class="size-1.5 rounded-full bg-green-500"></div>
+                                Connected
+                            </div>
+</div>
+<!-- Item 2: Cameras (Warning) -->
+<div class="flex items-center justify-between p-3 hover:bg-background-light dark:hover:bg-[#2A2F2A] rounded-lg transition-colors group/item">
+<div class="flex items-center gap-3">
+<div class="size-9 rounded-full bg-amber-50 dark:bg-[#331e0b] text-amber-600 dark:text-amber-400 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">videocam</span>
+</div>
+<span class="font-semibold text-sm text-text-main dark:text-gray-200">Cameras</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-xs font-bold border border-amber-100 dark:border-amber-800">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                                2/4 Online
+                            </div>
+</div>
+<!-- Item 3: Gates (Error) -->
+<div class="flex items-center justify-between p-3 hover:bg-background-light dark:hover:bg-[#2A2F2A] rounded-lg transition-colors group/item">
+<div class="flex items-center gap-3">
+<div class="size-9 rounded-full bg-red-50 dark:bg-[#381111] text-red-600 dark:text-red-400 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">sensor_door</span>
+</div>
+<span class="font-semibold text-sm text-text-main dark:text-gray-200">Gates</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-xs font-bold border border-red-100 dark:border-red-800">
+<span class="material-symbols-outlined text-[14px]">error</span>
+                                Offline
+                            </div>
+</div>
+<!-- Item 4: Printer (Ready) -->
+<div class="flex items-center justify-between p-3 hover:bg-background-light dark:hover:bg-[#2A2F2A] rounded-lg transition-colors group/item">
+<div class="flex items-center gap-3">
+<div class="size-9 rounded-full bg-gray-50 dark:bg-[#252a25] text-gray-600 dark:text-gray-400 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">print</span>
+</div>
+<span class="font-semibold text-sm text-text-main dark:text-gray-200">Printer</span>
+</div>
+<span class="text-xs font-medium text-green-600 dark:text-green-400 mr-2">Ready</span>
+</div>
+<!-- Item 5: Network (Connected) -->
+<div class="flex items-center justify-between p-3 hover:bg-background-light dark:hover:bg-[#2A2F2A] rounded-lg transition-colors group/item">
+<div class="flex items-center gap-3">
+<div class="size-9 rounded-full bg-gray-50 dark:bg-[#252a25] text-gray-600 dark:text-gray-400 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">wifi</span>
+</div>
+<span class="font-semibold text-sm text-text-main dark:text-gray-200">Network</span>
+</div>
+<span class="text-xs font-medium text-green-600 dark:text-green-400 mr-2">Connected</span>
+</div>
+<!-- Item 6: Cloud Sync (Pending) -->
+<div class="flex items-center justify-between p-3 hover:bg-background-light dark:hover:bg-[#2A2F2A] rounded-lg transition-colors group/item">
+<div class="flex items-center gap-3">
+<div class="size-9 rounded-full bg-gray-50 dark:bg-[#252a25] text-gray-600 dark:text-gray-400 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">cloud_sync</span>
+</div>
+<span class="font-semibold text-sm text-text-main dark:text-gray-200">Cloud Sync</span>
+</div>
+<span class="text-xs font-medium text-gray-500 dark:text-gray-400 mr-2">3 Pending</span>
+</div>
+</div>
+<!-- Dropdown Footer -->
+<div class="p-3 bg-gray-50 dark:bg-[#252a25] border-t border-gray-100 dark:border-[#333] text-center">
+<a class="text-sm font-bold text-primary dark:text-primary-dark hover:underline hover:text-green-700 dark:hover:text-green-300 transition-colors" href="#">
+                            View Full Status
+                        </a>
+</div>
+</div>
+</div>
+<!-- Standard Nav Icons -->
+<button class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#252a25] text-text-main dark:text-gray-300 transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border border-white dark:border-[#1a1d1a]"></span>
+</button>
+<button class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#252a25] text-text-main dark:text-gray-300 transition-colors">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="size-9 rounded-full bg-gray-200 dark:bg-[#333] text-gray-600 dark:text-gray-300 flex items-center justify-center ml-1 border border-white dark:border-[#444] shadow-sm">
+<span class="material-symbols-outlined text-[20px]">person</span>
+</button>
+</div>
+</header>
+<!-- Main Dashboard Area (Background Context) -->
+<main class="flex-1 flex overflow-hidden relative">
+<!-- Sidebar Placeholder -->
+<aside class="w-64 border-r border-[#e7f3e7] dark:border-[#2A2F2A] bg-white dark:bg-[#1a1d1a] hidden lg:flex flex-col p-4 gap-2 z-10">
+<div class="p-3 rounded-lg bg-primary/10 text-primary font-bold flex items-center gap-3">
+<span class="material-symbols-outlined icon-filled">dashboard</span>
+                Dashboard
+             </div>
+<div class="p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-[#252a25] text-gray-600 dark:text-gray-400 font-medium flex items-center gap-3 cursor-pointer">
+<span class="material-symbols-outlined">local_shipping</span>
+                Weighbridge Ops
+             </div>
+<div class="p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-[#252a25] text-gray-600 dark:text-gray-400 font-medium flex items-center gap-3 cursor-pointer">
+<span class="material-symbols-outlined">receipt_long</span>
+                Transactions
+             </div>
+<div class="p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-[#252a25] text-gray-600 dark:text-gray-400 font-medium flex items-center gap-3 cursor-pointer">
+<span class="material-symbols-outlined">analytics</span>
+                Reports
+             </div>
+</aside>
+<!-- Content Area -->
+<div class="flex-1 p-8 overflow-y-auto relative bg-background-light dark:bg-background-dark">
+<!-- Overlay to dim background content and emphasize dropdown -->
+<div class="absolute inset-0 bg-black/5 z-20 pointer-events-none"></div>
+<div class="max-w-6xl mx-auto space-y-6 opacity-40 blur-[1px]">
+<!-- Quick Stats Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-white dark:bg-[#1a1d1a] p-6 rounded-xl border border-gray-100 dark:border-[#2A2F2A] shadow-sm">
+<div class="flex items-center gap-4">
+<div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600">
+<span class="material-symbols-outlined">directions_car</span>
+</div>
+<div>
+<p class="text-sm text-gray-500">Vehicles Today</p>
+<p class="text-2xl font-bold text-text-main dark:text-white">124</p>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-[#1a1d1a] p-6 rounded-xl border border-gray-100 dark:border-[#2A2F2A] shadow-sm">
+<div class="flex items-center gap-4">
+<div class="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-purple-600">
+<span class="material-symbols-outlined">scale</span>
+</div>
+<div>
+<p class="text-sm text-gray-500">Total Weight (Tons)</p>
+<p class="text-2xl font-bold text-text-main dark:text-white">4,280</p>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-[#1a1d1a] p-6 rounded-xl border border-gray-100 dark:border-[#2A2F2A] shadow-sm">
+<div class="flex items-center gap-4">
+<div class="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-orange-600">
+<span class="material-symbols-outlined">pending_actions</span>
+</div>
+<div>
+<p class="text-sm text-gray-500">Pending Approval</p>
+<p class="text-2xl font-bold text-text-main dark:text-white">8</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Main Chart/Map Placeholder -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[400px]">
+<div class="lg:col-span-2 bg-white dark:bg-[#1a1d1a] rounded-xl border border-gray-100 dark:border-[#2A2F2A] shadow-sm p-6 relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-[#202520] dark:to-[#151815]"></div>
+<h3 class="relative font-bold text-lg mb-4 text-text-main dark:text-white">Site Map: Gate 1</h3>
+<!-- Abstract Map Graphic -->
+<div class="relative w-full h-full" data-alt="Abstract representation of a site map layout with zones and gate markers" data-location="Site Layout" style="https://placeholder.pics/svg/300">
+<div class="absolute top-1/4 left-1/4 w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center text-gray-400">Weighbridge A</div>
+<div class="absolute bottom-1/4 right-1/3 w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center text-gray-400">Loading Bay</div>
+<div class="absolute top-10 right-10 size-10 rounded-full bg-green-500/20 border border-green-500 animate-pulse"></div>
+</div>
+</div>
+<div class="bg-white dark:bg-[#1a1d1a] rounded-xl border border-gray-100 dark:border-[#2A2F2A] shadow-sm p-6">
+<h3 class="font-bold text-lg mb-4 text-text-main dark:text-white">Recent Activity</h3>
+<div class="space-y-4">
+<div class="flex items-center gap-3 pb-3 border-b border-gray-50 dark:border-[#333]">
+<div class="size-2 rounded-full bg-green-500"></div>
+<div class="flex-1">
+<p class="text-sm font-medium dark:text-gray-200">Truck #8922 Inbound</p>
+<p class="text-xs text-gray-400">10:42 AM</p>
+</div>
+</div>
+<div class="flex items-center gap-3 pb-3 border-b border-gray-50 dark:border-[#333]">
+<div class="size-2 rounded-full bg-green-500"></div>
+<div class="flex-1">
+<p class="text-sm font-medium dark:text-gray-200">Truck #4410 Outbound</p>
+<p class="text-xs text-gray-400">10:38 AM</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="size-2 rounded-full bg-red-500"></div>
+<div class="flex-1">
+<p class="text-sm font-medium dark:text-gray-200">Gate 2 Sensor Error</p>
+<p class="text-xs text-gray-400">10:15 AM</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

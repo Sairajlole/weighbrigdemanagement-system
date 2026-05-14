@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>My Account Settings - Weighbridge Manager</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-[#111811] dark:text-white transition-colors duration-200">
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e5e8e5] dark:border-b-[#2a3c2a] bg-white dark:bg-[#1a2e19] px-10 py-3 sticky top-0 z-50">
+<div class="flex items-center gap-4 text-[#111811] dark:text-white">
+<div class="size-8 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">scale</span>
+</div>
+<h2 class="text-[#111811] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Weighbridge Manager</h2>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<div class="hidden md:flex items-center gap-9">
+<a class="text-[#111811] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-[#111811] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Weighing</a>
+<a class="text-[#111811] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Reports</a>
+<a class="text-[#111811] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Users</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden sm:flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-primary text-[#111811] text-sm font-bold leading-normal tracking-[0.015em] hover:bg-opacity-90 transition-opacity">
+<span class="truncate">Support</span>
+</button>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 ring-2 ring-white dark:ring-[#2a3c2a]" data-alt="User profile avatar placeholder" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDVsY3NUti_TzEN_5q1x36GMDALOxHL_rxPHnHyPOxZAbcE4ld4gWOcDmKDNYiyL9bMyEiRzCbLyD_zkzgW-R5FCBE-7LnxtuFzcN7gFb3DzezmKNL7l2w_GNAWFNiNJifQhgQeXmAfQidcByqmJM6toZE9aq7wrZd6UGxMn1lbBer4FtD4E6-FC9j9QD5M87M1YyIuqsx-DFV7mzi-p-bgZsdB8P0SRVyBeZcyBJj1Pts6L1Q1brUsToNu3BT8QieBvLlDO0BavcY");'></div>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex flex-1 flex-col items-center py-8 px-4 sm:px-10">
+<div class="flex flex-col max-w-[960px] w-full gap-6">
+<!-- Breadcrumbs -->
+<nav class="flex flex-wrap gap-2 text-sm">
+<a class="text-[#638961] dark:text-[#8abf88] font-medium leading-normal hover:underline" href="#">Home</a>
+<span class="text-[#638961] dark:text-[#8abf88] font-medium leading-normal">/</span>
+<span class="text-[#111811] dark:text-white font-medium leading-normal">My Account</span>
+</nav>
+<!-- Page Heading -->
+<div class="flex flex-wrap justify-between gap-3">
+<div class="flex min-w-72 flex-col gap-2">
+<h1 class="text-[#111811] dark:text-white text-3xl sm:text-4xl font-black leading-tight tracking-[-0.033em]">My Account Settings</h1>
+<p class="text-[#638961] dark:text-[#9aaf9a] text-base font-normal leading-normal">Manage your profile, company details, and security preferences.</p>
+</div>
+</div>
+<!-- Profile Header Section -->
+<div class="bg-white dark:bg-[#1a2e19] rounded-xl shadow-sm border border-[#e5e8e5] dark:border-[#2a3c2a] p-6">
+<div class="flex flex-col sm:flex-row gap-6 items-start sm:items-center justify-between">
+<div class="flex flex-col sm:flex-row gap-5 items-center sm:items-start text-center sm:text-left w-full">
+<div class="relative">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-24 w-24 sm:h-32 sm:w-32 ring-4 ring-background-light dark:ring-background-dark" data-alt="Large user profile picture" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuASk2J5HNsWPtB9bXvHRN9f9hnqhNKiyTTNmqoo1Yrv7-4VnsklfepJdp1RGqLSL47d1rVHHCCRpGv7DHIHHOsLnaGWOQcJ76PcYSFC7l5S-Y4XZ8FLReoGpbXE_VHm2Qm-RonspXGFKqfgPstkMorcnpY3UqloyjGeteuypSOZYtWk36PZuHNzkU33qHR5r9fkPZU-r0sO5UV3YMUpSfXR4ahhUUj44bKh8-kXlCUNIGh7EA8lhUSmLM6wAfL3U05eEP35N3JZ7kE");'></div>
+<div class="absolute bottom-0 right-0 bg-white dark:bg-[#2a3c2a] rounded-full p-1.5 shadow-md border border-[#e5e8e5] dark:border-[#3a4e3a] cursor-pointer hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-sm sm:text-base text-[#111811] dark:text-white">photo_camera</span>
+</div>
+</div>
+<div class="flex flex-col justify-center gap-1">
+<h3 class="text-[#111811] dark:text-white text-2xl font-bold leading-tight">John Doe</h3>
+<div class="text-[#638961] dark:text-[#9aaf9a] text-sm sm:text-base font-normal flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+<span class="flex items-center justify-center sm:justify-start gap-1"><span class="material-symbols-outlined text-[18px]">mail</span> john.doe@logistics.com</span>
+<span class="hidden sm:inline">|</span>
+<span class="flex items-center justify-center sm:justify-start gap-1"><span class="material-symbols-outlined text-[18px]">call</span> +1 (555) 123-4567</span>
+</div>
+<div class="mt-2 flex justify-center sm:justify-start">
+<span class="inline-flex items-center gap-1 rounded-full bg-primary/20 px-3 py-1 text-xs font-bold text-[#0d3b0b] dark:text-[#4dfc4a]">
+<span class="material-symbols-outlined text-[16px]">verified_user</span>
+                                        Company Admin
+                                    </span>
+</div>
+</div>
+</div>
+<button class="flex shrink-0 w-full sm:w-auto cursor-pointer items-center justify-center rounded-lg h-10 px-5 bg-background-light dark:bg-[#2a3c2a] hover:bg-[#e5e8e5] dark:hover:bg-[#3a4e3a] text-[#111811] dark:text-white text-sm font-bold border border-[#e5e8e5] dark:border-transparent transition-colors">
+<span class="mr-2 material-symbols-outlined text-[18px]">edit</span>
+                            Edit Profile
+                        </button>
+</div>
+</div>
+<!-- Grid Layout for Settings -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Company Settings (Spans 2 columns on large screens) -->
+<div class="lg:col-span-2 flex flex-col gap-6">
+<div class="bg-white dark:bg-[#1a2e19] rounded-xl shadow-sm border border-[#e5e8e5] dark:border-[#2a3c2a] overflow-hidden">
+<div class="border-b border-[#e5e8e5] dark:border-[#2a3c2a] px-6 py-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-[#638961] dark:text-[#8abf88]">domain</span>
+<h3 class="text-[#111811] dark:text-white text-lg font-bold">Company Settings</h3>
+</div>
+<div class="p-6 flex flex-col gap-6">
+<!-- Company Name Input -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-medium text-[#111811] dark:text-gray-200">Company Name</label>
+<div class="relative">
+<input class="w-full h-11 rounded-lg border border-[#e5e8e5] dark:border-[#3a4e3a] bg-background-light dark:bg-[#112210] px-4 text-[#111811] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow" type="text" value="Logistics Solutions Ltd."/>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400 text-lg">edit</span>
+</div>
+</div>
+<!-- Linkage Code Section -->
+<div class="rounded-lg bg-background-light dark:bg-[#112210] border border-[#e5e8e5] dark:border-[#3a4e3a] p-4">
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+<div class="flex flex-col gap-1">
+<span class="text-xs font-bold uppercase tracking-wider text-[#638961] dark:text-[#8abf88]">Operator Linkage Code</span>
+<p class="text-sm text-gray-500 dark:text-gray-400">Use this code to link operator terminals to your company account.</p>
+</div>
+<div class="flex items-center gap-3 w-full sm:w-auto">
+<code class="flex-1 sm:flex-none text-center bg-white dark:bg-[#2a3c2a] px-4 py-2 rounded border border-gray-200 dark:border-gray-700 font-mono text-lg font-bold tracking-widest text-[#111811] dark:text-white select-all">XJ9-22M</code>
+<button class="shrink-0 flex items-center justify-center size-10 rounded bg-primary text-[#111811] hover:bg-opacity-90 transition-colors" title="Regenerate Code">
+<span class="material-symbols-outlined">refresh</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#fcfdfc] dark:bg-[#152514] px-6 py-3 border-t border-[#e5e8e5] dark:border-[#2a3c2a] flex justify-end">
+<button class="px-4 py-2 bg-[#111811] dark:bg-white text-white dark:text-[#111811] text-sm font-bold rounded-lg hover:opacity-90 transition-opacity">
+                                    Save Changes
+                                </button>
+</div>
+</div>
+</div>
+<!-- Right Column: Security & Session -->
+<div class="flex flex-col gap-6">
+<!-- Security Card -->
+<div class="bg-white dark:bg-[#1a2e19] rounded-xl shadow-sm border border-[#e5e8e5] dark:border-[#2a3c2a] overflow-hidden h-fit">
+<div class="border-b border-[#e5e8e5] dark:border-[#2a3c2a] px-6 py-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-[#638961] dark:text-[#8abf88]">shield_lock</span>
+<h3 class="text-[#111811] dark:text-white text-lg font-bold">Security</h3>
+</div>
+<div class="p-6 flex flex-col gap-5">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-sm font-bold text-[#111811] dark:text-white">Password</span>
+<span class="text-xs text-gray-500">Last changed 3 months ago</span>
+</div>
+<button class="text-sm font-medium text-[#638961] hover:text-[#111811] dark:text-[#8abf88] dark:hover:text-white underline">Update</button>
+</div>
+<hr class="border-[#f0f4f0] dark:border-[#2a3c2a]"/>
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-sm font-bold text-[#111811] dark:text-white">Two-Factor Auth</span>
+<span class="text-xs text-green-600 font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Enabled
+                                        </span>
+</div>
+<button class="text-sm font-medium text-[#638961] hover:text-[#111811] dark:text-[#8abf88] dark:hover:text-white underline">Manage</button>
+</div>
+</div>
+</div>
+<!-- Session Info Card -->
+<div class="bg-white dark:bg-[#1a2e19] rounded-xl shadow-sm border border-[#e5e8e5] dark:border-[#2a3c2a] overflow-hidden h-fit">
+<div class="p-6 flex flex-col gap-4">
+<div class="flex items-start gap-3">
+<div class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded-full text-blue-600 dark:text-blue-400">
+<span class="material-symbols-outlined">devices</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold uppercase tracking-wider text-gray-400">Current Session</span>
+<span class="text-sm font-medium text-[#111811] dark:text-white">Windows Desktop App</span>
+<span class="text-xs text-gray-500">Last login: Oct 24, 2023, 08:30 AM</span>
+</div>
+</div>
+<button class="mt-2 w-full flex items-center justify-center gap-2 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/10 px-4 py-2 text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors">
+<span class="material-symbols-outlined text-[18px]">logout</span>
+                                    Sign Out
+                                </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Text -->
+<div class="text-center py-6">
+<p class="text-xs text-gray-400">Weighbridge Manager v2.4.0 © 2023</p>
+</div>
+</div>
+</main>
+</div>
+</body></html>

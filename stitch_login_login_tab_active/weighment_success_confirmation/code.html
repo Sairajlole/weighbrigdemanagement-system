@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Weighment Success Confirmation</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;family=Noto+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#222b22",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col overflow-x-hidden">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 bg-surface-light dark:bg-surface-dark px-10 py-3 sticky top-0 z-50 shadow-sm">
+<div class="flex items-center gap-4 text-slate-900 dark:text-white">
+<div class="size-8 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">scale</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">Weighbridge Management System</h2>
+</div>
+<div class="flex flex-1 justify-end gap-6 items-center">
+<div class="hidden md:flex flex-col items-end mr-2">
+<span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Operator</span>
+<span class="text-sm font-bold">Rajesh Kumar</span>
+</div>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 ring-2 ring-primary/20" data-alt="User profile picture of the operator" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBW8KtyvNmAcFm6o-izFN3USf0XkaV4wzk3GzuIrz7ezLMA837d0QQSYkSM8R_3A7PmlPAEhIXu2CpBK_U2IEPm8NHPDziGUuG2HZXJ0wrkGxj1VtRhjgHg5h_s9o68_g8qBIAdVJfguQKSlIWDl6bTRapR9DNwVAoF9P_-Tx__Zbt8QysJJuvhg37VOipH7OuE4K3yuzIlJj3MTmUXptSsf7qm4nN4uI3QCKLnyW-yFYRBnIyc7jEQ9BzIwQwdHyYAt2Offnk6p0I");'></div>
+<button class="flex items-center justify-center text-slate-500 hover:text-red-600 transition-colors">
+<span class="material-symbols-outlined">logout</span>
+</button>
+</div>
+</header>
+<!-- Main Layout Container -->
+<div class="layout-container flex flex-col flex-1 items-center justify-center p-4 md:p-8">
+<!-- Success Card -->
+<main class="w-full max-w-[800px] bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col animate-fade-in-up">
+<!-- Hero Section -->
+<div class="flex flex-col items-center pt-10 pb-6 px-6 text-center">
+<div class="rounded-full bg-primary/10 p-4 mb-4">
+<span class="material-symbols-outlined text-6xl text-primary icon-filled">check_circle</span>
+</div>
+<h1 class="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight mb-2">Weighment Saved Successfully</h1>
+<div class="inline-flex items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 mt-2">
+<span class="text-slate-500 dark:text-slate-400 text-sm font-medium">Transaction ID:</span>
+<span class="text-slate-900 dark:text-white text-base font-bold tracking-wide">RST-1234</span>
+</div>
+</div>
+<!-- Details Grid -->
+<div class="px-8 md:px-12 py-2">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 py-6 border-t border-slate-100 dark:border-slate-800">
+<!-- Left Column -->
+<div class="flex flex-col gap-4">
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold mb-1">Vehicle No</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl">local_shipping</span>
+<p class="text-slate-900 dark:text-white text-lg font-bold">MH12AB1234</p>
+</div>
+</div>
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold mb-1">Customer</p>
+<p class="text-slate-900 dark:text-white text-base font-medium">Sharma Traders</p>
+</div>
+</div>
+<!-- Right Column -->
+<div class="flex flex-col gap-4">
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold mb-1">Material</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-400 text-xl">heap_snapshot_large</span>
+<p class="text-slate-900 dark:text-white text-base font-medium">Coal (Grade A)</p>
+</div>
+</div>
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold mb-1">Date &amp; Time</p>
+<p class="text-slate-900 dark:text-white text-base font-medium">Oct 24, 2023 • 14:30 PM</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Weight Breakdown Strip -->
+<div class="bg-primary/5 dark:bg-primary/10 border-y border-primary/10 dark:border-primary/20 px-8 md:px-12 py-5">
+<div class="grid grid-cols-3 gap-4 text-center divide-x divide-slate-200 dark:divide-slate-700/50">
+<div class="flex flex-col items-center">
+<span class="text-slate-500 dark:text-slate-400 text-xs font-medium uppercase mb-1">Gross Weight</span>
+<span class="text-slate-900 dark:text-white text-xl font-bold tabular-nums">12,450 <span class="text-sm font-normal text-slate-500">kg</span></span>
+</div>
+<div class="flex flex-col items-center">
+<span class="text-slate-500 dark:text-slate-400 text-xs font-medium uppercase mb-1">Tare Weight</span>
+<span class="text-slate-900 dark:text-white text-xl font-bold tabular-nums">4,500 <span class="text-sm font-normal text-slate-500">kg</span></span>
+</div>
+<div class="flex flex-col items-center">
+<span class="text-primary text-xs font-bold uppercase mb-1">Net Weight</span>
+<span class="text-primary text-2xl font-black tabular-nums">7,950 <span class="text-sm font-bold">kg</span></span>
+</div>
+</div>
+</div>
+<!-- Action Area -->
+<div class="p-8 bg-slate-50 dark:bg-[#1c241c] flex flex-col gap-6 items-center">
+<!-- Primary Action -->
+<button class="flex w-full max-w-[320px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-primary hover:bg-[#437a41] transition-colors text-white gap-3 shadow-md shadow-primary/20 group">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">print</span>
+<span class="text-base font-bold tracking-wide">Print RST Receipt</span>
+</button>
+<!-- Secondary Actions -->
+<div class="flex flex-wrap justify-center gap-4 w-full">
+<button class="flex items-center justify-center px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium transition-colors gap-2">
+<span class="material-symbols-outlined text-[20px]">label</span>
+                        Print Sticker
+                    </button>
+<button class="flex items-center justify-center px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium transition-colors gap-2">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+                        Start New Weighment
+                    </button>
+<button class="flex items-center justify-center px-4 py-2 rounded-lg text-slate-500 hover:text-primary hover:bg-primary/5 text-sm font-medium transition-colors gap-2">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+                        Go to Dashboard
+                    </button>
+</div>
+</div>
+</main>
+<!-- Footer Info -->
+<p class="mt-8 text-slate-400 text-sm text-center">
+            System Status: <span class="text-green-500 font-medium">● Online</span>  |  Printer: <span class="font-medium">Canon LBP2900 (Ready)</span>
+</p>
+</div>
+</body></html>

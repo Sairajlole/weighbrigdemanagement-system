@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Customer Identification Manual</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-dark": "#3e6e3c",
+                        "background-light": "#FAFAFA",
+                        "background-dark": "#161c16",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen flex flex-col font-display text-[#131613] dark:text-white transition-colors duration-200">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e5e7eb] dark:border-b-[#2a2a2a] bg-white dark:bg-[#1a1a1a] px-10 py-3 sticky top-0 z-50">
+<div class="flex items-center gap-4">
+<div class="size-8 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[32px]">scale</span>
+</div>
+<h2 class="text-[#131613] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Weighbridge Management System</h2>
+</div>
+<div class="flex flex-1 justify-end gap-6">
+<button class="flex items-center justify-center overflow-hidden rounded-lg size-10 bg-[#f2f3f1] dark:bg-[#2a2a2a] text-[#131613] dark:text-white hover:bg-[#e5e7eb] dark:hover:bg-[#333] transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 ring-2 ring-white dark:ring-[#2a2a2a] shadow-sm" data-alt="User profile picture placeholder" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCfylQh4I4RhRX-blyfsP_vICtVFdreCom98KngKDssP6CWroi8p-v4dRYphUmoz5ZrqqCC-QrwDPFHHfjF5bCwGPiswWdJe_Gz1nbh0tNBbFfiWQB3MJereCxKpbloPQvN7aQCKkkzDNTalXlcDDWbG3R8PNN_k5CC-GvfWH6HWY4dz92zYfFC6oPOBJAuQZCTs3RSHCOgR5kGmSxccq4UKUEv3d7D7EV1NoJTdodwaLntcDV5JxTFn8H31NHLAoVBT1xrKv5Kf7A");'></div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 flex items-center justify-center px-4 py-8 md:py-12">
+<!-- Centered Card -->
+<div class="w-full max-w-[480px] flex flex-col bg-white dark:bg-[#1e1e1e] rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.06)] overflow-hidden border border-gray-100 dark:border-[#2a2a2a]">
+<!-- Card Header Image (Visual Cue) -->
+<div class="h-32 w-full bg-cover bg-center relative" data-alt="Abstract green geometric shapes representing data flow" style='background-image: linear-gradient(180deg, rgba(80, 141, 78, 0.8) 0%, rgba(80, 141, 78, 0.4) 100%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuAhXRmjJ9ZHkihnIofJcAXz0AZhMFhIPrgN9xmL1oaWwNKa_y4wsYIkfZmQvK3s_-28KBPLJdruXYkmlEbI-I79wIXiAUBpJIF0FIHoRjnU-dcDuKQdeq9R8djOQOwcQnTD4vMhyTS45K8ghWVt56k7-xOGIR0BHC-CJiGx9d17DUA6d3JpsjQDCVatq0PiEjUep8S1pNbfgH7J01YR9sHOqKAE5ZRCE9Li0dpIfo_iGcBAYy-G3TnoiNd1jDc4GpNENYFRam85Wvk");'>
+<div class="absolute bottom-4 left-6">
+<h1 class="text-white text-2xl font-bold tracking-tight drop-shadow-md">Customer Check-in</h1>
+<p class="text-white/90 text-sm font-medium">Manual Entry Mode</p>
+</div>
+</div>
+<div class="p-6 md:p-8 flex flex-col gap-6">
+<!-- Step 1: Search -->
+<div class="flex flex-col gap-2">
+<label class="text-[#131613] dark:text-gray-200 text-sm font-semibold leading-normal" for="phone">
+                        Phone Number
+                    </label>
+<div class="relative group">
+<input autofocus="" class="peer form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#131613] dark:text-white border border-[#dfe2df] dark:border-[#444] bg-white dark:bg-[#2a2a2a] focus:border-primary focus:ring-1 focus:ring-primary h-12 placeholder:text-[#6f7c6e] pl-[15px] pr-12 text-base font-normal leading-normal transition-all" id="phone" placeholder="(555) 000-0000" type="tel" value=""/>
+<button class="absolute right-0 top-0 h-12 w-12 flex items-center justify-center text-[#6f7c6e] hover:text-primary transition-colors peer-focus:text-primary">
+<span class="material-symbols-outlined">search</span>
+</button>
+</div>
+<div class="flex justify-between items-center min-h-[24px]">
+<p class="text-[#6f7c6e] text-xs">Enter phone to search database</p>
+<!-- Dynamic Badge Area (Example showing 'New Customer' state) -->
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800">
+<span class="material-symbols-outlined text-blue-600 dark:text-blue-400 text-[16px]">add_circle</span>
+<span class="text-blue-700 dark:text-blue-300 text-xs font-bold">New Customer</span>
+</div>
+<!-- Alternate State: Customer Found (Commented out for structure reference) -->
+<!-- 
+                        <div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20">
+                             <span class="material-symbols-outlined text-primary text-[16px]">check_circle</span>
+                             <span class="text-primary text-xs font-bold">Customer Found</span>
+                        </div> 
+                        -->
+</div>
+</div>
+<hr class="border-[#f2f3f1] dark:border-[#333]"/>
+<!-- Step 2: Details Form -->
+<div class="flex flex-col gap-5">
+<!-- Name Field -->
+<label class="flex flex-col gap-2">
+<span class="text-[#131613] dark:text-gray-200 text-sm font-semibold leading-normal">Full Name</span>
+<div class="relative">
+<input class="form-input w-full rounded-lg border border-[#dfe2df] dark:border-[#444] bg-white dark:bg-[#2a2a2a] text-[#131613] dark:text-white h-12 px-4 focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-[#6f7c6e]" placeholder="e.g. Acme Industries" type="text"/>
+<div class="absolute right-3 top-3 text-[#6f7c6e] pointer-events-none">
+<span class="material-symbols-outlined text-[20px]">person</span>
+</div>
+</div>
+</label>
+<!-- Address Field -->
+<label class="flex flex-col gap-2">
+<span class="text-[#131613] dark:text-gray-200 text-sm font-semibold leading-normal">Billing Address</span>
+<div class="relative">
+<textarea class="form-textarea w-full rounded-lg border border-[#dfe2df] dark:border-[#444] bg-white dark:bg-[#2a2a2a] text-[#131613] dark:text-white min-h-[100px] p-4 focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-[#6f7c6e] resize-none" placeholder="Enter street address, city, and zip code"></textarea>
+<div class="absolute right-3 top-3 text-[#6f7c6e] pointer-events-none">
+<span class="material-symbols-outlined text-[20px]">location_on</span>
+</div>
+</div>
+</label>
+</div>
+<!-- Step 3: Action -->
+<div class="pt-2">
+<button class="w-full flex items-center justify-center gap-2 h-12 bg-primary hover:bg-primary-dark text-white rounded-lg text-base font-bold shadow-sm transition-all active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+<span>Continue</span>
+<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Footer / Helper Link -->
+<div class="fixed bottom-6 text-center w-full pointer-events-none">
+<p class="text-xs text-[#6f7c6e] dark:text-gray-500">Need assistance? <a class="text-primary hover:underline pointer-events-auto font-medium" href="#">Contact Support</a></p>
+</div>
+</main>
+</body></html>

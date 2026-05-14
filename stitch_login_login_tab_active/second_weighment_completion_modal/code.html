@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Second Weighment Completion Modal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "background-light": "#f9fbf9",
+                        "background-dark": "#121712",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1e231e",
+                        "border-light": "#d7e0d7",
+                        "border-dark": "#2a332a",
+                        "text-main": "#121712",
+                        "text-main-dark": "#f0f4f0",
+                        "text-secondary": "#668165",
+                        "text-secondary-dark": "#9ab09a",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for better aesthetic */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display antialiased overflow-hidden h-screen w-screen relative text-text-main dark:text-text-main-dark">
+<!-- Background UI Simulation (Blurred to emphasize modal) -->
+<div aria-hidden="true" class="absolute inset-0 z-0 flex flex-col opacity-40 blur-[2px] pointer-events-none select-none">
+<!-- Header Simulation -->
+<header class="h-16 border-b border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-8 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="h-8 w-8 bg-primary rounded-lg"></div>
+<div class="h-4 w-32 bg-border-light dark:bg-border-dark rounded"></div>
+</div>
+<div class="flex gap-4">
+<div class="h-8 w-8 bg-border-light dark:bg-border-dark rounded-full"></div>
+<div class="h-8 w-8 bg-border-light dark:bg-border-dark rounded-full"></div>
+</div>
+</header>
+<!-- Content Simulation -->
+<div class="flex-1 p-8 grid grid-cols-3 gap-6 bg-background-light dark:bg-background-dark">
+<div class="col-span-2 bg-surface-light dark:bg-surface-dark rounded-xl h-full border border-border-light dark:border-border-dark"></div>
+<div class="col-span-1 flex flex-col gap-6">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl h-64 border border-border-light dark:border-border-dark"></div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl flex-1 border border-border-light dark:border-border-dark"></div>
+</div>
+</div>
+</div>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-[#121712]/60 backdrop-blur-sm p-4 transition-all duration-300">
+<!-- Modal Card -->
+<div class="w-full max-w-[560px] bg-surface-light dark:bg-surface-dark rounded-2xl shadow-[0_20px_40px_-12px_rgba(0,0,0,0.15)] flex flex-col max-h-[90vh] overflow-y-auto animate-fade-in-up">
+<!-- Close Button (Absolute) -->
+<button class="absolute top-4 right-4 p-2 text-text-secondary dark:text-text-secondary-dark hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors z-10">
+<span class="material-symbols-outlined text-[24px]">close</span>
+</button>
+<!-- 1. Header with Large Success Checkmark -->
+<div class="flex flex-col items-center justify-center pt-10 pb-4 px-8 text-center">
+<div class="relative mb-6 group">
+<div class="absolute inset-0 bg-primary/20 rounded-full blur-xl transform group-hover:scale-110 transition-transform duration-500"></div>
+<div class="relative w-20 h-20 bg-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/30">
+<span class="material-symbols-outlined text-white text-[48px]">check</span>
+</div>
+</div>
+<h1 class="text-2xl md:text-[28px] font-bold tracking-tight text-text-main dark:text-white mb-2">
+                    Weighment Successfully Completed
+                </h1>
+<p class="text-text-secondary dark:text-text-secondary-dark text-base font-medium">
+                    Transaction saved successfully
+                </p>
+</div>
+<!-- 2. Summary Table & Weight Details -->
+<div class="px-6 md:px-10 py-2 flex flex-col gap-6">
+<!-- Description List Grid -->
+<div class="grid grid-cols-2 gap-y-5 gap-x-4 py-5 border-y border-border-light dark:border-border-dark">
+<div class="flex flex-col gap-1">
+<p class="text-text-secondary dark:text-text-secondary-dark text-xs font-semibold uppercase tracking-wider">RST No</p>
+<p class="text-text-main dark:text-white text-base font-semibold font-body">#2023-8492</p>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-text-secondary dark:text-text-secondary-dark text-xs font-semibold uppercase tracking-wider">Vehicle</p>
+<p class="text-text-main dark:text-white text-base font-semibold font-body">KA-01-HH-1234</p>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-text-secondary dark:text-text-secondary-dark text-xs font-semibold uppercase tracking-wider">Customer</p>
+<p class="text-text-main dark:text-white text-base font-semibold font-body">Apex Construction Ltd.</p>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-text-secondary dark:text-text-secondary-dark text-xs font-semibold uppercase tracking-wider">Material</p>
+<p class="text-text-main dark:text-white text-base font-semibold font-body">River Sand</p>
+</div>
+</div>
+<!-- Weight Details Card -->
+<div class="bg-background-light dark:bg-[#252a25] border border-border-light dark:border-border-dark rounded-xl p-5 flex flex-col gap-4">
+<!-- Top Row: Gross & Tare -->
+<div class="flex justify-between items-start border-b border-dashed border-border-light dark:border-border-dark pb-4">
+<div class="flex flex-col gap-1">
+<span class="text-text-secondary dark:text-text-secondary-dark text-sm font-medium">Gross Weight</span>
+<span class="text-text-main dark:text-white text-xl font-bold tracking-tight">12,500 kg</span>
+</div>
+<div class="flex flex-col gap-1 text-right">
+<span class="text-text-secondary dark:text-text-secondary-dark text-sm font-medium">Tare Weight</span>
+<span class="text-text-main dark:text-white text-xl font-bold tracking-tight">4,500 kg</span>
+</div>
+</div>
+<!-- Bottom Row: Net Weight (Highlighted) -->
+<div class="flex justify-between items-center pt-1">
+<div class="flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined">scale</span>
+<span class="text-sm font-bold uppercase tracking-wider">Net Weight</span>
+</div>
+<span class="text-primary text-3xl font-extrabold tracking-tight">8,000 kg</span>
+</div>
+</div>
+<!-- Timestamp -->
+<div class="text-center">
+<p class="text-text-secondary dark:text-text-secondary-dark text-sm">
+                        Completed on Oct 24, 2023 • 14:30 PM
+                    </p>
+</div>
+</div>
+<!-- 3. Action Footer -->
+<div class="p-6 md:p-10 flex flex-col gap-4">
+<!-- Primary Button -->
+<button class="w-full flex items-center justify-center gap-2 bg-primary hover:bg-[#437641] text-white h-12 rounded-lg text-base font-bold transition-colors shadow-md shadow-primary/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:focus:ring-offset-surface-dark">
+<span class="material-symbols-outlined">print</span>
+<span>Print RST Receipt</span>
+</button>
+<!-- Secondary Actions -->
+<div class="flex items-center justify-center gap-6 mt-1">
+<button class="text-text-secondary dark:text-text-secondary-dark hover:text-text-main dark:hover:text-white text-sm font-semibold transition-colors flex items-center gap-1.5 px-2 py-1 rounded focus:outline-none focus:bg-background-light dark:focus:bg-background-dark">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                        New Weighment
+                    </button>
+<div class="h-4 w-px bg-border-light dark:bg-border-dark"></div>
+<button class="text-text-secondary dark:text-text-secondary-dark hover:text-text-main dark:hover:text-white text-sm font-semibold transition-colors flex items-center gap-1.5 px-2 py-1 rounded focus:outline-none focus:bg-background-light dark:focus:bg-background-dark">
+<span class="material-symbols-outlined text-[18px]">dashboard</span>
+                        Go to Dashboard
+                    </button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

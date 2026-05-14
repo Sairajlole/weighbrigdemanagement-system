@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Subscription &amp; Billing Overview</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings:
+            'FILL' 1,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#111811] dark:text-white font-display">
+<div class="relative flex h-screen w-full overflow-hidden">
+<!-- Sidebar -->
+<div class="hidden lg:flex w-64 flex-col bg-white dark:bg-[#1a2e19] border-r border-[#e5e7eb] dark:border-[#2f422e] h-full flex-shrink-0">
+<div class="flex h-full flex-col justify-between p-4">
+<div class="flex flex-col gap-4">
+<div class="flex gap-3 items-center pb-4 border-b border-[#f0f4f0] dark:border-[#2f422e]">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 bg-gray-200" data-alt="Company Logo Placeholder" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC9LFSUUMMWXoEq6uqFJCzcJeSXT8tDepBRRF2q5rtrXrNO4oZbkxtLoa-_sWvAvs8tHhB9atHzb7bul_eIi4eClC0VHgJfVdjUciCiTBBPPiPn2ho4rnlzOeSw1kHyzGyYinpzl8hA3gt0PPhAx5mya4uo6AbOMgC-KwJLkV2YeK5Hw6aUIHGBj876bdNRaw7heKr0i_uvMtvAd0c1me47NJgopnJ2zbZTSzfOpBWmgs-_1jZiYngSbEZ1bak00ifYPFfrwbTydgs");'></div>
+<div class="flex flex-col">
+<h1 class="text-[#111811] dark:text-white text-base font-bold leading-normal">WMS Admin</h1>
+<p class="text-[#638961] dark:text-[#8ab388] text-xs font-normal leading-normal">admin@weighbridge.com</p>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#f0f4f0] dark:hover:bg-[#2f422e] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#638961] dark:text-[#8ab388] group-hover:text-[#111811] dark:group-hover:text-white">dashboard</span>
+<p class="text-[#111811] dark:text-white text-sm font-medium leading-normal">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#f0f4f0] dark:hover:bg-[#2f422e] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#638961] dark:text-[#8ab388] group-hover:text-[#111811] dark:group-hover:text-white">scale</span>
+<p class="text-[#111811] dark:text-white text-sm font-medium leading-normal">Weighbridge</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#f0f4f0] dark:hover:bg-[#2f422e] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#638961] dark:text-[#8ab388] group-hover:text-[#111811] dark:group-hover:text-white">description</span>
+<p class="text-[#111811] dark:text-white text-sm font-medium leading-normal">Reports</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 dark:bg-primary/20" href="#">
+<span class="material-symbols-outlined filled text-primary-dark dark:text-primary">credit_card</span>
+<p class="text-[#111811] dark:text-white text-sm font-bold leading-normal">Subscription &amp; Billing</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#f0f4f0] dark:hover:bg-[#2f422e] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#638961] dark:text-[#8ab388] group-hover:text-[#111811] dark:group-hover:text-white">settings</span>
+<p class="text-[#111811] dark:text-white text-sm font-medium leading-normal">Settings</p>
+</a>
+</div>
+</div>
+<div class="p-3">
+<button class="flex w-full items-center gap-3 px-3 py-2 rounded-lg hover:bg-red-50 text-red-600 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors">
+<span class="material-symbols-outlined">logout</span>
+<span class="text-sm font-medium">Log Out</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Main Content -->
+<div class="flex-1 flex flex-col h-full overflow-y-auto">
+<!-- Header Area -->
+<div class="w-full px-8 pt-8 pb-4">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex flex-col gap-1">
+<h1 class="text-[#111811] dark:text-white text-3xl font-black leading-tight tracking-[-0.033em]">Subscription &amp; Billing</h1>
+<p class="text-[#638961] dark:text-[#a1cda0] text-base font-normal">Manage your feature packs and billing details</p>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-xs font-medium bg-[#e1e4e1] dark:bg-[#2f422e] text-[#111811] dark:text-white px-3 py-1.5 rounded-full">Current Plan: Pro Enterprise</span>
+</div>
+</div>
+</div>
+<div class="flex-1 px-8 pb-10">
+<div class="max-w-[1200px] flex flex-col gap-8">
+<!-- Pricing/Features Section -->
+<section>
+<div class="flex items-center justify-between mb-4 mt-2">
+<h3 class="text-[#111811] dark:text-white text-xl font-bold leading-tight">Feature Packs</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+<!-- Card 1: Active -->
+<div class="flex flex-col gap-4 rounded-xl border border-[#dce6db] dark:border-[#2f422e] bg-white dark:bg-[#1a2e19] p-6 shadow-sm hover:shadow-md transition-shadow">
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<h2 class="text-[#111811] dark:text-white text-lg font-bold">AI Features Pack</h2>
+<div class="flex items-center gap-1.5 bg-[#f0fdf0] dark:bg-[#1aec13]/10 border border-[#1aec13]/30 px-2 py-1 rounded-full">
+<div class="size-2 rounded-full bg-[#1aec13]"></div>
+<span class="text-[#112210] dark:text-[#1aec13] text-xs font-semibold uppercase tracking-wider">Active</span>
+</div>
+</div>
+<div class="mt-2 flex items-baseline gap-1 text-[#111811] dark:text-white">
+<span class="text-3xl font-black tracking-tight">₹999</span>
+<span class="text-sm font-medium text-[#638961] dark:text-[#8ab388]">/month</span>
+</div>
+</div>
+<div class="flex-1 flex flex-col gap-3 py-2">
+<div class="flex items-start gap-3 text-sm text-[#4a594a] dark:text-[#cbd5cb]">
+<span class="material-symbols-outlined text-primary text-[20px] pt-0.5">check_circle</span>
+<span>Automatic Number Plate Recognition</span>
+</div>
+<div class="flex items-start gap-3 text-sm text-[#4a594a] dark:text-[#cbd5cb]">
+<span class="material-symbols-outlined text-primary text-[20px] pt-0.5">check_circle</span>
+<span>Camera Integration</span>
+</div>
+<div class="flex items-start gap-3 text-sm text-[#4a594a] dark:text-[#cbd5cb]">
+<span class="material-symbols-outlined text-primary text-[20px] pt-0.5">check_circle</span>
+<span>AI Anomaly Detection</span>
+</div>
+</div>
+<button class="w-full cursor-pointer rounded-lg h-10 px-4 bg-[#f0f4f0] dark:bg-[#2f422e] hover:bg-[#e1e4e1] dark:hover:bg-[#3d523c] text-[#111811] dark:text-white text-sm font-bold transition-colors">
+                                    Manage
+                                </button>
+</div>
+<!-- Card 2: Active -->
+<div class="flex flex-col gap-4 rounded-xl border border-[#dce6db] dark:border-[#2f422e] bg-white dark:bg-[#1a2e19] p-6 shadow-sm hover:shadow-md transition-shadow">
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<h2 class="text-[#111811] dark:text-white text-lg font-bold">SMS/WhatsApp Pack</h2>
+<div class="flex items-center gap-1.5 bg-[#f0fdf0] dark:bg-[#1aec13]/10 border border-[#1aec13]/30 px-2 py-1 rounded-full">
+<div class="size-2 rounded-full bg-[#1aec13]"></div>
+<span class="text-[#112210] dark:text-[#1aec13] text-xs font-semibold uppercase tracking-wider">Active</span>
+</div>
+</div>
+<div class="mt-2 flex items-baseline gap-1 text-[#111811] dark:text-white">
+<span class="text-3xl font-black tracking-tight">₹499</span>
+<span class="text-sm font-medium text-[#638961] dark:text-[#8ab388]">/month</span>
+</div>
+</div>
+<div class="flex-1 flex flex-col gap-3 py-2">
+<div class="flex items-start gap-3 text-sm text-[#4a594a] dark:text-[#cbd5cb]">
+<span class="material-symbols-outlined text-primary text-[20px] pt-0.5">check_circle</span>
+<span>Driver Notifications</span>
+</div>
+<div class="flex items-start gap-3 text-sm text-[#4a594a] dark:text-[#cbd5cb]">
+<span class="material-symbols-outlined text-primary text-[20px] pt-0.5">check_circle</span>
+<span>Digital Receipts via WhatsApp</span>
+</div>
+<div class="flex items-start gap-3 text-sm text-[#4a594a] dark:text-[#cbd5cb]">
+<span class="material-symbols-outlined text-primary text-[20px] pt-0.5">check_circle</span>
+<span>Daily Summary SMS</span>
+</div>
+</div>
+<button class="w-full cursor-pointer rounded-lg h-10 px-4 bg-[#f0f4f0] dark:bg-[#2f422e] hover:bg-[#e1e4e1] dark:hover:bg-[#3d523c] text-[#111811] dark:text-white text-sm font-bold transition-colors">
+                                    Manage
+                                </button>
+</div>
+<!-- Card 3: Inactive -->
+<div class="flex flex-col gap-4 rounded-xl border border-[#dce6db] dark:border-[#2f422e] bg-white dark:bg-[#1a2e19] p-6 shadow-sm hover:shadow-md transition-shadow opacity-90 hover:opacity-100">
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<h2 class="text-[#111811] dark:text-white text-lg font-bold">ERP Automation</h2>
+<div class="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2 py-1 rounded-full">
+<div class="size-2 rounded-full bg-gray-400"></div>
+<span class="text-gray-600 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider">Inactive</span>
+</div>
+</div>
+<div class="mt-2 flex items-baseline gap-1 text-[#111811] dark:text-white">
+<span class="text-3xl font-black tracking-tight">₹1,499</span>
+<span class="text-sm font-medium text-[#638961] dark:text-[#8ab388]">/month</span>
+</div>
+</div>
+<div class="flex-1 flex flex-col gap-3 py-2">
+<div class="flex items-start gap-3 text-sm text-[#4a594a] dark:text-[#cbd5cb]">
+<span class="material-symbols-outlined text-gray-400 text-[20px] pt-0.5">check_circle</span>
+<span>SAP/Tally Integration</span>
+</div>
+<div class="flex items-start gap-3 text-sm text-[#4a594a] dark:text-[#cbd5cb]">
+<span class="material-symbols-outlined text-gray-400 text-[20px] pt-0.5">check_circle</span>
+<span>Auto-Invoicing</span>
+</div>
+<div class="flex items-start gap-3 text-sm text-[#4a594a] dark:text-[#cbd5cb]">
+<span class="material-symbols-outlined text-gray-400 text-[20px] pt-0.5">check_circle</span>
+<span>Tax Calculation Automation</span>
+</div>
+</div>
+<button class="w-full cursor-pointer rounded-lg h-10 px-4 bg-primary hover:bg-[#16d610] text-[#111811] text-sm font-bold shadow-sm transition-colors">
+                                    Subscribe
+                                </button>
+</div>
+</div>
+</section>
+<!-- Payment Method -->
+<section>
+<h3 class="text-[#111811] dark:text-white text-xl font-bold leading-tight mb-4">Payment Method</h3>
+<div class="rounded-xl border border-[#dce6db] dark:border-[#2f422e] bg-white dark:bg-[#1a2e19] p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+<div class="flex items-center gap-4">
+<div class="h-12 w-16 bg-[#f0f4f0] dark:bg-[#2f422e] rounded-md flex items-center justify-center border border-[#dce6db] dark:border-[#3d523c]">
+<!-- Visa logo placeholder representation -->
+<span class="text-[#1a1f71] dark:text-[#6b7ecc] font-black text-xl italic tracking-tighter">VISA</span>
+</div>
+<div class="flex flex-col">
+<p class="text-[#111811] dark:text-white font-medium">Visa ending in 4242</p>
+<p class="text-sm text-[#638961] dark:text-[#8ab388]">Expires 12/2025</p>
+</div>
+</div>
+<div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+<div class="flex flex-col sm:items-end">
+<p class="text-xs text-[#638961] dark:text-[#8ab388] uppercase font-semibold tracking-wide mb-1">Billing Contact</p>
+<p class="text-sm font-medium text-[#111811] dark:text-white">finance@weighbridge.com</p>
+</div>
+<button class="shrink-0 cursor-pointer rounded-lg h-9 px-4 border border-[#dce6db] dark:border-[#3d523c] bg-transparent hover:bg-[#f0f4f0] dark:hover:bg-[#2f422e] text-[#111811] dark:text-white text-sm font-bold transition-colors">
+                                    Update
+                                </button>
+</div>
+</div>
+</section>
+<!-- Billing History -->
+<section>
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-[#111811] dark:text-white text-xl font-bold leading-tight">Billing History</h3>
+<button class="text-sm font-medium text-[#111811] dark:text-[#1aec13] hover:underline">View All</button>
+</div>
+<div class="rounded-xl border border-[#dce6db] dark:border-[#2f422e] bg-white dark:bg-[#1a2e19] shadow-sm overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm">
+<thead class="bg-[#f6f8f6] dark:bg-[#1f361e] border-b border-[#dce6db] dark:border-[#2f422e]">
+<tr>
+<th class="px-6 py-4 font-semibold text-[#111811] dark:text-white">Date</th>
+<th class="px-6 py-4 font-semibold text-[#111811] dark:text-white">Description</th>
+<th class="px-6 py-4 font-semibold text-[#111811] dark:text-white">Amount</th>
+<th class="px-6 py-4 font-semibold text-[#111811] dark:text-white">Status</th>
+<th class="px-6 py-4 font-semibold text-[#111811] dark:text-white text-right">Invoice</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#dce6db] dark:divide-[#2f422e]">
+<!-- Row 1 -->
+<tr class="hover:bg-[#fcfdfc] dark:hover:bg-[#1f361e]/50 transition-colors">
+<td class="px-6 py-4 text-[#4a594a] dark:text-[#cbd5cb]">Oct 01, 2023</td>
+<td class="px-6 py-4 font-medium text-[#111811] dark:text-white">Monthly Subscription (Standard)</td>
+<td class="px-6 py-4 text-[#111811] dark:text-white font-medium">₹2,999.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-[#f0fdf0] dark:bg-[#1aec13]/10 px-2.5 py-0.5 text-xs font-medium text-[#112210] dark:text-[#1aec13]">
+<span class="size-1.5 rounded-full bg-[#1aec13]"></span>
+                                                    Paid
+                                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button aria-label="Download Invoice" class="inline-flex items-center justify-center size-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-[#638961] dark:text-[#8ab388] transition-colors">
+<span class="material-symbols-outlined text-[20px]">download</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-[#fcfdfc] dark:hover:bg-[#1f361e]/50 transition-colors">
+<td class="px-6 py-4 text-[#4a594a] dark:text-[#cbd5cb]">Sept 01, 2023</td>
+<td class="px-6 py-4 font-medium text-[#111811] dark:text-white">SMS Top-up Pack</td>
+<td class="px-6 py-4 text-[#111811] dark:text-white font-medium">₹500.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-[#f0fdf0] dark:bg-[#1aec13]/10 px-2.5 py-0.5 text-xs font-medium text-[#112210] dark:text-[#1aec13]">
+<span class="size-1.5 rounded-full bg-[#1aec13]"></span>
+                                                    Paid
+                                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button aria-label="Download Invoice" class="inline-flex items-center justify-center size-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-[#638961] dark:text-[#8ab388] transition-colors">
+<span class="material-symbols-outlined text-[20px]">download</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-[#fcfdfc] dark:hover:bg-[#1f361e]/50 transition-colors">
+<td class="px-6 py-4 text-[#4a594a] dark:text-[#cbd5cb]">Aug 01, 2023</td>
+<td class="px-6 py-4 font-medium text-[#111811] dark:text-white">AI Pack Trial</td>
+<td class="px-6 py-4 text-[#111811] dark:text-white font-medium">₹0.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                    Completed
+                                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button aria-label="Download Invoice" class="inline-flex items-center justify-center size-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-[#638961] dark:text-[#8ab388] transition-colors">
+<span class="material-symbols-outlined text-[20px]">download</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</div>
+</body></html>

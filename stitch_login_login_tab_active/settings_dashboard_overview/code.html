@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Settings Dashboard Overview - Weighbridge Management System</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                        "accent-green": "#508D4E",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen text-[#0e1b0d] dark:text-white">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#e7f3e7] dark:border-white/10 bg-white dark:bg-background-dark/50 px-10 py-3 sticky top-0 z-50">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-4 text-[#0e1b0d] dark:text-white">
+<div class="size-8 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-white">scale</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">Weighbridge MS</h2>
+</div>
+<nav class="hidden md:flex items-center gap-9">
+<a class="text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Operations</a>
+<a class="text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Reports</a>
+<a class="text-sm font-bold leading-normal text-primary" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex flex-1 justify-end gap-4">
+<div class="flex gap-2">
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-[#e7f3e7] dark:bg-white/10 text-[#0e1b0d] dark:text-white">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-[#e7f3e7] dark:bg-white/10 text-[#0e1b0d] dark:text-white">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary/20" data-alt="User profile avatar placeholder" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCZzbC-qU_YzUrSiP2L_hY-umBVqTbSYCsZKJW45YfucZZDVsgGYxPo9YheNtIw_DZA4dgdJQPRNhHXtBnLvKywqmdJyY5vJ0fSkznYiEKpUgt8x8sD4tN6G8lkCG4fmFt01v-XzUnJWpzpNTOMZZrKi1oYfCy3O-EyyFT2YRfTIk9oKgJPGGbF3TlK3zJ5k8sjqeZpO_iyxgPpK0A4f_q9dijonQudYmL7i1gezxwnBbuESOvoZKoyuVKlSiK9oZr8LXL_msuyBYA");'></div>
+</div>
+</header>
+<div class="flex flex-1">
+<!-- Sidebar Navigation -->
+<aside class="w-64 border-r border-[#e7f3e7] dark:border-white/10 p-4 hidden lg:flex flex-col gap-4 bg-white dark:bg-background-dark/30">
+<div class="flex flex-col mb-4 px-3">
+<h1 class="text-[#0e1b0d] dark:text-white text-base font-bold">System Admin</h1>
+<p class="text-accent-green text-xs font-medium">V3.2.1-Standard</p>
+</div>
+<div class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#e7f3e7] dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 group-hover:text-accent-green">home</span>
+<p class="text-sm font-medium">Home</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#e7f3e7] dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 group-hover:text-accent-green">local_shipping</span>
+<p class="text-sm font-medium">Operations</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#e7f3e7] dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 group-hover:text-accent-green">inventory_2</span>
+<p class="text-sm font-medium">Logistics</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-accent-green font-bold" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">settings</span>
+<p class="text-sm">Settings</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#e7f3e7] dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 group-hover:text-accent-green">group</span>
+<p class="text-sm font-medium">User Management</p>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark p-6 lg:p-10">
+<div class="max-w-6xl mx-auto flex flex-col gap-8">
+<!-- Breadcrumbs -->
+<div class="flex items-center gap-2 text-sm">
+<a class="text-accent-green font-medium hover:underline" href="#">Home</a>
+<span class="text-gray-400">/</span>
+<span class="text-[#0e1b0d] dark:text-white font-medium">Settings</span>
+</div>
+<!-- Page Heading -->
+<div class="flex flex-col gap-2">
+<h1 class="text-[#0e1b0d] dark:text-white text-4xl font-black leading-tight tracking-tight">Settings Dashboard</h1>
+<p class="text-accent-green text-base max-w-2xl">Configure system preferences, hardware integrations, and security protocols for your weighbridge facility.</p>
+</div>
+<!-- Search Bar -->
+<div class="w-full">
+<label class="flex flex-col w-full h-14">
+<div class="flex w-full flex-1 items-stretch rounded-xl h-full shadow-sm">
+<div class="text-accent-green flex border-none bg-white dark:bg-white/5 items-center justify-center pl-5 rounded-l-xl border-r-0">
+<span class="material-symbols-outlined">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 border-none bg-white dark:bg-white/5 text-[#0e1b0d] dark:text-white focus:ring-2 focus:ring-primary/50 h-full placeholder:text-gray-400 px-4 rounded-r-xl pl-3 text-lg font-normal" placeholder="Search for specific settings (e.g., weighbridge, AI, printing...)"/>
+</div>
+</label>
+</div>
+<!-- Settings Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-10">
+<!-- 1. General -->
+<div class="bg-white dark:bg-white/5 p-6 rounded-xl border border-[#e7f3e7] dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex items-start gap-5">
+<div class="w-12 h-12 rounded-lg bg-[#e7f3e7] dark:bg-accent-green/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-accent-green text-3xl">tune</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<h3 class="font-bold text-lg">General</h3>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">System language, timezone, and facility basic information.</p>
+</div>
+</div>
+<!-- 2. Custom Fields -->
+<div class="bg-white dark:bg-white/5 p-6 rounded-xl border border-[#e7f3e7] dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex items-start gap-5">
+<div class="w-12 h-12 rounded-lg bg-[#e7f3e7] dark:bg-accent-green/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-accent-green text-3xl">edit_attributes</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<h3 class="font-bold text-lg">Custom Fields</h3>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Manage extra data points for tickets and vehicle registrations.</p>
+</div>
+</div>
+<!-- 3. Materials -->
+<div class="bg-white dark:bg-white/5 p-6 rounded-xl border border-[#e7f3e7] dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex items-start gap-5">
+<div class="w-12 h-12 rounded-lg bg-[#e7f3e7] dark:bg-accent-green/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-accent-green text-3xl">category</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<h3 class="font-bold text-lg">Materials</h3>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Define commodity types, pricing tiers, and weight categories.</p>
+</div>
+</div>
+<!-- 4. Gate Control -->
+<div class="bg-white dark:bg-white/5 p-6 rounded-xl border border-[#e7f3e7] dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex items-start gap-5">
+<div class="w-12 h-12 rounded-lg bg-[#e7f3e7] dark:bg-accent-green/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-accent-green text-3xl">gate</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<h3 class="font-bold text-lg">Gate Control</h3>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Configure barrier automation, RFID readers, and sensors.</p>
+</div>
+</div>
+<!-- 5. Weighbridge -->
+<div class="bg-white dark:bg-white/5 p-6 rounded-xl border border-[#e7f3e7] dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex items-start gap-5">
+<div class="w-12 h-12 rounded-lg bg-[#e7f3e7] dark:bg-accent-green/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-accent-green text-3xl">monitor_weight</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<h3 class="font-bold text-lg">Weighbridge</h3>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Hardware protocols, COM port settings, and scale calibration.</p>
+</div>
+</div>
+<!-- 6. Cameras & AI -->
+<div class="bg-white dark:bg-white/5 p-6 rounded-xl border border-[#e7f3e7] dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex items-start gap-5">
+<div class="w-12 h-12 rounded-lg bg-[#e7f3e7] dark:bg-accent-green/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-accent-green text-3xl">camera_indoor</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<h3 class="font-bold text-lg">Cameras &amp; AI</h3>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">ANPR configuration, snapshot triggers, and AI vehicle detection.</p>
+</div>
+</div>
+<!-- 7. Notifications -->
+<div class="bg-white dark:bg-white/5 p-6 rounded-xl border border-[#e7f3e7] dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex items-start gap-5">
+<div class="w-12 h-12 rounded-lg bg-[#e7f3e7] dark:bg-accent-green/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-accent-green text-3xl">mail</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<h3 class="font-bold text-lg">Notifications</h3>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">SMS, Email, and Push alerts for weight violations or departures.</p>
+</div>
+</div>
+<!-- 8. Printing -->
+<div class="bg-white dark:bg-white/5 p-6 rounded-xl border border-[#e7f3e7] dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex items-start gap-5">
+<div class="w-12 h-12 rounded-lg bg-[#e7f3e7] dark:bg-accent-green/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-accent-green text-3xl">print</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<h3 class="font-bold text-lg">Printing</h3>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Ticket templates, thermal printer drivers, and auto-print rules.</p>
+</div>
+</div>
+<!-- 9. Data & Backup -->
+<div class="bg-white dark:bg-white/5 p-6 rounded-xl border border-[#e7f3e7] dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex items-start gap-5">
+<div class="w-12 h-12 rounded-lg bg-[#e7f3e7] dark:bg-accent-green/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-accent-green text-3xl">database</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<h3 class="font-bold text-lg">Data &amp; Backup</h3>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Scheduled backups, database cleanup, and CSV/Excel exports.</p>
+</div>
+</div>
+<!-- 10. Security -->
+<div class="bg-white dark:bg-white/5 p-6 rounded-xl border border-[#e7f3e7] dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex items-start gap-5">
+<div class="w-12 h-12 rounded-lg bg-[#e7f3e7] dark:bg-accent-green/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-accent-green text-3xl">lock_open</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<h3 class="font-bold text-lg">Security</h3>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Role-based access control, password policies, and audit logs.</p>
+</div>
+</div>
+<!-- 11. Integrations -->
+<div class="bg-white dark:bg-white/5 p-6 rounded-xl border border-[#e7f3e7] dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex items-start gap-5">
+<div class="w-12 h-12 rounded-lg bg-[#e7f3e7] dark:bg-accent-green/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-accent-green text-3xl">hub</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<h3 class="font-bold text-lg">Integrations</h3>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Connect with ERP systems (SAP, Oracle) and Cloud API sync.</p>
+</div>
+</div>
+<!-- 12. Appearance -->
+<div class="bg-white dark:bg-white/5 p-6 rounded-xl border border-[#e7f3e7] dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex items-start gap-5">
+<div class="w-12 h-12 rounded-lg bg-[#e7f3e7] dark:bg-accent-green/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-accent-green text-3xl">palette</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<h3 class="font-bold text-lg">Appearance</h3>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Theme selection, company branding logo, and display preferences.</p>
+</div>
+</div>
+<!-- 13. System Health -->
+<div class="bg-white dark:bg-white/5 p-6 rounded-xl border border-[#e7f3e7] dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex items-start gap-5">
+<div class="w-12 h-12 rounded-lg bg-[#e7f3e7] dark:bg-accent-green/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-accent-green text-3xl">analytics</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<h3 class="font-bold text-lg">System Health</h3>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Monitor hardware connectivity, storage usage, and system uptime.</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

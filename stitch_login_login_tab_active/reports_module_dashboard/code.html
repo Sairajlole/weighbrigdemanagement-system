@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Reports Module Dashboard</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-dark": "#3e6e3c",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#232a23",
+                        "border-light": "#dfe2df",
+                        "border-dark": "#343a34",
+                        "text-main": "#121712",
+                        "text-sub": "#668165",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "2xl": "2rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for better look in categories */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-main dark:text-gray-100 font-display antialiased selection:bg-primary/30 selection:text-primary-dark">
+<div class="flex h-screen w-full overflow-hidden">
+<!-- Sidebar -->
+<aside class="w-64 flex-shrink-0 flex flex-col bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark h-full transition-all duration-300">
+<div class="p-6">
+<div class="flex items-center gap-3">
+<div class="bg-primary/20 flex items-center justify-center rounded-xl size-10 text-primary">
+<span class="material-symbols-outlined fill">scale</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-text-main dark:text-white text-lg font-bold leading-tight">WeighSys</h1>
+<p class="text-text-sub text-xs font-medium">Admin Console</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-1 px-3 py-2 overflow-y-auto">
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-text-main dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 group-hover:text-primary dark:text-gray-400 dark:group-hover:text-primary transition-colors">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-text-main dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 group-hover:text-primary dark:text-gray-400 dark:group-hover:text-primary transition-colors">scale</span>
+<span class="text-sm font-medium">Weighments</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-text-main dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 group-hover:text-primary dark:text-gray-400 dark:group-hover:text-primary transition-colors">group</span>
+<span class="text-sm font-medium">Customers</span>
+</a>
+<!-- Active State -->
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg bg-primary/10 text-primary dark:text-primary border border-primary/10" href="#">
+<span class="material-symbols-outlined fill">description</span>
+<span class="text-sm font-bold">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-text-main dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-gray-500 group-hover:text-primary dark:text-gray-400 dark:group-hover:text-primary transition-colors">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+<div class="p-4 border-t border-border-light dark:border-border-dark">
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-text-main dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="text-sm font-medium">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col h-full overflow-y-auto bg-background-light dark:bg-background-dark">
+<div class="max-w-[1400px] w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
+<!-- Header & Filters -->
+<div class="flex flex-col gap-6">
+<div class="flex flex-wrap items-end justify-between gap-4">
+<div class="flex flex-col gap-1">
+<h1 class="text-text-main dark:text-white text-[32px] font-black leading-tight tracking-tight">Reports</h1>
+<p class="text-text-sub text-base font-normal">Analytics and insights for your operations</p>
+</div>
+<button class="bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-sm shadow-primary/30">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                            Generate New Report
+                        </button>
+</div>
+<!-- Date Filter Chips -->
+<div class="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
+<button class="flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-white shadow-md shadow-primary/20 text-sm font-semibold whitespace-nowrap transition-transform active:scale-95">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+                            Today
+                        </button>
+<button class="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-text-main dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium whitespace-nowrap transition-colors">
+                            Last 7 Days
+                        </button>
+<button class="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-text-main dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium whitespace-nowrap transition-colors">
+                            This Month
+                        </button>
+<button class="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-text-main dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium whitespace-nowrap transition-colors">
+                            Last Month
+                        </button>
+<div class="h-6 w-px bg-border-light dark:bg-border-dark mx-1"></div>
+<button class="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-text-main dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium whitespace-nowrap transition-colors">
+<span class="material-symbols-outlined text-[18px]">date_range</span>
+                            Custom Range
+                        </button>
+</div>
+</div>
+<!-- Quick Stats -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Stat 1 -->
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">scale</span>
+</div>
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+                                12%
+                            </span>
+</div>
+<p class="text-text-sub text-sm font-medium mb-1">Today's Weighments</p>
+<p class="text-text-main dark:text-white text-3xl font-bold tracking-tight">124</p>
+<p class="text-xs text-text-sub mt-2">vs 111 yesterday</p>
+</div>
+<!-- Stat 2 -->
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">weight</span>
+</div>
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+                                5%
+                            </span>
+</div>
+<p class="text-text-sub text-sm font-medium mb-1">Total Weight</p>
+<p class="text-text-main dark:text-white text-3xl font-bold tracking-tight">4,500 <span class="text-lg font-medium text-text-sub">Tons</span></p>
+<p class="text-xs text-text-sub mt-2">vs 4,280 yesterday</p>
+</div>
+<!-- Stat 3 -->
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">group</span>
+</div>
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-gray-300">
+<span class="material-symbols-outlined text-[14px]">remove</span>
+                                0%
+                            </span>
+</div>
+<p class="text-text-sub text-sm font-medium mb-1">Active Customers</p>
+<p class="text-text-main dark:text-white text-3xl font-bold tracking-tight">85</p>
+<p class="text-xs text-text-sub mt-2">Stable vs yesterday</p>
+</div>
+<!-- Stat 4 -->
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+                                8%
+                            </span>
+</div>
+<p class="text-text-sub text-sm font-medium mb-1">Revenue</p>
+<p class="text-text-main dark:text-white text-3xl font-bold tracking-tight">$12,450</p>
+<p class="text-xs text-text-sub mt-2">vs $11,500 yesterday</p>
+</div>
+</div>
+<!-- Report Categories Grid -->
+<section>
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-lg font-bold text-text-main dark:text-white">Report Categories</h2>
+<button class="text-primary hover:text-primary-dark text-sm font-semibold">View All</button>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+<!-- Category Card 1 -->
+<button class="flex items-start gap-4 p-5 rounded-[16px] bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all text-left group">
+<div class="size-12 rounded-full bg-background-light dark:bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-primary text-[28px]">scale</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-text-main dark:text-white mb-1 group-hover:text-primary transition-colors">Weighment Reports</h3>
+<p class="text-sm text-text-sub leading-snug">Daily logs, ticket summaries, and transaction details.</p>
+</div>
+</button>
+<!-- Category Card 2 -->
+<button class="flex items-start gap-4 p-5 rounded-[16px] bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all text-left group">
+<div class="size-12 rounded-full bg-background-light dark:bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-primary text-[28px]">group</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-text-main dark:text-white mb-1 group-hover:text-primary transition-colors">Customer Reports</h3>
+<p class="text-sm text-text-sub leading-snug">Client activity, top customers, and credit limits.</p>
+</div>
+</button>
+<!-- Category Card 3 -->
+<button class="flex items-start gap-4 p-5 rounded-[16px] bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all text-left group">
+<div class="size-12 rounded-full bg-background-light dark:bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-primary text-[28px]">local_shipping</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-text-main dark:text-white mb-1 group-hover:text-primary transition-colors">Vehicle Reports</h3>
+<p class="text-sm text-text-sub leading-snug">Truck utilization, tare weights, and turn-around time.</p>
+</div>
+</button>
+<!-- Category Card 4 -->
+<button class="flex items-start gap-4 p-5 rounded-[16px] bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all text-left group">
+<div class="size-12 rounded-full bg-background-light dark:bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-primary text-[28px]">category</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-text-main dark:text-white mb-1 group-hover:text-primary transition-colors">Material Reports</h3>
+<p class="text-sm text-text-sub leading-snug">Inventory flow, material totals, and stock adjustments.</p>
+</div>
+</button>
+<!-- Category Card 5 -->
+<button class="flex items-start gap-4 p-5 rounded-[16px] bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all text-left group">
+<div class="size-12 rounded-full bg-background-light dark:bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-primary text-[28px]">engineering</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-text-main dark:text-white mb-1 group-hover:text-primary transition-colors">Operator Reports</h3>
+<p class="text-sm text-text-sub leading-snug">Shift performance, manual entries, and audit logs.</p>
+</div>
+</button>
+<!-- Category Card 6 -->
+<button class="flex items-start gap-4 p-5 rounded-[16px] bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all text-left group">
+<div class="size-12 rounded-full bg-background-light dark:bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-primary text-[28px]">attach_money</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-text-main dark:text-white mb-1 group-hover:text-primary transition-colors">Financial Reports</h3>
+<p class="text-sm text-text-sub leading-snug">Invoicing, cash collection, and revenue analysis.</p>
+</div>
+</button>
+<!-- Category Card 7 -->
+<button class="flex items-start gap-4 p-5 rounded-[16px] bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all text-left group">
+<div class="size-12 rounded-full bg-background-light dark:bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-primary text-[28px]">schedule</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-text-main dark:text-white mb-1 group-hover:text-primary transition-colors">Time Analysis</h3>
+<p class="text-sm text-text-sub leading-snug">Peak hours, operational delays, and time efficiency.</p>
+</div>
+</button>
+<!-- Category Card 8 -->
+<button class="flex items-start gap-4 p-5 rounded-[16px] bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all text-left group">
+<div class="size-12 rounded-full bg-background-light dark:bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-primary text-[28px]">compare_arrows</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-text-main dark:text-white mb-1 group-hover:text-primary transition-colors">Comparison</h3>
+<p class="text-sm text-text-sub leading-snug">Year-over-year, month-over-month, and site benchmarks.</p>
+</div>
+</button>
+<!-- Category Card 9 -->
+<button class="flex items-start gap-4 p-5 rounded-[16px] bg-surface-light dark:bg-surface-dark border border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/5 transition-all text-left group">
+<div class="size-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-white text-primary transition-all">
+<span class="material-symbols-outlined text-[28px]">build</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-text-main dark:text-white mb-1">Custom Builder</h3>
+<p class="text-sm text-text-sub leading-snug">Create your own report with specific parameters.</p>
+</div>
+</button>
+</div>
+</section>
+<!-- Bottom Section: Recent & Scheduled -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-8">
+<!-- Recent Reports Table -->
+<div class="lg:col-span-2 flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h2 class="text-lg font-bold text-text-main dark:text-white">Recent Reports</h2>
+<button class="text-primary hover:text-primary-dark text-sm font-semibold">View History</button>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-background-light dark:bg-white/5 border-b border-border-light dark:border-border-dark">
+<th class="p-4 text-xs font-semibold text-text-sub uppercase tracking-wider">Report Name</th>
+<th class="p-4 text-xs font-semibold text-text-sub uppercase tracking-wider">Type</th>
+<th class="p-4 text-xs font-semibold text-text-sub uppercase tracking-wider">Generated By</th>
+<th class="p-4 text-xs font-semibold text-text-sub uppercase tracking-wider">Date</th>
+<th class="p-4 text-xs font-semibold text-text-sub uppercase tracking-wider text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-light dark:divide-border-dark">
+<tr class="hover:bg-background-light dark:hover:bg-white/5 transition-colors">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-2 rounded-lg">
+<span class="material-symbols-outlined text-sm">analytics</span>
+</div>
+<span class="font-medium text-text-main dark:text-white">Daily Weigh-in Log</span>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">PDF</span>
+</td>
+<td class="p-4 text-sm text-text-main dark:text-gray-300">Admin User</td>
+<td class="p-4 text-sm text-text-sub">Oct 24, 10:30 AM</td>
+<td class="p-4 text-right">
+<button class="text-primary hover:text-primary-dark p-1 rounded hover:bg-primary/10 transition-colors" title="Download">
+<span class="material-symbols-outlined text-[20px]">download</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-background-light dark:hover:bg-white/5 transition-colors">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 p-2 rounded-lg">
+<span class="material-symbols-outlined text-sm">pie_chart</span>
+</div>
+<span class="font-medium text-text-main dark:text-white">Monthly Material Summary</span>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">XLSX</span>
+</td>
+<td class="p-4 text-sm text-text-main dark:text-gray-300">System Auto</td>
+<td class="p-4 text-sm text-text-sub">Oct 23, 08:00 AM</td>
+<td class="p-4 text-right">
+<button class="text-primary hover:text-primary-dark p-1 rounded hover:bg-primary/10 transition-colors" title="Download">
+<span class="material-symbols-outlined text-[20px]">download</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-background-light dark:hover:bg-white/5 transition-colors">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 p-2 rounded-lg">
+<span class="material-symbols-outlined text-sm">local_shipping</span>
+</div>
+<span class="font-medium text-text-main dark:text-white">Vehicle Utilization</span>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">PDF</span>
+</td>
+<td class="p-4 text-sm text-text-main dark:text-gray-300">Sarah J.</td>
+<td class="p-4 text-sm text-text-sub">Oct 22, 02:15 PM</td>
+<td class="p-4 text-right">
+<button class="text-primary hover:text-primary-dark p-1 rounded hover:bg-primary/10 transition-colors" title="Download">
+<span class="material-symbols-outlined text-[20px]">download</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Scheduled Reports Card -->
+<div class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h2 class="text-lg font-bold text-text-main dark:text-white">Scheduled</h2>
+<button class="bg-surface-light dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 p-1.5 rounded-lg transition-colors text-text-main dark:text-white">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5 flex flex-col gap-4 h-full">
+<!-- Schedule Item 1 -->
+<div class="flex gap-4 items-center">
+<div class="flex flex-col items-center justify-center w-12 h-12 rounded-lg bg-background-light dark:bg-white/5 border border-border-light dark:border-border-dark">
+<span class="text-[10px] uppercase font-bold text-text-sub">Oct</span>
+<span class="text-lg font-bold text-text-main dark:text-white">25</span>
+</div>
+<div class="flex flex-col flex-1">
+<h4 class="text-sm font-bold text-text-main dark:text-white">Weekly Executive Summary</h4>
+<p class="text-xs text-text-sub">Recipients: Management Team</p>
+</div>
+<div class="text-primary">
+<span class="material-symbols-outlined fill text-[20px]">schedule</span>
+</div>
+</div>
+<hr class="border-border-light dark:border-border-dark"/>
+<!-- Schedule Item 2 -->
+<div class="flex gap-4 items-center">
+<div class="flex flex-col items-center justify-center w-12 h-12 rounded-lg bg-background-light dark:bg-white/5 border border-border-light dark:border-border-dark">
+<span class="text-[10px] uppercase font-bold text-text-sub">Nov</span>
+<span class="text-lg font-bold text-text-main dark:text-white">01</span>
+</div>
+<div class="flex flex-col flex-1">
+<h4 class="text-sm font-bold text-text-main dark:text-white">Monthly Financials</h4>
+<p class="text-xs text-text-sub">Recipients: Finance Dept</p>
+</div>
+<div class="text-text-sub">
+<span class="material-symbols-outlined text-[20px]">schedule</span>
+</div>
+</div>
+<hr class="border-border-light dark:border-border-dark"/>
+<!-- Promo / Empty State -->
+<div class="mt-auto bg-primary/5 rounded-lg p-4 flex flex-col items-center text-center gap-2">
+<div class="bg-white dark:bg-surface-dark p-2 rounded-full shadow-sm">
+<span class="material-symbols-outlined text-primary">mark_email_unread</span>
+</div>
+<p class="text-xs text-text-sub">Automate your reporting workflow. Schedule reports to be sent via email.</p>
+<button class="text-xs font-bold text-primary hover:underline">Setup Schedule</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

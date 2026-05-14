@@ -116,7 +116,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Custom Fields', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    Text('Define up to 3 additional data points for transactions', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                    Text('Additional fields on dockets', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                   ],
                 ),
                 const Spacer(),
@@ -129,7 +129,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                   icon: _saving
                       ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.save_rounded, size: 16),
-                  label: const Text('Save Custom Fields'),
+                  label: Text(_saving ? 'Saving...' : 'Save'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

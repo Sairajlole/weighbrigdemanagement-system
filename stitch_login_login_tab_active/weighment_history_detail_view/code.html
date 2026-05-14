@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Weighment History Detail View</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#20e619",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112111",
+                        "highlight-light": "#D6EFD8", // Custom requested highlight
+                        "highlight-dark": "#1a331a", // Dark mode equivalent
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for timeline if needed */
+        .timeline-line {
+            position: absolute;
+            left: 15px;
+            top: 32px;
+            bottom: -16px;
+            width: 2px;
+            background-color: #e5e7eb;
+        }
+        .last-item .timeline-line {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-[#0e1b0e] dark:text-gray-100 antialiased overflow-x-hidden">
+<div class="relative flex min-h-screen flex-col">
+<!-- Top Navigation -->
+<header class="sticky top-0 z-50 flex items-center justify-between border-b border-[#e8f3e7] dark:border-gray-800 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-6 py-3 lg:px-10">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-3">
+<div class="size-8 text-primary">
+<svg class="h-full w-full" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M4.41189 29.2403L18.7597 43.5881C19.8813 44.7097 21.4027 44.9179 22.7217 44.7893C24.0585 44.659 25.5148 44.1631 26.9723 43.4579C29.9052 42.0387 33.2618 39.5667 36.4142 36.4142C39.5667 33.2618 42.0387 29.9052 43.4579 26.9723C44.1631 25.5148 44.659 24.0585 44.7893 22.7217C44.9179 21.4027 44.7097 19.8813 43.5881 18.7597L29.2403 4.41187C27.8527 3.02428 25.8765 3.02573 24.2861 3.36776C22.6081 3.72863 20.7334 4.58419 18.8396 5.74801C16.4978 7.18716 13.9881 9.18353 11.5858 11.5858C9.18354 13.988 7.18717 16.4978 5.74802 18.8396C4.58421 20.7334 3.72865 22.6081 3.36778 24.2861C3.02574 25.8765 3.02429 27.8527 4.41189 29.2403Z" fill="currentColor"></path>
+<path clip-rule="evenodd" d="M39.475 21.6262C40.358 21.4363 40.6863 21.5589 40.7581 21.5934C40.7876 21.655 40.8547 21.857 40.8082 22.3336C40.7408 23.0255 40.4502 24.0046 39.8572 25.2301C38.6799 27.6631 36.5085 30.6631 33.5858 33.5858C30.6631 36.5085 27.6632 38.6799 25.2301 39.8572C24.0046 40.4502 23.0255 40.7407 22.3336 40.8082C21.8571 40.8547 21.6551 40.7875 21.5934 40.7581C21.5589 40.6863 21.4363 40.358 21.6262 39.475C21.8562 38.4054 22.4689 36.9657 23.5038 35.2817C24.7575 33.2417 26.5497 30.9744 28.7621 28.762C30.9744 26.5497 33.2417 24.7574 35.2817 23.5037C36.9657 22.4689 38.4054 21.8562 39.475 21.6262Z" fill="white" fill-opacity="0.5" fill-rule="evenodd"></path>
+</svg>
+</div>
+<h1 class="text-lg font-bold tracking-tight text-gray-900 dark:text-white">WeighBridge Pro</h1>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-sm font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-sm font-medium text-primary hover:text-primary transition-colors" href="#">History</a>
+<a class="text-sm font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-primary transition-colors" href="#">Reports</a>
+<a class="text-sm font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-primary transition-colors" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden sm:flex relative items-center">
+<span class="material-symbols-outlined absolute left-3 text-gray-400 text-[20px]">search</span>
+<input class="h-9 w-64 rounded-full border-0 bg-gray-100 dark:bg-gray-800 pl-10 pr-4 text-sm text-gray-900 focus:ring-2 focus:ring-primary dark:text-white placeholder:text-gray-400" placeholder="Search ticket #..." type="text"/>
+</div>
+<button class="flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<div class="size-8 rounded-full bg-cover bg-center ring-2 ring-white dark:ring-gray-700" data-alt="Profile picture of operator" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBha9REKhSM1ZPwQebMfq0CPfmOlIK9WIK1C4O-xyty9coHk8UgmldjkldVEvsoUc8sgnKuA_MS4gGWJAJq5U4XANl4GOW0gmzlCQEZYV9tzcdT2OSS-bFSeUn9VtMOLEJv3bFsinZw5fzEv4EIxOdv_EyuRk7junc6KNhA4rjGekBan7O21i_CNMhydZatnwsm__1X_PnuyDazVMWY_9m8dLjKMwbYtO0Mij0t_7goI8_uln2KyW9eqrx-2LI3hiTUglmW37YG5TM');"></div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 px-4 py-8 lg:px-10 xl:px-40">
+<div class="mx-auto flex max-w-[1200px] flex-col gap-8">
+<!-- Breadcrumb -->
+<nav class="flex items-center gap-2 text-sm">
+<a class="font-medium text-gray-500 hover:text-primary dark:text-gray-400 transition-colors" href="#">History</a>
+<span class="text-gray-400">/</span>
+<span class="font-bold text-gray-900 dark:text-white">RST-1234</span>
+</nav>
+<!-- Page Header & Actions -->
+<div class="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+<div>
+<div class="flex items-center gap-3">
+<h2 class="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white md:text-4xl">Weighment Details</h2>
+<span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-green-700 dark:text-green-400 border border-primary/20">
+<span class="mr-1.5 size-2 rounded-full bg-primary"></span>
+                                Complete
+                            </span>
+</div>
+<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Transaction ID: #8839201 • Operator: J. Smith • Shift: Morning A</p>
+</div>
+<div class="flex flex-wrap items-center gap-3">
+<button class="group flex h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-primary dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px]">print</span>
+                            Print
+                        </button>
+<button class="group flex h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-primary dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px]">mail</span>
+                            Email
+                        </button>
+<button class="group flex h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-primary dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px]">share</span>
+                            WhatsApp
+                        </button>
+<button class="flex h-10 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-bold text-white hover:bg-black dark:bg-white dark:text-black dark:hover:bg-gray-200 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+                            Edit
+                        </button>
+</div>
+</div>
+<!-- Main Stats Cards -->
+<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+<div class="rounded-2xl bg-gradient-to-br from-[#1b2e1b] to-[#112111] p-6 text-white shadow-md ring-1 ring-white/10 dark:from-[#20e619]/20 dark:to-transparent">
+<div class="flex items-center justify-between">
+<p class="text-sm font-medium text-primary/90 uppercase tracking-wider">Net Weight</p>
+<span class="material-symbols-outlined text-primary/50">scale</span>
+</div>
+<p class="mt-2 text-4xl font-black tracking-tight text-white">7,950 <span class="text-xl font-medium text-gray-400">kg</span></p>
+<div class="mt-4 flex items-center gap-2 text-xs text-gray-400">
+<span class="material-symbols-outlined text-[14px] text-primary">check_circle</span>
+                            Verified via Load Cells
+                        </div>
+</div>
+<div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 dark:bg-gray-800 dark:ring-gray-700">
+<p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Gross Weight</p>
+<p class="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">22,450 <span class="text-lg font-medium text-gray-400">kg</span></p>
+<p class="mt-4 text-xs font-medium text-gray-500">Captured: 10:15 AM</p>
+</div>
+<div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 dark:bg-gray-800 dark:ring-gray-700">
+<p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tare Weight</p>
+<p class="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">14,500 <span class="text-lg font-medium text-gray-400">kg</span></p>
+<p class="mt-4 text-xs font-medium text-gray-500">Captured: 11:45 AM</p>
+</div>
+</div>
+<!-- Info Grid: Vehicle & Customer -->
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+<!-- Vehicle Info -->
+<div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-800">
+<div class="flex items-center gap-2 bg-highlight-light px-6 py-4 dark:bg-highlight-dark border-b border-gray-100 dark:border-gray-700">
+<span class="material-symbols-outlined text-green-800 dark:text-green-400">local_shipping</span>
+<h3 class="text-base font-bold text-gray-900 dark:text-white">Vehicle Information</h3>
+</div>
+<div class="p-6">
+<div class="grid grid-cols-2 gap-y-6">
+<div>
+<p class="text-xs font-medium text-gray-500 uppercase">Registration No</p>
+<p class="mt-1 text-lg font-bold text-gray-900 dark:text-white">RST-1234</p>
+</div>
+<div>
+<p class="text-xs font-medium text-gray-500 uppercase">Driver Name</p>
+<p class="mt-1 text-base font-medium text-gray-900 dark:text-white">John Doe</p>
+</div>
+<div>
+<p class="text-xs font-medium text-gray-500 uppercase">Transporter</p>
+<p class="mt-1 text-base font-medium text-gray-900 dark:text-white">Fast Logistics Ltd.</p>
+</div>
+<div>
+<p class="text-xs font-medium text-gray-500 uppercase">Vehicle Type</p>
+<p class="mt-1 text-base font-medium text-gray-900 dark:text-white">6-Axle Tipper</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Customer Info -->
+<div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-800">
+<div class="flex items-center gap-2 bg-highlight-light px-6 py-4 dark:bg-highlight-dark border-b border-gray-100 dark:border-gray-700">
+<span class="material-symbols-outlined text-green-800 dark:text-green-400">inventory_2</span>
+<h3 class="text-base font-bold text-gray-900 dark:text-white">Customer &amp; Material</h3>
+</div>
+<div class="p-6">
+<div class="grid grid-cols-2 gap-y-6">
+<div>
+<p class="text-xs font-medium text-gray-500 uppercase">Supplier Name</p>
+<p class="mt-1 text-lg font-bold text-gray-900 dark:text-white">ABC Mining Corp</p>
+</div>
+<div>
+<p class="text-xs font-medium text-gray-500 uppercase">Material</p>
+<p class="mt-1 text-base font-medium text-gray-900 dark:text-white">Coal (Grade A)</p>
+</div>
+<div>
+<p class="text-xs font-medium text-gray-500 uppercase">Purchase Order</p>
+<p class="mt-1 text-base font-medium text-gray-900 dark:text-white font-mono">PO-9928-XJ</p>
+</div>
+<div>
+<p class="text-xs font-medium text-gray-500 uppercase">Destination</p>
+<p class="mt-1 text-base font-medium text-gray-900 dark:text-white">Warehouse 4B</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Camera Snapshots & Timeline -->
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+<!-- Snapshots -->
+<div class="lg:col-span-2 rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-800">
+<div class="mb-6 flex items-center justify-between">
+<h3 class="text-lg font-bold text-gray-900 dark:text-white">Camera Snapshots</h3>
+<button class="text-sm font-medium text-primary hover:underline">Download All</button>
+</div>
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+<!-- Gross Entry -->
+<div class="group relative aspect-video overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Truck entering the weighbridge scale front view" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCcEqWiqHrcsBt0ljKAKmquZIcLU7Y8E14BDDDXat6ybQEjoowu911wHlDVHZQ-dzZvOhuxR3PSCWFr5a8ieD7Ikb44izJT-_7gKTEeXmM-hJWtEuQXoKEcgEL6EwH7sg8a3mtAA68qHUrVaV-THwX6pCpQWmb4CteKe5SXXSAMuCS8IWB0slw4PYdU7dKM8F06W5m_pZwm3h_M9YMPmtmNNlUI9s_K9q1_6S3CeJDxAO6oufZVA8xv0z8LTrbu2WwxenilgaCRXPw');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-80"></div>
+<div class="absolute bottom-3 left-3">
+<p class="text-xs font-bold text-white">Gross Entry</p>
+<p class="text-[10px] text-gray-300">10:15:22 AM</p>
+</div>
+<button class="absolute right-3 top-3 rounded-full bg-black/40 p-1 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+<span class="material-symbols-outlined text-[18px]">fullscreen</span>
+</button>
+</div>
+<!-- Gross Face -->
+<div class="group relative aspect-video overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Close up of truck driver face inside cabin" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCRayNekL_hvFoNxPGyOnldbQ4d23LV8uqijwejUrOszQ8spwvWmtX_BmgR__m4QNSbpCF5wSjqA9YrzZeiowQUYfDBq4ieI1xYMJwiIz00fyc-Ws1vulfPNKDdMHfC7FR67S4xrkHwHXcF1yLpwYDHH_JzICjkttekLi8IcBbyjnMd_kMY5sQB3JQNnrDLFL2TACRHxaawmlriQ7tGoBMAdWGpOFcupNPstXqEjqS3C8lGKVZRWl8scwKH-m79PAhmpllpetbTUFA');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-80"></div>
+<div class="absolute bottom-3 left-3">
+<p class="text-xs font-bold text-white">Gross Face</p>
+<p class="text-[10px] text-gray-300">10:15:30 AM</p>
+</div>
+<button class="absolute right-3 top-3 rounded-full bg-black/40 p-1 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+<span class="material-symbols-outlined text-[18px]">fullscreen</span>
+</button>
+</div>
+<!-- Tare Entry -->
+<div class="group relative aspect-video overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Rear view of truck leaving empty" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB4oqaFJWOEzUcyXJCIRhe4J_g7cxCnQ84t5UlV3VMiV3_3O2qwqqA4lN1JLl0nHjfK4FlE9UC9OrR9qQfshksF5IEQbfoRG0HmQ_iS_aiyaZa1sUKtwjRoDLSveo3v2EUzTXDfY9e3UQzkXlbCo6Ju300LzrxiKPVBNAccV3VtEOYdqD8P6sb-mUYSuKvmD_3Qvoz1dBTKfANRd77mLdH2aS1JgWRPAlarD1Kf2h5eFGR9XqDWFApqC4YScIV6W-GbqmxP_M8sPp0');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-80"></div>
+<div class="absolute bottom-3 left-3">
+<p class="text-xs font-bold text-white">Tare Entry</p>
+<p class="text-[10px] text-gray-300">11:45:10 AM</p>
+</div>
+<button class="absolute right-3 top-3 rounded-full bg-black/40 p-1 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+<span class="material-symbols-outlined text-[18px]">fullscreen</span>
+</button>
+</div>
+<!-- Tare Face -->
+<div class="group relative aspect-video overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Truck license plate close up view" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDscHFHtD0UYE_MyzjGsSxtLT0ciYtTNCMKVf9w7uKCOc3NvbZbGlFA1ymsVkvOESQhctqKamZBQvna27MpAbmejJ7U6u858b-O3jlx0AdQhORQbNeXZuSJChP93FD_eHcamxzjo_Ve1GdxPOBK00xBiMrs7Sljiayhx01Z1XK_1MI9SIJKKu_MLnQTrP5UN3Ywvmcu0L3QBHIQ0f29A08xBhnDyl7E_FOGZnfFKM0LCVWhAuwtnpEJC1ektaaqsc6QpigQ9x5AUtE');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-80"></div>
+<div class="absolute bottom-3 left-3">
+<p class="text-xs font-bold text-white">Tare Face / Plate</p>
+<p class="text-[10px] text-gray-300">11:45:15 AM</p>
+</div>
+<button class="absolute right-3 top-3 rounded-full bg-black/40 p-1 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+<span class="material-symbols-outlined text-[18px]">fullscreen</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Timeline -->
+<div class="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-800">
+<h3 class="mb-6 text-lg font-bold text-gray-900 dark:text-white">Lifecycle</h3>
+<div class="relative flex flex-col gap-0">
+<!-- Item 1 -->
+<div class="relative flex gap-4 pb-8">
+<div class="flex flex-col items-center">
+<div class="z-10 flex size-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
+<span class="material-symbols-outlined text-[16px] text-green-600 dark:text-green-400">login</span>
+</div>
+<div class="timeline-line bg-gray-200 dark:bg-gray-700"></div>
+</div>
+<div class="pt-1">
+<p class="text-sm font-bold text-gray-900 dark:text-white">Vehicle Entry</p>
+<p class="text-xs text-gray-500">10:00 AM • Gate 1</p>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="relative flex gap-4 pb-8">
+<div class="flex flex-col items-center">
+<div class="z-10 flex size-8 items-center justify-center rounded-full bg-primary text-white shadow-md shadow-green-200 dark:shadow-none">
+<span class="material-symbols-outlined text-[16px]">scale</span>
+</div>
+<div class="timeline-line bg-gray-200 dark:bg-gray-700"></div>
+</div>
+<div class="pt-1">
+<p class="text-sm font-bold text-gray-900 dark:text-white">Gross Weighing</p>
+<p class="text-xs text-gray-500">10:15 AM • 22,450 kg</p>
+<p class="text-[10px] font-medium text-green-600 dark:text-green-400 mt-1 bg-green-50 dark:bg-green-900/30 w-fit px-1.5 py-0.5 rounded">Auto-captured</p>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="relative flex gap-4 pb-8">
+<div class="flex flex-col items-center">
+<div class="z-10 flex size-8 items-center justify-center rounded-full bg-primary text-white shadow-md shadow-green-200 dark:shadow-none">
+<span class="material-symbols-outlined text-[16px]">scale</span>
+</div>
+<div class="timeline-line bg-gray-200 dark:bg-gray-700"></div>
+</div>
+<div class="pt-1">
+<p class="text-sm font-bold text-gray-900 dark:text-white">Tare Weighing</p>
+<p class="text-xs text-gray-500">11:45 AM • 14,500 kg</p>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="relative flex gap-4 pb-8 last-item">
+<div class="flex flex-col items-center">
+<div class="z-10 flex size-8 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
+<span class="material-symbols-outlined text-[16px] text-gray-600 dark:text-gray-300">receipt_long</span>
+</div>
+<div class="timeline-line bg-gray-200 dark:bg-gray-700"></div>
+</div>
+<div class="pt-1">
+<p class="text-sm font-bold text-gray-900 dark:text-white">Ticket Generated</p>
+<p class="text-xs text-gray-500">11:50 AM • #8839201</p>
+</div>
+</div>
+<!-- Item 5 End -->
+<div class="relative flex gap-4 last-item">
+<div class="flex flex-col items-center">
+<div class="z-10 flex size-8 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 border-2 border-green-500">
+<span class="material-symbols-outlined text-[16px] text-green-600 dark:text-green-400">check</span>
+</div>
+</div>
+<div class="pt-1">
+<p class="text-sm font-bold text-gray-900 dark:text-white">Completed</p>
+<p class="text-xs text-gray-500">11:51 AM</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +13,12 @@ final _materialsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
       (snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
 });
 
+final _materialsSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final db = ref.watch(firestoreProvider);
+  final doc = await db.collection('settings').doc('materials').get();
+  return doc.exists ? doc.data()! : {};
+});
+
 class MaterialsScreen extends ConsumerStatefulWidget {
   const MaterialsScreen({super.key});
 
@@ -19,16 +28,29 @@ class MaterialsScreen extends ConsumerStatefulWidget {
 
 class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
   final _nameCtrl = TextEditingController();
-  String _category = 'Aggregates';
   bool _allowOther = true;
   bool _saving = false;
-
-  final _categories = ['Aggregates', 'Minerals', 'Construction', 'Agriculture', 'Metals', 'Other'];
+  bool _settingsLoaded = false;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     super.dispose();
+  }
+
+  void _loadSettings(Map<String, dynamic> data) {
+    if (_settingsLoaded) return;
+    _settingsLoaded = true;
+    _allowOther = data['allowOther'] as bool? ?? true;
+  }
+
+  Future<void> _saveAllowOther(bool value) async {
+    setState(() => _allowOther = value);
+    final db = ref.read(firestoreProvider);
+    await db.collection('settings').doc('materials').set({
+      'allowOther': value,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Future<void> _addMaterial() async {
@@ -41,7 +63,6 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
       final materials = ref.read(_materialsProvider).valueOrNull ?? [];
       await db.collection('materials').add({
         'name': _toTitleCase(name),
-        'category': _category,
         'active': true,
         'isDefault': materials.isEmpty,
         'order': materials.length,
@@ -89,6 +110,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
     final text = Theme.of(context).textTheme;
     final materialsAsync = ref.watch(_materialsProvider);
     final materials = materialsAsync.valueOrNull ?? [];
+    ref.watch(_materialsSettingsProvider).whenData(_loadSettings);
 
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
@@ -115,7 +137,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Materials Management', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    Text('Configure and manage materials for the weighbridge system', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                    Text('Product list and categories', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                   ],
                 ),
               ],
@@ -144,22 +166,11 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                                 controller: _nameCtrl,
                                 style: text.bodySmall,
                                 decoration: const InputDecoration(
-                                  hintText: 'e.g. Recycled Aggregates',
+                                  hintText: 'e.g. Gitti, Reti, Coal, Iron Ore',
                                   labelText: 'Material Name',
                                   isDense: true,
                                 ),
                                 onSubmitted: (_) => _addMaterial(),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              flex: 2,
-                              child: DropdownButtonFormField<String>(
-                                initialValue: _category,
-                                items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c, style: text.bodySmall))).toList(),
-                                onChanged: (v) { if (v != null) setState(() => _category = v); },
-                                decoration: const InputDecoration(labelText: 'Category', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                                style: text.bodySmall,
                               ),
                             ),
                             const SizedBox(width: 14),
@@ -223,7 +234,6 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                                 children: [
                                   const SizedBox(width: 32),
                                   Expanded(flex: 3, child: Text('MATERIAL NAME', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.5))),
-                                  Expanded(flex: 2, child: Text('CATEGORY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.5))),
                                   SizedBox(width: 60, child: Text('DEFAULT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.5))),
                                   SizedBox(width: 60, child: Text('STATUS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.5))),
                                   SizedBox(width: 60, child: Text('AI', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.5))),
@@ -268,7 +278,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                                 ],
                               ),
                             ),
-                            Switch(value: _allowOther, onChanged: (v) => setState(() => _allowOther = v)),
+                            Switch(value: _allowOther, onChanged: _saveAllowOther),
                           ],
                         ),
                       ],
@@ -342,11 +352,66 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
     );
   }
 
+  Future<void> _pickTrainingImages(String materialId) async {
+    final result = await Process.run('osascript', [
+      '-e',
+      'set theFiles to choose file of type {"public.image"} with prompt "Select Training Images" with multiple selections allowed',
+      '-e',
+      'set posixPaths to ""',
+      '-e',
+      'repeat with f in theFiles',
+      '-e',
+      'set posixPaths to posixPaths & POSIX path of f & linefeed',
+      '-e',
+      'end repeat',
+      '-e',
+      'posixPaths',
+    ]);
+    final output = (result.stdout as String).trim();
+    if (output.isEmpty) return;
+
+    final paths = output.split('\n').where((p) => p.isNotEmpty).toList();
+    if (paths.isEmpty) return;
+
+    final db = ref.read(firestoreProvider);
+    var uploaded = 0;
+
+    for (final path in paths) {
+      final file = File(path);
+      if (!file.existsSync()) continue;
+      if (file.lengthSync() > 10 * 1024 * 1024) continue;
+
+      final bytes = file.readAsBytesSync();
+      final ext = path.split('.').last.toLowerCase();
+      final b64 = base64Encode(bytes);
+      final fileName = path.split('/').last;
+
+      await db.collection('materials').doc(materialId).collection('training_images').add({
+        'data': 'data:image/$ext;base64,$b64',
+        'fileName': fileName,
+        'uploadedAt': FieldValue.serverTimestamp(),
+      });
+      uploaded++;
+    }
+
+    if (uploaded > 0) {
+      await db.collection('materials').doc(materialId).update({
+        'trainingImages': FieldValue.increment(uploaded),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$uploaded image${uploaded > 1 ? 's' : ''} uploaded for training')),
+        );
+      }
+    }
+  }
+
   void _showUploadDialog(Map<String, dynamic> material) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final name = material['name'] ?? 'Material';
     final images = (material['trainingImages'] as num?) ?? 0;
+    final id = material['id'] as String;
 
     showDialog(
       context: context,
@@ -372,26 +437,28 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
               Text('Material: $name', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
               Text('Current images: $images', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
               const SizedBox(height: 20),
-              // Upload area
               Container(
                 width: double.infinity,
                 height: 160,
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4), style: BorderStyle.solid),
+                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.cloud_upload_rounded, size: 36, color: scheme.primary.withValues(alpha: 0.5)),
                     const SizedBox(height: 10),
-                    Text('Drop top-view images here', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                    Text('Select top-view images', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 4),
-                    Text('PNG, JPG (min 640x480, max 10MB each)', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                    Text('PNG, JPG (max 10MB each, multiple allowed)', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _pickTrainingImages(id);
+                      },
                       icon: const Icon(Icons.folder_open_rounded, size: 16),
                       label: const Text('Browse Files'),
                       style: OutlinedButton.styleFrom(
@@ -423,16 +490,9 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Upload & Submit'),
-                  ),
-                ],
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
               ),
             ],
           ),
@@ -480,10 +540,6 @@ class _MaterialRow extends StatelessWidget {
           Expanded(
             flex: 3,
             child: Text(material['name'] ?? '', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(material['category'] ?? '', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
           ),
           SizedBox(
             width: 60,

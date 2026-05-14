@@ -499,7 +499,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             children: [
               Text('Cameras & AI', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
               Text(
-                'Configure camera positions and AI recognition features',
+                'ANPR, CCTV, and detection',
                 style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ],
@@ -527,7 +527,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
                 : const Icon(Icons.save_rounded, size: 16),
-            label: const Text('Save All'),
+            label: Text(_saving ? 'Saving...' : 'Save'),
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

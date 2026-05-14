@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Printer Offline Recovery Modal</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#508D4E",
+              "primary-hover": "#427540",
+              "surface-dark": "#121212",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"],
+              "body": ["Noto Sans", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }select::-webkit-scrollbar {
+            width: 8px;
+        }
+        select::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        select::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="font-body bg-surface-dark min-h-screen flex items-center justify-center p-4 relative text-slate-800">
+<div class="absolute inset-0 z-0 bg-black/60 backdrop-blur-[2px]"></div>
+<div class="relative z-10 w-full max-w-[560px] bg-white rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+<div class="px-8 pt-8 pb-2 flex items-center gap-4">
+<div class="h-12 w-12 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-red-600 text-[28px]">print_disabled</span>
+</div>
+<h1 class="font-display text-[24px] font-bold text-gray-900 leading-tight">
+                Printer Unavailable
+            </h1>
+</div>
+<div class="px-8 py-4">
+<p class="text-base text-gray-600 mb-6 font-medium">
+                The default printer <strong class="text-gray-900">EPSON LX-350</strong> is currently offline.
+            </p>
+<div class="flex flex-col gap-3" role="radiogroup">
+<label class="group relative flex items-start p-4 cursor-pointer rounded-lg border border-gray-200 hover:border-primary/50 hover:bg-gray-50 transition-all has-[:checked]:border-primary has-[:checked]:bg-[#508D4E]/5 has-[:checked]:shadow-sm">
+<div class="flex items-center h-5">
+<input checked="" class="h-4 w-4 border-gray-300 text-primary focus:ring-primary focus:ring-offset-0 cursor-pointer" name="recovery_option" type="radio" value="alternative"/>
+</div>
+<div class="ml-3 w-full">
+<span class="block text-sm font-bold text-gray-900">Use alternative printer</span>
+<div class="mt-2.5 w-full">
+<select class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary shadow-sm cursor-pointer bg-white text-gray-700">
+<option value="canon">Canon LBP2900 (Ready)</option>
+<option value="brother">Brother HL-L2350DW (Ready)</option>
+<option value="office">Main Office Printer (Ready)</option>
+</select>
+</div>
+</div>
+</label>
+<label class="group relative flex items-start p-4 cursor-pointer rounded-lg border border-gray-200 hover:border-primary/50 hover:bg-gray-50 transition-all has-[:checked]:border-primary has-[:checked]:bg-[#508D4E]/5 has-[:checked]:shadow-sm">
+<div class="flex items-center h-5">
+<input class="h-4 w-4 border-gray-300 text-primary focus:ring-primary focus:ring-offset-0 cursor-pointer" name="recovery_option" type="radio" value="pdf"/>
+</div>
+<div class="ml-3">
+<span class="block text-sm font-bold text-gray-900 flex items-center gap-2">
+                            Save PDF for later printing
+                            <span class="material-symbols-outlined text-gray-400 text-sm">picture_as_pdf</span>
+</span>
+<p class="mt-1 text-sm text-gray-500 leading-relaxed">
+                            The document will be saved to your local queue. You can print it manually once connection is restored.
+                        </p>
+</div>
+</label>
+<label class="group relative flex items-center p-4 cursor-pointer rounded-lg border border-gray-200 hover:border-primary/50 hover:bg-gray-50 transition-all has-[:checked]:border-primary has-[:checked]:bg-[#508D4E]/5 has-[:checked]:shadow-sm">
+<div class="flex items-center h-5">
+<input class="h-4 w-4 border-gray-300 text-primary focus:ring-primary focus:ring-offset-0 cursor-pointer" name="recovery_option" type="radio" value="retry"/>
+</div>
+<div class="ml-3">
+<span class="block text-sm font-bold text-gray-900">Retry current printer</span>
+</div>
+</label>
+</div>
+</div>
+<div class="px-8 py-6 bg-gray-50 border-t border-gray-100 flex items-center justify-between mt-2">
+<a class="text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors underline-offset-2 hover:underline" href="#">
+                Cancel
+            </a>
+<button class="inline-flex items-center justify-center rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-green-900/10 hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all">
+                Continue
+            </button>
+</div>
+</div>
+
+</body></html>

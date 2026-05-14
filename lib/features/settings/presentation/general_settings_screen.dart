@@ -1,15 +1,31 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image/image.dart' as img;
+import 'package:latlong2/latlong.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 final _generalSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestoreProvider);
-  final doc = await db.collection('settings').doc('general').get();
-  return doc.exists ? doc.data()! : {};
+  final results = await Future.wait([
+    db.collection('settings').doc('general').get(),
+    db.collection('settings').doc('general_docs').get(),
+  ]);
+  final data = results[0].exists ? Map<String, dynamic>.from(results[0].data()!) : <String, dynamic>{};
+  if (results[1].exists) {
+    data.addAll(results[1].data()!);
+  }
+  return data;
 });
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
@@ -46,6 +62,13 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
   String? _gstinError;
   String? _panError;
+
+  String? _logoUrl;
+  String? _gstinCertUrl;
+  String? _panCardUrl;
+  bool _uploadingLogo = false;
+  bool _uploadingGstin = false;
+  bool _uploadingPan = false;
 
   @override
   void dispose() {
@@ -85,6 +108,9 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     _timeFormat = data['timeFormat'] ?? '24-hour';
     _currency = data['currency'] ?? 'INR';
     _systemCode = data['systemCode'] ?? _generateSystemCode();
+    _logoUrl = data['company_logo'] as String? ?? data['logoUrl'] as String?;
+    _gstinCertUrl = data['gstin_certificate'] as String? ?? data['gstinCertUrl'] as String?;
+    _panCardUrl = data['pan_card'] as String? ?? data['panCardUrl'] as String?;
   }
 
   String _generateSystemCode() {
@@ -114,6 +140,165 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     if (value.isEmpty) return true;
     final regex = RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$');
     return regex.hasMatch(value.toUpperCase());
+  }
+
+  Future<(double, double)> _getCurrentLocation() async {
+    try {
+      final response = await http.get(Uri.parse('http://ip-api.com/json/?fields=lat,lon')).timeout(const Duration(seconds: 3));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final lat = (data['lat'] as num?)?.toDouble();
+        final lon = (data['lon'] as num?)?.toDouble();
+        if (lat != null && lon != null) return (lat, lon);
+      }
+    } catch (_) {}
+    return (18.5204, 73.8567);
+  }
+
+  Future<void> _pickOnMap({required TextEditingController latCtrl, required TextEditingController lngCtrl}) async {
+    double initLat = double.tryParse(latCtrl.text.trim()) ?? 0;
+    double initLng = double.tryParse(lngCtrl.text.trim()) ?? 0;
+
+    if (initLat == 0 && initLng == 0) {
+      final loc = await _getCurrentLocation();
+      initLat = loc.$1;
+      initLng = loc.$2;
+    }
+
+    final result = await showDialog<(double, double)?>(
+      context: context,
+      builder: (ctx) => _MapPickerDialog(initialLat: initLat, initialLng: initLng),
+    );
+
+    if (result != null) {
+      setState(() {
+        latCtrl.text = result.$1.toStringAsFixed(6);
+        lngCtrl.text = result.$2.toStringAsFixed(6);
+      });
+      _markDirty();
+    }
+  }
+
+  static const _maxBytes = 500 * 1024; // 500 KB limit
+
+  Uint8List _compressImage(Uint8List bytes, String ext) {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return bytes;
+
+    var image = decoded;
+    var quality = 85;
+    Uint8List output = bytes;
+
+    // Downscale if dimensions are very large
+    const maxDim = 1200;
+    if (image.width > maxDim || image.height > maxDim) {
+      image = img.copyResize(image, width: image.width > image.height ? maxDim : -1, height: image.height >= image.width ? maxDim : -1);
+    }
+
+    // Encode as JPEG with decreasing quality until under limit
+    for (quality = 85; quality >= 20; quality -= 10) {
+      output = Uint8List.fromList(img.encodeJpg(image, quality: quality));
+      if (output.length <= _maxBytes) break;
+    }
+
+    // If still too large, resize further
+    if (output.length > _maxBytes) {
+      var scale = 0.7;
+      while (output.length > _maxBytes && scale > 0.2) {
+        final resized = img.copyResize(image, width: (image.width * scale).round());
+        output = Uint8List.fromList(img.encodeJpg(resized, quality: 60));
+        scale -= 0.15;
+      }
+    }
+
+    return output;
+  }
+
+  Future<void> _pickAndUpload(String docType) async {
+    final result = await Process.run('osascript', [
+      '-e',
+      'set theFile to choose file of type {"public.image", "com.adobe.pdf"} with prompt "Select $docType"',
+      '-e',
+      'POSIX path of theFile',
+    ]);
+    final path = (result.stdout as String).trim();
+    if (path.isEmpty) return;
+
+    final file = File(path);
+    if (!file.existsSync()) return;
+
+    final ext = path.split('.').last.toLowerCase();
+    final isPdf = ext == 'pdf';
+
+    // PDFs can't be compressed — reject if too large
+    if (isPdf && file.lengthSync() > _maxBytes) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PDF too large. Maximum 500 KB allowed.')),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      if (docType == 'Company Logo') _uploadingLogo = true;
+      if (docType == 'GSTIN Certificate') _uploadingGstin = true;
+      if (docType == 'PAN Card') _uploadingPan = true;
+    });
+
+    try {
+      var bytes = file.readAsBytesSync();
+      var mimeExt = ext;
+      bool wasCompressed = false;
+
+      // Compress images if over limit
+      if (!isPdf && bytes.length > _maxBytes) {
+        final originalSize = bytes.length;
+        bytes = _compressImage(Uint8List.fromList(bytes), ext);
+        mimeExt = 'jpeg';
+        wasCompressed = true;
+
+        if (mounted && wasCompressed) {
+          final savedKb = ((originalSize - bytes.length) / 1024).round();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Compressed: ${(originalSize / 1024).round()} KB → ${(bytes.length / 1024).round()} KB (saved $savedKb KB)'),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+
+      final b64 = base64Encode(bytes);
+      final dataUri = 'data:image/$mimeExt;base64,$b64';
+
+      final db = ref.read(firestoreProvider);
+      final docKey = docType.replaceAll(' ', '_').toLowerCase();
+      await db.collection('settings').doc('general_docs').set({
+        docKey: dataUri,
+        '${docKey}_name': path.split('/').last,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      setState(() {
+        if (docType == 'Company Logo') _logoUrl = dataUri;
+        if (docType == 'GSTIN Certificate') _gstinCertUrl = dataUri;
+        if (docType == 'PAN Card') _panCardUrl = dataUri;
+      });
+      _markDirty();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e')),
+        );
+      }
+    } finally {
+      setState(() {
+        _uploadingLogo = false;
+        _uploadingGstin = false;
+        _uploadingPan = false;
+      });
+    }
   }
 
   Future<void> _save() async {
@@ -154,6 +339,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
       }, SetOptions(merge: true));
 
       ref.invalidate(_generalSettingsProvider);
+      ref.read(auditServiceProvider).log(event: 'settingChange', description: 'General settings updated');
       if (mounted) {
         setState(() => _dirty = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -207,7 +393,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                   children: [
                     Text('General Settings', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                     Text(
-                      'Company information, regional preferences, and identity',
+                      'Company, region, and site identity',
                       style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                     ),
                   ],
@@ -231,7 +417,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                   icon: _saving
                       ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.save_rounded, size: 16),
-                  label: const Text('Save Changes'),
+                  label: Text(_saving ? 'Saving...' : 'Save'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -284,23 +470,23 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
           _Field(
             label: 'Company Name',
             controller: _companyName,
-            hint: 'e.g. Industrial Weighing Solutions Ltd.',
+            hint: 'e.g. Shri Balaji Weighbridge Pvt. Ltd.',
             onChanged: (_) => _markDirty(),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _Field(label: 'Address Line 1', controller: _address1, hint: 'Street, building', onChanged: (_) => _markDirty())),
+              Expanded(child: _Field(label: 'Address Line 1', controller: _address1, hint: 'e.g. Plot No. 45, GIDC Industrial Estate', onChanged: (_) => _markDirty())),
               const SizedBox(width: 14),
-              Expanded(child: _Field(label: 'Address Line 2', controller: _address2, hint: 'Area, city, state', onChanged: (_) => _markDirty())),
+              Expanded(child: _Field(label: 'Address Line 2', controller: _address2, hint: 'e.g. Vatva, Ahmedabad, Gujarat 382445', onChanged: (_) => _markDirty())),
             ],
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _Field(label: 'Phone Number', controller: _phone, hint: '+91 98765 43210', onChanged: (_) => _markDirty())),
+              Expanded(child: _Field(label: 'Phone Number', controller: _phone, hint: 'e.g. +91 79 2589 3456', onChanged: (_) => _markDirty())),
               const SizedBox(width: 14),
-              Expanded(child: _Field(label: 'Email Address', controller: _email, hint: 'admin@company.com', onChanged: (_) => _markDirty())),
+              Expanded(child: _Field(label: 'Email Address', controller: _email, hint: 'e.g. info@balajiweighbridge.in', onChanged: (_) => _markDirty())),
             ],
           ),
           const SizedBox(height: 16),
@@ -310,7 +496,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                 child: _Field(
                   label: 'GSTIN',
                   controller: _gstin,
-                  hint: '22AAAAA0000A1Z5',
+                  hint: 'e.g. 24AABCU9603R1ZM',
                   error: _gstinError,
                   onChanged: (_) {
                     _markDirty();
@@ -323,7 +509,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                 child: _Field(
                   label: 'PAN',
                   controller: _pan,
-                  hint: 'ABCDE1234F',
+                  hint: 'e.g. AABCU9603R',
                   error: _panError,
                   onChanged: (_) {
                     _markDirty();
@@ -409,7 +595,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                 child: _Field(
                   label: 'Weighbridge Name',
                   controller: _weighbridgeName,
-                  hint: 'Main Entrance Gate - WB01',
+                  hint: 'e.g. Gate No. 1 - Pitless 80T',
                   onChanged: (_) => _markDirty(),
                 ),
               ),
@@ -449,7 +635,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
           _Field(
             label: 'Location Notes',
             controller: _locationNotes,
-            hint: 'Specific notes about the weighbridge installation point...',
+            hint: 'e.g. Near NH-8 toll plaza, opposite Reliance Petrol Pump, Sanand',
             maxLines: 3,
             onChanged: (_) => _markDirty(),
           ),
@@ -479,9 +665,9 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _Field(label: 'Latitude', controller: _latitude, hint: '19.0760', onChanged: (_) => _markDirty())),
+              Expanded(child: _Field(label: 'Latitude', controller: _latitude, hint: 'e.g. 23.0225', onChanged: (_) => _markDirty())),
               const SizedBox(width: 14),
-              Expanded(child: _Field(label: 'Longitude', controller: _longitude, hint: '72.8777', onChanged: (_) => _markDirty())),
+              Expanded(child: _Field(label: 'Longitude', controller: _longitude, hint: 'e.g. 72.5714', onChanged: (_) => _markDirty())),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -492,7 +678,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: () => _pickOnMap(latCtrl: _latitude, lngCtrl: _longitude),
                         icon: const Icon(Icons.map_rounded, size: 16),
                         label: const Text('Pick on Map'),
                         style: OutlinedButton.styleFrom(
@@ -517,9 +703,9 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _Field(label: 'Latitude', controller: _officeLatitude, hint: '19.0760', onChanged: (_) => _markDirty())),
+              Expanded(child: _Field(label: 'Latitude', controller: _officeLatitude, hint: 'e.g. 23.0395', onChanged: (_) => _markDirty())),
               const SizedBox(width: 14),
-              Expanded(child: _Field(label: 'Longitude', controller: _officeLongitude, hint: '72.8777', onChanged: (_) => _markDirty())),
+              Expanded(child: _Field(label: 'Longitude', controller: _officeLongitude, hint: 'e.g. 72.5660', onChanged: (_) => _markDirty())),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -530,7 +716,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: () => _pickOnMap(latCtrl: _officeLatitude, lngCtrl: _officeLongitude),
                         icon: const Icon(Icons.map_rounded, size: 16),
                         label: const Text('Pick on Map'),
                         style: OutlinedButton.styleFrom(
@@ -560,11 +746,11 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
       text: text,
       child: Row(
         children: [
-          Expanded(child: _UploadTile(label: 'Company Logo', icon: Icons.image_rounded, scheme: scheme, text: text)),
+          Expanded(child: _UploadTile(label: 'Company Logo', icon: Icons.image_rounded, scheme: scheme, text: text, dataUri: _logoUrl, uploading: _uploadingLogo, onTap: () => _pickAndUpload('Company Logo'))),
           const SizedBox(width: 14),
-          Expanded(child: _UploadTile(label: 'GSTIN Certificate', icon: Icons.description_rounded, scheme: scheme, text: text)),
+          Expanded(child: _UploadTile(label: 'GSTIN Certificate', icon: Icons.description_rounded, scheme: scheme, text: text, dataUri: _gstinCertUrl, uploading: _uploadingGstin, onTap: () => _pickAndUpload('GSTIN Certificate'))),
           const SizedBox(width: 14),
-          Expanded(child: _UploadTile(label: 'PAN Card', icon: Icons.credit_card_rounded, scheme: scheme, text: text)),
+          Expanded(child: _UploadTile(label: 'PAN Card', icon: Icons.credit_card_rounded, scheme: scheme, text: text, dataUri: _panCardUrl, uploading: _uploadingPan, onTap: () => _pickAndUpload('PAN Card'))),
         ],
       ),
     );
@@ -775,46 +961,263 @@ class _RadioChip extends StatelessWidget {
   }
 }
 
+class _MapPickerDialog extends StatefulWidget {
+  final double initialLat;
+  final double initialLng;
+
+  const _MapPickerDialog({required this.initialLat, required this.initialLng});
+
+  @override
+  State<_MapPickerDialog> createState() => _MapPickerDialogState();
+}
+
+class _MapPickerDialogState extends State<_MapPickerDialog> {
+  late final TextEditingController _latCtrl;
+  late final TextEditingController _lngCtrl;
+  late final MapController _mapController;
+  late LatLng _marker;
+  bool _satellite = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _marker = LatLng(widget.initialLat, widget.initialLng);
+    _latCtrl = TextEditingController(text: _marker.latitude.toStringAsFixed(6));
+    _lngCtrl = TextEditingController(text: _marker.longitude.toStringAsFixed(6));
+    _mapController = MapController();
+  }
+
+  @override
+  void dispose() {
+    _latCtrl.dispose();
+    _lngCtrl.dispose();
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  void _onTap(TapPosition tapPosition, LatLng point) {
+    setState(() {
+      _marker = point;
+      _latCtrl.text = point.latitude.toStringAsFixed(6);
+      _lngCtrl.text = point.longitude.toStringAsFixed(6);
+    });
+  }
+
+  void _updateFromFields() {
+    final lat = double.tryParse(_latCtrl.text.trim());
+    final lng = double.tryParse(_lngCtrl.text.trim());
+    if (lat != null && lng != null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      setState(() => _marker = LatLng(lat, lng));
+      _mapController.move(_marker, _mapController.camera.zoom);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: SizedBox(
+        width: 600,
+        height: 500,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+              child: Row(
+                children: [
+                  Icon(Icons.location_on_rounded, size: 20, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  Text('Pick Location', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(width: 12),
+                  Text('Tap on map to select', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: _marker,
+                      initialZoom: 16,
+                      onTap: _onTap,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: _satellite
+                            ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                            : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.weighbridgemanagement.app',
+                      ),
+                      if (_satellite)
+                        TileLayer(
+                          urlTemplate: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+                          userAgentPackageName: 'com.weighbridgemanagement.app',
+                        ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _marker,
+                            width: 40,
+                            height: 40,
+                            child: Icon(Icons.location_pin, size: 40, color: scheme.error),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Material(
+                      elevation: 2,
+                      borderRadius: BorderRadius.circular(8),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => setState(() => _satellite = !_satellite),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(_satellite ? Icons.map_rounded : Icons.satellite_rounded, size: 14),
+                              const SizedBox(width: 4),
+                              Text(_satellite ? 'Map' : 'Satellite', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _latCtrl,
+                      style: text.bodySmall,
+                      decoration: const InputDecoration(labelText: 'Latitude', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
+                      onSubmitted: (_) => _updateFromFields(),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _lngCtrl,
+                      style: text.bodySmall,
+                      decoration: const InputDecoration(labelText: 'Longitude', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
+                      onSubmitted: (_) => _updateFromFields(),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  FilledButton.icon(
+                    onPressed: () => Navigator.pop(context, (_marker.latitude, _marker.longitude)),
+                    icon: const Icon(Icons.check_rounded, size: 16),
+                    label: const Text('Confirm'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _UploadTile extends StatelessWidget {
   final String label;
   final IconData icon;
   final ColorScheme scheme;
   final TextTheme text;
+  final String? dataUri;
+  final bool uploading;
+  final VoidCallback onTap;
 
-  const _UploadTile({required this.label, required this.icon, required this.scheme, required this.text});
+  const _UploadTile({required this.label, required this.icon, required this.scheme, required this.text, required this.dataUri, required this.uploading, required this.onTap});
+
+  bool get uploaded => dataUri != null;
+  bool get _isImage => dataUri != null && !dataUri!.contains('application/pdf');
+
+  Uint8List? get _imageBytes {
+    if (!_isImage || dataUri == null) return null;
+    try {
+      return base64Decode(dataUri!.split(',').last);
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3), style: BorderStyle.solid),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: scheme.primaryContainer.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(10),
+    final bytes = _imageBytes;
+
+    return GestureDetector(
+      onTap: uploading ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: uploaded ? scheme.primaryContainer.withValues(alpha: 0.15) : scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: uploaded ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          children: [
+            // Preview area
+            Container(
+              width: double.infinity,
+              height: 80,
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: uploading
+                  ? const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)))
+                  : bytes != null
+                      ? Image.memory(bytes, fit: BoxFit.contain)
+                      : uploaded && !_isImage
+                          ? Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.picture_as_pdf_rounded, size: 28, color: scheme.error.withValues(alpha: 0.7)),
+                                  const SizedBox(height: 4),
+                                  Text('PDF', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
+                                ],
+                              ),
+                            )
+                          : Center(
+                              child: Icon(icon, size: 28, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
+                            ),
             ),
-            child: Icon(icon, size: 22, color: scheme.primary),
-          ),
-          const SizedBox(height: 10),
-          Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(
-            'Click to upload',
-            style: text.labelSmall?.copyWith(color: scheme.primary, fontWeight: FontWeight.w500),
-          ),
-          Text(
-            'PNG, JPG, PDF (max 2MB)',
-            style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-          ),
-        ],
+            const SizedBox(height: 10),
+            Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 3),
+            Text(
+              uploaded ? 'Click to replace' : 'Click to upload',
+              style: text.labelSmall?.copyWith(fontSize: 10, color: uploaded ? scheme.primary : scheme.onSurfaceVariant, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
       ),
     );
   }

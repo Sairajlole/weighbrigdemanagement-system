@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vehicle Activity Reports</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "primary-content": "#0e1b0d",
+                        "secondary": "#4e9a4c",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1a3318",
+                        "border-light": "#d0e7cf",
+                        "border-dark": "#2a4a26",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for table if needed */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d0e7cf;
+            border-radius: 4px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #2a4a26;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#0e1b0d] dark:text-gray-100 font-display min-h-screen flex flex-col overflow-x-hidden">
+<!-- Main Layout Container -->
+<div class="flex-1 flex flex-col max-w-[1440px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 gap-6">
+<!-- Breadcrumbs -->
+<nav class="flex items-center text-sm font-medium text-secondary dark:text-gray-400">
+<a class="hover:text-primary dark:hover:text-primary transition-colors" href="#">Home</a>
+<span class="mx-2 text-gray-400">/</span>
+<a class="hover:text-primary dark:hover:text-primary transition-colors" href="#">Reports</a>
+<span class="mx-2 text-gray-400">/</span>
+<span class="text-primary-content dark:text-white font-semibold">Vehicle Activity</span>
+</nav>
+<!-- Page Heading & Filters -->
+<div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+<div class="flex flex-col gap-2">
+<h1 class="text-3xl md:text-4xl font-black tracking-tight text-primary-content dark:text-white">
+                    Vehicle Activity Reports
+                </h1>
+<p class="text-secondary dark:text-gray-400 text-base md:text-lg">
+                    Monitor fleet performance, trip logs, and operational efficiency.
+                </p>
+</div>
+<!-- Filters Toolbar -->
+<div class="flex flex-wrap items-end gap-3 w-full lg:w-auto">
+<div class="flex-1 min-w-[200px]">
+<label class="block text-xs font-semibold text-secondary dark:text-gray-400 mb-1.5 uppercase tracking-wider">Date Range</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-secondary dark:text-gray-500 group-focus-within:text-primary transition-colors">calendar_month</span>
+<input class="w-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg h-11 pl-10 pr-4 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder-gray-400 dark:text-white transition-all" placeholder="Select dates" type="text"/>
+</div>
+</div>
+<div class="flex-1 min-w-[200px]">
+<label class="block text-xs font-semibold text-secondary dark:text-gray-400 mb-1.5 uppercase tracking-wider">Search Vehicle</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-secondary dark:text-gray-500 group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg h-11 pl-10 pr-4 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder-gray-400 dark:text-white transition-all" placeholder="Enter vehicle no." type="text"/>
+</div>
+</div>
+<div class="flex gap-2 w-full sm:w-auto">
+<button class="flex-1 sm:flex-none h-11 px-5 bg-primary hover:bg-[#15bd0f] text-primary-content font-bold rounded-lg text-sm flex items-center justify-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-[20px]">filter_list</span>
+                        Apply
+                    </button>
+<button class="flex-1 sm:flex-none h-11 px-5 bg-transparent border border-border-light dark:border-border-dark hover:bg-white/50 dark:hover:bg-surface-dark text-primary-content dark:text-white font-semibold rounded-lg text-sm flex items-center justify-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-[20px]">download</span>
+                        Export
+                    </button>
+</div>
+</div>
+</div>
+<!-- KPI Stats Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+<!-- Card 1 -->
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-5 shadow-sm flex flex-col justify-between h-full">
+<div class="flex justify-between items-start mb-2">
+<p class="text-sm font-medium text-secondary dark:text-gray-400">Unique Vehicles</p>
+<span class="material-symbols-outlined text-secondary/50 dark:text-gray-600">local_shipping</span>
+</div>
+<div>
+<p class="text-3xl font-bold text-primary-content dark:text-white tracking-tight">234</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-sm text-green-600 dark:text-primary">trending_up</span>
+<p class="text-xs font-bold text-green-600 dark:text-primary">+5% <span class="font-normal text-secondary dark:text-gray-500">vs last month</span></p>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-5 shadow-sm flex flex-col justify-between h-full">
+<div class="flex justify-between items-start mb-2">
+<p class="text-sm font-medium text-secondary dark:text-gray-400">Total Trips</p>
+<span class="material-symbols-outlined text-secondary/50 dark:text-gray-600">route</span>
+</div>
+<div>
+<p class="text-3xl font-bold text-primary-content dark:text-white tracking-tight">512</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-sm text-green-600 dark:text-primary">trending_up</span>
+<p class="text-xs font-bold text-green-600 dark:text-primary">+12% <span class="font-normal text-secondary dark:text-gray-500">vs last month</span></p>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-5 shadow-sm flex flex-col justify-between h-full">
+<div class="flex justify-between items-start mb-2">
+<p class="text-sm font-medium text-secondary dark:text-gray-400">Avg Trips/Vehicle</p>
+<span class="material-symbols-outlined text-secondary/50 dark:text-gray-600">avg_pace</span>
+</div>
+<div>
+<p class="text-3xl font-bold text-primary-content dark:text-white tracking-tight">2.1</p>
+<div class="flex items-center gap-1 mt-1">
+<p class="text-xs font-medium text-secondary dark:text-gray-400">Stable <span class="font-normal text-secondary dark:text-gray-500">vs last month</span></p>
+</div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-5 shadow-sm flex flex-col justify-between h-full relative overflow-hidden group">
+<!-- Decorative subtle gradient for highlighting -->
+<div class="absolute top-0 right-0 w-16 h-16 bg-primary/10 rounded-bl-full -mr-8 -mt-8"></div>
+<div class="flex justify-between items-start mb-2 relative z-10">
+<p class="text-sm font-medium text-secondary dark:text-gray-400">Most Active</p>
+<span class="material-symbols-outlined text-primary">emoji_events</span>
+</div>
+<div class="relative z-10">
+<p class="text-xl font-bold text-primary-content dark:text-white tracking-tight truncate" title="KA-01-AB-1234">KA-01-AB-1234</p>
+<div class="flex items-center gap-1 mt-1">
+<p class="text-xs font-bold text-primary">48 Trips <span class="font-normal text-secondary dark:text-gray-500">this month</span></p>
+</div>
+</div>
+</div>
+<!-- Card 5 -->
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-5 shadow-sm flex flex-col justify-between h-full">
+<div class="flex justify-between items-start mb-2">
+<p class="text-sm font-medium text-secondary dark:text-gray-400">Avg Load</p>
+<span class="material-symbols-outlined text-secondary/50 dark:text-gray-600">weight</span>
+</div>
+<div>
+<p class="text-3xl font-bold text-primary-content dark:text-white tracking-tight">18.5 <span class="text-lg font-medium text-secondary dark:text-gray-500">Tons</span></p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-sm text-green-600 dark:text-primary">trending_up</span>
+<p class="text-xs font-bold text-green-600 dark:text-primary">+2% <span class="font-normal text-secondary dark:text-gray-500">efficiency</span></p>
+</div>
+</div>
+</div>
+</div>
+<!-- Charts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto">
+<!-- Chart 1: Activity Over Time (Stacked Bar CSS Implementation) -->
+<div class="lg:col-span-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-6 shadow-sm flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="text-lg font-bold text-primary-content dark:text-white">Vehicle Activity Over Time</h3>
+<p class="text-sm text-secondary dark:text-gray-400">Daily trips breakdown (Inbound/Outbound)</p>
+</div>
+<div class="flex gap-4 text-xs font-medium">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-sm bg-primary"></span>
+<span class="text-primary-content dark:text-gray-300">Inbound</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-sm bg-gray-300 dark:bg-gray-600"></span>
+<span class="text-primary-content dark:text-gray-300">Outbound</span>
+</div>
+</div>
+</div>
+<!-- Chart Container -->
+<div class="flex-1 min-h-[250px] flex items-end justify-between gap-2 sm:gap-4 pt-4 border-b border-border-light dark:border-border-dark relative">
+<!-- Background Grid Lines -->
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none pb-8">
+<div class="w-full h-px bg-border-light/50 dark:bg-border-dark/50 border-dashed"></div>
+<div class="w-full h-px bg-border-light/50 dark:bg-border-dark/50 border-dashed"></div>
+<div class="w-full h-px bg-border-light/50 dark:bg-border-dark/50 border-dashed"></div>
+<div class="w-full h-px bg-border-light/50 dark:bg-border-dark/50 border-dashed"></div>
+</div>
+<!-- Bars -->
+<!-- Bar 1 -->
+<div class="flex flex-col items-center flex-1 group cursor-pointer relative z-10">
+<div class="w-full max-w-[32px] flex flex-col justify-end h-[120px] rounded-t-sm overflow-hidden transition-all duration-300 group-hover:opacity-80">
+<div class="w-full bg-gray-300 dark:bg-gray-600 h-[40%]"></div>
+<div class="w-full bg-primary h-[60%]"></div>
+</div>
+<span class="text-[10px] text-secondary dark:text-gray-500 mt-2">Mon</span>
+</div>
+<!-- Bar 2 -->
+<div class="flex flex-col items-center flex-1 group cursor-pointer relative z-10">
+<div class="w-full max-w-[32px] flex flex-col justify-end h-[180px] rounded-t-sm overflow-hidden transition-all duration-300 group-hover:opacity-80">
+<div class="w-full bg-gray-300 dark:bg-gray-600 h-[30%]"></div>
+<div class="w-full bg-primary h-[70%]"></div>
+</div>
+<span class="text-[10px] text-secondary dark:text-gray-500 mt-2">Tue</span>
+</div>
+<!-- Bar 3 -->
+<div class="flex flex-col items-center flex-1 group cursor-pointer relative z-10">
+<div class="w-full max-w-[32px] flex flex-col justify-end h-[160px] rounded-t-sm overflow-hidden transition-all duration-300 group-hover:opacity-80">
+<div class="w-full bg-gray-300 dark:bg-gray-600 h-[50%]"></div>
+<div class="w-full bg-primary h-[50%]"></div>
+</div>
+<span class="text-[10px] text-secondary dark:text-gray-500 mt-2">Wed</span>
+</div>
+<!-- Bar 4 -->
+<div class="flex flex-col items-center flex-1 group cursor-pointer relative z-10">
+<div class="w-full max-w-[32px] flex flex-col justify-end h-[220px] rounded-t-sm overflow-hidden transition-all duration-300 group-hover:opacity-80">
+<div class="w-full bg-gray-300 dark:bg-gray-600 h-[20%]"></div>
+<div class="w-full bg-primary h-[80%]"></div>
+</div>
+<span class="text-[10px] text-secondary dark:text-gray-500 mt-2">Thu</span>
+</div>
+<!-- Bar 5 -->
+<div class="flex flex-col items-center flex-1 group cursor-pointer relative z-10">
+<div class="w-full max-w-[32px] flex flex-col justify-end h-[190px] rounded-t-sm overflow-hidden transition-all duration-300 group-hover:opacity-80">
+<div class="w-full bg-gray-300 dark:bg-gray-600 h-[45%]"></div>
+<div class="w-full bg-primary h-[55%]"></div>
+</div>
+<span class="text-[10px] text-secondary dark:text-gray-500 mt-2">Fri</span>
+</div>
+<!-- Bar 6 -->
+<div class="flex flex-col items-center flex-1 group cursor-pointer relative z-10">
+<div class="w-full max-w-[32px] flex flex-col justify-end h-[100px] rounded-t-sm overflow-hidden transition-all duration-300 group-hover:opacity-80">
+<div class="w-full bg-gray-300 dark:bg-gray-600 h-[60%]"></div>
+<div class="w-full bg-primary h-[40%]"></div>
+</div>
+<span class="text-[10px] text-secondary dark:text-gray-500 mt-2">Sat</span>
+</div>
+<!-- Bar 7 -->
+<div class="flex flex-col items-center flex-1 group cursor-pointer relative z-10">
+<div class="w-full max-w-[32px] flex flex-col justify-end h-[60px] rounded-t-sm overflow-hidden transition-all duration-300 group-hover:opacity-80">
+<div class="w-full bg-gray-300 dark:bg-gray-600 h-[20%]"></div>
+<div class="w-full bg-primary h-[80%]"></div>
+</div>
+<span class="text-[10px] text-secondary dark:text-gray-500 mt-2">Sun</span>
+</div>
+</div>
+</div>
+<!-- Chart 2: Top Vehicles (Horizontal Bar CSS) -->
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-6 shadow-sm flex flex-col">
+<div class="mb-6">
+<h3 class="text-lg font-bold text-primary-content dark:text-white">Top 5 Vehicles</h3>
+<p class="text-sm text-secondary dark:text-gray-400">By trip frequency</p>
+</div>
+<div class="flex flex-col gap-5 flex-1 justify-center">
+<!-- Item 1 -->
+<div class="flex flex-col gap-1.5">
+<div class="flex justify-between text-sm font-medium">
+<span class="text-primary-content dark:text-gray-200">KA-01-AB-1234</span>
+<span class="text-primary-content dark:text-white font-bold">48</span>
+</div>
+<div class="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full w-[100%]"></div>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex flex-col gap-1.5">
+<div class="flex justify-between text-sm font-medium">
+<span class="text-primary-content dark:text-gray-200">TN-45-X-9988</span>
+<span class="text-primary-content dark:text-white font-bold">42</span>
+</div>
+<div class="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full w-[88%] opacity-90"></div>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="flex flex-col gap-1.5">
+<div class="flex justify-between text-sm font-medium">
+<span class="text-primary-content dark:text-gray-200">AP-29-CD-5678</span>
+<span class="text-primary-content dark:text-white font-bold">35</span>
+</div>
+<div class="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full w-[72%] opacity-80"></div>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="flex flex-col gap-1.5">
+<div class="flex justify-between text-sm font-medium">
+<span class="text-primary-content dark:text-gray-200">KL-07-EF-9012</span>
+<span class="text-primary-content dark:text-white font-bold">28</span>
+</div>
+<div class="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full w-[60%] opacity-70"></div>
+</div>
+</div>
+<!-- Item 5 -->
+<div class="flex flex-col gap-1.5">
+<div class="flex justify-between text-sm font-medium">
+<span class="text-primary-content dark:text-gray-200">MH-12-GH-3456</span>
+<span class="text-primary-content dark:text-white font-bold">22</span>
+</div>
+<div class="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full w-[45%] opacity-60"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Data Table Section -->
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl shadow-sm overflow-hidden flex flex-col">
+<div class="p-6 border-b border-border-light dark:border-border-dark flex justify-between items-center">
+<h3 class="text-lg font-bold text-primary-content dark:text-white">Detailed Vehicle List</h3>
+<button class="text-sm font-medium text-primary hover:text-[#15bd0f] flex items-center gap-1">
+                    View All
+                    <span class="material-symbols-outlined text-lg">arrow_forward</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-gray-50 dark:bg-black/20 text-xs uppercase text-secondary dark:text-gray-400 font-semibold">
+<tr>
+<th class="px-6 py-4">Vehicle Number</th>
+<th class="px-6 py-4">Owner / Transporter</th>
+<th class="px-6 py-4 text-center">Total Trips</th>
+<th class="px-6 py-4 text-center">Total Tonnage</th>
+<th class="px-6 py-4">Last Activity</th>
+<th class="px-6 py-4 text-right">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-light dark:divide-border-dark text-sm">
+<!-- Row 1 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+<td class="px-6 py-4 font-bold text-primary-content dark:text-white">
+<a class="group-hover:text-primary transition-colors underline decoration-dotted underline-offset-4" href="#">KA-01-AB-1234</a>
+</td>
+<td class="px-6 py-4 text-primary-content dark:text-gray-300">Raj Transport Services</td>
+<td class="px-6 py-4 text-center text-primary-content dark:text-gray-200 font-mono">48</td>
+<td class="px-6 py-4 text-center text-primary-content dark:text-gray-200 font-mono">1,240 T</td>
+<td class="px-6 py-4 text-secondary dark:text-gray-400">Oct 24, 2023 10:30 AM</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
+                                </span>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+<td class="px-6 py-4 font-bold text-primary-content dark:text-white">
+<a class="group-hover:text-primary transition-colors underline decoration-dotted underline-offset-4" href="#">TN-45-X-9988</a>
+</td>
+<td class="px-6 py-4 text-primary-content dark:text-gray-300">Southern Logistics Co.</td>
+<td class="px-6 py-4 text-center text-primary-content dark:text-gray-200 font-mono">42</td>
+<td class="px-6 py-4 text-center text-primary-content dark:text-gray-200 font-mono">980 T</td>
+<td class="px-6 py-4 text-secondary dark:text-gray-400">Oct 23, 2023 04:15 PM</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
+                                </span>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+<td class="px-6 py-4 font-bold text-primary-content dark:text-white">
+<a class="group-hover:text-primary transition-colors underline decoration-dotted underline-offset-4" href="#">AP-29-CD-5678</a>
+</td>
+<td class="px-6 py-4 text-primary-content dark:text-gray-300">Venkata Movers</td>
+<td class="px-6 py-4 text-center text-primary-content dark:text-gray-200 font-mono">35</td>
+<td class="px-6 py-4 text-center text-primary-content dark:text-gray-200 font-mono">820 T</td>
+<td class="px-6 py-4 text-secondary dark:text-gray-400">Oct 22, 2023 09:00 AM</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-500 border border-yellow-200 dark:border-yellow-800">
+<span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span> Idle
+                                </span>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+<td class="px-6 py-4 font-bold text-primary-content dark:text-white">
+<a class="group-hover:text-primary transition-colors underline decoration-dotted underline-offset-4" href="#">KL-07-EF-9012</a>
+</td>
+<td class="px-6 py-4 text-primary-content dark:text-gray-300">Cochin Freight</td>
+<td class="px-6 py-4 text-center text-primary-content dark:text-gray-200 font-mono">28</td>
+<td class="px-6 py-4 text-center text-primary-content dark:text-gray-200 font-mono">650 T</td>
+<td class="px-6 py-4 text-secondary dark:text-gray-400">Oct 24, 2023 11:45 AM</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
+                                </span>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+<td class="px-6 py-4 font-bold text-primary-content dark:text-white">
+<a class="group-hover:text-primary transition-colors underline decoration-dotted underline-offset-4" href="#">MH-12-GH-3456</a>
+</td>
+<td class="px-6 py-4 text-primary-content dark:text-gray-300">Pune Express</td>
+<td class="px-6 py-4 text-center text-primary-content dark:text-gray-200 font-mono">22</td>
+<td class="px-6 py-4 text-center text-primary-content dark:text-gray-200 font-mono">410 T</td>
+<td class="px-6 py-4 text-secondary dark:text-gray-400">Oct 20, 2023 02:20 PM</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+<span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Inactive
+                                </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer/Pagination -->
+<div class="px-6 py-4 border-t border-border-light dark:border-border-dark flex items-center justify-between">
+<p class="text-sm text-secondary dark:text-gray-400">Showing <span class="font-bold text-primary-content dark:text-white">1-5</span> of <span class="font-bold text-primary-content dark:text-white">234</span> vehicles</p>
+<div class="flex gap-2">
+<button class="px-3 py-1 text-sm border border-border-light dark:border-border-dark rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 text-primary-content dark:text-white disabled:opacity-50">Previous</button>
+<button class="px-3 py-1 text-sm border border-border-light dark:border-border-dark rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 text-primary-content dark:text-white">Next</button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

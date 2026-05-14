@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SMS 2FA Verification - Weighbridge Management System</title>
+<!-- Google Fonts: Manrope -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-dark": "#3d6b3b",
+                        "background-light": "#D6EFD8", /* Requested background */
+                        "background-dark": "#161c16",
+                        "card-light": "#ffffff",
+                        "card-dark": "#1e241e",
+                        "text-main": "#131613",
+                        "text-muted": "#6f7c6e",
+                        "border-color": "#dfe2df",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "md": "0.375rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+                        'floating': '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025)',
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar hiding for cleaner look if needed */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Geometric background pattern overlay */
+        .geo-pattern {
+            background-image: radial-gradient(#508d4e 1px, transparent 1px);
+            background-size: 24px 24px;
+            opacity: 0.1;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-text-main antialiased min-h-screen flex flex-col transition-colors duration-300">
+<!-- Geometric Pattern Overlay for Texture -->
+<div class="fixed inset-0 geo-pattern pointer-events-none z-0"></div>
+<!-- Main Layout Container -->
+<div class="relative z-10 flex flex-1 items-center justify-center p-4">
+<!-- Centered Card -->
+<main class="w-full max-w-[400px] bg-card-light dark:bg-card-dark rounded-xl shadow-floating overflow-hidden flex flex-col p-8 relative">
+<!-- Decorative Top Bar -->
+<div class="absolute top-0 left-0 right-0 h-1.5 bg-primary"></div>
+<!-- Icon Header -->
+<div class="flex justify-center mb-6">
+<div class="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-4xl">lock_person</span>
+</div>
+</div>
+<!-- Text Content -->
+<div class="text-center mb-8">
+<h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">Verify Your Phone</h1>
+<p class="text-text-muted text-sm leading-relaxed">
+                    Enter the 6-digit code sent to <br/>
+<span class="font-semibold text-gray-700 dark:text-gray-300 font-mono tracking-wide">+91 XXXXX 1234</span>
+</p>
+</div>
+<!-- Input Form -->
+<form action="#" class="flex flex-col gap-6" method="POST">
+<!-- 6 Digit Input Grid -->
+<div class="flex justify-between gap-2">
+<!-- Digit 1 -->
+<input aria-label="Digit 1" autofocus="" class="w-11 h-11 text-center text-xl font-bold border border-border-color rounded-lg bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all shadow-sm" inputmode="numeric" maxlength="1" pattern="[0-9]*" type="text"/>
+<!-- Digit 2 -->
+<input aria-label="Digit 2" class="w-11 h-11 text-center text-xl font-bold border border-border-color rounded-lg bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all shadow-sm" inputmode="numeric" maxlength="1" pattern="[0-9]*" type="text"/>
+<!-- Digit 3 -->
+<input aria-label="Digit 3" class="w-11 h-11 text-center text-xl font-bold border border-border-color rounded-lg bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all shadow-sm" inputmode="numeric" maxlength="1" pattern="[0-9]*" type="text"/>
+<!-- Digit 4 -->
+<input aria-label="Digit 4" class="w-11 h-11 text-center text-xl font-bold border border-border-color rounded-lg bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all shadow-sm" inputmode="numeric" maxlength="1" pattern="[0-9]*" type="text"/>
+<!-- Digit 5 -->
+<input aria-label="Digit 5" class="w-11 h-11 text-center text-xl font-bold border border-border-color rounded-lg bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all shadow-sm" inputmode="numeric" maxlength="1" pattern="[0-9]*" type="text"/>
+<!-- Digit 6 -->
+<input aria-label="Digit 6" class="w-11 h-11 text-center text-xl font-bold border border-border-color rounded-lg bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all shadow-sm" inputmode="numeric" maxlength="1" pattern="[0-9]*" type="text"/>
+</div>
+<!-- Timer / Resend -->
+<div class="flex flex-col items-center gap-1">
+<div class="flex items-center gap-1.5 text-text-muted text-sm">
+<span class="material-symbols-outlined text-lg" style="font-size: 18px;">timer</span>
+<span>Resend code in <span class="font-mono font-medium text-primary">00:45</span></span>
+</div>
+</div>
+<!-- Verify Button -->
+<button class="group relative flex w-full justify-center rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all active:scale-[0.98]" type="button">
+<span class="absolute inset-y-0 left-0 flex items-center pl-3">
+<span class="material-symbols-outlined group-hover:text-green-100" style="font-size: 20px;">check_circle</span>
+</span>
+                    Verify
+                </button>
+</form>
+<!-- Footer Link -->
+<div class="mt-8 text-center">
+<a class="inline-flex items-center gap-1 text-sm font-medium text-text-muted hover:text-primary transition-colors border-b border-transparent hover:border-primary pb-0.5" href="#">
+<span class="material-symbols-outlined" style="font-size: 16px;">smartphone</span>
+                    Use a different phone number
+                </a>
+</div>
+</main>
+<!-- Context Footer -->
+<div class="fixed bottom-4 left-0 right-0 text-center pointer-events-none">
+<p class="text-xs text-primary/40 dark:text-white/20 font-medium tracking-widest uppercase">Weighbridge Management System v2.4</p>
+</div>
+</div>
+</body></html>

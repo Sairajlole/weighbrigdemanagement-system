@@ -3,46 +3,68 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Companies: any authenticated user can create, only admin can update/delete
+    // Companies
     match /companies/{companyId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null
-        && resource.data.adminUid == request.auth.uid;
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if true;
     }
 
-    // Operators: any authenticated user can create their own profile
+    // Operators
     match /operators/{operatorId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && request.resource.data.uid == request.auth.uid;
-      allow update, delete: if request.auth != null
-        && resource.data.uid == request.auth.uid;
+      allow read, write: if true;
     }
 
-    // Customers: any authenticated user can CRUD
+    // Settings
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+
+    // Audit Log
+    match /auditLog/{logId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if false;
+    }
+
+    // Notifications
+    match /notifications/{notifId} {
+      allow read, write: if true;
+    }
+
+    // Customers
     match /customers/{customerId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
 
-    // Weighments: any authenticated user can CRUD
+    // Materials
+    match /materials/{materialId} {
+      allow read, write: if true;
+    }
+
+    // Vehicles
+    match /vehicles/{vehicleId} {
+      allow read, write: if true;
+    }
+
+    // Weighments
     match /weighments/{weighmentId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
 
-    // Queues: any authenticated user can CRUD
+    // Queues
     match /queues/{queueId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
 
-    // Counters (RST numbers): any authenticated user can read/write
+    // Counters (RST numbers)
     match /counters/{counterId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
 
-    // Cameras configuration: any authenticated user can CRUD
+    // Cameras configuration
     match /cameras/{cameraId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
   }
 }

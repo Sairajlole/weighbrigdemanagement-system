@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Period Comparison Report</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "primary-dark": "#12a60d",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1a2e1a",
+                        "text-main": "#0e1b0d",
+                        "text-muted": "#4e9a4c",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-main dark:text-white font-display min-h-screen flex flex-col overflow-x-hidden antialiased transition-colors duration-200">
+<div class="layout-container flex h-full grow flex-col w-full max-w-[1440px] mx-auto">
+<!-- Main Content Area -->
+<div class="flex flex-1 flex-col px-6 py-8 md:px-12 lg:px-20">
+<!-- Breadcrumbs -->
+<div class="flex flex-wrap gap-2 pb-6 items-center">
+<a class="text-text-muted hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">Home</a>
+<span class="text-text-muted text-sm font-medium leading-normal material-symbols-outlined text-[16px]">chevron_right</span>
+<a class="text-text-muted hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">Reports</a>
+<span class="text-text-muted text-sm font-medium leading-normal material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="text-text-main dark:text-gray-100 text-sm font-semibold leading-normal">Period Comparison</span>
+</div>
+<!-- Page Header -->
+<div class="flex flex-wrap justify-between items-end gap-4 mb-8">
+<div class="flex flex-col gap-2">
+<h1 class="text-text-main dark:text-white text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">
+                        Period Comparison Report
+                    </h1>
+<p class="text-text-muted dark:text-green-200/60 text-base font-normal max-w-2xl">
+                        Analyze weighbridge performance variance between two distinct timeframes to identify trends and anomalies.
+                    </p>
+</div>
+<!-- Action Buttons -->
+<div class="flex gap-3">
+<button class="flex items-center justify-center gap-2 px-4 h-10 rounded-lg border border-gray-200 dark:border-green-900 bg-surface-light dark:bg-surface-dark hover:bg-gray-50 dark:hover:bg-green-900/30 transition-colors text-text-main dark:text-white text-sm font-semibold">
+<span class="material-symbols-outlined text-[20px]">print</span>
+                        Print
+                    </button>
+<button class="flex items-center justify-center gap-2 px-4 h-10 rounded-lg border border-gray-200 dark:border-green-900 bg-surface-light dark:bg-surface-dark hover:bg-gray-50 dark:hover:bg-green-900/30 transition-colors text-text-main dark:text-white text-sm font-semibold">
+<span class="material-symbols-outlined text-[20px]">download</span>
+                        Export
+                    </button>
+</div>
+</div>
+<!-- Comparison Setup Section -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200 dark:border-green-900/50 p-6 mb-8">
+<!-- Quick Compare Chips -->
+<div class="flex flex-col mb-6">
+<span class="text-xs font-bold uppercase tracking-wider text-text-muted mb-3">Quick Presets</span>
+<div class="flex gap-3 flex-wrap">
+<button class="group flex h-9 items-center justify-center gap-x-2 rounded-full bg-primary/20 hover:bg-primary hover:text-black dark:bg-primary/10 dark:hover:bg-primary dark:hover:text-black border border-transparent transition-all px-4 cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">calendar_view_week</span>
+<span class="text-sm font-semibold">This Week vs Last Week</span>
+</button>
+<button class="group flex h-9 items-center justify-center gap-x-2 rounded-full bg-gray-100 hover:bg-primary hover:text-black dark:bg-green-900/20 dark:hover:bg-primary dark:hover:text-black border border-transparent transition-all px-4 cursor-pointer">
+<span class="text-sm font-medium">Month over Month</span>
+</button>
+<button class="group flex h-9 items-center justify-center gap-x-2 rounded-full bg-gray-100 hover:bg-primary hover:text-black dark:bg-green-900/20 dark:hover:bg-primary dark:hover:text-black border border-transparent transition-all px-4 cursor-pointer">
+<span class="text-sm font-medium">Year over Year</span>
+</button>
+<button class="group flex h-9 items-center justify-center gap-x-2 rounded-full bg-gray-100 hover:bg-primary hover:text-black dark:bg-green-900/20 dark:hover:bg-primary dark:hover:text-black border border-transparent transition-all px-4 cursor-pointer">
+<span class="text-sm font-medium">Last 30 Days</span>
+</button>
+</div>
+</div>
+<div class="border-t border-gray-100 dark:border-green-800/30 my-6"></div>
+<!-- Date Inputs -->
+<div class="flex flex-col lg:flex-row gap-6 items-end">
+<!-- Period 1 -->
+<div class="flex-1 w-full relative group">
+<div class="absolute -left-3 top-1/2 -translate-y-1/2 w-1 h-12 bg-gray-300 rounded-full"></div>
+<div class="pl-3">
+<p class="text-text-main dark:text-gray-200 text-base font-bold mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-400">history</span>
+                                Baseline Period (P1)
+                            </p>
+<div class="grid grid-cols-2 gap-4">
+<label class="flex flex-col">
+<span class="text-xs font-medium text-text-muted mb-1.5">Start Date</span>
+<div class="relative">
+<input class="w-full bg-background-light dark:bg-background-dark border border-gray-200 dark:border-green-800 rounded-lg h-11 px-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all dark:text-white" type="date" value="2023-10-01"/>
+</div>
+</label>
+<label class="flex flex-col">
+<span class="text-xs font-medium text-text-muted mb-1.5">End Date</span>
+<div class="relative">
+<input class="w-full bg-background-light dark:bg-background-dark border border-gray-200 dark:border-green-800 rounded-lg h-11 px-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all dark:text-white" type="date" value="2023-10-31"/>
+</div>
+</label>
+</div>
+</div>
+</div>
+<!-- Separator Icon -->
+<div class="hidden lg:flex items-center justify-center pb-4 text-text-muted">
+<span class="material-symbols-outlined">compare_arrows</span>
+</div>
+<!-- Period 2 -->
+<div class="flex-1 w-full relative group">
+<div class="absolute -left-3 top-1/2 -translate-y-1/2 w-1 h-12 bg-primary rounded-full"></div>
+<div class="pl-3">
+<p class="text-text-main dark:text-gray-200 text-base font-bold mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">update</span>
+                                Comparison Period (P2)
+                            </p>
+<div class="grid grid-cols-2 gap-4">
+<label class="flex flex-col">
+<span class="text-xs font-medium text-text-muted mb-1.5">Start Date</span>
+<div class="relative">
+<input class="w-full bg-background-light dark:bg-background-dark border border-gray-200 dark:border-green-800 rounded-lg h-11 px-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all dark:text-white" type="date" value="2023-11-01"/>
+</div>
+</label>
+<label class="flex flex-col">
+<span class="text-xs font-medium text-text-muted mb-1.5">End Date</span>
+<div class="relative">
+<input class="w-full bg-background-light dark:bg-background-dark border border-gray-200 dark:border-green-800 rounded-lg h-11 px-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all dark:text-white" type="date" value="2023-11-30"/>
+</div>
+</label>
+</div>
+</div>
+</div>
+<!-- Run Button -->
+<div class="w-full lg:w-auto pb-0.5">
+<button class="w-full lg:w-auto h-11 px-8 bg-primary hover:bg-primary-dark text-text-main font-bold rounded-lg shadow-lg shadow-green-500/20 transition-all transform active:scale-95 flex items-center justify-center gap-2">
+                            Run Comparison
+                        </button>
+</div>
+</div>
+</div>
+<!-- Results Section -->
+<div class="flex flex-col gap-6">
+<!-- Metric Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Card 1: Tonnage -->
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-gray-200 dark:border-green-900/50 shadow-sm relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[64px] text-primary">scale</span>
+</div>
+<div class="flex justify-between items-start mb-4">
+<p class="text-text-muted font-medium text-sm">Total Tonnage</p>
+<span class="flex items-center gap-1 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-bold px-2 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+                                14.2%
+                            </span>
+</div>
+<div class="flex items-end gap-3 mb-2">
+<h3 class="text-3xl font-black text-text-main dark:text-white">1,200t</h3>
+<span class="text-sm text-gray-400 dark:text-gray-500 font-medium mb-1.5">vs 1,050t</span>
+</div>
+<div class="w-full bg-gray-100 dark:bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 85%"></div>
+</div>
+</div>
+<!-- Card 2: Truck Count -->
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-gray-200 dark:border-green-900/50 shadow-sm relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[64px] text-primary">local_shipping</span>
+</div>
+<div class="flex justify-between items-start mb-4">
+<p class="text-text-muted font-medium text-sm">Truck Volume</p>
+<span class="flex items-center gap-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-bold px-2 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px]">trending_down</span>
+                                10.0%
+                            </span>
+</div>
+<div class="flex items-end gap-3 mb-2">
+<h3 class="text-3xl font-black text-text-main dark:text-white">45</h3>
+<span class="text-sm text-gray-400 dark:text-gray-500 font-medium mb-1.5">vs 50</span>
+</div>
+<div class="w-full bg-gray-100 dark:bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
+<div class="bg-red-500 h-full rounded-full" style="width: 45%"></div>
+</div>
+</div>
+<!-- Card 3: Efficiency -->
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-gray-200 dark:border-green-900/50 shadow-sm relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[64px] text-primary">timer</span>
+</div>
+<div class="flex justify-between items-start mb-4">
+<p class="text-text-muted font-medium text-sm">Avg Turnaround</p>
+<!-- Favorable reduction -->
+<span class="flex items-center gap-1 bg-primary/20 text-green-800 dark:text-green-300 text-xs font-bold px-2 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px]">trending_down</span>
+                                20%
+                            </span>
+</div>
+<div class="flex items-end gap-3 mb-2">
+<h3 class="text-3xl font-black text-text-main dark:text-white">12m</h3>
+<span class="text-sm text-gray-400 dark:text-gray-500 font-medium mb-1.5">vs 15m</span>
+</div>
+<div class="w-full bg-gray-100 dark:bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 60%"></div>
+</div>
+</div>
+</div>
+<!-- Charts Area -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Main Overlay Line Chart -->
+<div class="lg:col-span-2 bg-surface-light dark:bg-surface-dark p-6 rounded-xl border border-gray-200 dark:border-green-900/50 shadow-sm flex flex-col h-[400px]">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-lg font-bold text-text-main dark:text-white">Daily Tonnage Trend</h3>
+<div class="flex items-center gap-4 text-xs font-medium">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 bg-gray-300 rounded-full"></div>
+<span class="text-text-muted">Baseline (P1)</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 bg-primary rounded-full"></div>
+<span class="text-text-main dark:text-white">Comparison (P2)</span>
+</div>
+</div>
+</div>
+<!-- Simulated Chart Container -->
+<div class="relative flex-1 w-full mt-2">
+<!-- Y-Axis Labels -->
+<div class="absolute left-0 top-0 bottom-8 w-10 flex flex-col justify-between text-xs text-text-muted text-right pr-2">
+<span>150t</span>
+<span>100t</span>
+<span>50t</span>
+<span>0t</span>
+</div>
+<!-- Chart Area -->
+<div class="absolute left-10 right-0 top-2 bottom-8 border-l border-b border-gray-200 dark:border-gray-700">
+<!-- Grid Lines -->
+<div class="absolute w-full top-0 border-t border-gray-100 dark:border-gray-800 border-dashed"></div>
+<div class="absolute w-full top-1/3 border-t border-gray-100 dark:border-gray-800 border-dashed"></div>
+<div class="absolute w-full top-2/3 border-t border-gray-100 dark:border-gray-800 border-dashed"></div>
+<!-- SVG Line Chart -->
+<svg class="w-full h-full overflow-visible" preserveaspectratio="none" viewbox="0 0 100 100">
+<!-- Baseline P1 (Gray, Dashed) -->
+<polyline class="opacity-60" fill="none" points="0,80 10,70 20,75 30,60 40,65 50,50 60,55 70,40 80,45 90,30 100,35" stroke="#cbd5e1" stroke-dasharray="4,4" stroke-width="2"></polyline>
+<!-- Comparison P2 (Green, Solid, Gradient Fill) -->
+<defs>
+<lineargradient id="gradientGreen" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#1aec13" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="#1aec13" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<path class="transition-all duration-1000" d="M0,70 L10,60 L20,65 L30,40 L40,45 L50,30 L60,35 L70,20 L80,25 L90,10 L100,15 L100,100 L0,100 Z" fill="url(#gradientGreen)"></path>
+<polyline class="drop-shadow-md" fill="none" points="0,70 10,60 20,65 30,40 40,45 50,30 60,35 70,20 80,25 90,10 100,15" stroke="#1aec13" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></polyline>
+<!-- Tooltip Indicator (Fake) -->
+<circle cx="70" cy="20" fill="#ffffff" r="3" stroke="#1aec13" stroke-width="2"></circle>
+</svg>
+<!-- Tooltip Card (Positioned absolute) -->
+<div class="absolute top-[10%] left-[65%] bg-white dark:bg-gray-800 p-2 rounded shadow-lg border border-gray-100 dark:border-gray-700 text-xs pointer-events-none z-10">
+<div class="font-bold mb-1 text-text-main dark:text-white">Nov 22</div>
+<div class="flex justify-between gap-3 text-text-muted"><span>P1:</span> <span>110t</span></div>
+<div class="flex justify-between gap-3 font-medium text-primary-dark dark:text-primary"><span>P2:</span> <span>145t</span></div>
+</div>
+</div>
+<!-- X-Axis Labels -->
+<div class="absolute left-10 right-0 bottom-0 h-6 flex justify-between text-xs text-text-muted items-end">
+<span>Day 1</span>
+<span>Day 7</span>
+<span>Day 14</span>
+<span>Day 21</span>
+<span>Day 30</span>
+</div>
+</div>
+</div>
+<!-- Waterfall Chart (Variance Analysis) -->
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl border border-gray-200 dark:border-green-900/50 shadow-sm flex flex-col h-[400px]">
+<h3 class="text-lg font-bold text-text-main dark:text-white mb-2">Contribution Analysis</h3>
+<p class="text-xs text-text-muted mb-6">Factors contributing to +150t net change</p>
+<div class="flex-1 w-full relative">
+<!-- Chart Container -->
+<div class="h-full flex flex-col justify-end gap-2 pb-6">
+<!-- Row 1: Start -->
+<div class="flex items-center gap-2 group">
+<div class="w-24 text-right text-xs text-text-muted font-medium">Baseline</div>
+<div class="h-6 bg-gray-300 dark:bg-gray-600 rounded-sm w-[60%] relative">
+<span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-white">1,050</span>
+</div>
+</div>
+<!-- Row 2: Increase -->
+<div class="flex items-center gap-2">
+<div class="w-24 text-right text-xs text-text-muted font-medium">New Contracts</div>
+<div class="ml-[60%] h-6 bg-primary rounded-sm w-[15%] relative">
+<span class="absolute left-full ml-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-green-600 dark:text-green-400">+200</span>
+</div>
+</div>
+<!-- Row 3: Decrease -->
+<div class="flex items-center gap-2">
+<div class="w-24 text-right text-xs text-text-muted font-medium">Seasonality</div>
+<!-- 60 + 15 = 75 start, subtract 5 -->
+<div class="ml-[70%] h-6 bg-red-400 rounded-sm w-[5%] relative">
+<span class="absolute left-full ml-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-red-500">-50</span>
+</div>
+</div>
+<!-- Row 4: End -->
+<div class="flex items-center gap-2 mt-2 pt-2 border-t border-dashed border-gray-200 dark:border-gray-700">
+<div class="w-24 text-right text-xs text-text-main dark:text-white font-bold">Comparison</div>
+<div class="h-6 bg-primary/80 rounded-sm w-[70%] relative shadow-[0_0_10px_rgba(26,236,19,0.3)]">
+<span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-black">1,200</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Detailed Table (Optional filler for density) -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-green-900/50 shadow-sm overflow-hidden">
+<div class="px-6 py-4 border-b border-gray-100 dark:border-green-900/30 flex justify-between items-center">
+<h3 class="text-base font-bold text-text-main dark:text-white">Detailed Variance by Material</h3>
+<a class="text-xs font-semibold text-primary hover:text-primary-dark" href="#">View Full Report</a>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-sm text-left">
+<thead class="bg-gray-50 dark:bg-black/20 text-text-muted font-medium">
+<tr>
+<th class="px-6 py-3">Material</th>
+<th class="px-6 py-3">P1 Weight</th>
+<th class="px-6 py-3">P2 Weight</th>
+<th class="px-6 py-3 text-right">Variance</th>
+<th class="px-6 py-3 text-right">% Change</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 dark:divide-green-900/20">
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-6 py-3 font-medium text-text-main dark:text-gray-200">Limestone</td>
+<td class="px-6 py-3 text-text-muted">450t</td>
+<td class="px-6 py-3 text-text-main dark:text-white font-semibold">580t</td>
+<td class="px-6 py-3 text-right text-green-600 font-medium">+130t</td>
+<td class="px-6 py-3 text-right">
+<span class="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs px-2 py-0.5 rounded">+28%</span>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-6 py-3 font-medium text-text-main dark:text-gray-200">Granite</td>
+<td class="px-6 py-3 text-text-muted">300t</td>
+<td class="px-6 py-3 text-text-main dark:text-white font-semibold">280t</td>
+<td class="px-6 py-3 text-right text-red-500 font-medium">-20t</td>
+<td class="px-6 py-3 text-right">
+<span class="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs px-2 py-0.5 rounded">-6%</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

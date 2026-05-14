@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Session Timeout Warning</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-dark": "#3d6b3b",
+                        "secondary": "#6f7c6e",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#232a23",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "md": "0.375rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        'modal': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom backdrop blur for modern feel */
+        .backdrop-blur-custom {
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display antialiased text-gray-900 dark:text-gray-100 min-h-screen flex flex-col relative overflow-hidden">
+<!-- Background Content (Simulating the App behind the modal) -->
+<div aria-hidden="true" class="absolute inset-0 z-0 flex flex-col p-8 opacity-20 pointer-events-none">
+<div class="w-full h-16 bg-gray-200 dark:bg-gray-800 rounded-lg mb-8"></div>
+<div class="flex gap-8">
+<div class="w-64 h-96 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
+<div class="flex-1 h-96 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
+</div>
+</div>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-custom transition-opacity duration-300">
+<!-- Modal Container -->
+<div class="relative w-full max-w-[560px] bg-surface-light dark:bg-surface-dark rounded-xl shadow-modal overflow-hidden transform transition-all scale-100 flex flex-col items-center">
+<!-- Header Section -->
+<div class="w-full flex flex-col items-center pt-10 pb-2 px-8 text-center">
+<div class="mb-4 flex items-center justify-center w-14 h-14 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-500">
+<span class="material-symbols-outlined text-3xl">warning</span>
+</div>
+<h3 class="text-[#121712] dark:text-white tracking-tight text-2xl font-bold leading-tight">
+                    Session Expiring
+                </h3>
+</div>
+<!-- Body Text -->
+<div class="px-10 text-center max-w-md mx-auto">
+<p class="text-gray-600 dark:text-gray-300 text-base font-medium leading-relaxed">
+                    Your session will expire shortly due to inactivity. Any unsaved data will be preserved as a draft.
+                </p>
+</div>
+<!-- Timer Component -->
+<div class="py-8 px-4 w-full flex justify-center">
+<div class="flex items-center gap-3">
+<!-- Minutes -->
+<div class="flex flex-col items-center gap-2">
+<div class="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#ebefeb] dark:bg-[#2c332c] border border-gray-100 dark:border-gray-700 shadow-inner">
+<p class="text-[#121712] dark:text-white text-4xl font-extrabold leading-tight tracking-tight tabular-nums" role="timer">02</p>
+</div>
+<span class="text-secondary dark:text-gray-400 text-xs font-semibold uppercase tracking-wider">Minutes</span>
+</div>
+<!-- Separator -->
+<div class="flex flex-col justify-start h-20 pt-2">
+<span class="text-3xl font-bold text-gray-400 dark:text-gray-600">:</span>
+</div>
+<!-- Seconds -->
+<div class="flex flex-col items-center gap-2">
+<div class="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#ebefeb] dark:bg-[#2c332c] border border-gray-100 dark:border-gray-700 shadow-inner">
+<p class="text-[#121712] dark:text-white text-4xl font-extrabold leading-tight tracking-tight tabular-nums" role="timer">00</p>
+</div>
+<span class="text-secondary dark:text-gray-400 text-xs font-semibold uppercase tracking-wider">Seconds</span>
+</div>
+</div>
+</div>
+<!-- Action Area -->
+<div class="w-full flex flex-col px-10 pb-10 gap-4">
+<button class="flex w-full cursor-pointer items-center justify-center rounded-lg h-12 bg-primary hover:bg-primary-dark transition-colors text-white text-base font-bold leading-normal tracking-[0.015em] shadow-sm hover:shadow-md active:scale-[0.99] transform duration-150">
+<span class="truncate">Stay Logged In</span>
+</button>
+<button class="flex w-full cursor-pointer items-center justify-center rounded-lg h-10 bg-transparent text-secondary dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors text-sm font-bold leading-normal tracking-[0.015em] group">
+<span class="truncate group-hover:underline decoration-2 underline-offset-4">Log Out Now</span>
+</button>
+</div>
+</div>
+</div>
+</body></html>

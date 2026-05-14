@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Custom Fields Configuration - Weighbridge Management System</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#0e1b0d] dark:text-[#e7f3e7] min-h-screen">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#e7f3e7] dark:border-[#2a3a29] bg-white dark:bg-background-dark px-10 py-3 sticky top-0 z-50">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-4 text-[#0e1b0d] dark:text-[#1aec13]">
+<div class="size-6 text-primary">
+<span class="material-symbols-outlined text-3xl">scale</span>
+</div>
+<h2 class="text-[#0e1b0d] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Weighbridge Pro</h2>
+</div>
+<nav class="hidden md:flex items-center gap-9">
+<a class="text-[#0e1b0d] dark:text-white text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-[#0e1b0d] dark:text-white text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Weighments</a>
+<a class="text-[#0e1b0d] dark:text-white text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Reports</a>
+<a class="text-primary text-sm font-bold leading-normal border-b-2 border-primary" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex flex-1 justify-end gap-8 items-center">
+<label class="hidden lg:flex flex-col min-w-40 !h-10 max-w-64">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full overflow-hidden">
+<div class="text-[#4e9a4c] flex border-none bg-[#e7f3e7] dark:bg-[#1a2e19] items-center justify-center pl-4">
+<span class="material-symbols-outlined text-xl">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 border-none bg-[#e7f3e7] dark:bg-[#1a2e19] text-[#0e1b0d] dark:text-white focus:ring-0 h-full placeholder:text-[#4e9a4c] px-4 pl-2 text-sm font-normal" placeholder="Search settings..." value=""/>
+</div>
+</label>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-2xl cursor-pointer">notifications</span>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary" data-alt="User avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBAqcYwWagVEFhIGRka2aa24PPC5SJfp5d20rZxlWVAw6_IoaSKOTW_uxTUIUXGLpAwEvVGSOk4tK5-10W65juJ5YdbFdHWRTs2v1PkmYyYa6qTpdesDaquHh7-xw9FzZ0uhKC6WBQXVJNL5N8isrS2ZCjEvsIrPqDD5HKyUD0sejIq0-f5qt1jWG2ONvtPFeVFhXGfWbC4iPGAQxML19D-3DUeHZbqwzcx022wCrs2GZ_g7bKrk3oVKCNfv0Rt3TLndHcbmBl_oos");'></div>
+</div>
+</div>
+</header>
+<div class="flex flex-1 w-full max-w-[1440px] mx-auto">
+<!-- Sidebar Navigation -->
+<aside class="w-64 hidden xl:flex flex-col border-r border-[#e7f3e7] dark:border-[#2a3a29] p-6 gap-8 bg-white dark:bg-background-dark/50">
+<div class="flex flex-col">
+<h1 class="text-[#0e1b0d] dark:text-white text-sm font-bold uppercase tracking-wider">System Settings</h1>
+<p class="text-[#4e9a4c] text-xs font-semibold leading-normal mt-1 opacity-70">Version 3.13.0</p>
+</div>
+<div class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#0e1b0d] dark:text-white hover:bg-[#e7f3e7] dark:hover:bg-primary/10 transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">settings</span>
+<span class="text-sm font-medium">General</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#0e1b0d] dark:text-white hover:bg-[#e7f3e7] dark:hover:bg-primary/10 transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">group</span>
+<span class="text-sm font-medium">Users &amp; Roles</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/20 text-[#0e1b0d] dark:text-white border-l-4 border-primary" href="#">
+<span class="material-symbols-outlined text-xl text-primary" style="font-variation-settings: 'FILL' 1">edit_square</span>
+<span class="text-sm font-bold">Custom Fields</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#0e1b0d] dark:text-white hover:bg-[#e7f3e7] dark:hover:bg-primary/10 transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">router</span>
+<span class="text-sm font-medium">Hardware</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#0e1b0d] dark:text-white hover:bg-[#e7f3e7] dark:hover:bg-primary/10 transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">api</span>
+<span class="text-sm font-medium">API Integrations</span>
+</a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col overflow-y-auto max-h-[calc(100vh-64px)]">
+<!-- Breadcrumbs & Heading -->
+<div class="px-8 pt-8">
+<nav class="flex items-center gap-2 mb-4">
+<a class="text-[#4e9a4c] text-sm font-medium hover:text-primary" href="#">Settings</a>
+<span class="text-[#4e9a4c] text-sm">/</span>
+<span class="text-[#0e1b0d] dark:text-white text-sm font-bold">Custom Fields</span>
+</nav>
+<div class="flex flex-wrap justify-between items-end gap-4 mb-8">
+<div class="flex flex-col gap-2">
+<h2 class="text-[#0e1b0d] dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">Custom Fields Configuration</h2>
+<p class="text-[#4e9a4c] text-lg font-normal leading-normal">Add custom data points to your weighment process.</p>
+</div>
+</div>
+</div>
+<div class="px-8 flex flex-col lg:flex-row gap-8 pb-12">
+<!-- Left Column: Configuration Forms -->
+<div class="flex-1 space-y-6">
+<!-- Usage Info Card (Variant 3 - Green Info Card) -->
+<div class="bg-[#D6EFD8] border border-[#a8d9ad] rounded-xl p-5 flex items-start gap-4 shadow-sm">
+<div class="bg-white rounded-full p-2 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-green-700">info</span>
+</div>
+<div class="space-y-1">
+<h4 class="text-[#0e1b0d] font-bold text-lg leading-tight">Usage Information</h4>
+<p class="text-[#2d572c] text-sm leading-relaxed">
+                                    These fields will appear in the Weighing Ticket and Reports. Customizing these allows for specialized data capture like Driver ID, Material Quality codes, or Vehicle Inspection results. You can configure up to 3 additional fields.
+                                </p>
+</div>
+</div>
+<!-- Configuration Field Card 1 -->
+<div class="bg-white dark:bg-background-dark/30 border border-[#e7f3e7] dark:border-[#2a3a29] rounded-xl shadow-sm overflow-hidden group focus-within:ring-2 focus-within:ring-primary/50">
+<div class="p-6 border-b border-[#e7f3e7] dark:border-[#2a3a29] flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">01</span>
+<h3 class="text-[#0e1b0d] dark:text-white font-bold text-lg">Primary Custom Field</h3>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-sm font-medium text-[#4e9a4c]">Enable Field</span>
+<button class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-primary" role="switch">
+<span class="translate-x-5 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+</button>
+</div>
+</div>
+<div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-sm font-bold text-[#0e1b0d] dark:text-white">Field Label</label>
+<input class="w-full bg-[#f8fcf8] dark:bg-[#1a2e19] border-[#e7f3e7] dark:border-[#2a3a29] rounded-lg p-2.5 text-[#0e1b0d] dark:text-white focus:border-primary focus:ring-primary" placeholder="e.g. Inspector Name" type="text" value="Driver License No."/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-bold text-[#0e1b0d] dark:text-white">Data Type</label>
+<select class="w-full bg-[#f8fcf8] dark:bg-[#1a2e19] border-[#e7f3e7] dark:border-[#2a3a29] rounded-lg p-2.5 text-[#0e1b0d] dark:text-white focus:border-primary focus:ring-primary">
+<option selected="">Text Input</option>
+<option>Numeric Value</option>
+<option>Dropdown Selection</option>
+<option>Date Picker</option>
+</select>
+</div>
+<div class="md:col-span-2 flex flex-wrap gap-6 items-center p-4 bg-[#f8fcf8] dark:bg-[#1a2e19] rounded-lg">
+<label class="flex items-center gap-3 cursor-pointer">
+<input checked="" class="w-5 h-5 rounded border-primary text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm font-medium">Mark as Mandatory</span>
+</label>
+<div class="flex items-center gap-3">
+<span class="text-sm font-medium">Max Length:</span>
+<input class="w-20 bg-white dark:bg-background-dark border-[#e7f3e7] dark:border-[#2a3a29] rounded-lg p-1 px-2 text-sm" type="number" value="15"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Configuration Field Card 2 (Disabled Style) -->
+<div class="bg-white dark:bg-background-dark/30 border border-[#e7f3e7] dark:border-[#2a3a29] rounded-xl shadow-sm overflow-hidden opacity-60">
+<div class="p-6 border-b border-[#e7f3e7] dark:border-[#2a3a29] flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold text-sm">02</span>
+<h3 class="text-[#0e1b0d] dark:text-white font-bold text-lg">Secondary Custom Field</h3>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-sm font-medium text-gray-500">Enable Field</span>
+<button class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-gray-200" role="switch">
+<span class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+</button>
+</div>
+</div>
+<div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 grayscale pointer-events-none">
+<div class="space-y-2">
+<label class="text-sm font-bold">Field Label</label>
+<input class="w-full bg-[#f8fcf8] border-[#e7f3e7] rounded-lg p-2.5" disabled="" type="text" value="Material Grade"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-bold">Data Type</label>
+<select class="w-full bg-[#f8fcf8] border-[#e7f3e7] rounded-lg p-2.5" disabled="">
+<option>Dropdown Selection</option>
+</select>
+</div>
+</div>
+</div>
+<!-- Configuration Field Card 3 -->
+<div class="bg-white dark:bg-background-dark/30 border border-[#e7f3e7] dark:border-[#2a3a29] rounded-xl shadow-sm overflow-hidden">
+<div class="p-6 border-b border-[#e7f3e7] dark:border-[#2a3a29] flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">03</span>
+<h3 class="text-[#0e1b0d] dark:text-white font-bold text-lg">Tertiary Custom Field</h3>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-sm font-medium text-[#4e9a4c]">Enable Field</span>
+<button class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-primary" role="switch">
+<span class="translate-x-5 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+</button>
+</div>
+</div>
+<div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-sm font-bold text-[#0e1b0d] dark:text-white">Field Label</label>
+<input class="w-full bg-[#f8fcf8] dark:bg-[#1a2e19] border-[#e7f3e7] dark:border-[#2a3a29] rounded-lg p-2.5 text-[#0e1b0d] dark:text-white focus:border-primary focus:ring-primary" type="text" value="Entry Date"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-bold text-[#0e1b0d] dark:text-white">Data Type</label>
+<select class="w-full bg-[#f8fcf8] dark:bg-[#1a2e19] border-[#e7f3e7] dark:border-[#2a3a29] rounded-lg p-2.5 text-[#0e1b0d] dark:text-white focus:border-primary focus:ring-primary">
+<option>Text Input</option>
+<option>Numeric Value</option>
+<option>Dropdown Selection</option>
+<option selected="">Date Picker</option>
+</select>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="flex items-center justify-end gap-4 py-6 border-t border-[#e7f3e7] dark:border-[#2a3a29]">
+<button class="px-6 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-red-500 transition-colors">Reset to Default</button>
+<button class="px-10 py-2.5 bg-primary text-white font-black rounded-lg shadow-lg hover:brightness-110 active:scale-95 transition-all">SAVE CONFIGURATION</button>
+</div>
+</div>
+<!-- Right Column: Field Preview Card -->
+<div class="w-full lg:w-96">
+<div class="sticky top-24">
+<div class="bg-white dark:bg-background-dark/30 border-2 border-primary/30 rounded-xl overflow-hidden shadow-xl">
+<div class="bg-primary/10 p-4 border-b border-primary/20 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary font-bold">visibility</span>
+<h3 class="text-[#0e1b0d] dark:text-white font-bold uppercase tracking-wide text-xs">Live Field Preview</h3>
+</div>
+<span class="px-2 py-0.5 bg-primary text-white text-[10px] font-bold rounded">REAL-TIME</span>
+</div>
+<div class="p-6 space-y-8">
+<div class="pb-4 border-b border-dashed border-gray-200 dark:border-gray-700">
+<p class="text-[10px] font-bold text-gray-400 uppercase mb-4">Standard Form Fields</p>
+<div class="space-y-4 opacity-40">
+<div>
+<label class="text-[11px] font-bold text-gray-500 uppercase">Vehicle Number</label>
+<div class="h-9 w-full bg-gray-100 dark:bg-gray-800 rounded mt-1 border border-gray-200 dark:border-gray-700"></div>
+</div>
+<div>
+<label class="text-[11px] font-bold text-gray-500 uppercase">Gross Weight (kg)</label>
+<div class="h-9 w-full bg-gray-100 dark:bg-gray-800 rounded mt-1 border border-gray-200 dark:border-gray-700"></div>
+</div>
+</div>
+</div>
+<div class="space-y-6">
+<p class="text-[10px] font-bold text-primary uppercase">Configured Custom Fields</p>
+<!-- Preview 1 -->
+<div class="space-y-2 ring-2 ring-primary/20 ring-offset-4 dark:ring-offset-background-dark rounded p-2">
+<label class="text-xs font-bold text-[#0e1b0d] dark:text-white flex items-center gap-1">
+                                                Driver License No.
+                                                <span class="text-red-500">*</span>
+</label>
+<div class="relative group">
+<input class="w-full bg-white dark:bg-gray-900 border-primary rounded p-2 text-sm shadow-sm" placeholder="Enter license..." readonly="" type="text"/>
+<div class="absolute right-3 top-2.5">
+<span class="material-symbols-outlined text-sm text-primary opacity-50">edit</span>
+</div>
+</div>
+</div>
+<!-- Preview 2 (Disabled) -->
+<div class="space-y-2 opacity-30 italic">
+<p class="text-xs text-center text-gray-400 border border-dashed border-gray-300 dark:border-gray-700 py-3 rounded">Field 02 is disabled</p>
+</div>
+<!-- Preview 3 -->
+<div class="space-y-2 bg-gray-50 dark:bg-gray-900/50 p-2 rounded">
+<label class="text-xs font-bold text-[#0e1b0d] dark:text-white">Entry Date</label>
+<div class="relative">
+<div class="w-full bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 rounded p-2 text-sm flex items-center justify-between shadow-sm">
+<span class="text-gray-400">Select date...</span>
+<span class="material-symbols-outlined text-lg text-gray-400">calendar_today</span>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-4 mt-8 flex flex-col items-center">
+<div class="w-16 h-1 bg-gray-200 dark:bg-gray-800 rounded-full mb-2"></div>
+<p class="text-[9px] text-gray-400 text-center px-4">This is a simulation of how the fields will appear in the Weighment Ticket entry screen.</p>
+</div>
+</div>
+</div>
+<!-- Tips Card -->
+<div class="mt-6 p-4 rounded-xl border border-primary/20 bg-primary/5 flex gap-3">
+<span class="material-symbols-outlined text-primary">lightbulb</span>
+<p class="text-xs text-[#0e1b0d] dark:text-[#e7f3e7]">
+<strong>Tip:</strong> Keep labels short and descriptive for better clarity on printed tickets.
+                                </p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

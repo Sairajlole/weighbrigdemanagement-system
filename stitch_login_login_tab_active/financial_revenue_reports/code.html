@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Financial &amp; Revenue Reports</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#0e1b0d] dark:text-[#f0f4f0] font-display min-h-screen flex flex-col overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<div class="flex flex-1 justify-center py-5 px-4 md:px-8">
+<div class="layout-content-container flex flex-col max-w-[1200px] flex-1 gap-6">
+<!-- Breadcrumbs -->
+<div class="flex flex-wrap gap-2 px-2 items-center">
+<a class="text-neutral-500 dark:text-neutral-400 text-sm font-medium hover:text-primary transition-colors" href="#">Home</a>
+<span class="text-neutral-400 dark:text-neutral-600 text-sm font-medium">/</span>
+<a class="text-neutral-500 dark:text-neutral-400 text-sm font-medium hover:text-primary transition-colors" href="#">Reports</a>
+<span class="text-neutral-400 dark:text-neutral-600 text-sm font-medium">/</span>
+<span class="text-neutral-900 dark:text-white text-sm font-medium">Financial</span>
+</div>
+<!-- Page Header with Actions -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 px-2">
+<div class="flex flex-col gap-2">
+<h1 class="text-3xl md:text-4xl font-black leading-tight tracking-tight">Financial &amp; Revenue Reports</h1>
+<p class="text-neutral-600 dark:text-neutral-400 text-base font-normal max-w-2xl">
+                            Track your weighbridge revenue, outstanding payments, and overall financial health.
+                        </p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center justify-center gap-2 h-10 px-5 rounded-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
+<span class="material-symbols-outlined text-neutral-600 dark:text-neutral-300 !text-[20px]">download</span>
+<span class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Export Summary</span>
+</button>
+<button class="flex items-center justify-center gap-2 h-10 px-5 rounded-full bg-primary hover:bg-[#15bd0f] transition-colors shadow-sm shadow-primary/30">
+<span class="material-symbols-outlined text-[#0e1b0d] !text-[20px]">add</span>
+<span class="text-sm font-bold text-[#0e1b0d]">Generate Invoices</span>
+</button>
+</div>
+</div>
+<!-- Filters -->
+<div class="flex flex-wrap gap-3 px-2">
+<button class="group flex h-9 items-center gap-2 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 pl-3 pr-2 hover:border-primary/50 transition-all">
+<span class="text-neutral-600 dark:text-neutral-300 text-sm font-medium">Date Range: <span class="text-neutral-900 dark:text-white">Last 30 Days</span></span>
+<span class="material-symbols-outlined text-neutral-400 group-hover:text-primary !text-[20px]">keyboard_arrow_down</span>
+</button>
+<button class="group flex h-9 items-center gap-2 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 pl-3 pr-2 hover:border-primary/50 transition-all">
+<span class="text-neutral-600 dark:text-neutral-300 text-sm font-medium">Revenue Type</span>
+<span class="material-symbols-outlined text-neutral-400 group-hover:text-primary !text-[20px]">keyboard_arrow_down</span>
+</button>
+<button class="group flex h-9 items-center gap-2 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 pl-3 pr-2 hover:border-primary/50 transition-all">
+<span class="text-neutral-600 dark:text-neutral-300 text-sm font-medium">Payment Status</span>
+<span class="material-symbols-outlined text-neutral-400 group-hover:text-primary !text-[20px]">keyboard_arrow_down</span>
+</button>
+</div>
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 px-2">
+<!-- Card 1 -->
+<div class="flex flex-col gap-3 rounded-xl p-5 bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 shadow-sm">
+<div class="flex justify-between items-start">
+<p class="text-neutral-500 dark:text-neutral-400 text-sm font-semibold">Total Revenue</p>
+<div class="flex items-center gap-1 bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded text-xs font-bold text-green-700 dark:text-green-400">
+<span class="material-symbols-outlined !text-[14px]">trending_up</span>
+                                12%
+                            </div>
+</div>
+<p class="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">₹12,45,000</p>
+<div class="h-1 w-full bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[75%]"></div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="flex flex-col gap-3 rounded-xl p-5 bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 shadow-sm">
+<div class="flex justify-between items-start">
+<p class="text-neutral-500 dark:text-neutral-400 text-sm font-semibold">Weighment Fees</p>
+</div>
+<p class="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">₹8,50,000</p>
+<div class="h-1 w-full bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary/60 w-[55%]"></div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="flex flex-col gap-3 rounded-xl p-5 bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 shadow-sm">
+<div class="flex justify-between items-start">
+<p class="text-neutral-500 dark:text-neutral-400 text-sm font-semibold">Outstanding</p>
+<div class="flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded text-xs font-bold text-amber-700 dark:text-amber-400">
+<span class="material-symbols-outlined !text-[14px]">warning</span>
+                                Action
+                            </div>
+</div>
+<p class="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">₹1,25,000</p>
+<div class="h-1 w-full bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+<div class="h-full bg-amber-500 w-[25%]"></div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="flex flex-col gap-3 rounded-xl p-5 bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 shadow-sm">
+<div class="flex justify-between items-start">
+<p class="text-neutral-500 dark:text-neutral-400 text-sm font-semibold">Collection Rate</p>
+<div class="flex items-center gap-1 bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded text-xs font-bold text-green-700 dark:text-green-400">
+<span class="material-symbols-outlined !text-[14px]">trending_up</span>
+                                2%
+                            </div>
+</div>
+<p class="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">89%</p>
+<div class="h-1 w-full bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[89%]"></div>
+</div>
+</div>
+</div>
+<!-- Charts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 px-2">
+<!-- Chart 1: Revenue Over Time -->
+<div class="lg:col-span-2 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 p-6 shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="text-lg font-bold text-neutral-900 dark:text-white">Revenue Over Time</h3>
+<p class="text-sm text-neutral-500 dark:text-neutral-400">Daily revenue for the last 7 days</p>
+</div>
+<div class="flex gap-2">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-neutral-100 dark:bg-neutral-700 text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                                    Last 7 Days
+                                </span>
+</div>
+</div>
+<!-- Simple CSS Bar Chart -->
+<div class="h-64 w-full flex items-end justify-between gap-2 md:gap-4 pt-4">
+<!-- Bar Item -->
+<div class="flex flex-col items-center gap-2 flex-1 group">
+<div class="relative w-full rounded-t-lg bg-primary/20 dark:bg-primary/10 h-full flex items-end overflow-hidden group-hover:bg-primary/30 transition-colors">
+<div class="w-full bg-primary group-hover:bg-[#15bd0f] transition-all relative" style="height: 45%;">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10">₹4.5L</div>
+</div>
+</div>
+<span class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Mon</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1 group">
+<div class="relative w-full rounded-t-lg bg-primary/20 dark:bg-primary/10 h-full flex items-end overflow-hidden group-hover:bg-primary/30 transition-colors">
+<div class="w-full bg-primary group-hover:bg-[#15bd0f] transition-all relative" style="height: 65%;">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10">₹6.5L</div>
+</div>
+</div>
+<span class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Tue</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1 group">
+<div class="relative w-full rounded-t-lg bg-primary/20 dark:bg-primary/10 h-full flex items-end overflow-hidden group-hover:bg-primary/30 transition-colors">
+<div class="w-full bg-primary group-hover:bg-[#15bd0f] transition-all relative" style="height: 35%;">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10">₹3.5L</div>
+</div>
+</div>
+<span class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Wed</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1 group">
+<div class="relative w-full rounded-t-lg bg-primary/20 dark:bg-primary/10 h-full flex items-end overflow-hidden group-hover:bg-primary/30 transition-colors">
+<div class="w-full bg-primary group-hover:bg-[#15bd0f] transition-all relative" style="height: 85%;">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10">₹8.5L</div>
+</div>
+</div>
+<span class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Thu</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1 group">
+<div class="relative w-full rounded-t-lg bg-primary/20 dark:bg-primary/10 h-full flex items-end overflow-hidden group-hover:bg-primary/30 transition-colors">
+<div class="w-full bg-primary group-hover:bg-[#15bd0f] transition-all relative" style="height: 60%;">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10">₹6.0L</div>
+</div>
+</div>
+<span class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Fri</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1 group">
+<div class="relative w-full rounded-t-lg bg-primary/20 dark:bg-primary/10 h-full flex items-end overflow-hidden group-hover:bg-primary/30 transition-colors">
+<div class="w-full bg-primary group-hover:bg-[#15bd0f] transition-all relative" style="height: 25%;">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10">₹2.5L</div>
+</div>
+</div>
+<span class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Sat</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1 group">
+<div class="relative w-full rounded-t-lg bg-primary/20 dark:bg-primary/10 h-full flex items-end overflow-hidden group-hover:bg-primary/30 transition-colors">
+<div class="w-full bg-primary group-hover:bg-[#15bd0f] transition-all relative" style="height: 15%;">
+<div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10">₹1.5L</div>
+</div>
+</div>
+<span class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Sun</span>
+</div>
+</div>
+</div>
+<!-- Chart 2: Revenue by Source -->
+<div class="lg:col-span-1 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 p-6 shadow-sm flex flex-col">
+<div class="mb-6">
+<h3 class="text-lg font-bold text-neutral-900 dark:text-white">Revenue by Source</h3>
+<p class="text-sm text-neutral-500 dark:text-neutral-400">Breakdown by payment method</p>
+</div>
+<div class="flex-1 flex flex-col items-center justify-center">
+<!-- SVG Donut Chart -->
+<div class="relative w-48 h-48">
+<svg class="w-full h-full transform -rotate-90" viewbox="0 0 36 36">
+<!-- Background Circle -->
+<path class="text-neutral-100 dark:text-neutral-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path>
+<!-- Segment 1: Cash (40%) -->
+<path class="text-primary" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="40, 100" stroke-width="3"></path>
+<!-- Segment 2: Credit (35%) -->
+<path class="text-neutral-800 dark:text-neutral-400" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="35, 100" stroke-dashoffset="-40" stroke-width="3"></path>
+<!-- Segment 3: Digital (25%) -->
+<path class="text-green-600 dark:text-green-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="25, 100" stroke-dashoffset="-75" stroke-width="3"></path>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-2xl font-black text-neutral-900 dark:text-white">₹8.5L</span>
+<span class="text-xs text-neutral-500">Total</span>
+</div>
+</div>
+</div>
+<div class="mt-6 flex flex-col gap-3">
+<div class="flex justify-between items-center text-sm">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-primary"></div>
+<span class="text-neutral-600 dark:text-neutral-300">Cash (40%)</span>
+</div>
+<span class="font-bold text-neutral-900 dark:text-white">₹3,40,000</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-neutral-800 dark:bg-neutral-400"></div>
+<span class="text-neutral-600 dark:text-neutral-300">Credit (35%)</span>
+</div>
+<span class="font-bold text-neutral-900 dark:text-white">₹2,97,500</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-green-600 dark:bg-green-700"></div>
+<span class="text-neutral-600 dark:text-neutral-300">Digital (25%)</span>
+</div>
+<span class="font-bold text-neutral-900 dark:text-white">₹2,12,500</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Table Section -->
+<div class="flex flex-col gap-4 px-2 pb-10">
+<div class="flex justify-between items-end">
+<h3 class="text-xl font-bold text-neutral-900 dark:text-white">Recent Transactions</h3>
+<a class="text-sm font-bold text-neutral-600 dark:text-primary hover:underline" href="#">View All</a>
+</div>
+<div class="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm">
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm">
+<thead class="border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50">
+<tr>
+<th class="px-6 py-4 font-semibold text-neutral-900 dark:text-white" scope="col">Invoice #</th>
+<th class="px-6 py-4 font-semibold text-neutral-900 dark:text-white" scope="col">Date</th>
+<th class="px-6 py-4 font-semibold text-neutral-900 dark:text-white" scope="col">Customer</th>
+<th class="px-6 py-4 font-semibold text-neutral-900 dark:text-white text-right" scope="col">Amount</th>
+<th class="px-6 py-4 font-semibold text-neutral-900 dark:text-white text-center" scope="col">Status</th>
+<th class="px-6 py-4 font-semibold text-neutral-900 dark:text-white text-right" scope="col">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-neutral-100 dark:divide-neutral-700">
+<!-- Row 1 -->
+<tr class="hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
+<td class="px-6 py-4 font-medium text-neutral-900 dark:text-white">INV-2023-001</td>
+<td class="px-6 py-4 text-neutral-500 dark:text-neutral-400">Oct 24, 2023</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-600 dark:text-neutral-300">
+                                                    TS
+                                                </div>
+<span class="font-medium text-neutral-900 dark:text-white">Tata Steel Ltd.</span>
+</div>
+</td>
+<td class="px-6 py-4 font-bold text-neutral-900 dark:text-white text-right">₹15,000</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900/30 px-2.5 py-0.5 text-xs font-bold text-green-800 dark:text-green-400">
+                                                Paid
+                                            </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
+<span class="material-symbols-outlined !text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
+<td class="px-6 py-4 font-medium text-neutral-900 dark:text-white">INV-2023-002</td>
+<td class="px-6 py-4 text-neutral-500 dark:text-neutral-400">Oct 23, 2023</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-600 dark:text-neutral-300">
+                                                    RI
+                                                </div>
+<span class="font-medium text-neutral-900 dark:text-white">Reliance Infra</span>
+</div>
+</td>
+<td class="px-6 py-4 font-bold text-neutral-900 dark:text-white text-right">₹4,500</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center rounded-full bg-red-100 dark:bg-red-900/30 px-2.5 py-0.5 text-xs font-bold text-red-800 dark:text-red-400">
+                                                Overdue
+                                            </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
+<span class="material-symbols-outlined !text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
+<td class="px-6 py-4 font-medium text-neutral-900 dark:text-white">INV-2023-003</td>
+<td class="px-6 py-4 text-neutral-500 dark:text-neutral-400">Oct 23, 2023</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-600 dark:text-neutral-300">
+                                                    LT
+                                                </div>
+<span class="font-medium text-neutral-900 dark:text-white">Local Trucking Co</span>
+</div>
+</td>
+<td class="px-6 py-4 font-bold text-neutral-900 dark:text-white text-right">₹800</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center rounded-full bg-yellow-100 dark:bg-yellow-900/30 px-2.5 py-0.5 text-xs font-bold text-yellow-800 dark:text-yellow-400">
+                                                Pending
+                                            </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
+<span class="material-symbols-outlined !text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
+<td class="px-6 py-4 font-medium text-neutral-900 dark:text-white">INV-2023-004</td>
+<td class="px-6 py-4 text-neutral-500 dark:text-neutral-400">Oct 22, 2023</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-600 dark:text-neutral-300">
+                                                    AB
+                                                </div>
+<span class="font-medium text-neutral-900 dark:text-white">ABC Logistics</span>
+</div>
+</td>
+<td class="px-6 py-4 font-bold text-neutral-900 dark:text-white text-right">₹2,350</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900/30 px-2.5 py-0.5 text-xs font-bold text-green-800 dark:text-green-400">
+                                                Paid
+                                            </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
+<span class="material-symbols-outlined !text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
+<td class="px-6 py-4 font-medium text-neutral-900 dark:text-white">INV-2023-005</td>
+<td class="px-6 py-4 text-neutral-500 dark:text-neutral-400">Oct 21, 2023</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-600 dark:text-neutral-300">
+                                                    GS
+                                                </div>
+<span class="font-medium text-neutral-900 dark:text-white">Global Shipping</span>
+</div>
+</td>
+<td class="px-6 py-4 font-bold text-neutral-900 dark:text-white text-right">₹12,000</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900/30 px-2.5 py-0.5 text-xs font-bold text-green-800 dark:text-green-400">
+                                                Paid
+                                            </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
+<span class="material-symbols-outlined !text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="flex items-center justify-between border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-6 py-4">
+<div class="text-sm text-neutral-500 dark:text-neutral-400">
+                                Showing <span class="font-medium text-neutral-900 dark:text-white">1</span> to <span class="font-medium text-neutral-900 dark:text-white">5</span> of <span class="font-medium text-neutral-900 dark:text-white">48</span> results
+                             </div>
+<div class="flex gap-2">
+<button class="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-1 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 disabled:opacity-50">Previous</button>
+<button class="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-1 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700">Next</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

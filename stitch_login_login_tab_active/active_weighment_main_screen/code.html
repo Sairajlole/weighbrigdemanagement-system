@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Active Weighment Screen</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1e1e1e",
+                        "border-light": "#e5e7eb",
+                        "border-dark": "#374151",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display h-screen flex flex-col overflow-hidden">
+<!-- Top Navigation -->
+<header class="flex-none bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark px-6 py-3 flex items-center justify-between z-10">
+<div class="flex items-center gap-4">
+<div class="p-2 bg-primary/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">scale</span>
+</div>
+<div>
+<h1 class="text-lg font-bold leading-tight tracking-tight">Weighbridge Management System</h1>
+<p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Station: Gate 01 - North Entrance</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 px-3 py-1.5 bg-background-light dark:bg-background-dark rounded-full border border-border-light dark:border-border-dark">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+</span>
+<span class="text-xs font-semibold text-primary uppercase tracking-wide">System Online</span>
+</div>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 border-2 border-white dark:border-slate-700 shadow-sm cursor-pointer" data-alt="User profile avatar showing a smiling operator" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAkE7KTwkBLDA_sUby4ccp_Z_u4wQttFSV4EpFS-Rbae2DyzMtC4Aw3qJQIcghWJIYxBGkL3BK8IrQk6hAWYcdLs8GFCUpU7RrrUbNwt9PHYC4hmP02tfk_h0YkuRhRcC2F_E6ppQ_mG_lEBGV-_YM4Y9g62cJTrXruP1JYBkiEnwUfAle8oil0ewYhI9oczRVvKIt4eS19-0a3I7j0c-UEYuOijM1swKmuS51XHRPtxblpCyaUBZoenQ7ItHQKI2qJHW-5j-v8HQ0");'>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col overflow-hidden relative">
+<!-- Page Header & Status Bar -->
+<div class="flex-none px-6 py-5 flex flex-wrap items-center justify-between gap-4 bg-surface-light/50 dark:bg-surface-dark/50 backdrop-blur-sm z-10">
+<div class="flex flex-col gap-1">
+<h2 class="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                    Weighment in Progress
+                    <span class="material-symbols-outlined text-primary text-2xl">sync</span>
+</h2>
+<p class="text-slate-500 dark:text-slate-400 text-sm">Transaction ID: <span class="font-mono text-slate-700 dark:text-slate-300">TRX-2023-8942</span></p>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+<span class="material-symbols-outlined text-slate-500 text-sm">receipt_long</span>
+<span class="text-sm font-bold">RST: 1234</span>
+</div>
+<div class="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-100 dark:border-blue-800">
+<span class="material-symbols-outlined text-sm">input</span>
+<span class="text-sm font-bold">First Weighing</span>
+</div>
+<div class="flex items-center gap-2 px-4 py-2 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-lg border border-orange-100 dark:border-orange-800">
+<span class="material-symbols-outlined text-sm">local_shipping</span>
+<span class="text-sm font-bold">Inbound</span>
+</div>
+</div>
+</div>
+<!-- 3-Column Layout -->
+<div class="flex-1 overflow-y-auto p-6 pt-2">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full min-h-min">
+<!-- Left Column: Camera Feeds (3 cols wide on large screens) -->
+<div class="lg:col-span-3 flex flex-col gap-4">
+<h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Live Surveillance</h3>
+<div class="relative group rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-700 aspect-video bg-black">
+<div class="absolute inset-0 bg-cover bg-center opacity-90" data-alt="Front view of a large truck on the weighbridge" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC-2sj619rah5PywGtNceVVy9Ph3CMVO6OY0rEXfniTnHL_kNdYnQkLN4FfeSpVav2BxOuOQS2-xhHHbOolv_KneBqsIadfpa5NesDrxoCcuNDlTn1t0wDmPo8-ewoZBj83TW_sKFogZCowYczHp8bUZBBIka1n3gXHHQBCRII0RYrvdS9ftqTzn7zULGk1AwrwFbkTSOAwZsBDBr6O7ShXVd7Rk-ZXki3po3Kc-3vQ2d9qnlLeEw_k4ZoBg5hxzo9_VHtCLhtHPQA");'>
+</div>
+<div class="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-[10px] font-bold text-white flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> CAM 01: FRONT
+                        </div>
+</div>
+<div class="relative group rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-700 aspect-video bg-black">
+<div class="absolute inset-0 bg-cover bg-center opacity-90" data-alt="Overhead view of truck cargo" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuByhoMVr9JLnFQmtaWXwDFg9s6pZXm4zXhFcCMh7Lp3Os3OpQv2javQYgcfH5dRte7vUHK6OPlfAbpz9wG0r5hXQ4xJnzOF4U8JMFrKqtWbZeN27tLckZMnY7B32lXuFMgEhdcT5n_t-03XdFW1FBJiVqdy1k_xQxyKA0idj_pzdmRPm3o8UejnGv9omCzMgsEfME0jKjHCwrw-gO5fHlctb4JO3jiO_In8fro4nPw8AhWmncCZ1Y0q2UXz6Hm2-Wu_Y_GWRwYrJlY");'>
+</div>
+<div class="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-[10px] font-bold text-white flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> CAM 02: TOP
+                        </div>
+</div>
+<div class="relative group rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-700 aspect-video bg-black">
+<div class="absolute inset-0 bg-cover bg-center opacity-90 grayscale-[30%]" data-alt="License plate recognition camera feed close up" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC-QBWoS9iUz-fXT8qRBykFHAAwmmNgRF3eDm0rhaFY_1DaasI4vW4AdUbwa61Qf56O4qXTq0tGbp6h9jcUiMEuzxCNUlohamU_aqMU23GOwAp1_27MAiqj_n7XgrpetOJRbcZjlSwkFy780yPhtm-aLCvUKb31NnKVTXd1ZdHfNbbhmAvNxS0HlFWN4xU1tkSlhvXs4qFT9H-Ea_rlpDYHLReixpirl68nhyaFXbXpOhPg29GzYjtgxcJMFSdkj6aHQvCBmk_aALw");'>
+</div>
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="border-2 border-primary/70 w-32 h-10 rounded bg-primary/10 backdrop-blur-sm flex items-center justify-center">
+<span class="text-white font-mono font-bold tracking-widest text-shadow-sm">AB-882-CD</span>
+</div>
+</div>
+<div class="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-[10px] font-bold text-white flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> CAM 03: ANPR
+                        </div>
+</div>
+</div>
+<!-- Center Column: Data Entry Form (5 cols wide) -->
+<div class="lg:col-span-5 flex flex-col gap-4">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 h-full flex flex-col">
+<div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+<h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">edit_note</span>
+                                Weighment Data
+                            </h3>
+<button class="text-xs text-primary font-medium hover:underline">Clear Form</button>
+</div>
+<div class="p-5 flex-1 overflow-y-auto space-y-6 custom-scrollbar">
+<!-- Vehicle Section -->
+<div class="space-y-3">
+<label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Vehicle Information</label>
+<div class="grid grid-cols-2 gap-4">
+<div class="col-span-1 space-y-1.5">
+<label class="text-sm font-medium text-slate-700 dark:text-slate-300">Registration No</label>
+<div class="relative">
+<input class="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono uppercase font-bold" type="text" value="AB-882-CD"/>
+<span class="material-symbols-outlined absolute right-2.5 top-2.5 text-green-600 text-lg">check_circle</span>
+</div>
+</div>
+<div class="col-span-1 space-y-1.5">
+<label class="text-sm font-medium text-slate-700 dark:text-slate-300">Vehicle Type</label>
+<select class="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary">
+<option>Multi-Axle Truck (10T)</option>
+<option>Heavy Trailer (20T)</option>
+<option>Light Commercial</option>
+</select>
+</div>
+</div>
+</div>
+<hr class="border-slate-100 dark:border-slate-800"/>
+<!-- Customer Section -->
+<div class="space-y-3">
+<label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Customer &amp; Driver</label>
+<div class="space-y-3">
+<div class="space-y-1.5">
+<label class="text-sm font-medium text-slate-700 dark:text-slate-300">Transporter / Customer</label>
+<select class="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary">
+<option>Global Logistics Solutions Pvt Ltd</option>
+<option>Fast Track Transport</option>
+</select>
+</div>
+<div class="space-y-1.5">
+<label class="text-sm font-medium text-slate-700 dark:text-slate-300">Driver Name</label>
+<input class="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary" placeholder="Enter driver name" type="text"/>
+</div>
+</div>
+</div>
+<hr class="border-slate-100 dark:border-slate-800"/>
+<!-- Material Section -->
+<div class="space-y-3">
+<label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Material Details</label>
+<div class="grid grid-cols-2 gap-4">
+<div class="col-span-2 space-y-1.5">
+<label class="text-sm font-medium text-slate-700 dark:text-slate-300">Material Type</label>
+<select class="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary">
+<option>Coal - Grade A</option>
+<option>Limestone</option>
+<option>Iron Ore</option>
+</select>
+</div>
+<div class="col-span-1 space-y-1.5">
+<label class="text-sm font-medium text-slate-700 dark:text-slate-300">Source</label>
+<input class="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary" type="text" value="Mine-04"/>
+</div>
+<div class="col-span-1 space-y-1.5">
+<label class="text-sm font-medium text-slate-700 dark:text-slate-300">Destination</label>
+<input class="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary" type="text" value="Plant B"/>
+</div>
+</div>
+</div>
+<!-- Remarks -->
+<div class="space-y-1.5">
+<label class="text-sm font-medium text-slate-700 dark:text-slate-300">Remarks</label>
+<textarea class="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary resize-none" rows="2"></textarea>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Weight Display & Controls (4 cols wide) -->
+<div class="lg:col-span-4 flex flex-col gap-4">
+<!-- Main Weight Card -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border-2 border-slate-200 dark:border-slate-700 relative overflow-hidden">
+<!-- Header of weight card -->
+<div class="bg-slate-50 dark:bg-slate-800/50 p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+<h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider">Live Weight</h3>
+<div class="flex items-center gap-1.5">
+<span class="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_8px_rgba(80,141,78,0.6)]"></span>
+<span class="text-xs font-bold text-primary tracking-wide">STABLE</span>
+</div>
+</div>
+<!-- Big Digital Display -->
+<div class="p-8 flex flex-col items-center justify-center bg-white dark:bg-slate-900">
+<div class="flex items-baseline gap-2">
+<span class="text-[56px] lg:text-[64px] font-extrabold tracking-tighter text-slate-900 dark:text-white tabular-nums leading-none">24,580</span>
+<span class="text-2xl font-bold text-slate-400">kg</span>
+</div>
+<div class="mt-2 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded text-xs font-bold text-slate-500 uppercase">Gross Weight</div>
+</div>
+<!-- Unit Toggles & Quick Actions -->
+<div class="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 grid grid-cols-2 gap-3">
+<button class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-slate-700 shadow-sm border border-slate-200 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+<span class="material-symbols-outlined text-slate-400 text-lg">straighten</span>
+                                Zero
+                             </button>
+<button class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-slate-700 shadow-sm border border-slate-200 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+<span class="material-symbols-outlined text-slate-400 text-lg">layers</span>
+                                Tare
+                             </button>
+</div>
+<!-- Unit Selector -->
+<div class="p-2 bg-slate-100 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex justify-center">
+<div class="flex bg-slate-200 dark:bg-slate-700 rounded-lg p-1 w-full max-w-[200px]">
+<button class="flex-1 rounded-md bg-white dark:bg-slate-600 shadow-sm text-xs font-bold py-1.5 text-slate-800 dark:text-white text-center">KG</button>
+<button class="flex-1 rounded-md text-xs font-bold py-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 text-center">TON</button>
+</div>
+</div>
+</div>
+<!-- Secondary Info Card -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 flex flex-col gap-3">
+<h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Weighbridge Status</h4>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-sm">
+<span class="text-slate-600 dark:text-slate-400">Scale Connectivity</span>
+<span class="text-green-600 dark:text-green-400 font-bold flex items-center gap-1"><span class="material-symbols-outlined text-base">wifi</span> Connected</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-slate-600 dark:text-slate-400">Last Calibration</span>
+<span class="text-slate-900 dark:text-white font-medium">12 Oct 2023</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-slate-600 dark:text-slate-400">Capacity</span>
+<span class="text-slate-900 dark:text-white font-medium">60 Tonnes</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Action Bar (Sticky Footer) -->
+<footer class="flex-none bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-20">
+<div class="max-w-screen-2xl mx-auto flex justify-between items-center gap-4">
+<button class="px-6 py-3 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-900/20 font-bold transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined">cancel</span>
+                    Cancel Weighment
+                </button>
+<div class="flex gap-4">
+<button class="px-6 py-3 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined">print</span>
+                        Print Ticket
+                    </button>
+<button class="px-8 py-3 rounded-xl bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary/90 font-bold text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2">
+<span class="material-symbols-outlined">save</span>
+                        Capture Gross Weight
+                    </button>
+</div>
+</div>
+</footer>
+</main>
+<style>
+        /* Custom scrollbar for better aesthetics */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #475569;
+        }
+    </style>
+</body></html>

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Operator Approval - Weighbridge Admin</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "stats-card": "#D6EFD8",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "surface-dark": "#1e241e",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        /* Custom scrollbar for table if needed */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-50 antialiased overflow-hidden">
+<div class="flex h-screen w-full overflow-hidden">
+<!-- Sidebar -->
+<aside class="hidden lg:flex w-[240px] flex-col bg-white dark:bg-surface-dark border-r border-slate-200 dark:border-slate-800 shrink-0 h-full transition-colors duration-200">
+<div class="flex flex-col h-full p-4 justify-between">
+<div class="flex flex-col gap-6">
+<!-- Branding -->
+<div class="flex flex-col px-2">
+<h1 class="text-slate-900 dark:text-white text-lg font-bold leading-normal tracking-tight">Weighbridge Sys</h1>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-medium leading-normal">Admin Console</p>
+</div>
+<!-- Navigation -->
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px] text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors">dashboard</span>
+<span class="text-sm font-medium leading-normal">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px] text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors">scale</span>
+<span class="text-sm font-medium leading-normal">Weighbridge</span>
+</a>
+<!-- Active State -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-400 transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px] text-primary fill-1">group</span>
+<span class="text-sm font-bold leading-normal">Operators</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px] text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors">description</span>
+<span class="text-sm font-medium leading-normal">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px] text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors">settings</span>
+<span class="text-sm font-medium leading-normal">Settings</span>
+</a>
+</nav>
+</div>
+<!-- Bottom User Info or Logout could go here -->
+<div class="px-3 py-2">
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 cursor-pointer group">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-red-500 transition-colors">logout</span>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium group-hover:text-red-500 transition-colors">Logout</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<main class="flex-1 flex flex-col h-full relative overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-surface-dark px-6 py-3 shrink-0">
+<div class="flex items-center gap-4">
+<!-- Mobile Menu Button (Visible only on small screens) -->
+<button class="lg:hidden text-slate-500">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<!-- Search Input -->
+<div class="relative flex items-center w-full max-w-sm h-10 group">
+<div class="absolute left-3 flex items-center pointer-events-none text-slate-400">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</div>
+<input class="w-full h-full pl-10 pr-4 bg-background-light dark:bg-black/20 border border-transparent focus:bg-white dark:focus:bg-black/40 focus:border-primary/50 text-slate-900 dark:text-slate-100 text-sm rounded-lg transition-all outline-none placeholder:text-slate-400" placeholder="Search requests..." value=""/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="relative flex items-center justify-center size-10 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300 transition-colors">
+<span class="material-symbols-outlined text-[24px]">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white dark:border-surface-dark"></span>
+</button>
+<div class="size-9 rounded-full bg-cover bg-center border border-slate-200 dark:border-slate-700 cursor-pointer" data-alt="User profile avatar showing a smiling man" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB-7Oc3ASnVW3A3Fh3Tn_i-fDzaYSIvNzGti2VuNUk-uV1j9FkVcxkCG0lNtu-9x2-CqmNNHociYjEup6pPq9DlvS_7Piy9GVDB279ZWFDPTNNM9hipqQDoNtqbXmSmHnbpLWWHl_pIvx0FGKcNmOGROZ3Neb-3tC-24ak3zyiwejQiQUrvyZOiQBY7lNszVVEsSoH4YnYnhjAAJvzu2RxBzg7Dgxlh-k2zVD4CAJlspW1MuoOGuvr7ZtVQl6jlmg6zzUxz5Uav2yc');"></div>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto overflow-x-hidden p-6 lg:p-10 custom-scrollbar">
+<div class="max-w-[1200px] mx-auto flex flex-col gap-8">
+<!-- Page Heading -->
+<div class="flex flex-col gap-2">
+<h1 class="text-slate-900 dark:text-white text-3xl md:text-[32px] font-bold leading-tight tracking-tight">Operator Requests</h1>
+<p class="text-slate-500 dark:text-slate-400 text-base font-normal">Manage and approve operator access requests for the Weighbridge system.</p>
+</div>
+<!-- Stats Row -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Card 1 -->
+<div class="flex flex-col p-6 rounded-xl bg-stats-card dark:bg-primary/20 border border-transparent dark:border-primary/10 transition-transform hover:scale-[1.01]">
+<div class="flex items-center justify-between mb-4">
+<p class="text-slate-800 dark:text-primary-100 text-sm font-semibold uppercase tracking-wider">Pending Requests</p>
+<div class="p-2 bg-white/40 dark:bg-white/10 rounded-lg text-primary-900 dark:text-primary-200">
+<span class="material-symbols-outlined text-[24px]">pending_actions</span>
+</div>
+</div>
+<p class="text-slate-900 dark:text-white text-4xl font-bold tracking-tight">12</p>
+<p class="text-slate-600 dark:text-primary-200/70 text-sm mt-1">Requires attention</p>
+</div>
+<!-- Card 2 -->
+<div class="flex flex-col p-6 rounded-xl bg-stats-card dark:bg-primary/20 border border-transparent dark:border-primary/10 transition-transform hover:scale-[1.01]">
+<div class="flex items-center justify-between mb-4">
+<p class="text-slate-800 dark:text-primary-100 text-sm font-semibold uppercase tracking-wider">Approved Today</p>
+<div class="p-2 bg-white/40 dark:bg-white/10 rounded-lg text-primary-900 dark:text-primary-200">
+<span class="material-symbols-outlined text-[24px]">check_circle</span>
+</div>
+</div>
+<p class="text-slate-900 dark:text-white text-4xl font-bold tracking-tight">4</p>
+<p class="text-slate-600 dark:text-primary-200/70 text-sm mt-1">Processed successfully</p>
+</div>
+<!-- Card 3 -->
+<div class="flex flex-col p-6 rounded-xl bg-stats-card dark:bg-primary/20 border border-transparent dark:border-primary/10 transition-transform hover:scale-[1.01]">
+<div class="flex items-center justify-between mb-4">
+<p class="text-slate-800 dark:text-primary-100 text-sm font-semibold uppercase tracking-wider">Total Operators</p>
+<div class="p-2 bg-white/40 dark:bg-white/10 rounded-lg text-primary-900 dark:text-primary-200">
+<span class="material-symbols-outlined text-[24px]">groups</span>
+</div>
+</div>
+<p class="text-slate-900 dark:text-white text-4xl font-bold tracking-tight">142</p>
+<p class="text-slate-600 dark:text-primary-200/70 text-sm mt-1">Active in system</p>
+</div>
+</div>
+<!-- Pending Requests Table -->
+<div class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h3 class="text-lg font-bold text-slate-900 dark:text-white">Pending Review</h3>
+<!-- Simple Filter/Sort controls -->
+<div class="flex gap-2">
+<button class="flex items-center gap-2 px-3 py-2 bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                                    Filter
+                                </button>
+</div>
+</div>
+<div class="w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-surface-dark shadow-sm">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-background-light dark:bg-white/5 border-b border-slate-200 dark:border-slate-800">
+<th class="px-6 py-4 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Name</th>
+<th class="px-6 py-4 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Email</th>
+<th class="px-6 py-4 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Phone</th>
+<th class="px-6 py-4 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Company Code</th>
+<th class="px-6 py-4 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Date</th>
+<th class="px-6 py-4 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
+<td class="px-6 py-4 text-sm font-medium text-slate-900 dark:text-white">John Doe</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">john@logistics.co</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">+1 555-0123</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                                    WMS-8821
+                                                </span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">Oct 24, 2023</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="flex items-center justify-center h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors shadow-sm shadow-primary/30">
+                                                        Approve
+                                                    </button>
+<button class="flex items-center justify-center h-9 px-4 rounded-lg border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-medium transition-colors bg-transparent">
+                                                        Reject
+                                                    </button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
+<td class="px-6 py-4 text-sm font-medium text-slate-900 dark:text-white">Sarah Smith</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">sarah@trucks.com</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">+1 555-0124</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                                                    TRK-9902
+                                                </span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">Oct 24, 2023</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="flex items-center justify-center h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors shadow-sm shadow-primary/30">
+                                                        Approve
+                                                    </button>
+<button class="flex items-center justify-center h-9 px-4 rounded-lg border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-medium transition-colors bg-transparent">
+                                                        Reject
+                                                    </button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
+<td class="px-6 py-4 text-sm font-medium text-slate-900 dark:text-white">Mike Johnson</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">mike@haul.net</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">+1 555-0125</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
+                                                    HAUL-211
+                                                </span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">Oct 23, 2023</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="flex items-center justify-center h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors shadow-sm shadow-primary/30">
+                                                        Approve
+                                                    </button>
+<button class="flex items-center justify-center h-9 px-4 rounded-lg border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-medium transition-colors bg-transparent">
+                                                        Reject
+                                                    </button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
+<td class="px-6 py-4 text-sm font-medium text-slate-900 dark:text-white">Emma Wilson</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">emma@cargo.io</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">+1 555-0126</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                                    WMS-8824
+                                                </span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">Oct 23, 2023</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="flex items-center justify-center h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors shadow-sm shadow-primary/30">
+                                                        Approve
+                                                    </button>
+<button class="flex items-center justify-center h-9 px-4 rounded-lg border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-medium transition-colors bg-transparent">
+                                                        Reject
+                                                    </button>
+</div>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
+<td class="px-6 py-4 text-sm font-medium text-slate-900 dark:text-white">David Brown</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">david@freight.com</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">+1 555-0127</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                                    FRT-551
+                                                </span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">Oct 22, 2023</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="flex items-center justify-center h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors shadow-sm shadow-primary/30">
+                                                        Approve
+                                                    </button>
+<button class="flex items-center justify-center h-9 px-4 rounded-lg border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-medium transition-colors bg-transparent">
+                                                        Reject
+                                                    </button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-white/5">
+<span class="text-sm text-slate-500 dark:text-slate-400">Showing 1 to 5 of 12 results</span>
+<div class="flex gap-2">
+<button class="px-3 py-1 text-sm border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-transparent text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 disabled:opacity-50" disabled="">Previous</button>
+<button class="px-3 py-1 text-sm border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-transparent text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5">Next</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

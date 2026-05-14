@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Manual Weighment Dashboard</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f9a824",
+                        "background-light": "#f8f7f5",
+                        "background-dark": "#231b0f",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "mono": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1c160d] dark:text-white font-display overflow-x-hidden flex flex-col min-h-screen pb-24">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#e9dece] dark:border-[#3a2f20] px-6 py-3 bg-[#fcfaf8] dark:bg-[#1e170d]">
+<div class="flex items-center gap-4 text-[#1c160d] dark:text-white">
+<div class="size-8 flex items-center justify-center rounded-lg bg-primary/20 text-primary">
+<span class="material-symbols-outlined">dataset</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">Weighbridge Manager</h2>
+</div>
+<div class="flex flex-1 justify-end gap-6 items-center">
+<!-- Manual Mode Badge -->
+<div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/20 border border-primary/30">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+</span>
+<span class="text-xs font-bold uppercase tracking-wider text-[#7a4f06] dark:text-[#ffd68a]">Manual Mode Active</span>
+</div>
+<div class="w-px h-8 bg-[#e9dece] dark:bg-[#3a2f20]"></div>
+<div class="flex items-center gap-3 cursor-pointer">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-9 border-2 border-white dark:border-[#3a2f20] shadow-sm" data-alt="User profile picture showing a smiling operator" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB3Bo2yQfYc2pgJK_TLmfhTz6njQCMmRCSZL8wVpZq1BGlum_vv9YxaGb5zqSNbnWj_uXNubO2FhsEhiTz1U4WcUnIIPsVegRc7KUBsdYTxXasY2WpPE0GNgUoU3t7b-2K-zpjNceeINGAXcSGmlmUhz6fS0w2l6P-HdMzulHAd_oo0PFiRc_jDrCLrD_7123SHWlDu8yjKZdrCTM63VT0Di9ALrfWcHZKBejy8B-LCv6AbiMe1fU7w3X4zXao6Wnh0nJJ0cWfOwwI");'></div>
+<div class="hidden md:flex flex-col">
+<span class="text-sm font-bold leading-none">James Operator</span>
+<span class="text-xs text-gray-500 dark:text-gray-400 mt-1">Shift A</span>
+</div>
+</div>
+</div>
+</header>
+<!-- Alert Banner -->
+<div class="bg-[#FFF4E5] dark:bg-[#332200] border-b border-[#fed7aa] dark:border-[#664400] px-6 py-3">
+<div class="max-w-[1440px] mx-auto flex items-start sm:items-center gap-3">
+<span class="material-symbols-outlined text-orange-600 dark:text-orange-400 shrink-0">warning</span>
+<div class="flex-1">
+<p class="text-sm font-medium text-orange-900 dark:text-orange-100">
+<span class="font-bold">Hardware Unavailability:</span> Automated weighbridge sensors are currently offline. Please proceed with manual fallback operations and verify all entries.
+                </p>
+</div>
+<button class="text-orange-700 dark:text-orange-300 hover:text-orange-900 dark:hover:text-orange-100">
+<span class="material-symbols-outlined text-xl">close</span>
+</button>
+</div>
+</div>
+<!-- Main Content Grid -->
+<main class="flex-1 px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[1440px] mx-auto">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<!-- LEFT COLUMN: Data Entry (55%) -->
+<div class="lg:col-span-7 flex flex-col gap-6">
+<div class="flex flex-col gap-2">
+<h1 class="text-2xl sm:text-3xl font-bold text-[#1c160d] dark:text-white tracking-tight">Manual Weighment</h1>
+<p class="text-gray-500 dark:text-gray-400 text-sm">Enter transaction details carefully. All manual entries are logged for audit.</p>
+</div>
+<!-- Card: Vehicle & Material -->
+<div class="bg-[#fcfaf8] dark:bg-[#1e170d] rounded-xl border border-[#e9dece] dark:border-[#3a2f20] shadow-sm p-6 flex flex-col gap-6">
+<div class="flex items-center gap-3 pb-2 border-b border-[#e9dece] dark:border-[#3a2f20]">
+<span class="material-symbols-outlined text-primary">local_shipping</span>
+<h3 class="text-lg font-bold">Vehicle &amp; Material</h3>
+</div>
+<!-- Vehicle Reg Search -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-[#1c160d] dark:text-white">Vehicle Registration Number <span class="text-red-500">*</span></label>
+<div class="relative group">
+<input class="w-full h-12 pl-4 pr-12 rounded-lg border border-[#e9dece] dark:border-[#3a2f20] bg-white dark:bg-[#2a2218] text-[#1c160d] dark:text-white focus:ring-2 focus:ring-primary/50 focus:border-primary placeholder:text-gray-400 text-base transition-all" placeholder="Search vehicle history (e.g. KA-01-AB-1234)..." type="text"/>
+<div class="absolute right-0 top-0 h-12 w-12 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined">history</span>
+</div>
+</div>
+<div class="flex gap-2 mt-1">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-[#3a2f20] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#4a3f30]">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Verified in history
+                            </span>
+</div>
+</div>
+<!-- Material & Transport Type -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-[#1c160d] dark:text-white">Material Type <span class="text-red-500">*</span></label>
+<div class="relative">
+<select class="w-full h-12 pl-4 pr-10 rounded-lg border border-[#e9dece] dark:border-[#3a2f20] bg-white dark:bg-[#2a2218] text-[#1c160d] dark:text-white focus:ring-2 focus:ring-primary/50 focus:border-primary appearance-none cursor-pointer">
+<option disabled="" selected="" value="">Select Cargo...</option>
+<option value="coal">Thermal Coal</option>
+<option value="sand">River Sand</option>
+<option value="iron">Iron Ore</option>
+<option value="scrap">Steel Scrap</option>
+</select>
+<div class="absolute right-0 top-0 h-12 w-12 flex items-center justify-center pointer-events-none text-gray-500">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-[#1c160d] dark:text-white">Transport Mode</label>
+<div class="relative">
+<select class="w-full h-12 pl-4 pr-10 rounded-lg border border-[#e9dece] dark:border-[#3a2f20] bg-white dark:bg-[#2a2218] text-[#1c160d] dark:text-white focus:ring-2 focus:ring-primary/50 focus:border-primary appearance-none cursor-pointer">
+<option value="road">Road (Truck)</option>
+<option value="rail">Rail</option>
+</select>
+<div class="absolute right-0 top-0 h-12 w-12 flex items-center justify-center pointer-events-none text-gray-500">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Card: Customer & Driver -->
+<div class="bg-[#fcfaf8] dark:bg-[#1e170d] rounded-xl border border-[#e9dece] dark:border-[#3a2f20] shadow-sm p-6 flex flex-col gap-6">
+<div class="flex items-center gap-3 pb-2 border-b border-[#e9dece] dark:border-[#3a2f20]">
+<span class="material-symbols-outlined text-primary">person_search</span>
+<h3 class="text-lg font-bold">Customer &amp; Driver</h3>
+</div>
+<!-- Customer Phone Lookup -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-[#1c160d] dark:text-white">Customer Phone / ID <span class="text-red-500">*</span></label>
+<div class="flex gap-3">
+<div class="relative flex-1 group">
+<input class="w-full h-12 pl-4 pr-12 rounded-lg border border-green-500/50 bg-green-50/10 dark:bg-green-900/10 text-[#1c160d] dark:text-white focus:ring-2 focus:ring-green-500/30 focus:border-green-500 text-base" placeholder="Enter phone number..." type="text" value="+1 (555) 012-3456"/>
+<div class="absolute right-0 top-0 h-12 w-12 flex items-center justify-center text-green-600 dark:text-green-400">
+<span class="material-symbols-outlined">check_circle</span>
+</div>
+</div>
+</div>
+<!-- Success Badge -->
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+<span class="material-symbols-outlined text-[16px]">verified</span>
+                                Customer Found: Apex Construction Ltd.
+                            </span>
+</div>
+</div>
+<!-- Driver Details -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-[#1c160d] dark:text-white">Driver Name</label>
+<input class="w-full h-12 px-4 rounded-lg border border-[#e9dece] dark:border-[#3a2f20] bg-white dark:bg-[#2a2218] text-[#1c160d] dark:text-white focus:ring-2 focus:ring-primary/50 focus:border-primary" placeholder="Enter driver name" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-[#1c160d] dark:text-white">License Number</label>
+<input class="w-full h-12 px-4 rounded-lg border border-[#e9dece] dark:border-[#3a2f20] bg-white dark:bg-[#2a2218] text-[#1c160d] dark:text-white focus:ring-2 focus:ring-primary/50 focus:border-primary" placeholder="DL-XXXX-XXXX" type="text"/>
+</div>
+</div>
+</div>
+<!-- Notes -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-[#1c160d] dark:text-white">Operator Remarks</label>
+<textarea class="w-full p-4 rounded-lg border border-[#e9dece] dark:border-[#3a2f20] bg-[#fcfaf8] dark:bg-[#1e170d] text-[#1c160d] dark:text-white focus:ring-2 focus:ring-primary/50 focus:border-primary min-h-[100px] resize-y" placeholder="Any observation regarding the truck or load..."></textarea>
+</div>
+</div>
+<!-- RIGHT COLUMN: Live Metrics (45%) -->
+<div class="lg:col-span-5 flex flex-col gap-6 lg:sticky lg:top-8">
+<!-- Weight Display Card -->
+<div class="rounded-2xl bg-[#1c160d] text-white p-6 md:p-8 shadow-xl relative overflow-hidden group">
+<!-- Subtle industrial pattern background -->
+<div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 20px 20px;"></div>
+<div class="relative z-10 flex flex-col gap-6">
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<span class="text-sm font-medium text-gray-400 uppercase tracking-widest">Gross Weight</span>
+<span class="text-xs text-gray-500 mt-1">Weighbridge #02</span>
+</div>
+<!-- Stability Indicator -->
+<div class="flex items-center gap-2 px-3 py-1 bg-green-500/20 border border-green-500/40 rounded-full">
+<div class="size-2 rounded-full bg-green-500 animate-pulse"></div>
+<span class="text-xs font-bold text-green-400 uppercase tracking-wider">Stable</span>
+</div>
+</div>
+<!-- Main Weight Display -->
+<div class="py-4 border-y border-white/10 flex items-baseline justify-center gap-4">
+<span class="font-mono text-5xl sm:text-6xl md:text-7xl font-bold tracking-tighter tabular-nums text-primary drop-shadow-[0_0_15px_rgba(249,168,36,0.3)]">24,580</span>
+<span class="text-2xl font-medium text-gray-400">kg</span>
+</div>
+<!-- Manual Entry Toggle (Since hardware is offline) -->
+<div class="bg-white/5 rounded-lg p-3 border border-white/10 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-gray-400">keyboard</span>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-white">Manual Input</span>
+<span class="text-xs text-gray-400">Hardware offline. Type value.</span>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</div>
+<!-- RST Info Card -->
+<div class="bg-white dark:bg-[#1e170d] rounded-xl border border-[#e9dece] dark:border-[#3a2f20] shadow-sm p-5">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-gray-400 text-xl">info</span>
+<h4 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">RST Information</h4>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between items-center py-2 border-b border-dashed border-[#e9dece] dark:border-[#3a2f20]">
+<span class="text-sm text-gray-600 dark:text-gray-400">RST ID</span>
+<span class="text-sm font-mono font-medium text-[#1c160d] dark:text-white">WB-North-02</span>
+</div>
+<div class="flex justify-between items-center py-2 border-b border-dashed border-[#e9dece] dark:border-[#3a2f20]">
+<span class="text-sm text-gray-600 dark:text-gray-400">Last Calibration</span>
+<span class="text-sm font-medium text-[#1c160d] dark:text-white">12 Oct 2023</span>
+</div>
+<div class="flex justify-between items-center py-2 border-b border-dashed border-[#e9dece] dark:border-[#3a2f20]">
+<span class="text-sm text-gray-600 dark:text-gray-400">Tolerance Class</span>
+<span class="text-sm font-medium text-[#1c160d] dark:text-white">Class III</span>
+</div>
+<div class="flex justify-between items-center py-2">
+<span class="text-sm text-gray-600 dark:text-gray-400">Current Tare</span>
+<span class="text-sm font-medium text-[#1c160d] dark:text-white">0 kg</span>
+</div>
+</div>
+</div>
+<!-- Quick Actions / Keypad Visual for fun context (Optional visual filler) -->
+<div class="grid grid-cols-2 gap-3">
+<button class="flex items-center justify-center gap-2 h-12 rounded-lg border border-[#e9dece] dark:border-[#3a2f20] bg-white dark:bg-[#1e170d] text-sm font-bold text-[#1c160d] dark:text-white hover:bg-gray-50 dark:hover:bg-[#2a2218] transition-colors">
+<span class="material-symbols-outlined text-gray-400">print</span> Print Ticket
+                    </button>
+<button class="flex items-center justify-center gap-2 h-12 rounded-lg border border-[#e9dece] dark:border-[#3a2f20] bg-white dark:bg-[#1e170d] text-sm font-bold text-[#1c160d] dark:text-white hover:bg-gray-50 dark:hover:bg-[#2a2218] transition-colors">
+<span class="material-symbols-outlined text-gray-400">photo_camera</span> View Cam
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Sticky Footer Action Bar -->
+<div class="fixed bottom-0 left-0 w-full bg-white dark:bg-[#1e170d] border-t border-[#e9dece] dark:border-[#3a2f20] shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-50">
+<div class="max-w-[1440px] mx-auto px-6 py-4 flex items-center justify-between gap-4">
+<div class="hidden sm:flex flex-col">
+<span class="text-xs font-bold text-gray-400 uppercase">Session ID</span>
+<span class="text-sm font-mono text-[#1c160d] dark:text-white">#TRX-9982-MNL</span>
+</div>
+<div class="flex items-center gap-6">
+<a class="text-sm font-bold text-gray-500 hover:text-[#1c160d] dark:text-gray-400 dark:hover:text-white transition-colors underline-offset-4 hover:underline" href="#">Cancel Transaction</a>
+<button class="flex items-center justify-center gap-3 bg-primary hover:bg-[#e09210] text-[#1c160d] px-8 h-12 rounded-lg font-bold text-base shadow-lg shadow-orange-500/20 transition-all transform active:scale-95 min-w-[200px]">
+<span class="material-symbols-outlined">save</span>
+                    Capture Weight
+                </button>
+</div>
+</div>
+</div>
+</body></html>

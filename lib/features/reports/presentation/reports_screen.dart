@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 
 final _allWeighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final db = ref.watch(firestoreProvider);
@@ -68,6 +70,15 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                   textStyle: text.labelSmall,
                 ),
               ),
+              const Spacer(),
+              if (ref.watch(permissionServiceProvider).canExportData)
+                FilledButton.icon(
+                  onPressed: () {
+                    // TODO: implement export
+                  },
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                  label: const Text('Export'),
+                ),
             ],
           ),
           const SizedBox(height: 16),
@@ -127,7 +138,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       ],
                       rows: filtered.map((w) {
                         final ts = w['createdAt'] as Timestamp?;
-                        final date = ts != null ? DateFormat('dd/MM/yy HH:mm').format(ts.toDate()) : '--';
+                        final date = ts != null ? formatTimestamp(ts, ref.read(timeFormatProvider), dateFormat: 'dd/MM/yy') : '--';
                         final gross = w['grossWeight'] as num?;
                         final tare = w['tareWeight'] as num?;
                         final net = w['netWeight'] as num?;

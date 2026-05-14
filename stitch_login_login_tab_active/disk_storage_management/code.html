@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Disk Storage Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f9a824",
+                        "background-light": "#f8f7f5",
+                        "background-dark": "#231b0f",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#2d2316",
+                        "border-light": "#e9dece",
+                        "border-dark": "#453625",
+                        "text-primary-light": "#1c160d",
+                        "text-primary-dark": "#eaddcf",
+                        "text-secondary-light": "#9e7d47",
+                        "text-secondary-dark": "#b09b78",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display min-h-screen flex items-center justify-center p-4">
+<!-- Modal Overlay -->
+<div aria-hidden="true" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity"></div>
+<!-- Modal Container -->
+<div class="relative z-50 w-full max-w-[560px] bg-surface-light dark:bg-surface-dark rounded-xl shadow-2xl border border-border-light dark:border-border-dark flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+<!-- Modal Header -->
+<div class="flex items-center justify-between px-6 py-5 border-b border-border-light dark:border-border-dark bg-background-light/50 dark:bg-background-dark/30">
+<h2 class="text-xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">Storage Details</h2>
+<button class="text-text-secondary-light dark:text-text-secondary-dark hover:text-primary transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+<!-- Stats Overview -->
+<div class="flex flex-col gap-4">
+<div class="flex items-end justify-between">
+<div>
+<p class="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">Total Capacity</p>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">97.5 GB</span>
+<span class="text-sm text-text-secondary-light dark:text-text-secondary-dark">used of 100 GB</span>
+</div>
+</div>
+<div class="text-right">
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-bold uppercase tracking-wide">
+<span class="material-symbols-outlined text-sm">warning</span>
+                            Critical
+                        </div>
+</div>
+</div>
+<!-- Main Progress Bar -->
+<div class="space-y-2">
+<div class="relative w-full h-4 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+<!-- Used Space -->
+<div class="absolute top-0 left-0 h-full bg-primary" style="width: 97.5%;"></div>
+<!-- Pattern overlay for texture -->
+<div class="absolute top-0 left-0 h-full w-full opacity-10" data-alt="Striped pattern overlay" style="background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem;"></div>
+</div>
+<div class="flex justify-between text-xs font-medium">
+<span class="text-primary">97.5% Used</span>
+<span class="text-text-secondary-light dark:text-text-secondary-dark">2.5 GB Free</span>
+</div>
+</div>
+</div>
+<!-- Resource Breakdown List -->
+<div class="space-y-4">
+<h3 class="text-sm font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">Breakdown by Resource</h3>
+<div class="flex flex-col gap-3">
+<!-- Item 1 -->
+<div class="flex items-center gap-4 p-3 rounded-lg border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark">
+<div class="p-2 rounded bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-primary">
+<span class="material-symbols-outlined">photo_camera</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-center mb-1">
+<span class="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">Camera Images</span>
+<span class="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">60 GB</span>
+</div>
+<div class="w-full h-1.5 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 60%"></div>
+</div>
+</div>
+<button class="text-xs font-bold text-primary hover:text-primary/80 whitespace-nowrap px-3 py-1.5 rounded hover:bg-primary/10 transition-colors">
+                            Delete Old
+                        </button>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center gap-4 p-3 rounded-lg border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark">
+<div class="p-2 rounded bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-primary">
+<span class="material-symbols-outlined">picture_as_pdf</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-center mb-1">
+<span class="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">RST PDFs</span>
+<span class="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">25 GB</span>
+</div>
+<div class="w-full h-1.5 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 25%"></div>
+</div>
+</div>
+<button class="text-xs font-bold text-primary hover:text-primary/80 whitespace-nowrap px-3 py-1.5 rounded hover:bg-primary/10 transition-colors">
+                            Archive
+                        </button>
+</div>
+<!-- Item 3 -->
+<div class="flex items-center gap-4 p-3 rounded-lg border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark">
+<div class="p-2 rounded bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-primary">
+<span class="material-symbols-outlined">backup</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-center mb-1">
+<span class="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">Backups</span>
+<span class="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">10 GB</span>
+</div>
+<div class="w-full h-1.5 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 10%"></div>
+</div>
+</div>
+<button class="text-xs font-bold text-primary hover:text-primary/80 whitespace-nowrap px-3 py-1.5 rounded hover:bg-primary/10 transition-colors">
+                            Manage
+                        </button>
+</div>
+<!-- Item 4 -->
+<div class="flex items-center gap-4 p-3 rounded-lg border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark">
+<div class="p-2 rounded bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-primary">
+<span class="material-symbols-outlined">database</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-center mb-1">
+<span class="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">Database</span>
+<span class="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">5 GB</span>
+</div>
+<div class="w-full h-1.5 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 5%"></div>
+</div>
+</div>
+<button class="text-xs font-bold text-primary hover:text-primary/80 whitespace-nowrap px-3 py-1.5 rounded hover:bg-primary/10 transition-colors">
+                            Optimize
+                        </button>
+</div>
+</div>
+</div>
+<!-- Recommendation Card -->
+<div class="p-4 rounded-lg bg-primary/10 border border-primary/20 flex gap-4 items-start">
+<div class="flex-shrink-0 mt-0.5 text-primary">
+<span class="material-symbols-outlined filled">tips_and_updates</span>
+</div>
+<div>
+<h4 class="text-sm font-bold text-text-primary-light dark:text-text-primary-dark mb-1">Recommendation</h4>
+<p class="text-sm text-text-secondary-light dark:text-text-secondary-dark leading-relaxed">
+                        Disk space is critically low. We recommend deleting images older than 90 days immediately to reclaim approx 15 GB.
+                    </p>
+</div>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="p-6 border-t border-border-light dark:border-border-dark bg-background-light/50 dark:bg-background-dark/30 flex justify-end gap-3">
+<button class="px-5 py-2.5 rounded-lg border border-border-light dark:border-border-dark text-text-primary-light dark:text-text-primary-dark font-medium text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                Close
+            </button>
+<button class="px-5 py-2.5 rounded-lg bg-primary text-text-primary-light font-bold text-sm shadow-sm hover:bg-primary/90 transition-all active:scale-95 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">auto_delete</span>
+                Auto Clean Up
+            </button>
+</div>
+</div>
+</body></html>

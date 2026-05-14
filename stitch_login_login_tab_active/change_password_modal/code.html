@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Change Password Modal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "primary-hover": "#17d411",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1a331a",
+                        "border-light": "#dce6db",
+                        "border-dark": "#2a4229",
+                        "text-primary-light": "#111811",
+                        "text-primary-dark": "#ecf0ec",
+                        "text-secondary-light": "#638961",
+                        "text-secondary-dark": "#8aab88",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for better aesthetic */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark antialiased overflow-hidden h-screen w-full relative">
+<!-- Background Image / Map placeholder to simulate application context -->
+<div class="absolute inset-0 bg-cover bg-center z-0 opacity-20 pointer-events-none" data-alt="Blurred background showing industrial weighbridge facility" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBb_IRd9P9_btyooci6MCZjFWVy9GKmvmEa4PuY53R0y0Hzhgcp1Bz9KUoRp6P8VTxIuDH7i2dpQ4pfX3WzvTjE8xOXyL7-mCdepKpDh2uRHtay3kYfoeiZkRGloUOB4YwbzNbSXQrVsj0wTIJ0Ve2gd20hWG7BpSbQfjynplvoXUQvAsqylKqlOb4TQPincicOoYNLrNO2aTY8jDAFg3LXkGrZvzHNiYTibARZgEFFdAWYbbEMXSyhtqs8-U6XTzoCyt3r1E0wpOA');">
+</div>
+<!-- Modal Backdrop -->
+<div class="absolute inset-0 bg-[#111811]/70 backdrop-blur-sm z-10 flex items-center justify-center p-4">
+<!-- Modal Card -->
+<div class="w-full max-w-[420px] bg-surface-light dark:bg-surface-dark rounded-xl shadow-2xl flex flex-col border border-border-light dark:border-border-dark overflow-hidden">
+<!-- Header -->
+<div class="px-6 py-5 border-b border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark">
+<h2 class="text-xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">Change Password</h2>
+<p class="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-1">Update your account credentials below.</p>
+</div>
+<!-- Form Body -->
+<div class="p-6 space-y-5">
+<!-- Current Password -->
+<div class="space-y-2">
+<label class="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark" for="current-password">Current Password</label>
+<div class="relative flex items-center">
+<input class="block w-full rounded-lg border-border-light dark:border-border-dark bg-white dark:bg-[#152915] text-text-primary-light dark:text-text-primary-dark shadow-sm focus:border-primary focus:ring-1 focus:ring-primary py-2.5 px-3 pr-10 text-sm placeholder:text-text-secondary-light dark:placeholder:text-text-secondary-dark" id="current-password" placeholder="Enter current password" type="password"/>
+<button class="absolute right-3 text-text-secondary-light dark:text-text-secondary-dark hover:text-primary transition-colors focus:outline-none" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</div>
+<!-- New Password -->
+<div class="space-y-2">
+<label class="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark" for="new-password">New Password</label>
+<div class="relative flex items-center">
+<input class="block w-full rounded-lg border-border-light dark:border-border-dark bg-white dark:bg-[#152915] text-text-primary-light dark:text-text-primary-dark shadow-sm focus:border-primary focus:ring-1 focus:ring-primary py-2.5 px-3 pr-10 text-sm placeholder:text-text-secondary-light dark:placeholder:text-text-secondary-dark" id="new-password" placeholder="Enter new password" type="password"/>
+<button class="absolute right-3 text-text-secondary-light dark:text-text-secondary-dark hover:text-primary transition-colors focus:outline-none" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility_off</span>
+</button>
+</div>
+</div>
+<!-- Confirm Password -->
+<div class="space-y-2">
+<label class="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark" for="confirm-password">Confirm New Password</label>
+<div class="relative flex items-center">
+<input class="block w-full rounded-lg border-border-light dark:border-border-dark bg-white dark:bg-[#152915] text-text-primary-light dark:text-text-primary-dark shadow-sm focus:border-primary focus:ring-1 focus:ring-primary py-2.5 px-3 pr-10 text-sm placeholder:text-text-secondary-light dark:placeholder:text-text-secondary-dark" id="confirm-password" placeholder="Re-enter new password" type="password"/>
+<button class="absolute right-3 text-text-secondary-light dark:text-text-secondary-dark hover:text-primary transition-colors focus:outline-none" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility_off</span>
+</button>
+</div>
+</div>
+<!-- Requirements Checklist -->
+<div class="pt-2">
+<p class="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider mb-3">Password Requirements</p>
+<ul class="space-y-2">
+<li class="flex items-center gap-2.5 text-sm">
+<div class="flex items-center justify-center w-4 h-4 rounded-full bg-primary/20 text-primary-dark dark:text-primary">
+<span class="material-symbols-outlined text-[12px] font-bold">check</span>
+</div>
+<span class="text-text-primary-light dark:text-text-primary-dark opacity-90">At least 8 characters</span>
+</li>
+<li class="flex items-center gap-2.5 text-sm">
+<div class="flex items-center justify-center w-4 h-4 rounded-full bg-border-light dark:bg-border-dark text-transparent">
+<span class="material-symbols-outlined text-[12px] font-bold">check</span>
+</div>
+<span class="text-text-secondary-light dark:text-text-secondary-dark">One uppercase letter</span>
+</li>
+<li class="flex items-center gap-2.5 text-sm">
+<div class="flex items-center justify-center w-4 h-4 rounded-full bg-border-light dark:bg-border-dark text-transparent">
+<span class="material-symbols-outlined text-[12px] font-bold">check</span>
+</div>
+<span class="text-text-secondary-light dark:text-text-secondary-dark">One number</span>
+</li>
+<li class="flex items-center gap-2.5 text-sm">
+<div class="flex items-center justify-center w-4 h-4 rounded-full bg-border-light dark:bg-border-dark text-transparent">
+<span class="material-symbols-outlined text-[12px] font-bold">check</span>
+</div>
+<span class="text-text-secondary-light dark:text-text-secondary-dark">One special character</span>
+</li>
+</ul>
+</div>
+</div>
+<!-- Footer -->
+<div class="px-6 py-4 bg-background-light dark:bg-[#132613] border-t border-border-light dark:border-border-dark flex items-center justify-end gap-3">
+<button class="px-4 py-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark bg-white dark:bg-transparent border border-border-light dark:border-border-dark rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700 transition-all">
+                    Cancel
+                </button>
+<button class="px-4 py-2 text-sm font-medium text-[#0b2908] bg-primary hover:bg-primary-hover border border-transparent rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-[#112210] transition-all">
+                    Update Password
+                </button>
+</div>
+</div>
+</div>
+</body></html>

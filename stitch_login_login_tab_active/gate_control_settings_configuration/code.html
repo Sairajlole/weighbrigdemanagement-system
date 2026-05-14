@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gate Control Settings Configuration</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-[#111811] dark:text-white transition-colors duration-200">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#dce6db] dark:border-[#2a3d29] px-10 py-3 bg-white dark:bg-[#1a2e19]">
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-[#f0f4f0] dark:bg-[#253b24] text-[#111811] dark:text-white hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="flex flex-col">
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">Gate Control</h2>
+<div class="flex items-center gap-1.5">
+<div class="size-2 rounded-full bg-primary animate-pulse"></div>
+<span class="text-xs font-medium text-[#638961] dark:text-primary/80 uppercase tracking-wider">Connected</span>
+</div>
+</div>
+</div>
+<div class="flex flex-1 justify-end gap-4 items-center">
+<div class="hidden md:flex flex-col items-end px-4">
+<p class="text-xs text-[#638961] dark:text-white/60">System IP</p>
+<p class="text-sm font-bold">192.168.1.104</p>
+</div>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary/20" data-alt="User profile avatar placeholder" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB8Pqga3umgOzX_6f3NrRUz4c-RwqjRZHovdq00nuuj997ZKfT02ScC4lQgGP1qe2VtFj6DQVu940KVIwosQKwPu-K4xOrdKYa2R0d7nsBKifWsKSHgeoe6HGZqDMxGMyTl2v-mP0_eiL6ejHH6E4PQhZC98mYNbusEsqffvb9Kd0YFe_xV_1TvziN7vnWqVV9RutxpSdKaLJN092W2O9j8yM9n5UI82pi_NKd41NR7rF_U8mb0-diRLTLaW3fSZHbnIV5FKG9BvdM");'></div>
+</div>
+</header>
+<main class="flex flex-1 justify-center py-8">
+<div class="layout-content-container flex flex-col max-w-[1024px] flex-1 px-4 gap-6">
+<!-- Master Toggle Section -->
+<div class="flex flex-col items-start justify-between gap-4 rounded-xl border border-[#dce6db] dark:border-[#2a3d29] bg-white dark:bg-[#1a2e19] p-6 shadow-sm sm:flex-row sm:items-center">
+<div class="flex items-center gap-4">
+<div class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+<span class="material-symbols-outlined text-3xl">settings_remote</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-lg font-bold leading-tight">Enable Gate Control System</p>
+<p class="text-[#638961] dark:text-white/60 text-sm font-normal leading-normal">Global master switch for gate automation and weighing logic</p>
+</div>
+</div>
+<label class="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full border-none bg-[#f0f4f0] dark:bg-[#253b24] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-primary transition-all">
+<div class="h-full w-[27px] rounded-full bg-white shadow-md"></div>
+<input checked="" class="invisible absolute" type="checkbox"/>
+</label>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- Entry Gate Configuration -->
+<div class="flex flex-col rounded-xl border border-[#dce6db] dark:border-[#2a3d29] bg-white dark:bg-[#1a2e19] overflow-hidden shadow-sm">
+<div class="flex items-center justify-between p-5 border-b border-[#dce6db] dark:border-[#2a3d29] bg-primary/5">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">login</span>
+<h3 class="text-lg font-bold">Entry Gate Configuration</h3>
+</div>
+<label class="relative flex h-[24px] w-[42px] cursor-pointer items-center rounded-full border-none bg-[#f0f4f0] dark:bg-[#253b24] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-primary">
+<div class="h-full w-[20px] rounded-full bg-white shadow-sm"></div>
+<input checked="" class="invisible absolute" type="checkbox"/>
+</label>
+</div>
+<div class="p-6 flex flex-col gap-6">
+<div class="grid grid-cols-2 gap-4">
+<label class="flex flex-col gap-2">
+<p class="text-sm font-semibold text-[#111811] dark:text-white/80">Relay Board IP</p>
+<input class="form-input rounded-lg border-[#dce6db] dark:border-[#2a3d29] bg-transparent focus:border-primary focus:ring-primary/20 h-11 text-sm" type="text" value="192.168.1.50"/>
+</label>
+<label class="flex flex-col gap-2">
+<p class="text-sm font-semibold text-[#111811] dark:text-white/80">Relay Channel</p>
+<select class="form-select rounded-lg border-[#dce6db] dark:border-[#2a3d29] bg-transparent focus:border-primary focus:ring-primary/20 h-11 text-sm">
+<option>Channel 01</option>
+<option>Channel 02</option>
+<option>Channel 03</option>
+</select>
+</label>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<label class="flex flex-col gap-2">
+<p class="text-sm font-semibold text-[#111811] dark:text-white/80">Open Duration (s)</p>
+<div class="relative">
+<input class="form-input w-full rounded-lg border-[#dce6db] dark:border-[#2a3d29] bg-transparent focus:border-primary focus:ring-primary/20 h-11 text-sm" type="number" value="30"/>
+<span class="absolute right-3 top-3 text-xs text-[#638961]">sec</span>
+</div>
+</label>
+<label class="flex flex-col gap-2">
+<p class="text-sm font-semibold text-[#111811] dark:text-white/80">Trigger Type</p>
+<select class="form-select rounded-lg border-[#dce6db] dark:border-[#2a3d29] bg-transparent focus:border-primary focus:ring-primary/20 h-11 text-sm">
+<option>Weight Detected</option>
+<option>Manual Trigger</option>
+<option>RFID Swipe</option>
+</select>
+</label>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg bg-background-light dark:bg-[#253b24]">
+<div class="flex flex-col">
+<p class="text-sm font-bold">Auto-close</p>
+<p class="text-xs text-[#638961] dark:text-white/60">Close gate after duration</p>
+</div>
+<label class="relative flex h-6 w-11 cursor-pointer items-center rounded-full border-none bg-white dark:bg-[#1a2e19] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-primary">
+<div class="h-full w-5 rounded-full bg-[#f0f4f0] dark:bg-[#2a3d29] shadow-sm"></div>
+<input checked="" class="invisible absolute" type="checkbox"/>
+</label>
+</div>
+<div class="flex gap-3 pt-2">
+<button class="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary/10 border border-primary/30 text-[#111811] dark:text-white h-10 text-sm font-bold hover:bg-primary/20 transition-all">
+<span class="material-symbols-outlined text-lg text-primary">wifi_tethering</span>
+                                        Test
+                                    </button>
+<button class="flex-1 flex items-center justify-center gap-2 rounded-lg bg-[#f0f4f0] dark:bg-[#253b24] text-[#111811] dark:text-white h-10 text-sm font-bold hover:bg-[#e0e7e0] transition-all">
+<span class="material-symbols-outlined text-lg">open_in_new</span>
+                                        Manual Open
+                                    </button>
+</div>
+</div>
+</div>
+<!-- Exit Gate Configuration (Collapsed/Alternative State) -->
+<div class="flex flex-col rounded-xl border border-[#dce6db] dark:border-[#2a3d29] bg-white dark:bg-[#1a2e19] overflow-hidden shadow-sm opacity-90">
+<div class="flex items-center justify-between p-5 border-b border-[#dce6db] dark:border-[#2a3d29]">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#638961]">logout</span>
+<h3 class="text-lg font-bold">Exit Gate Configuration</h3>
+</div>
+<label class="relative flex h-[24px] w-[42px] cursor-pointer items-center rounded-full border-none bg-[#f0f4f0] dark:bg-[#253b24] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-primary">
+<div class="h-full w-[20px] rounded-full bg-white shadow-sm"></div>
+<input class="invisible absolute" type="checkbox"/>
+</label>
+</div>
+<div class="p-10 flex flex-col items-center justify-center text-center gap-2 opacity-50">
+<span class="material-symbols-outlined text-4xl text-[#638961]">lock</span>
+<p class="text-sm font-medium">Exit Gate is currently disabled</p>
+<p class="text-xs text-[#638961]">Toggle the switch above to configure</p>
+</div>
+</div>
+</div>
+<!-- Safety & Advanced Settings -->
+<div class="flex flex-col rounded-xl border border-[#dce6db] dark:border-[#2a3d29] bg-white dark:bg-[#1a2e19] overflow-hidden shadow-sm">
+<div class="p-5 border-b border-[#dce6db] dark:border-[#2a3d29]">
+<h3 class="text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-[#facc15]">health_and_safety</span>
+                                Safety &amp; Protection Settings
+                            </h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 p-6 gap-6">
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<span class="text-sm font-bold">Sensor Check</span>
+<input checked="" class="rounded text-primary focus:ring-primary bg-background-light dark:bg-[#253b24] border-[#dce6db] dark:border-[#2a3d29]" type="checkbox"/>
+</div>
+<p class="text-xs text-[#638961] dark:text-white/60 leading-normal">Verify path clearance before closing gate</p>
+</div>
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<span class="text-sm font-bold">Emergency Stop</span>
+<input checked="" class="rounded text-primary focus:ring-primary bg-background-light dark:bg-[#253b24] border-[#dce6db] dark:border-[#2a3d29]" type="checkbox"/>
+</div>
+<p class="text-xs text-[#638961] dark:text-white/60 leading-normal">Override all controls via hardware switch</p>
+</div>
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<span class="text-sm font-bold">Audible Buzzer</span>
+<input class="rounded text-primary focus:ring-primary bg-background-light dark:bg-[#253b24] border-[#dce6db] dark:border-[#2a3d29]" type="checkbox"/>
+</div>
+<p class="text-xs text-[#638961] dark:text-white/60 leading-normal">Sound alarm when gate is in motion</p>
+</div>
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<span class="text-sm font-bold">Interlock Gates</span>
+<input checked="" class="rounded text-primary focus:ring-primary bg-background-light dark:bg-[#253b24] border-[#dce6db] dark:border-[#2a3d29]" type="checkbox"/>
+</div>
+<p class="text-xs text-[#638961] dark:text-white/60 leading-normal">Prevent both gates from opening at once</p>
+</div>
+</div>
+</div>
+<!-- Footer Action Bar -->
+<div class="flex items-center justify-between mt-4 mb-10">
+<div class="flex items-center gap-2 text-[#638961] dark:text-white/60">
+<span class="material-symbols-outlined text-sm">history</span>
+<span class="text-xs italic">Last configuration saved: 2 hours ago by Admin</span>
+</div>
+<div class="flex gap-4">
+<button class="px-6 py-2.5 rounded-lg border border-[#dce6db] dark:border-[#2a3d29] text-sm font-bold hover:bg-[#f0f4f0] dark:hover:bg-[#253b24] transition-all">
+                                Cancel Changes
+                            </button>
+<button class="px-8 py-2.5 rounded-lg bg-primary text-background-dark font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                                Save Configuration
+                            </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Status Indicator Floating Bar (Desktop App Feel) -->
+<div class="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1a2e19] border-t border-[#dce6db] dark:border-[#2a3d29] py-2 px-10 flex items-center justify-between text-[11px] font-medium text-[#638961] dark:text-white/40">
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">terminal</span> SYSTEM: OK</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">router</span> RELAY-01: ONLINE</span>
+</div>
+<div>APP VERSION: 5.13.04-STABLE</div>
+</div>
+</div>
+</div>
+</body></html>

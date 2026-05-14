@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Scale Calibration Settings</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210", // Using the deep green/black from prompt
+                        "card-dark": "#111811", // Keeping the example's specific dark shade for cards
+                        "border-dark": "#293928",
+                        "text-secondary": "#9db99d"
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for table if needed */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111811;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #293928;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3c543b;
+        }
+        
+        .glow-text {
+            text-shadow: 0 0 10px rgba(26, 236, 19, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-white overflow-hidden">
+<div class="flex h-screen w-full flex-row overflow-hidden">
+<!-- Sidebar -->
+<aside class="flex w-64 flex-col border-r border-border-dark bg-card-dark shrink-0 hidden lg:flex">
+<div class="flex h-16 items-center px-6 border-b border-border-dark">
+<div class="flex flex-col">
+<h1 class="text-white text-lg font-bold leading-tight tracking-[-0.015em]">Weighbridge Sys</h1>
+<p class="text-text-secondary text-xs font-normal">v2.4.1</p>
+</div>
+</div>
+<div class="flex flex-col gap-2 p-4">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#293928] transition-colors group" href="#">
+<span class="material-symbols-outlined text-text-secondary group-hover:text-white">dashboard</span>
+<p class="text-text-secondary group-hover:text-white text-sm font-medium">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#293928]" href="#">
+<span class="material-symbols-outlined text-primary">scale</span>
+<p class="text-white text-sm font-medium">Calibration</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#293928] transition-colors group" href="#">
+<span class="material-symbols-outlined text-text-secondary group-hover:text-white">description</span>
+<p class="text-text-secondary group-hover:text-white text-sm font-medium">Reports</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#293928] transition-colors group" href="#">
+<span class="material-symbols-outlined text-text-secondary group-hover:text-white">settings</span>
+<p class="text-text-secondary group-hover:text-white text-sm font-medium">Settings</p>
+</a>
+</div>
+<div class="mt-auto p-4 border-t border-border-dark">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full bg-cover bg-center" data-alt="Profile picture of the current operator" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC7-JIhzPpxyWv4L_MtuNyzvYmi1eXqvJO1_0iNceXOsur3KYXaQylIcmxqjuqWfiPTW799Vu7ywjtWziYcAwPHKQi6Kd9E4iYvYAf6qgmxuY0eaIqjMYxm8FBvo2shAiCdEHJClMRQCWFph8a9BexMvkOBgbzExSWdczmPNgQECTF8ENNcgAlbcWKMDCyN9JKt-LVm3r_fCOy6ntQzAqag1aZudA-jNw4yCxMWIaSIJTYDpfraVuKCqf23ZWWdgxlS8HO0PmS8SvM");'></div>
+<div>
+<p class="text-sm font-medium text-white">James R.</p>
+<p class="text-xs text-text-secondary">Lead Technician</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<div class="flex flex-1 flex-col h-full overflow-hidden relative">
+<!-- Top Header -->
+<header class="flex items-center justify-between border-b border-border-dark bg-card-dark px-6 py-4 shrink-0">
+<div class="flex items-center gap-4">
+<button class="lg:hidden text-white">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<!-- Breadcrumbs -->
+<div class="flex items-center gap-2 text-sm">
+<span class="text-text-secondary">Home</span>
+<span class="text-text-secondary">/</span>
+<span class="text-white font-medium">Calibration Settings</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center p-2 text-text-secondary hover:text-white rounded-full hover:bg-[#293928] transition">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="flex items-center justify-center p-2 text-text-secondary hover:text-white rounded-full hover:bg-[#293928] transition">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Page Content -->
+<main class="flex-1 overflow-y-auto p-4 md:p-8 bg-background-light dark:bg-[#0d120d]">
+<div class="max-w-6xl mx-auto flex flex-col gap-6">
+<div class="flex flex-col md:flex-row gap-6 items-stretch">
+<!-- Header Title Section inside content for context -->
+<div class="flex flex-col justify-center flex-1">
+<h2 class="text-3xl font-bold text-white mb-2">Scale Calibration</h2>
+<p class="text-text-secondary">Manage zero point and span calibration for industrial weighbridge #4.</p>
+</div>
+<!-- Connection Status Card -->
+<div class="flex flex-col sm:flex-row items-center justify-between p-5 rounded-xl border border-border-dark bg-card-dark shadow-sm gap-4 min-w-[340px]">
+<div class="flex items-center gap-4">
+<div class="relative flex items-center justify-center size-12 rounded-full bg-[#1aec13]/10">
+<span class="material-symbols-outlined text-primary">sensors</span>
+<div class="absolute top-0 right-0 size-3 bg-primary rounded-full border-2 border-card-dark"></div>
+</div>
+<div>
+<h3 class="text-white font-bold text-base">Connected</h3>
+<p class="text-text-secondary text-sm font-mono">COM3 @ 9600 baud</p>
+</div>
+</div>
+<button class="px-4 py-2 rounded-lg bg-[#293928] text-white text-sm font-medium hover:bg-[#3c543b] transition-colors border border-border-dark flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">refresh</span>
+                                Reconnect
+                            </button>
+</div>
+</div>
+<!-- Top Grid: Live Weight & Stats -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Live Weight Display -->
+<div class="lg:col-span-2 rounded-xl border border-border-dark bg-card-dark p-6 shadow-lg relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-50">
+<span class="material-symbols-outlined text-6xl text-[#293928] group-hover:text-[#3c543b] transition-colors select-none">speed</span>
+</div>
+<div class="flex flex-col h-full justify-between gap-4 relative z-10">
+<div class="flex justify-between items-start">
+<h3 class="text-text-secondary text-sm font-medium uppercase tracking-wider">Live Weight</h3>
+<div class="flex items-center gap-1.5 px-2 py-1 rounded bg-[#1aec13]/10 border border-[#1aec13]/20">
+<div class="size-2 rounded-full bg-primary animate-pulse"></div>
+<span class="text-primary text-xs font-bold uppercase">Stable</span>
+</div>
+</div>
+<div class="flex items-end gap-3 mt-2">
+<span class="text-7xl font-bold text-white tracking-tighter glow-text tabular-nums">14,250.5</span>
+<span class="text-2xl font-medium text-text-secondary mb-3">kg</span>
+</div>
+<div class="w-full bg-[#293928] h-1.5 rounded-full overflow-hidden mt-2">
+<div class="bg-primary h-full rounded-full w-[45%] transition-all duration-500 ease-out"></div>
+</div>
+<div class="flex justify-between text-xs text-text-secondary mt-1">
+<span>0 kg</span>
+<span>Max: 60,000 kg</span>
+</div>
+</div>
+</div>
+<!-- Quick Stats / Info -->
+<div class="flex flex-col gap-4">
+<div class="flex-1 rounded-xl border border-border-dark bg-card-dark p-5 flex flex-col justify-center">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-text-secondary">history</span>
+<span class="text-text-secondary text-sm">Last Calibration</span>
+</div>
+<p class="text-xl font-bold text-white">Oct 24, 2023</p>
+<p class="text-xs text-text-secondary mt-1">14 days ago by Admin</p>
+</div>
+<div class="flex-1 rounded-xl border border-border-dark bg-card-dark p-5 flex flex-col justify-center">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-text-secondary">straighten</span>
+<span class="text-text-secondary text-sm">Zero Offset</span>
+</div>
+<p class="text-xl font-bold text-white">+ 0.02 kg</p>
+<p class="text-xs text-text-secondary mt-1">Within tolerance</p>
+</div>
+</div>
+</div>
+<!-- Calibration Controls -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Zero Calibration -->
+<div class="rounded-xl border border-border-dark bg-card-dark p-6">
+<div class="flex items-start gap-4">
+<div class="p-3 rounded-lg bg-[#293928] text-white">
+<span class="material-symbols-outlined">exposure_zero</span>
+</div>
+<div class="flex-1">
+<h3 class="text-lg font-bold text-white">Zero Calibration</h3>
+<p class="text-text-secondary text-sm mt-1 mb-4">
+                                        Ensure the weighbridge platform is completely empty and free of debris before setting the zero point.
+                                    </p>
+<button class="w-full sm:w-auto px-6 py-2.5 bg-transparent border border-primary text-primary hover:bg-primary hover:text-black font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">adjust</span>
+                                        Set Zero Point
+                                    </button>
+</div>
+</div>
+</div>
+<!-- Span Calibration -->
+<div class="rounded-xl border border-border-dark bg-card-dark p-6">
+<div class="flex items-start gap-4">
+<div class="p-3 rounded-lg bg-[#293928] text-white">
+<span class="material-symbols-outlined">linear_scale</span>
+</div>
+<div class="flex-1">
+<h3 class="text-lg font-bold text-white">Span Calibration</h3>
+<p class="text-text-secondary text-sm mt-1 mb-4">
+                                        Place a known weight on the scale and enter its value below to calibrate the span.
+                                    </p>
+<div class="flex flex-col sm:flex-row gap-3">
+<div class="relative flex-1">
+<input class="w-full bg-[#0d120d] border border-border-dark focus:border-primary text-white text-sm rounded-lg pl-4 pr-8 py-2.5 focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-gray-600" placeholder="Known Weight" type="number"/>
+<span class="absolute right-3 top-2.5 text-text-secondary text-sm font-medium">kg</span>
+</div>
+<button class="px-6 py-2.5 bg-primary text-[#111811] font-bold rounded-lg hover:bg-[#15c510] transition-colors flex items-center justify-center shadow-[0_0_15px_rgba(26,236,19,0.3)]">
+                                            Calibrate Span
+                                        </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Calibration Log Table -->
+<div class="rounded-xl border border-border-dark bg-card-dark flex flex-col overflow-hidden">
+<div class="p-6 border-b border-border-dark flex justify-between items-center">
+<h3 class="text-lg font-bold text-white">Calibration Log</h3>
+<button class="text-sm text-primary hover:text-white transition-colors">Export CSV</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-[#293928]/50 text-xs uppercase text-text-secondary font-semibold">
+<tr>
+<th class="px-6 py-4">Date &amp; Time</th>
+<th class="px-6 py-4">Type</th>
+<th class="px-6 py-4">Operator</th>
+<th class="px-6 py-4">Prev. Value</th>
+<th class="px-6 py-4">New Value</th>
+<th class="px-6 py-4 text-right">Delta</th>
+</tr>
+</thead>
+<tbody class="text-sm divide-y divide-border-dark">
+<tr class="hover:bg-[#293928]/30 transition-colors">
+<td class="px-6 py-4 text-white font-medium">Oct 24, 2023 - 09:15 AM</td>
+<td class="px-6 py-4"><span class="inline-flex items-center px-2 py-1 rounded bg-blue-500/10 text-blue-400 text-xs font-medium">Zero</span></td>
+<td class="px-6 py-4 text-text-secondary">James R.</td>
+<td class="px-6 py-4 text-text-secondary font-mono">0.05 kg</td>
+<td class="px-6 py-4 text-white font-mono">0.00 kg</td>
+<td class="px-6 py-4 text-right text-text-secondary font-mono">-0.05</td>
+</tr>
+<tr class="hover:bg-[#293928]/30 transition-colors">
+<td class="px-6 py-4 text-white font-medium">Sep 12, 2023 - 02:30 PM</td>
+<td class="px-6 py-4"><span class="inline-flex items-center px-2 py-1 rounded bg-orange-500/10 text-orange-400 text-xs font-medium">Span</span></td>
+<td class="px-6 py-4 text-text-secondary">Sarah M.</td>
+<td class="px-6 py-4 text-text-secondary font-mono">9,998 kg</td>
+<td class="px-6 py-4 text-white font-mono">10,000 kg</td>
+<td class="px-6 py-4 text-right text-primary font-mono">+2.00</td>
+</tr>
+<tr class="hover:bg-[#293928]/30 transition-colors">
+<td class="px-6 py-4 text-white font-medium">Aug 01, 2023 - 08:00 AM</td>
+<td class="px-6 py-4"><span class="inline-flex items-center px-2 py-1 rounded bg-blue-500/10 text-blue-400 text-xs font-medium">Zero</span></td>
+<td class="px-6 py-4 text-text-secondary">System Auto</td>
+<td class="px-6 py-4 text-text-secondary font-mono">0.01 kg</td>
+<td class="px-6 py-4 text-white font-mono">0.00 kg</td>
+<td class="px-6 py-4 text-right text-text-secondary font-mono">-0.01</td>
+</tr>
+<tr class="hover:bg-[#293928]/30 transition-colors">
+<td class="px-6 py-4 text-white font-medium">Jul 15, 2023 - 10:45 AM</td>
+<td class="px-6 py-4"><span class="inline-flex items-center px-2 py-1 rounded bg-orange-500/10 text-orange-400 text-xs font-medium">Span</span></td>
+<td class="px-6 py-4 text-text-secondary">James R.</td>
+<td class="px-6 py-4 text-text-secondary font-mono">24,995 kg</td>
+<td class="px-6 py-4 text-white font-mono">25,000 kg</td>
+<td class="px-6 py-4 text-right text-primary font-mono">+5.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

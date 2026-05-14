@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Weighbridge Manager - Sign Up</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-dark": "#3e6f3d",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "custom-bg": "#D6EFD8", // Specific request
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for clean look if needed */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-custom-bg dark:bg-background-dark min-h-screen font-display antialiased text-[#131613] dark:text-gray-100 selection:bg-primary/30 selection:text-primary-dark">
+<div class="flex min-h-screen w-full flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+<!-- Main Card -->
+<div class="w-full max-w-[640px] bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-xl overflow-hidden flex flex-col transition-all duration-300">
+<!-- Header / Tabs -->
+<div class="flex flex-col border-b border-[#f2f3f1] dark:border-gray-700">
+<!-- Branding -->
+<div class="flex items-center justify-center pt-8 pb-4">
+<div class="flex items-center gap-3 text-primary">
+<span class="material-symbols-outlined text-3xl">balance</span>
+<h2 class="text-xl font-extrabold tracking-tight text-[#131613] dark:text-white">Weighbridge Manager</h2>
+</div>
+</div>
+<!-- Tabs -->
+<div class="flex w-full px-8">
+<button class="flex-1 pb-3 text-center text-sm font-semibold text-[#6f7c6e] hover:text-[#131613] dark:text-gray-400 dark:hover:text-white transition-colors border-b-2 border-transparent">
+                        Log In
+                    </button>
+<button class="flex-1 pb-3 text-center text-sm font-bold text-primary border-b-2 border-primary transition-colors">
+                        Sign Up
+                    </button>
+</div>
+</div>
+<!-- Content Area -->
+<div class="p-8 sm:p-10 flex flex-col gap-8">
+<!-- Title & Description -->
+<div class="flex flex-col gap-2 text-center sm:text-left">
+<h1 class="text-3xl font-black leading-tight tracking-tight text-[#131613] dark:text-white">Create Operator Account</h1>
+<p class="text-[#6f7c6e] dark:text-gray-400 text-base">Enter your details to register as a weighbridge operator.</p>
+</div>
+<!-- Account Type Selector -->
+<div>
+<p class="text-sm font-bold uppercase tracking-wider text-[#6f7c6e] mb-3 dark:text-gray-400">Account Type</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<label class="group relative flex cursor-pointer rounded-xl border-2 border-primary bg-primary/5 p-4 transition-all hover:bg-primary/10 dark:bg-primary/20 dark:border-primary">
+<div class="flex items-center gap-3 w-full">
+<div class="relative flex h-5 w-5 items-center justify-center rounded-full border-2 border-primary">
+<div class="h-2.5 w-2.5 rounded-full bg-primary"></div>
+</div>
+<input checked="" class="sr-only" name="account_type" type="radio"/>
+<div class="flex flex-col">
+<span class="font-bold text-[#131613] dark:text-white">Operator Account</span>
+<span class="text-xs text-[#6f7c6e] dark:text-gray-300">Standard access</span>
+</div>
+<span class="material-symbols-outlined ml-auto text-primary">badge</span>
+</div>
+</label>
+<label class="group relative flex cursor-pointer rounded-xl border border-[#dfe2df] p-4 transition-all hover:border-gray-400 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+<div class="flex items-center gap-3 w-full">
+<div class="relative flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#dfe2df] group-hover:border-gray-400"></div>
+<input class="sr-only" name="account_type" type="radio"/>
+<div class="flex flex-col">
+<span class="font-bold text-[#6f7c6e] group-hover:text-[#131613] dark:text-gray-400 dark:group-hover:text-white transition-colors">Admin Account</span>
+<span class="text-xs text-[#6f7c6e] opacity-70">Full access</span>
+</div>
+<span class="material-symbols-outlined ml-auto text-[#dfe2df] group-hover:text-gray-400">admin_panel_settings</span>
+</div>
+</label>
+</div>
+</div>
+<!-- Form Fields -->
+<form class="flex flex-col gap-5" onsubmit="event.preventDefault();">
+<!-- Row 1: Name & Email -->
+<div class="flex flex-col sm:flex-row gap-5">
+<label class="flex flex-col flex-1 gap-2">
+<span class="text-sm font-semibold text-[#131613] dark:text-gray-200">Full Name</span>
+<input autofocus="" class="h-12 w-full rounded-lg border border-[#dfe2df] bg-white px-4 text-base text-[#131613] placeholder-[#6f7c6e] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500" placeholder="John Doe" type="text"/>
+</label>
+<label class="flex flex-col flex-1 gap-2">
+<span class="text-sm font-semibold text-[#131613] dark:text-gray-200">Email Address</span>
+<input class="h-12 w-full rounded-lg border border-[#dfe2df] bg-white px-4 text-base text-[#131613] placeholder-[#6f7c6e] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500" placeholder="john@example.com" type="email"/>
+</label>
+</div>
+<!-- Row 2: Phone & Company Code -->
+<div class="flex flex-col sm:flex-row gap-5">
+<label class="flex flex-col flex-1 gap-2">
+<span class="text-sm font-semibold text-[#131613] dark:text-gray-200">Phone Number</span>
+<input class="h-12 w-full rounded-lg border border-[#dfe2df] bg-white px-4 text-base text-[#131613] placeholder-[#6f7c6e] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500" placeholder="+1 (555) 000-0000" type="tel"/>
+</label>
+<label class="flex flex-col flex-1 gap-2">
+<span class="text-sm font-semibold text-[#131613] dark:text-gray-200">Company Code</span>
+<div class="relative">
+<input class="h-12 w-full rounded-lg border border-[#dfe2df] bg-white px-4 text-base text-[#131613] placeholder-[#6f7c6e] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500 uppercase tracking-widest font-mono" placeholder="CMP-XXXX" type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">domain_verification</span>
+</div>
+<span class="text-xs text-[#6f7c6e] dark:text-gray-400">Enter the code provided by your company administrator.</span>
+</label>
+</div>
+<!-- Row 3: Passwords -->
+<div class="flex flex-col sm:flex-row gap-5">
+<label class="flex flex-col flex-1 gap-2">
+<span class="text-sm font-semibold text-[#131613] dark:text-gray-200">Password</span>
+<div class="relative">
+<input class="h-12 w-full rounded-lg border border-[#dfe2df] bg-white px-4 text-base text-[#131613] placeholder-[#6f7c6e] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500" placeholder="••••••••" type="password"/>
+</div>
+</label>
+<label class="flex flex-col flex-1 gap-2">
+<span class="text-sm font-semibold text-[#131613] dark:text-gray-200">Confirm Password</span>
+<input class="h-12 w-full rounded-lg border border-[#dfe2df] bg-white px-4 text-base text-[#131613] placeholder-[#6f7c6e] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500" placeholder="••••••••" type="password"/>
+</label>
+</div>
+<!-- Terms Checkbox -->
+<div class="flex items-start gap-3 mt-2">
+<div class="relative flex h-5 w-5 items-center justify-center">
+<input class="peer h-5 w-5 cursor-pointer appearance-none rounded border-2 border-[#dfe2df] transition-all checked:border-primary checked:bg-primary hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-gray-600 dark:checked:border-primary" id="terms" type="checkbox"/>
+<span class="material-symbols-outlined pointer-events-none absolute text-[16px] text-white opacity-0 transition-opacity peer-checked:opacity-100">check</span>
+</div>
+<label class="cursor-pointer select-none text-sm text-[#131613] dark:text-gray-300" for="terms">
+                            I agree to the <a class="font-bold text-primary hover:underline" href="#">Terms of Service</a> and <a class="font-bold text-primary hover:underline" href="#">Privacy Policy</a>.
+                        </label>
+</div>
+<!-- Actions -->
+<div class="flex flex-col gap-4 mt-4">
+<button class="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 text-sm font-bold text-white transition-all hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 active:scale-[0.98] dark:ring-offset-gray-900" type="submit">
+<span>Create Account</span>
+<span class="material-symbols-outlined text-lg">arrow_forward</span>
+</button>
+<p class="text-center text-sm text-[#6f7c6e] dark:text-gray-400">
+                            Already have an account? 
+                            <a class="font-bold text-primary hover:underline ml-1" href="#">Log in</a>
+</p>
+</div>
+</form>
+</div>
+</div>
+<!-- Footer Info (Optional for context) -->
+<div class="mt-8 text-center">
+<p class="text-xs text-primary/60 dark:text-gray-500 font-medium">Weighbridge Management System v3.0</p>
+</div>
+</div>
+</body></html>

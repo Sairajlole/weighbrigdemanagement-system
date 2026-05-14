@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Export Options Modal</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                        "neutral-dark": "#0e1b0d",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1a331a",
+                        "border-light": "#e7f3e7",
+                        "border-dark": "#2a4d2a",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for modal content */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.1);
+            border-radius: 20px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-900/40 backdrop-blur-sm flex items-center justify-center min-h-screen p-4 font-display">
+<!-- Modal Container -->
+<div class="relative w-full max-w-[480px] flex flex-col bg-background-light dark:bg-background-dark rounded-xl shadow-2xl overflow-hidden border border-white/20 dark:border-white/10">
+<!-- Header -->
+<header class="flex items-center justify-between px-6 py-5 border-b border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-green-700 dark:text-primary">download</span>
+<h2 class="text-neutral-dark dark:text-white text-lg font-bold leading-tight tracking-tight">Export Report</h2>
+</div>
+<button class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-neutral-dark dark:text-white/70">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</header>
+<!-- Tabs -->
+<div class="flex border-b border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark">
+<button class="flex-1 flex flex-col items-center justify-center pb-3 pt-4 border-b-[3px] border-primary text-neutral-dark dark:text-white transition-colors">
+<p class="text-sm font-bold leading-normal tracking-wide">Download</p>
+</button>
+<button class="flex-1 flex flex-col items-center justify-center pb-3 pt-4 border-b-[3px] border-transparent text-gray-500 dark:text-gray-400 hover:text-green-700 dark:hover:text-green-300 transition-colors">
+<p class="text-sm font-bold leading-normal tracking-wide">Email</p>
+</button>
+<button class="flex-1 flex flex-col items-center justify-center pb-3 pt-4 border-b-[3px] border-transparent text-gray-500 dark:text-gray-400 hover:text-green-700 dark:hover:text-green-300 transition-colors">
+<p class="text-sm font-bold leading-normal tracking-wide">Cloud</p>
+</button>
+</div>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto max-h-[60vh] custom-scrollbar bg-background-light dark:bg-background-dark">
+<!-- Format Selection List -->
+<div class="flex flex-col">
+<div class="px-6 pt-6 pb-2">
+<h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Select Format</h3>
+</div>
+<!-- PDF Option (Selected) -->
+<label class="group relative flex items-center justify-between px-6 py-4 cursor-pointer hover:bg-white dark:hover:bg-white/5 transition-colors border-l-[4px] border-primary bg-white dark:bg-white/5">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
+<span class="material-symbols-outlined">picture_as_pdf</span>
+</div>
+<div class="flex flex-col">
+<p class="text-neutral-dark dark:text-white text-sm font-bold">PDF Document</p>
+<p class="text-gray-500 dark:text-gray-400 text-xs">Standard layout (Est. 2.4 MB)</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="relative flex items-center justify-center">
+<input checked="" class="peer h-5 w-5 border-2 border-gray-300 dark:border-gray-600 text-primary focus:ring-primary focus:ring-offset-0 bg-transparent cursor-pointer" name="format" type="radio"/>
+</div>
+</div>
+</label>
+<!-- Excel Option -->
+<label class="group relative flex items-center justify-between px-6 py-4 cursor-pointer hover:bg-white dark:hover:bg-white/5 transition-colors border-l-[4px] border-transparent">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
+<span class="material-symbols-outlined">table_view</span>
+</div>
+<div class="flex flex-col">
+<p class="text-neutral-dark dark:text-white text-sm font-bold">Excel Spreadsheet</p>
+<p class="text-gray-500 dark:text-gray-400 text-xs">Raw data + Pivot (Est. 1.1 MB)</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<input class="h-5 w-5 border-2 border-gray-300 dark:border-gray-600 text-primary focus:ring-primary focus:ring-offset-0 bg-transparent cursor-pointer" name="format" type="radio"/>
+</div>
+</label>
+<!-- CSV Option -->
+<label class="group relative flex items-center justify-between px-6 py-4 cursor-pointer hover:bg-white dark:hover:bg-white/5 transition-colors border-l-[4px] border-transparent">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div class="flex flex-col">
+<p class="text-neutral-dark dark:text-white text-sm font-bold">CSV File</p>
+<p class="text-gray-500 dark:text-gray-400 text-xs">Raw data only (Est. 450 KB)</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<input class="h-5 w-5 border-2 border-gray-300 dark:border-gray-600 text-primary focus:ring-primary focus:ring-offset-0 bg-transparent cursor-pointer" name="format" type="radio"/>
+</div>
+</label>
+<!-- JSON Option -->
+<label class="group relative flex items-center justify-between px-6 py-4 cursor-pointer hover:bg-white dark:hover:bg-white/5 transition-colors border-l-[4px] border-transparent">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center text-yellow-600 dark:text-yellow-400">
+<span class="material-symbols-outlined">data_object</span>
+</div>
+<div class="flex flex-col">
+<p class="text-neutral-dark dark:text-white text-sm font-bold">JSON Data</p>
+<p class="text-gray-500 dark:text-gray-400 text-xs">API format (Est. 500 KB)</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<input class="h-5 w-5 border-2 border-gray-300 dark:border-gray-600 text-primary focus:ring-primary focus:ring-offset-0 bg-transparent cursor-pointer" name="format" type="radio"/>
+</div>
+</label>
+</div>
+<!-- Configuration Checkboxes -->
+<div class="px-6 py-6 border-t border-border-light dark:border-border-dark mt-2">
+<h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">Export Settings</h3>
+<div class="flex flex-col gap-3">
+<label class="flex gap-x-3 items-center group cursor-pointer">
+<div class="relative flex items-center">
+<input checked="" class="peer h-5 w-5 rounded border-2 border-gray-300 dark:border-gray-600 text-primary focus:ring-0 focus:ring-offset-0 bg-transparent checked:bg-primary checked:border-primary transition-all cursor-pointer" type="checkbox"/>
+</div>
+<p class="text-neutral-dark dark:text-white text-sm font-medium leading-normal group-hover:text-green-700 dark:group-hover:text-green-300 transition-colors">Include Charts &amp; Graphs</p>
+</label>
+<label class="flex gap-x-3 items-center group cursor-pointer">
+<div class="relative flex items-center">
+<input class="peer h-5 w-5 rounded border-2 border-gray-300 dark:border-gray-600 text-primary focus:ring-0 focus:ring-offset-0 bg-transparent checked:bg-primary checked:border-primary transition-all cursor-pointer" type="checkbox"/>
+</div>
+<p class="text-neutral-dark dark:text-white text-sm font-medium leading-normal group-hover:text-green-700 dark:group-hover:text-green-300 transition-colors">Append Summary Page</p>
+</label>
+<label class="flex gap-x-3 items-center group cursor-pointer">
+<div class="relative flex items-center">
+<input class="peer h-5 w-5 rounded border-2 border-gray-300 dark:border-gray-600 text-primary focus:ring-0 focus:ring-offset-0 bg-transparent checked:bg-primary checked:border-primary transition-all cursor-pointer" type="checkbox"/>
+</div>
+<p class="text-neutral-dark dark:text-white text-sm font-medium leading-normal group-hover:text-green-700 dark:group-hover:text-green-300 transition-colors">Password Protect File</p>
+</label>
+</div>
+</div>
+</div>
+<!-- Footer Actions -->
+<footer class="p-6 border-t border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark flex gap-3">
+<button class="flex-1 h-12 rounded-lg border border-gray-200 dark:border-gray-700 text-neutral-dark dark:text-white font-bold text-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                Cancel
+            </button>
+<button class="flex-[2] h-12 rounded-lg bg-primary text-neutral-dark font-bold text-sm flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all shadow-[0_0_15px_rgba(26,236,19,0.3)]">
+<span class="material-symbols-outlined text-[20px]">file_download</span>
+                Export Selected
+            </button>
+</footer>
+</div>
+</body></html>

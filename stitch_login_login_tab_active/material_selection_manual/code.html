@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Material Selection Manual - Weighbridge Sys</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#20e619",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112111",
+                        "notice-bg": "#D6EFD8",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for clean look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#111811] dark:text-white font-display min-h-screen flex overflow-hidden">
+<!-- Sidebar -->
+<aside class="w-[280px] bg-white dark:bg-[#1a2e1a] border-r border-[#e5e7eb] dark:border-[#2f4f2f] flex flex-col justify-between shrink-0 h-screen sticky top-0">
+<div class="flex flex-col gap-6 p-6">
+<!-- Branding -->
+<div class="flex items-center gap-3">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-10 w-10 shrink-0 bg-primary/20" data-alt="Weighbridge System Logo Abstract" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBsrSePT5qKVKKscUecwZRHRqwNVdtx6qz_YK2qk3u4I20DImocmBfJvyzJBT-SQQ7kprbiObL4KqIUxyNvnrwsShES7oqii6hkBJbvFluaikHpaFqDce3hUXj-m8zc5EaReVFDZc0A2EGPwG1U0hdrFjD28zhmgzUf4EMDhq29w4hLmcuZlRyogLlrtgR_WqBGiXTpMkgsYMOvGXUzSLS_QKU7aqK3T_MsT_sNcIk5FvVFGIu-xTg3uSYUwBMN5-U9cMUSKVEv8Io");'></div>
+<div class="flex flex-col">
+<h1 class="text-[#111811] dark:text-white text-base font-bold leading-tight">Weighbridge Sys</h1>
+<p class="text-[#648863] dark:text-[#8ba88a] text-xs font-normal">Management Console</p>
+</div>
+</div>
+<!-- Navigation -->
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111811] dark:text-gray-200 hover:bg-[#f0f4f0] dark:hover:bg-[#253825] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#648863] group-hover:text-[#111811] dark:group-hover:text-white">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<!-- Active Item -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#f0f4f0] dark:bg-[#253825] text-[#111811] dark:text-white group" href="#">
+<span class="material-symbols-outlined text-[#111811] dark:text-white fill-1">scale</span>
+<span class="text-sm font-bold">New Weighment</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111811] dark:text-gray-200 hover:bg-[#f0f4f0] dark:hover:bg-[#253825] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#648863] group-hover:text-[#111811] dark:group-hover:text-white">description</span>
+<span class="text-sm font-medium">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111811] dark:text-gray-200 hover:bg-[#f0f4f0] dark:hover:bg-[#253825] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#648863] group-hover:text-[#111811] dark:group-hover:text-white">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+</div>
+<!-- User Profile (Bottom Sidebar) -->
+<div class="p-4 border-t border-[#e5e7eb] dark:border-[#2f4f2f]">
+<div class="flex items-center gap-3 px-2 py-2">
+<div class="bg-gray-200 dark:bg-gray-700 h-8 w-8 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-gray-500 text-sm">person</span>
+</div>
+<div class="flex flex-col">
+<p class="text-sm font-medium text-[#111811] dark:text-white">Operator A.</p>
+<p class="text-xs text-[#648863]">Station 4</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-screen overflow-y-auto">
+<!-- Breadcrumbs & Header -->
+<header class="px-8 py-6 w-full max-w-[960px] mx-auto">
+<div class="flex flex-wrap gap-2 items-center mb-6">
+<a class="text-[#648863] hover:text-[#4a6649] text-sm font-medium leading-normal transition-colors" href="#">Weighbridge</a>
+<span class="text-[#648863] text-sm font-medium leading-normal">/</span>
+<a class="text-[#648863] hover:text-[#4a6649] text-sm font-medium leading-normal transition-colors" href="#">New Weighment</a>
+<span class="text-[#648863] text-sm font-medium leading-normal">/</span>
+<span class="text-[#111811] dark:text-white text-sm font-semibold leading-normal">Material Selection</span>
+</div>
+<h2 class="text-[#111811] dark:text-white tracking-tight text-3xl font-bold leading-tight text-center">Material Selection</h2>
+<p class="text-[#648863] text-center mt-2 text-sm">Please identify the cargo material for accurate logging.</p>
+</header>
+<!-- Centered Content Wrapper -->
+<div class="flex-1 flex flex-col items-center justify-start px-4 pb-20 pt-4">
+<div class="w-full max-w-[520px] flex flex-col gap-8">
+<!-- Notice Card (#D6EFD8) -->
+<div class="rounded-xl border border-[#bceec0] bg-[#D6EFD8] p-5 shadow-sm">
+<div class="flex gap-4 items-start">
+<div class="bg-white/60 p-2 rounded-full h-10 w-10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[#2e5c2d]">info</span>
+</div>
+<div class="flex flex-col gap-1">
+<h3 class="text-[#14532D] text-sm font-bold">Material recognition not enabled</h3>
+<p class="text-[#14532D] text-sm leading-relaxed">
+                                The camera system could not automatically identify the cargo type. Select material from the list below manually.
+                            </p>
+<a class="text-[#14532D] text-sm font-semibold underline mt-1 hover:text-black transition-colors inline-flex items-center gap-1 group" href="#">
+                                Upgrade to AI Features
+                                <span class="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+<!-- Form Section -->
+<div class="bg-white dark:bg-[#1a2e1a] p-8 rounded-2xl shadow-sm border border-[#e5e7eb] dark:border-[#2f4f2f] flex flex-col items-center gap-6">
+<!-- Searchable Dropdown -->
+<div class="w-full max-w-[400px]">
+<label class="block text-[#111811] dark:text-white text-sm font-bold mb-2 ml-1">Select Material</label>
+<div class="relative">
+<select class="w-full appearance-none rounded-lg border border-[#dce5dc] dark:border-[#4a6649] bg-white dark:bg-[#112111] px-4 py-3.5 pr-10 text-base text-[#111811] dark:text-white shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all cursor-pointer">
+<option disabled="" selected="" value="">Search or select material...</option>
+<option value="aggregate">Aggregate - Grade A</option>
+<option value="sand">Sand - River</option>
+<option value="cement">Cement - Bulk</option>
+<option value="steel">Steel Scrap</option>
+<option value="coal">Coal - Bituminous</option>
+<option value="limestone">Limestone</option>
+</select>
+<span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-[#648863]">
+<span class="material-symbols-outlined">expand_more</span>
+</span>
+</div>
+<p class="text-xs text-[#648863] mt-2 ml-1">Type to filter the list automatically.</p>
+</div>
+<!-- Divider -->
+<div class="h-px w-full bg-[#f0f4f0] dark:bg-[#2f4f2f]"></div>
+<!-- Actions -->
+<div class="flex w-full max-w-[400px] gap-3">
+<button class="flex-1 h-12 rounded-lg border border-[#dce5dc] text-[#111811] dark:text-white font-bold text-sm hover:bg-[#f6f8f6] dark:hover:bg-[#253825] transition-colors">
+                            Cancel
+                        </button>
+<button class="flex-1 h-12 rounded-lg bg-primary hover:bg-[#1bc715] text-[#111811] font-bold text-sm shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 group">
+<span>Continue</span>
+<span class="material-symbols-outlined text-[18px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Helper Visual -->
+<div class="flex justify-center mt-4">
+<!-- Abstract visual representing manual entry context -->
+<div class="h-1 bg-[#e5e7eb] dark:bg-[#2f4f2f] w-32 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-2/3 rounded-full"></div>
+</div>
+<span class="ml-3 text-xs font-medium text-[#648863]">Step 2 of 3</span>
+</div>
+</div>
+</div>
+</main>
+</body></html>

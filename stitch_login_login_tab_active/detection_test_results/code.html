@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detection Test Results</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .font-display {
+            font-family: 'Manrope', sans-serif;
+        }
+        /* Bounding box animation pulse */
+        @keyframes scan {
+            0% { border-color: rgba(26, 236, 19, 0.4); box-shadow: 0 0 0 rgba(26, 236, 19, 0.1); }
+            50% { border-color: rgba(26, 236, 19, 1); box-shadow: 0 0 15px rgba(26, 236, 19, 0.3); }
+            100% { border-color: rgba(26, 236, 19, 0.4); box-shadow: 0 0 0 rgba(26, 236, 19, 0.1); }
+        }
+        .bounding-box {
+            animation: scan 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center p-4 font-display text-slate-900 dark:text-white">
+<!-- Modal Container -->
+<div class="relative w-full max-w-[640px] flex flex-col rounded-xl shadow-2xl overflow-hidden bg-white dark:bg-[#1c271c] ring-1 ring-black/5 dark:ring-white/10">
+<!-- Header -->
+<div class="px-6 py-5 border-b border-gray-100 dark:border-[#2e3e2e] flex justify-between items-center">
+<div>
+<h1 class="text-xl font-bold leading-tight tracking-tight">Detection Test Results</h1>
+<p class="text-sm text-gray-500 dark:text-[#9db99d] mt-1">Test ID: #9823-TEST</p>
+</div>
+<button class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
+<span class="material-symbols-outlined" style="font-size: 24px;">close</span>
+</button>
+</div>
+<!-- Scrollable Content Area -->
+<div class="p-6 space-y-6">
+<!-- Image Frame with Bounding Box Overlay -->
+<div class="relative w-full aspect-video rounded-lg overflow-hidden bg-black group shadow-inner">
+<!-- Background Image -->
+<div class="absolute inset-0 bg-center bg-cover bg-no-repeat opacity-90" data-alt="Rear view of a heavy truck on an industrial weighbridge" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBNNIu50qhhHcOhuPFmN5T-m-3pxCnwFVjqiNKrKeAy7pZyurrvfBeCErl_rlt7Pj_oCfPOGhtySfsX7PceCG7MGGElooSwtd_LfPtHya8NtJD72Ks3Ou4v2_W5tz_wl8mw0_ER3758WRf57c6_cHQL1A58k9QkY4MoI6lReiNWS8TEFsfin9IG3iiR4-HHrZLU6cbVF9G4yQhUAQCYfnRAzUUQplDtOWeGXIPPUpDFDqu9ZKdtyTvZVpHfidb207GzAkvwx6BgJR0');">
+</div>
+<!-- Dark Overlay for better visibility of UI on top -->
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+<!-- Bounding Box -->
+<div class="bounding-box absolute top-[55%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[35%] h-[15%] border-2 border-primary bg-primary/10 flex flex-col items-start justify-start">
+<div class="bg-primary text-[#111811] text-[10px] font-bold px-1.5 py-0.5 uppercase tracking-wider ml-[-2px] mt-[-20px]">
+                        License Plate
+                    </div>
+</div>
+<!-- Live Indicator -->
+<div class="absolute top-4 right-4 flex items-center gap-2 px-2 py-1 bg-black/50 backdrop-blur-sm rounded text-white text-xs font-medium">
+<div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                    REC
+                </div>
+</div>
+<!-- Status Bar -->
+<div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary/10 border border-primary/20">
+<span class="material-symbols-outlined text-primary" style="font-size: 24px;">check_circle</span>
+<div class="flex flex-col">
+<span class="text-primary text-sm font-bold leading-none tracking-wide uppercase">Detection Successful</span>
+<span class="text-primary/70 text-xs mt-1">Vehicle plate identified with high confidence.</span>
+</div>
+</div>
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+<!-- Stat 1 -->
+<div class="flex flex-col gap-1 p-4 rounded-lg bg-gray-50 dark:bg-[#111811] border border-gray-100 dark:border-[#3c543b]">
+<span class="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-[#9db99d] uppercase tracking-wider">
+<span class="material-symbols-outlined text-base">directions_car</span>
+                        Detected Value
+                    </span>
+<span class="text-2xl font-bold text-gray-900 dark:text-white font-mono tracking-tight break-all">MH12AB1234</span>
+</div>
+<!-- Stat 2 -->
+<div class="flex flex-col gap-1 p-4 rounded-lg bg-gray-50 dark:bg-[#111811] border border-gray-100 dark:border-[#3c543b]">
+<span class="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-[#9db99d] uppercase tracking-wider">
+<span class="material-symbols-outlined text-base">analytics</span>
+                        Confidence
+                    </span>
+<div class="flex items-baseline gap-1">
+<span class="text-2xl font-bold text-primary tracking-tight">94%</span>
+<span class="text-xs text-gray-400 dark:text-gray-500">high</span>
+</div>
+</div>
+<!-- Stat 3 -->
+<div class="flex flex-col gap-1 p-4 rounded-lg bg-gray-50 dark:bg-[#111811] border border-gray-100 dark:border-[#3c543b]">
+<span class="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-[#9db99d] uppercase tracking-wider">
+<span class="material-symbols-outlined text-base">timer</span>
+                        Processing
+                    </span>
+<span class="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">0.34s</span>
+</div>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="px-6 py-4 bg-gray-50 dark:bg-[#112210] border-t border-gray-100 dark:border-[#2e3e2e] flex justify-end gap-3">
+<button class="flex items-center justify-center h-10 px-6 rounded-lg border border-gray-300 dark:border-[#3c543b] text-gray-700 dark:text-white text-sm font-bold bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-[#1c271c] transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">
+                Test Again
+            </button>
+<button class="flex items-center justify-center h-10 px-6 rounded-lg bg-primary text-[#111811] text-sm font-bold hover:bg-[#15bd0f] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-[0_0_10px_rgba(26,236,19,0.2)] dark:ring-offset-[#1c271c]">
+                Close
+            </button>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WeighSys - Audit Log</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1aec13",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#112210",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for table if needed */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<div class="flex h-screen w-full overflow-hidden">
+<!-- Side Navigation -->
+<aside class="flex w-64 flex-col bg-white dark:bg-[#1a2e19] border-r border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-3 px-6 py-6">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-10 w-10 bg-primary shadow-lg shadow-primary/30" data-alt="Abstract green logo representing weighing scale" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCEXP7IyYm28yUCvKd6tScu1H1PJKVAxjpym22kuPep6D6WUjLsgYxxlhFGrhBJzMnWqKoRcPww5Q6eNlcTcIfkiebMi7tEwCV-UYh9BWYiER7LolmjWofQ0SJU7NcVXecc2OSpsFlMNFxf6ywMkoH-7KETBTWimoSO4uyuz-BBws9Jw178ienwC54alPA7VC7hEWECxkrxWwkT6r5OngMZFVCi8M57mCleOHh7sf6LDEQ7ykEo96Ikg2b9Sp_wM5l1m4N4-0EJwhM");'></div>
+<div class="flex flex-col">
+<h1 class="text-slate-900 dark:text-white text-base font-bold leading-none">WeighSys</h1>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-medium leading-normal mt-1">v2.4.0</p>
+</div>
+</div>
+<nav class="flex flex-col gap-2 px-4 mt-4">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary dark:text-slate-500 transition-colors">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary dark:text-slate-500 transition-colors">scale</span>
+<span class="text-sm font-medium">Weighbridge</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary dark:text-slate-500 transition-colors">bar_chart</span>
+<span class="text-sm font-medium">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-slate-900 dark:text-white dark:bg-primary/20 transition-colors" href="#">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">content_copy</span>
+<span class="text-sm font-bold">Audit Log</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary dark:text-slate-500 transition-colors">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+<div class="mt-auto p-4 border-t border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+<img alt="User avatar" class="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCGlR5ebWdUOju3tVxFyvrRR-cuhjX-Wxno1_yUP0iSd9eMTQwxlLjsRiSHpNx4fGOXyRn9KR5GfeWCG1Osv0gf1cA89yTAI5-QSH371VsWrfq8V7hbPlAzeAdm_kFPGThWpxtDJK8To9ZTnICMzTYihg8k-_a77lSJJpC5bAO-_99_z8hDO7Hca1ok0sNNyyqGV9sR-9sc-vvFxx4Gfij8xuIR99rFHxYzJo6NKWlzh9V5o4xYXodNOmZoesmwjboxeXNzdKyxzRc"/>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-900 dark:text-white">Alex Morgan</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">System Admin</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col h-full overflow-hidden relative">
+<!-- Top Header Area -->
+<header class="flex-none px-8 py-6 bg-white dark:bg-[#1a2e19] border-b border-slate-200 dark:border-slate-800">
+<div class="max-w-[1400px] mx-auto w-full">
+<div class="flex flex-wrap items-center justify-between gap-4">
+<div>
+<h2 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Audit Log</h2>
+<p class="text-slate-500 dark:text-slate-400 text-sm mt-1">Track and monitor all system activities and user interactions.</p>
+</div>
+<button class="flex items-center justify-center gap-2 rounded-lg bg-primary hover:bg-[#16d610] text-[#111811] px-5 py-2.5 text-sm font-bold transition-colors shadow-sm shadow-primary/20">
+<span class="material-symbols-outlined text-[20px]">download</span>
+<span>Export Log (CSV/Excel)</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Filter Bar -->
+<div class="flex-none px-8 py-4 bg-slate-50/50 dark:bg-black/20 border-b border-slate-200 dark:border-slate-800 backdrop-blur-sm sticky top-0 z-10">
+<div class="max-w-[1400px] mx-auto w-full">
+<div class="flex flex-wrap items-end gap-4">
+<div class="flex flex-col gap-1.5 min-w-[240px]">
+<label class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Date Range</label>
+<div class="relative">
+<input class="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm h-10 pl-10 pr-4 focus:ring-2 focus:ring-primary focus:border-primary" placeholder="Select dates..." type="text"/>
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-[20px]">calendar_today</span>
+</div>
+</div>
+<div class="flex flex-col gap-1.5 min-w-[200px]">
+<label class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">User</label>
+<select class="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm h-10 px-3 focus:ring-2 focus:ring-primary focus:border-primary">
+<option value="">All Users</option>
+<option value="admin">Admin</option>
+<option value="jsmith">J. Smith</option>
+<option value="kdoe">K. Doe</option>
+<option value="system">System</option>
+</select>
+</div>
+<div class="flex flex-col gap-1.5 min-w-[200px]">
+<label class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Action Type</label>
+<select class="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm h-10 px-3 focus:ring-2 focus:ring-primary focus:border-primary">
+<option value="">All Actions</option>
+<option value="login">Login</option>
+<option value="weighing">Weighing</option>
+<option value="override">Manual Override</option>
+<option value="error">Error</option>
+<option value="calibration">Calibration</option>
+</select>
+</div>
+<div class="flex items-center gap-2 pb-0.5 ml-auto">
+<button class="h-10 px-5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-200 text-sm font-medium transition-colors">Apply Filters</button>
+<button class="h-10 px-4 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-medium transition-colors">Reset</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Scrollable Table Content -->
+<div class="flex-1 overflow-auto custom-scrollbar px-8 py-6">
+<div class="max-w-[1400px] mx-auto w-full pb-10">
+<div class="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-[#D6EFD8] dark:bg-[#1f3a22] border-b border-slate-200 dark:border-slate-700">
+<th class="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-[#1a4a1e] dark:text-[#a8dcb0] w-[180px]">Timestamp</th>
+<th class="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-[#1a4a1e] dark:text-[#a8dcb0] w-[150px]">User</th>
+<th class="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-[#1a4a1e] dark:text-[#a8dcb0] w-[200px]">Action</th>
+<th class="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-[#1a4a1e] dark:text-[#a8dcb0]">Details</th>
+<th class="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-[#1a4a1e] dark:text-[#a8dcb0] w-[150px] text-right">IP Address</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+<!-- Row 1 -->
+<tr class="bg-white dark:bg-[#112210] hover:bg-slate-50 dark:hover:bg-[#1a2e19] transition-colors">
+<td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono text-xs">2023-10-27 14:30:22</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<div class="h-6 w-6 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 flex items-center justify-center text-xs font-bold">JS</div>
+<span class="font-medium text-slate-900 dark:text-white">J. Smith</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 text-xs font-semibold border border-orange-200 dark:border-orange-800">
+<span class="material-symbols-outlined text-[14px]">edit_note</span>
+                                        Manual Override
+                                    </span>
+</td>
+<td class="py-3 px-4 text-slate-600 dark:text-slate-400">
+                                    Changed gross weight <span class="font-mono text-slate-800 dark:text-slate-200">4500kg -&gt; 4450kg</span>. <span class="italic text-slate-400">Reason: Debris on scale</span>
+</td>
+<td class="py-3 px-4 text-right text-slate-500 dark:text-slate-500 font-mono text-xs">192.168.1.45</td>
+</tr>
+<!-- Row 2 -->
+<tr class="bg-[#FAFAFA] dark:bg-[#162915] hover:bg-slate-50 dark:hover:bg-[#1a2e19] transition-colors">
+<td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono text-xs">2023-10-27 14:15:05</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<div class="h-6 w-6 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 flex items-center justify-center text-xs font-bold">AD</div>
+<span class="font-medium text-slate-900 dark:text-white">Admin</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 text-xs font-semibold border border-green-200 dark:border-green-800">
+<span class="material-symbols-outlined text-[14px]">login</span>
+                                        Login
+                                    </span>
+</td>
+<td class="py-3 px-4 text-slate-600 dark:text-slate-400">
+                                    Successful login via Web Portal
+                                </td>
+<td class="py-3 px-4 text-right text-slate-500 dark:text-slate-500 font-mono text-xs">192.168.1.10</td>
+</tr>
+<!-- Row 3 -->
+<tr class="bg-white dark:bg-[#112210] hover:bg-slate-50 dark:hover:bg-[#1a2e19] transition-colors">
+<td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono text-xs">2023-10-27 13:45:12</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<div class="h-6 w-6 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 flex items-center justify-center text-xs font-bold">KD</div>
+<span class="font-medium text-slate-900 dark:text-white">K. Doe</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-semibold border border-blue-200 dark:border-blue-800">
+<span class="material-symbols-outlined text-[14px]">scale</span>
+                                        Weighing
+                                    </span>
+</td>
+<td class="py-3 px-4 text-slate-600 dark:text-slate-400">
+                                    Vehicle AB-123-CD captured. Net: 12,400kg
+                                </td>
+<td class="py-3 px-4 text-right text-slate-500 dark:text-slate-500 font-mono text-xs">192.168.1.42</td>
+</tr>
+<!-- Row 4 -->
+<tr class="bg-[#FAFAFA] dark:bg-[#162915] hover:bg-slate-50 dark:hover:bg-[#1a2e19] transition-colors">
+<td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono text-xs">2023-10-27 12:30:00</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<div class="h-6 w-6 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 flex items-center justify-center text-xs font-bold">SY</div>
+<span class="font-medium text-slate-900 dark:text-white">System</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 text-xs font-semibold border border-gray-200 dark:border-gray-700">
+<span class="material-symbols-outlined text-[14px]">backup</span>
+                                        Backup
+                                    </span>
+</td>
+<td class="py-3 px-4 text-slate-600 dark:text-slate-400">
+                                    Automated database backup completed successfully (245MB)
+                                </td>
+<td class="py-3 px-4 text-right text-slate-500 dark:text-slate-500 font-mono text-xs">Localhost</td>
+</tr>
+<!-- Row 5 -->
+<tr class="bg-white dark:bg-[#112210] hover:bg-slate-50 dark:hover:bg-[#1a2e19] transition-colors">
+<td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono text-xs">2023-10-27 11:20:18</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<div class="h-6 w-6 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 flex items-center justify-center text-xs font-bold">JS</div>
+<span class="font-medium text-slate-900 dark:text-white">J. Smith</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs font-semibold border border-indigo-200 dark:border-indigo-800">
+<span class="material-symbols-outlined text-[14px]">tune</span>
+                                        Calibration
+                                    </span>
+</td>
+<td class="py-3 px-4 text-slate-600 dark:text-slate-400">
+                                    Zero point calibration executed on Scale 1
+                                </td>
+<td class="py-3 px-4 text-right text-slate-500 dark:text-slate-500 font-mono text-xs">192.168.1.45</td>
+</tr>
+<!-- Row 6 -->
+<tr class="bg-[#FAFAFA] dark:bg-[#162915] hover:bg-slate-50 dark:hover:bg-[#1a2e19] transition-colors">
+<td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono text-xs">2023-10-27 10:05:33</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<div class="h-6 w-6 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 flex items-center justify-center text-xs font-bold">KD</div>
+<span class="font-medium text-slate-900 dark:text-white">K. Doe</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 text-xs font-semibold border border-red-200 dark:border-red-800">
+<span class="material-symbols-outlined text-[14px]">error</span>
+                                        Error
+                                    </span>
+</td>
+<td class="py-3 px-4 text-slate-600 dark:text-slate-400">
+<span class="text-red-600 dark:text-red-400 font-medium">Connection timeout</span> on Scale 2 sensor interface
+                                </td>
+<td class="py-3 px-4 text-right text-slate-500 dark:text-slate-500 font-mono text-xs">192.168.1.42</td>
+</tr>
+<!-- Row 7 -->
+<tr class="bg-white dark:bg-[#112210] hover:bg-slate-50 dark:hover:bg-[#1a2e19] transition-colors">
+<td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono text-xs">2023-10-27 09:15:22</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<div class="h-6 w-6 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 flex items-center justify-center text-xs font-bold">AD</div>
+<span class="font-medium text-slate-900 dark:text-white">Admin</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 text-xs font-semibold border border-slate-200 dark:border-slate-700">
+<span class="material-symbols-outlined text-[14px]">settings</span>
+                                        Config Change
+                                    </span>
+</td>
+<td class="py-3 px-4 text-slate-600 dark:text-slate-400">
+                                    Updated tare weight settings for fleet category B
+                                </td>
+<td class="py-3 px-4 text-right text-slate-500 dark:text-slate-500 font-mono text-xs">192.168.1.10</td>
+</tr>
+<!-- Row 8 -->
+<tr class="bg-[#FAFAFA] dark:bg-[#162915] hover:bg-slate-50 dark:hover:bg-[#1a2e19] transition-colors">
+<td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono text-xs">2023-10-27 08:30:45</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<div class="h-6 w-6 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 flex items-center justify-center text-xs font-bold">JS</div>
+<span class="font-medium text-slate-900 dark:text-white">J. Smith</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-semibold border border-blue-200 dark:border-blue-800">
+<span class="material-symbols-outlined text-[14px]">scale</span>
+                                        Weighing
+                                    </span>
+</td>
+<td class="py-3 px-4 text-slate-600 dark:text-slate-400">
+                                    Vehicle XY-987-ZZ captured. Net: 8,200kg
+                                </td>
+<td class="py-3 px-4 text-right text-slate-500 dark:text-slate-500 font-mono text-xs">192.168.1.45</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="flex items-center justify-between px-4 py-4 mt-2">
+<div class="text-sm text-slate-500 dark:text-slate-400">
+                        Showing <span class="font-medium text-slate-900 dark:text-white">1</span> to <span class="font-medium text-slate-900 dark:text-white">8</span> of <span class="font-medium text-slate-900 dark:text-white">1,248</span> results
+                    </div>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 text-sm font-medium" disabled="">
+                            Previous
+                        </button>
+<button class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium">
+                            Next
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

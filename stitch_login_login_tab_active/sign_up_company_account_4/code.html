@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Materials List Configuration</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#508d4e",
+                        "primary-hover": "#3f6f3d",
+                        "background-light": "#f6f7f6",
+                        "background-dark": "#161c16",
+                        "accent-bg": "#D6EFD8", // Specific request
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
+    </style>
+</head>
+<body class="font-display bg-accent-bg min-h-screen flex items-center justify-center py-10 px-4">
+<div class="bg-white rounded-xl shadow-xl w-full max-w-[640px] overflow-hidden flex flex-col relative ring-1 ring-black/5">
+<div class="px-8 pt-10 pb-4">
+<h1 class="text-[32px] font-bold text-gray-900 tracking-tight leading-tight">Materials</h1>
+<p class="text-gray-500 mt-2 text-sm leading-relaxed">Manage the list of available materials for weighment</p>
+</div>
+<div class="p-8 pt-2 flex flex-col gap-8">
+<div class="flex gap-3 items-stretch">
+<div class="relative flex-1">
+<input class="w-full rounded-lg border-gray-200 bg-gray-50 text-gray-900 focus:border-primary focus:ring-primary placeholder:text-gray-400 h-12 text-base shadow-sm transition-all pl-4" placeholder="Enter material name..." type="text"/>
+</div>
+<button class="flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-2 font-bold text-white shadow-sm hover:bg-primary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all active:scale-95">
+<span class="material-symbols-outlined text-[22px]">add</span>
+<span>Add</span>
+</button>
+</div>
+<div class="flex flex-col rounded-xl border border-gray-100 shadow-sm overflow-hidden bg-white">
+<div class="bg-gray-50/80 px-5 py-3 border-b border-gray-100 flex items-center justify-between backdrop-blur-sm">
+<span class="text-xs font-bold uppercase tracking-wider text-gray-400">Material Name</span>
+<span class="text-xs font-bold uppercase tracking-wider text-gray-400">Actions</span>
+</div>
+<div class="max-h-[320px] overflow-y-auto">
+<ul class="divide-y divide-gray-50">
+<li class="group flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+<span class="font-semibold text-gray-700">Construction Sand</span>
+<div class="flex items-center gap-2">
+<button class="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:bg-primary/10 hover:text-primary transition-colors" title="Edit">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="h-9 w-9 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors" title="Delete">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</li>
+<li class="group flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+<span class="font-semibold text-gray-700">Limestone Aggregate</span>
+<div class="flex items-center gap-2">
+<button class="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:bg-primary/10 hover:text-primary transition-colors" title="Edit">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="h-9 w-9 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors" title="Delete">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</li>
+<li class="group flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+<span class="font-semibold text-gray-700">Iron Ore Pellets</span>
+<div class="flex items-center gap-2">
+<button class="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:bg-primary/10 hover:text-primary transition-colors" title="Edit">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="h-9 w-9 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors" title="Delete">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</li>
+<li class="group flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+<span class="font-semibold text-gray-700">Recycled Concrete</span>
+<div class="flex items-center gap-2">
+<button class="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:bg-primary/10 hover:text-primary transition-colors" title="Edit">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="h-9 w-9 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors" title="Delete">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="space-y-6 pt-2">
+<div class="flex items-start gap-3 p-3.5 bg-gray-50 text-gray-600 rounded-lg border border-gray-100">
+<span class="material-symbols-outlined text-[20px] shrink-0 text-primary">info</span>
+<p class="text-sm font-medium leading-relaxed">Note: At least one material must be configured.</p>
+</div>
+<button class="w-full flex items-center justify-center rounded-lg bg-primary px-4 py-4 text-base font-bold text-white shadow-md hover:bg-primary-hover hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all active:scale-[0.99]" type="button">
+                Save Materials
+            </button>
+</div>
+</div>
+</div>
+
+</body></html>
