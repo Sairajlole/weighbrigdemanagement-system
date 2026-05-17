@@ -40,24 +40,26 @@ class _SecurityOverlayState extends ConsumerState<SecurityOverlay> with WidgetsB
   void _startWatermarkTimer() {
     _watermarkTime = getTimeFormatter(ref.read(timeFormatProvider)).format(DateTime.now());
     _watermarkTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) setState(() => _watermarkTime = getTimeFormatter(ref.read(timeFormatProvider)).format(DateTime.now()));
+      if (!mounted) return;
+      setState(() => _watermarkTime = getTimeFormatter(ref.read(timeFormatProvider)).format(DateTime.now()));
     });
   }
 
   Future<void> _checkRemoteDesktop() async {
+    if (!mounted) return;
     final monitor = ref.read(remoteDesktopMonitorProvider);
     if (!monitor.enabled) return;
 
     final running = await monitor.getRunningRemoteApps();
-    if (running.isNotEmpty && mounted) {
+    if (!mounted) return;
+    if (running.isNotEmpty) {
       await monitor.killRemoteApps();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Blocked remote desktop: ${running.join(", ")}'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          duration: const Duration(seconds: 5),
-        ));
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Blocked remote desktop: ${running.join(", ")}'),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        duration: const Duration(seconds: 5),
+      ));
     }
 
     Future.delayed(const Duration(seconds: 30), () {
@@ -66,19 +68,20 @@ class _SecurityOverlayState extends ConsumerState<SecurityOverlay> with WidgetsB
   }
 
   Future<void> _checkUsbDevices() async {
+    if (!mounted) return;
     final usbMonitor = ref.read(usbMonitorProvider);
     if (!usbMonitor.enabled) return;
 
     final hasUsb = await usbMonitor.hasExternalStorage();
-    if (hasUsb && mounted) {
+    if (!mounted) return;
+    if (hasUsb) {
       await usbMonitor.ejectAll();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('USB storage detected and ejected — external drives are restricted'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          duration: const Duration(seconds: 5),
-        ));
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('USB storage detected and ejected — external drives are restricted'),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        duration: const Duration(seconds: 5),
+      ));
     }
 
     Future.delayed(const Duration(seconds: 10), () {
@@ -88,18 +91,10 @@ class _SecurityOverlayState extends ConsumerState<SecurityOverlay> with WidgetsB
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
     final settings = ref.read(securitySettingsProvider).valueOrNull ?? const SecuritySettings();
 
-    // Only react to paused (fully backgrounded), not inactive (which fires on every focus loss on macOS)
-    if (settings.dimOnInactiveWindow) {
-      if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
-        setState(() => _appInactive = true);
-      } else if (state == AppLifecycleState.resumed) {
-        setState(() => _appInactive = false);
-      }
-    }
-
-    if (settings.preventScreenshots) {
+    if (settings.dimOnInactiveWindow || settings.preventScreenshots) {
       if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
         setState(() => _appInactive = true);
       } else if (state == AppLifecycleState.resumed) {

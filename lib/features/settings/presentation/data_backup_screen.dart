@@ -3,10 +3,11 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 
 // ─── Local persistence ───────────────────────────────────────────────────────
@@ -49,9 +50,9 @@ String _encodeJson(dynamic data) {
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 final _dataBackupProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final db = ref.watch(firestoreProvider);
+  final db = ref.watch(firestorePathsProvider);
   try {
-    final doc = await db.collection('settings').doc('dataBackup').get();
+    final doc = await db.dataBackupSettings.get();
     if (doc.exists) {
       final data = doc.data()!;
       await _saveLocally(data);
@@ -74,6 +75,9 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
   bool _loaded = false;
   bool _saving = false;
   bool _dirty = false;
+
+  String? _headerMsg;
+  bool _headerMsgIsError = false;
 
   // ── Backup Schedule ──
   String _backupSchedule = 'daily'; // off, daily, weekly, monthly
@@ -158,6 +162,13 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
 
   void _markDirty() => setState(() => _dirty = true);
 
+  void _showHeaderMsg(String msg, {bool isError = false}) {
+    setState(() { _headerMsg = msg; _headerMsgIsError = isError; });
+    Future.delayed(Duration(seconds: isError ? 5 : 3), () {
+      if (mounted) setState(() => _headerMsg = null);
+    });
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
     final data = {
@@ -182,11 +193,13 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
       'pendingChanges': _pendingChanges,
     };
     try {
-      final db = ref.read(firestoreProvider);
-      await db.collection('settings').doc('dataBackup').set(data, SetOptions(merge: true));
+      final db = ref.read(firestorePathsProvider);
+      await db.dataBackupSettings.set(data, SetOptions(merge: true));
       await _saveLocally(data);
+      if (mounted) _showHeaderMsg('Backup settings saved');
     } catch (_) {
       await _saveLocally(data);
+      if (mounted) _showHeaderMsg('Saved locally (offline)', isError: true);
     }
     ref.invalidate(_dataBackupProvider);
     if (mounted) setState(() { _saving = false; _dirty = false; });
@@ -207,11 +220,11 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
       },
     };
 
-    final db = ref.read(firestoreProvider);
+    final db = ref.read(firestorePathsProvider);
 
     if (_backupSettings) {
       try {
-        final settingsSnap = await db.collection('settings').get();
+        final settingsSnap = await db.siteSettings.get();
         final settings = <String, dynamic>{};
         for (final doc in settingsSnap.docs) {
           settings[doc.id] = doc.data();
@@ -223,7 +236,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     if (_backupMasterData) {
       for (final col in ['customers', 'materials', 'vehicles']) {
         try {
-          final snap = await db.collection(col).get();
+          final snap = await db.collectionByName(col)!.get();
           final items = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
           await File('${dir.path}/$col.json').writeAsString(_encodeJson(items));
         } catch (_) {}
@@ -232,7 +245,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
 
     if (_backupOperators) {
       try {
-        final snap = await db.collection('operators').get();
+        final snap = await db.operators.get();
         final items = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
         await File('${dir.path}/operators.json').writeAsString(_encodeJson(items));
       } catch (_) {}
@@ -240,7 +253,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
 
     if (_backupWeighments) {
       try {
-        final snap = await db.collection('weighments').orderBy('timestamp', descending: true).limit(10000).get();
+        final snap = await db.weighments.orderBy('timestamp', descending: true).limit(10000).get();
         final items = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
         await File('${dir.path}/weighments.json').writeAsString(_encodeJson(items));
       } catch (_) {}
@@ -320,8 +333,8 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
 
   Future<bool> _isEncryptionEnabled() async {
     try {
-      final db = ref.read(firestoreProvider);
-      final secSnap = await db.collection('settings').doc('security').get();
+      final db = ref.read(firestorePathsProvider);
+      final secSnap = await db.securitySettings.get();
       return secSnap.data()?['encryptBackups'] as bool? ?? false;
     } catch (_) {}
     return false;
@@ -346,9 +359,9 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
       if (password == null) return;
     }
 
-    final db = ref.read(firestoreProvider);
+    final db = ref.read(firestorePathsProvider);
     try {
-      final snap = await db.collection('settings').get();
+      final snap = await db.siteSettings.get();
       final settings = <String, dynamic>{};
       for (final doc in snap.docs) {
         settings[doc.id] = doc.data();
@@ -411,9 +424,9 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
         content = await File(path).readAsString();
       }
       final settings = jsonDecode(content) as Map<String, dynamic>;
-      final db = ref.read(firestoreProvider);
+      final db = ref.read(firestorePathsProvider);
       for (final entry in settings.entries) {
-        await db.collection('settings').doc(entry.key).set(entry.value as Map<String, dynamic>);
+        await db.siteSetting(entry.key).set(entry.value as Map<String, dynamic>);
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Settings imported successfully. Restart to apply.'), backgroundColor: Theme.of(context).colorScheme.primary));
@@ -482,30 +495,66 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
               color: scheme.surface,
               border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                  onPressed: () => context.go('/settings'),
-                  style: IconButton.styleFrom(padding: const EdgeInsets.all(8)),
-                ),
-                const SizedBox(width: 12),
-                Icon(Icons.backup_rounded, size: 22, color: scheme.primary),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Text('Data & Backup', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                    Text('Backups and data retention', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                      onPressed: () => context.go('/settings'),
+                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(Icons.backup_rounded, size: 20, color: scheme.primary),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Data & Backup', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        Text('Backups and data retention', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                      ],
+                    ),
+                    const Spacer(),
+                    if (_dirty) ...[
+                      TextButton(
+                        onPressed: () { setState(() { _loaded = false; _dirty = false; }); ref.invalidate(_dataBackupProvider); },
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    FilledButton.icon(
+                      onPressed: _dirty && !_saving ? _save : null,
+                      icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
+                      label: Text(_saving ? 'Saving...' : 'Save'),
+                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    ),
                   ],
                 ),
-                const Spacer(),
-                FilledButton.icon(
-                  onPressed: _dirty && !_saving ? _save : null,
-                  icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
-                  label: Text(_saving ? 'Saving...' : 'Save'),
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10)),
-                ),
+                if (_headerMsg != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _headerMsgIsError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+                            size: 15,
+                            color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -525,31 +574,31 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(child: _buildBackupSection(scheme, text)),
-                          const SizedBox(width: 20),
+                          const SizedBox(width: 16),
                           Expanded(child: _buildCctvStorageSection(scheme, text)),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                     // ═══ Row 2: Folder Structure + Data Retention ═══
                     IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(child: _buildFolderStructureSection(scheme, text)),
-                          const SizedBox(width: 20),
+                          const SizedBox(width: 16),
                           Expanded(child: _buildDataRetentionSection(scheme, text)),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                     // ═══ Row 3: Cloud Sync + System Settings ═══
                     IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(child: _buildCloudSyncSection(scheme, text)),
-                          const SizedBox(width: 20),
+                          const SizedBox(width: 16),
                           Expanded(child: _buildSystemSettingsSection(scheme, text)),
                         ],
                       ),
@@ -833,9 +882,9 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
   Future<void> _exportWeighments() async {
     final dir = Directory('$_basePath/Exports');
     if (!dir.existsSync()) dir.createSync(recursive: true);
-    final db = ref.read(firestoreProvider);
+    final db = ref.read(firestorePathsProvider);
     try {
-      final snap = await db.collection('weighments').orderBy('timestamp', descending: true).limit(50000).get();
+      final snap = await db.weighments.orderBy('timestamp', descending: true).limit(50000).get();
       if (snap.docs.isEmpty) return;
       final buf = StringBuffer();
       final keys = snap.docs.first.data().keys.toList();
@@ -953,8 +1002,8 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                   FilledButton(
                     onPressed: () async {
                       Navigator.pop(ctx);
-                      final db = ref.read(firestoreProvider);
-                      final snap = await db.collection('settings').get();
+                      final db = ref.read(firestorePathsProvider);
+                      final snap = await db.siteSettings.get();
                       for (final doc in snap.docs) {
                         await doc.reference.delete();
                       }
@@ -1013,21 +1062,18 @@ class _SectionCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 3)),
-          BoxShadow(color: scheme.primary.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 1)),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.15),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.15))),
             ),
             child: Row(
@@ -1047,7 +1093,7 @@ class _SectionCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: children,

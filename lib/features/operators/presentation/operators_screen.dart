@@ -1,80 +1,819 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/title_case.dart';
+
 
 final _operatorsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
-  final db = ref.watch(firestoreProvider);
-  return db.collection('operators').snapshots().map(
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  return paths.operators.snapshots().map(
         (snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList(),
       );
 });
 
-class OperatorsScreen extends ConsumerWidget {
+enum _SortOption {
+  nameAsc, nameDesc,
+  shiftRestricted, shiftUnrestricted,
+  lastActiveNewest, lastActiveOldest,
+  statusActive, statusInactive,
+  createdNewest, createdOldest,
+}
+
+class OperatorsScreen extends ConsumerStatefulWidget {
   const OperatorsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OperatorsScreen> createState() => _OperatorsScreenState();
+}
+
+class _OperatorsScreenState extends ConsumerState<OperatorsScreen> {
+  static bool _persistedGridView = false;
+
+  final GlobalKey _sortKey = GlobalKey();
+  String _search = '';
+  bool _gridView = _persistedGridView;
+  _SortOption _sortOption = _SortOption.nameAsc;
+  int _tabIndex = 0; // 0 = All Operators, 1 = Requests
+
+  void _applySorting(List<Map<String, dynamic>> list) {
+    switch (_sortOption) {
+      case _SortOption.nameAsc:
+        list.sort((a, b) => (a['name'] as String? ?? '').toLowerCase().compareTo((b['name'] as String? ?? '').toLowerCase()));
+      case _SortOption.nameDesc:
+        list.sort((a, b) => (b['name'] as String? ?? '').toLowerCase().compareTo((a['name'] as String? ?? '').toLowerCase()));
+      case _SortOption.shiftRestricted:
+        list.sort((a, b) => (b['shiftRestricted'] == true ? 1 : 0).compareTo(a['shiftRestricted'] == true ? 1 : 0));
+      case _SortOption.shiftUnrestricted:
+        list.sort((a, b) => (a['shiftRestricted'] == true ? 1 : 0).compareTo(b['shiftRestricted'] == true ? 1 : 0));
+      case _SortOption.lastActiveNewest:
+        list.sort((a, b) => _tsCompare(b['lastLoginAt'], a['lastLoginAt']));
+      case _SortOption.lastActiveOldest:
+        list.sort((a, b) => _tsCompare(a['lastLoginAt'], b['lastLoginAt']));
+      case _SortOption.statusActive:
+        list.sort((a, b) => (b['isActive'] == true ? 1 : 0).compareTo(a['isActive'] == true ? 1 : 0));
+      case _SortOption.statusInactive:
+        list.sort((a, b) => (a['isActive'] == true ? 1 : 0).compareTo(b['isActive'] == true ? 1 : 0));
+      case _SortOption.createdNewest:
+        list.sort((a, b) => _tsCompare(b['createdAt'], a['createdAt']));
+      case _SortOption.createdOldest:
+        list.sort((a, b) => _tsCompare(a['createdAt'], b['createdAt']));
+    }
+  }
+
+  int _tsCompare(dynamic a, dynamic b) {
+    final ta = a is Timestamp ? a.millisecondsSinceEpoch : 0;
+    final tb = b is Timestamp ? b.millisecondsSinceEpoch : 0;
+    return ta.compareTo(tb);
+  }
+
+  String _sortLabel(_SortOption opt) => switch (opt) {
+    _SortOption.nameAsc => 'Name A→Z',
+    _SortOption.nameDesc => 'Name Z→A',
+    _SortOption.shiftRestricted => 'Shift (Restricted)',
+    _SortOption.shiftUnrestricted => 'Shift (Unrestricted)',
+    _SortOption.lastActiveNewest => 'Last Active ↓',
+    _SortOption.lastActiveOldest => 'Last Active ↑',
+    _SortOption.statusActive => 'Active First',
+    _SortOption.statusInactive => 'Inactive First',
+    _SortOption.createdNewest => 'Created (Newest)',
+    _SortOption.createdOldest => 'Created (Oldest)',
+  };
+
+  void _showSortPicker(ColorScheme scheme) {
+    final renderBox = _sortKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final chipSize = renderBox.size;
+    final chipOffset = renderBox.localToGlobal(Offset.zero);
+    final left = chipOffset.dx;
+    final top = chipOffset.dy + chipSize.height + 6;
+
+    const pairs = [
+      (_SortOption.nameAsc, _SortOption.nameDesc),
+      (_SortOption.shiftRestricted, _SortOption.shiftUnrestricted),
+      (_SortOption.lastActiveNewest, _SortOption.lastActiveOldest),
+      (_SortOption.statusActive, _SortOption.statusInactive),
+      (_SortOption.createdNewest, _SortOption.createdOldest),
+    ];
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black12,
+      builder: (ctx) => Stack(
+        children: [
+          Positioned(
+            left: left,
+            top: top,
+            child: Material(
+              elevation: 8,
+              borderRadius: BorderRadius.circular(12),
+              clipBehavior: Clip.antiAlias,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: pairs.map((pair) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _sortChip(pair.$1, scheme, ctx),
+                        const SizedBox(width: 6),
+                        _sortChip(pair.$2, scheme, ctx),
+                      ],
+                    ),
+                  )).toList(),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sortChip(_SortOption opt, ColorScheme scheme, BuildContext ctx) {
+    final active = opt == _sortOption;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _sortOption = opt);
+        Navigator.pop(ctx);
+      },
+      child: Container(
+        width: 130,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? scheme.primary.withValues(alpha: 0.15) : scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(6),
+          border: active ? Border.all(color: scheme.primary.withValues(alpha: 0.6)) : null,
+        ),
+        child: Text(
+          _sortLabel(opt),
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 11, fontWeight: active ? FontWeight.w600 : FontWeight.w500, color: active ? scheme.primary : scheme.onSurface),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final operatorsAsync = ref.watch(_operatorsProvider);
 
-    return Scaffold(
-      backgroundColor: scheme.surfaceContainerLowest,
-      body: Column(
+    return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildNormalHeader(scheme, text, operatorsAsync),
+            const SizedBox(height: 16),
+            _buildTabBar(scheme, text, operatorsAsync),
+            const SizedBox(height: 16),
+            Expanded(
+              child: operatorsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Error: $e')),
+                data: (operators) {
+                  // Separate archived
+                  final archived = operators.where((o) => o['isArchived'] == true).toList();
+
+                  if (_tabIndex == 2) {
+                    return _buildArchivedTab(archived, scheme, text);
+                  }
+
+                  // Exclude archived, deduplicate by email
+                  final seen = <String>{};
+                  final unique = <Map<String, dynamic>>[];
+                  for (final o in operators) {
+                    if (o['isArchived'] == true) continue;
+                    final email = (o['email'] as String? ?? '').toLowerCase();
+                    if (email.isEmpty || seen.add(email)) unique.add(o);
+                  }
+
+                  final filtered = _search.isEmpty
+                      ? List<Map<String, dynamic>>.from(unique)
+                      : unique.where((o) =>
+                          (o['name'] as String? ?? '').toLowerCase().contains(_search) ||
+                          (o['email'] as String? ?? '').toLowerCase().contains(_search) ||
+                          (o['phone'] as String? ?? '').contains(_search)).toList();
+
+                  _applySorting(filtered);
+
+                  final pending = filtered.where((o) => o['isVerified'] == false).toList();
+                  final verified = filtered.where((o) => o['isVerified'] != false).toList();
+
+                  if (_tabIndex == 1) {
+                    return _buildRequestsTab(pending, scheme, text);
+                  }
+
+                  if (verified.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.people_outline, size: 48, color: scheme.outlineVariant),
+                          const SizedBox(height: 8),
+                          Text(
+                            _search.isNotEmpty ? 'No matches for "$_search"' : 'No operators yet',
+                            style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _search.isNotEmpty ? 'Try a different search term' : 'Add your first operator to get started',
+                            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  if (_gridView) {
+                    return _buildGridContent(verified, scheme, text);
+                  } else {
+                    return _buildTableContent(verified, scheme, text);
+                  }
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildBottomSummary(scheme, operatorsAsync),
+          ],
+        ),
+    );
+  }
+
+  Widget _buildNormalHeader(ColorScheme scheme, TextTheme text, AsyncValue<List<Map<String, dynamic>>> operatorsAsync) {
+    final operators = operatorsAsync.valueOrNull ?? [];
+    final total = operators.length;
+    final active = operators.where((o) => o['isActive'] == true && o['isVerified'] != false).length;
+    final pending = operators.where((o) => o['isVerified'] == false).length;
+    final shiftRestricted = operators.where((o) => o['shiftRestricted'] == true).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Operators', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 20),
+
+        Row(
+          children: [
+            _headerStatCard('Total', '$total', Icons.people_rounded, scheme.primary, scheme),
+            const SizedBox(width: 12),
+            _headerStatCard('Active', '$active', Icons.check_circle_rounded, Colors.green.shade700, scheme),
+            const SizedBox(width: 12),
+            _headerStatCard('Pending', '$pending', Icons.pending_actions_rounded, Colors.amber.shade700, scheme),
+            const SizedBox(width: 12),
+            _headerStatCard('Shift Restricted', '$shiftRestricted', Icons.schedule_rounded, Colors.deepPurple, scheme),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 200,
+              height: 32,
+              child: Center(
+                child: TextField(
+                  onChanged: (v) => setState(() => _search = v.toLowerCase()),
+                  expands: true,
+                  maxLines: null,
+                  decoration: InputDecoration(
+                    hintText: 'Search...',
+                    hintStyle: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                    filled: true,
+                    fillColor: scheme.surfaceContainerHigh,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
+                  ),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
+            GestureDetector(
+              key: _sortKey,
+              onTap: () => _showSortPicker(scheme),
+              child: Container(
+                height: 32,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: _sortOption != _SortOption.nameAsc ? scheme.primary.withValues(alpha: 0.1) : scheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(6),
+                  border: _sortOption != _SortOption.nameAsc ? Border.all(color: scheme.primary.withValues(alpha: 0.4)) : null,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _sortOption == _SortOption.nameAsc ? 'Sort' : _sortLabel(_sortOption),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _sortOption != _SortOption.nameAsc ? scheme.primary : scheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              height: 32,
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _viewToggle(Icons.grid_view_rounded, true, scheme),
+                  _viewToggle(Icons.table_rows_rounded, false, scheme),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _showAddOperatorDialog(context),
+              child: Container(
+                height: 32,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add_rounded, size: 14, color: scheme.onPrimary),
+                    const SizedBox(width: 4),
+                    Text('Add Operator', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onPrimary)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabBar(ColorScheme scheme, TextTheme text, AsyncValue<List<Map<String, dynamic>>> operatorsAsync) {
+    final all = operatorsAsync.valueOrNull ?? [];
+    final pendingCount = all.where((o) => o['isVerified'] == false && o['isArchived'] != true).length;
+    final archivedCount = all.where((o) => o['isArchived'] == true).length;
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
+          _tabItem(0, 'All Operators', null, scheme),
+          _tabItem(1, 'Requests', pendingCount > 0 ? pendingCount : null, scheme),
+          _tabItem(2, 'Archived', archivedCount > 0 ? archivedCount : null, scheme),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabItem(int index, String label, int? badge, ColorScheme scheme) {
+    final selected = _tabIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _tabIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? scheme.surface : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: selected ? [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 3, offset: const Offset(0, 1))] : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label, style: TextStyle(fontSize: 12, fontWeight: selected ? FontWeight.w600 : FontWeight.w500, color: selected ? scheme.onSurface : scheme.onSurfaceVariant)),
+            if (badge != null) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('$badge', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.amber.shade700)),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRequestsTab(List<Map<String, dynamic>> pending, ColorScheme scheme, TextTheme text) {
+    if (pending.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle_outline_rounded, size: 48, color: scheme.outlineVariant),
+            const SizedBox(height: 8),
+            Text('No pending requests', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+            const SizedBox(height: 4),
+            Text('All operator registrations have been processed', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      itemCount: pending.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (_, i) {
+        final op = pending[i];
+        final createdAt = op['createdAt'];
+        final timeStr = createdAt is Timestamp
+            ? _formatTimestamp(createdAt, ref.read(timeFormatProvider))
+            : 'Unknown';
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: Colors.amber.withValues(alpha: 0.12),
+                child: Text(
+                  (op['name'] as String? ?? 'U').substring(0, 1).toUpperCase(),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.amber.shade700),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(op['name'] ?? 'Unknown', style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text(op['email'] ?? '', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.access_time_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                        const SizedBox(width: 4),
+                        Text('Requested $timeStr', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({'isVerified': true, 'isActive': true}),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_rounded, size: 14, color: Colors.green.shade700),
+                      const SizedBox(width: 4),
+                      Text('Approve', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({
+                  'isArchived': true,
+                  'isActive': false,
+                  'isVerified': false,
+                  'permissionsRevoked': true,
+                  'archivedAt': FieldValue.serverTimestamp(),
+                }),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: scheme.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.close_rounded, size: 14, color: scheme.error),
+                      const SizedBox(width: 4),
+                      Text('Reject', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.error)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildArchivedTab(List<Map<String, dynamic>> archived, ColorScheme scheme, TextTheme text) {
+    if (archived.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.archive_outlined, size: 48, color: scheme.outlineVariant),
+            const SizedBox(height: 8),
+            Text('No archived operators', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+            const SizedBox(height: 4),
+            Text('Archived operators will appear here', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      itemCount: archived.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (_, i) {
+        final op = archived[i];
+        final archivedAt = op['archivedAt'];
+        final timeStr = archivedAt is Timestamp
+            ? _formatTimestamp(archivedAt, ref.read(timeFormatProvider))
+            : 'Unknown';
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: scheme.surfaceContainerHigh,
+                child: Text(
+                  (op['name'] as String? ?? 'U').substring(0, 1).toUpperCase(),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(op['name'] ?? 'Unknown', style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text(op['email'] ?? '', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.archive_outlined, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                        const SizedBox(width: 4),
+                        Text('Archived $timeStr', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({
+                  'isArchived': FieldValue.delete(),
+                  'isActive': true,
+                  'archivedAt': FieldValue.delete(),
+                  'permissionsRevoked': FieldValue.delete(),
+                  'idStatus': 'not_submitted',
+                  'idDocumentNumber': '',
+                  'idVerifiedAt': FieldValue.delete(),
+                  'idVerifiedBy': FieldValue.delete(),
+                  'mustChangePassword': true,
+                  'restoredAt': FieldValue.serverTimestamp(),
+                }),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.unarchive_outlined, size: 14, color: scheme.primary),
+                      const SizedBox(width: 4),
+                      Text('Restore', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _headerStatCard(String label, String value, IconData icon, Color color, ColorScheme scheme) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+                Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _viewToggle(IconData icon, bool isGrid, ColorScheme scheme) {
+    final active = _gridView == isGrid;
+    return GestureDetector(
+      onTap: () { setState(() => _gridView = isGrid); _persistedGridView = isGrid; },
+      child: Container(
+        width: 32,
+        height: 32,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: active ? scheme.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(icon, size: 16, color: active ? scheme.onPrimary : scheme.onSurfaceVariant),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TABLE VIEW
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildTableContent(List<Map<String, dynamic>> operators, ColorScheme scheme, TextTheme text) {
+    if (operators.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: scheme.surface,
-              border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
+              color: scheme.surfaceContainerLow,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
-                Icon(Icons.people_rounded, size: 20, color: scheme.primary),
-                const SizedBox(width: 10),
-                Text('Operators', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                const Spacer(),
-                FilledButton.icon(
-                  onPressed: () => _showAddOperatorDialog(context, ref),
-                  icon: const Icon(Icons.add_rounded, size: 16),
-                  label: const Text('Add Operator'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
+                SizedBox(width: 36, child: Text('#', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant))),
+                const Expanded(flex: 2, child: Text('Name', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
+                const Expanded(flex: 2, child: Text('Email', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
+                const Expanded(flex: 2, child: Text('Phone', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
+                const Expanded(flex: 2, child: Text('Shift', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
+                const SizedBox(width: 110, child: Text('ID Status', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
+                const SizedBox(width: 100, child: Text('Last Active', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
+                const SizedBox(width: 70, child: Text('Status', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
+                const SizedBox(width: 20),
+                const Expanded(flex: 3, child: Center(child: Text('Actions', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)))),
               ],
             ),
           ),
-
-          // Content
+          const Divider(height: 1),
           Expanded(
-            child: operatorsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (operators) {
-                final pending = operators.where((o) => o['isVerified'] == false).toList();
-                final verified = operators.where((o) => o['isVerified'] == true).toList();
+            child: ListView.separated(
+              itemCount: operators.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                thickness: 1,
+                color: scheme.outlineVariant.withValues(alpha: 0.2),
+              ),
+              itemBuilder: (_, i) {
+                final op = operators[i];
+                final isActive = op['isActive'] == true;
+                final idStatus = op['idStatus'] as String? ?? 'not_submitted';
+                final phone = op['phone'] as String? ?? '';
 
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(28),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (pending.isNotEmpty) ...[
-                        _buildPendingSection(context, ref, pending, scheme, text),
-                        const SizedBox(height: 28),
+                return InkWell(
+                  onTap: () => _showEditOperatorDialog(context, op),
+                  hoverColor: scheme.primaryContainer.withValues(alpha: 0.1),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: i.isEven ? scheme.surface : scheme.surfaceContainerLow.withValues(alpha: 0.5),
+                      border: Border(left: BorderSide(
+                        width: 3,
+                        color: isActive ? scheme.primary.withValues(alpha: i.isEven ? 0.15 : 0.35) : scheme.error.withValues(alpha: 0.3),
+                      )),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        SizedBox(width: 36, child: Text('${i + 1}', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant))),
+                        Expanded(
+                          flex: 2,
+                          child: Row(
+                            children: [
+                              _operatorAvatar(op, scheme, 14),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(op['name'] ?? '--', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis, maxLines: 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(op['email'] ?? '--', style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis, maxLines: 1),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(phone.isNotEmpty ? phone : '--', style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis, maxLines: 1),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(_formatShift(op), style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis, maxLines: 1),
+                        ),
+                        SizedBox(width: 110, child: Align(alignment: Alignment.centerLeft, child: _buildIdStatusChip(idStatus, scheme))),
+                        SizedBox(
+                          width: 100,
+                          child: Text(
+                            _formatTimestamp(op['lastLoginAt'], ref.read(timeFormatProvider)),
+                            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 70,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isActive ? Colors.green.withValues(alpha: 0.1) : scheme.errorContainer,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              isActive ? 'Active' : 'Inactive',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isActive ? Colors.green.shade700 : scheme.onErrorContainer),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          flex: 3,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _actionChip(icon: Icons.edit_outlined, label: 'Edit', color: scheme.primary, onTap: () => _showEditOperatorDialog(context, op)),
+                              const SizedBox(width: 6),
+                              _actionChip(
+                                icon: isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
+                                label: isActive ? 'Deactivate' : 'Activate',
+                                color: isActive ? scheme.error : Colors.green.shade700,
+                                onTap: () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({'isActive': !isActive}),
+                              ),
+                              const SizedBox(width: 6),
+                              _actionChip(icon: Icons.archive_outlined, label: 'Archive', color: scheme.error, onTap: () => _confirmArchive(context, op)),
+                            ],
+                          ),
+                        ),
                       ],
-                      _buildOperatorsTable(context, ref, verified, scheme, text),
-                    ],
+                    ),
                   ),
                 );
               },
@@ -85,188 +824,210 @@ class OperatorsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPendingSection(
-    BuildContext context,
-    WidgetRef ref,
-    List<Map<String, dynamic>> pending,
-    ColorScheme scheme,
-    TextTheme text,
-  ) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2)),
-        ],
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GRID VIEW
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildGridContent(List<Map<String, dynamic>> operators, ColorScheme scheme, TextTheme text) {
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 300,
+        childAspectRatio: 1.3,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 14,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.pending_actions_rounded, size: 16, color: Colors.amber),
-              ),
-              const SizedBox(width: 12),
-              Text('Pending Approval', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${pending.length}',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.amber),
-                ),
-              ),
-            ],
+      itemCount: operators.length,
+      itemBuilder: (_, i) => _buildOperatorCard(operators[i], scheme, text),
+    );
+  }
+
+  Widget _buildOperatorCard(Map<String, dynamic> op, ColorScheme scheme, TextTheme text) {
+    final isActive = op['isActive'] == true;
+
+    return GestureDetector(
+      onTap: () => _showEditOperatorDialog(context, op),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.25),
           ),
-          const SizedBox(height: 16),
-          ...pending.map((op) => _PendingCard(operator: op, ref: ref, scheme: scheme, text: text)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _operatorAvatar(op, scheme, 24),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(op['name'] ?? '--', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis),
+                      Text(op['email'] ?? '--', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+                Container(
+                    width: 8, height: 8,
+                    decoration: BoxDecoration(
+                      color: isActive ? Colors.green : scheme.error,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
+            const Spacer(),
+            if ((op['phone'] as String? ?? '').isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.phone_rounded, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        op['phone'] as String,
+                        style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Row(
+              children: [
+                Icon(Icons.schedule_rounded, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    _formatShift(op),
+                    style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.access_time_rounded, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                const SizedBox(width: 4),
+                Text(
+                  _formatTimestamp(op['lastLoginAt'], ref.read(timeFormatProvider)),
+                  style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BOTTOM SUMMARY
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildBottomSummary(ColorScheme scheme, AsyncValue<List<Map<String, dynamic>>> operatorsAsync) {
+    final operators = operatorsAsync.valueOrNull ?? [];
+    if (operators.isEmpty) return const SizedBox.shrink();
+
+    final filtered = _search.isEmpty
+        ? operators
+        : operators.where((o) =>
+            (o['name'] as String? ?? '').toLowerCase().contains(_search) ||
+            (o['email'] as String? ?? '').toLowerCase().contains(_search)).toList();
+
+    final active = filtered.where((o) => o['isActive'] == true).length;
+    final withFace = filtered.where((o) => (o['facePhoto'] as String? ?? '').isNotEmpty).length;
+    final kycVerified = filtered.where((o) => o['idStatus'] == 'verified').length;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Text('${filtered.length} shown', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
+          const SizedBox(width: 16),
+          _bottomPill('Active', '$active', scheme),
+          const SizedBox(width: 8),
+          _bottomPill('Face Enrolled', '$withFace', scheme),
+          const SizedBox(width: 8),
+          _bottomPill('KYC Verified', '$kycVerified', scheme),
         ],
       ),
     );
   }
 
-  Widget _buildOperatorsTable(
-    BuildContext context,
-    WidgetRef ref,
-    List<Map<String, dynamic>> operators,
-    ColorScheme scheme,
-    TextTheme text,
-  ) {
-    if (operators.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(60),
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
-        ),
-        child: Center(
-          child: Text('No operators yet.', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-        ),
-      );
-    }
-
+  Widget _bottomPill(String label, String value, ColorScheme scheme) {
     return Container(
-      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2)),
-        ],
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(4),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: DataTable(
-          columnSpacing: 24,
-          horizontalMargin: 20,
-          headingRowColor: WidgetStateProperty.all(scheme.surfaceContainerLow),
-          columns: const [
-            DataColumn(label: Text('Name')),
-            DataColumn(label: Text('Shift')),
-            DataColumn(label: Text('ID Status')),
-            DataColumn(label: Text('Last Active')),
-            DataColumn(label: Text('Status')),
-            DataColumn(label: Text('Actions')),
-          ],
-          rows: operators.map((op) {
-            final isActive = op['isActive'] == true;
-            final idStatus = op['idStatus'] as String? ?? 'not_submitted';
+      child: Text.rich(
+        TextSpan(children: [
+          TextSpan(text: '$label ', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+          TextSpan(text: value, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurface)),
+        ]),
+      ),
+    );
+  }
 
-            return DataRow(cells: [
-              // Name + email
-              DataCell(
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(op['name'] ?? '--', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                    Text(
-                      op['email'] ?? '--',
-                      style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HELPERS
+  // ═══════════════════════════════════════════════════════════════════════════
 
-              // Shift
-              DataCell(Text(
-                _formatShift(op),
-                style: text.bodySmall,
-              )),
+  Widget _operatorAvatar(Map<String, dynamic> op, ColorScheme scheme, double radius) {
+    final facePhoto = op['facePhoto'] as String? ?? '';
+    if (facePhoto.isNotEmpty) {
+      final file = File(facePhoto);
+      if (file.existsSync()) {
+        return CircleAvatar(
+          radius: radius,
+          backgroundImage: FileImage(file),
+        );
+      }
+    }
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: scheme.secondaryContainer,
+      child: Text(
+        (op['name'] as String? ?? 'U').substring(0, 1).toUpperCase(),
+        style: TextStyle(fontSize: radius * 0.75, fontWeight: FontWeight.w600, color: scheme.onSecondaryContainer),
+      ),
+    );
+  }
 
-              // ID Status
-              DataCell(_buildIdStatusChip(idStatus, scheme)),
-
-              // Last Active
-              DataCell(Text(
-                _formatTimestamp(op['lastLoginAt'], ref.read(timeFormatProvider)),
-                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              )),
-
-              // Status
-              DataCell(Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: isActive ? scheme.primaryContainer : scheme.errorContainer,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  isActive ? 'Active' : 'Inactive',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isActive ? scheme.onPrimaryContainer : scheme.onErrorContainer,
-                  ),
-                ),
-              )),
-
-              // Actions
-              DataCell(Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    tooltip: 'Edit',
-                    onPressed: () => _showEditOperatorDialog(context, ref, op),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
-                      size: 18,
-                      color: isActive ? scheme.error : scheme.primary,
-                    ),
-                    tooltip: isActive ? 'Deactivate' : 'Activate',
-                    onPressed: () {
-                      ref.read(firestoreProvider).collection('operators').doc(op['id']).update({'isActive': !isActive});
-                    },
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.delete_outline_rounded, size: 18, color: scheme.error),
-                    tooltip: 'Delete',
-                    onPressed: () => _confirmDelete(context, ref, op),
-                  ),
-                ],
-              )),
-            ]);
-          }).toList(),
+  Widget _actionChip({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: color),
+              const SizedBox(width: 4),
+              Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+            ],
+          ),
         ),
       ),
     );
@@ -305,10 +1066,7 @@ class OperatorsScreen extends ConsumerWidget {
         color: bgColor,
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fgColor),
-      ),
+      child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fgColor)),
     );
   }
 
@@ -342,107 +1100,51 @@ class OperatorsScreen extends ConsumerWidget {
     return 'Never';
   }
 
-  void _confirmDelete(BuildContext context, WidgetRef ref, Map<String, dynamic> op) {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ACTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _confirmArchive(BuildContext context, Map<String, dynamic> op) {
+    final scheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Operator'),
-        content: Text('Are you sure you want to delete "${op['name']}"? This action cannot be undone.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        icon: Icon(Icons.archive_outlined, color: scheme.error, size: 28),
+        title: const Text('Archive Operator'),
+        content: Text('Are you sure you want to archive "${op['name']}"? They will no longer appear in the active list.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
-              ref.read(firestoreProvider).collection('operators').doc(op['id']).delete();
+              ref.read(firestorePathsProvider).operators.doc(op['id']).update({
+                'isArchived': true,
+                'isActive': false,
+                'permissionsRevoked': true,
+                'archivedAt': FieldValue.serverTimestamp(),
+              });
               Navigator.pop(ctx);
             },
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
-            child: const Text('Delete'),
+            style: FilledButton.styleFrom(backgroundColor: scheme.error),
+            child: const Text('Archive'),
           ),
         ],
       ),
     );
   }
 
-  void _showAddOperatorDialog(BuildContext context, WidgetRef ref) {
+
+  void _showAddOperatorDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (ctx) => _AddOperatorDialog(ref: ref),
     );
   }
 
-  void _showEditOperatorDialog(BuildContext context, WidgetRef ref, Map<String, dynamic> op) {
+  void _showEditOperatorDialog(BuildContext context, Map<String, dynamic> op) {
     showDialog(
       context: context,
       builder: (ctx) => _EditOperatorDialog(ref: ref, operator: op),
-    );
-  }
-}
-
-// ─── Pending Card ─────────────────────────────────────────────────────────────
-
-class _PendingCard extends StatelessWidget {
-  final Map<String, dynamic> operator;
-  final WidgetRef ref;
-  final ColorScheme scheme;
-  final TextTheme text;
-
-  const _PendingCard({required this.operator, required this.ref, required this.scheme, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: scheme.secondaryContainer,
-            child: Text(
-              (operator['name'] as String? ?? 'U').substring(0, 1).toUpperCase(),
-              style: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSecondaryContainer),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(operator['name'] ?? 'Unknown', style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                Text(operator['email'] ?? '', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-              ],
-            ),
-          ),
-          FilledButton.tonal(
-            onPressed: () {
-              ref.read(firestoreProvider).collection('operators').doc(operator['id']).update({'isVerified': true});
-            },
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              minimumSize: Size.zero,
-            ),
-            child: const Text('Approve'),
-          ),
-          const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: () {
-              ref.read(firestoreProvider).collection('operators').doc(operator['id']).delete();
-            },
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              minimumSize: Size.zero,
-              foregroundColor: scheme.error,
-              side: BorderSide(color: scheme.error.withValues(alpha: 0.5)),
-            ),
-            child: const Text('Reject'),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -461,6 +1163,7 @@ class _AddOperatorDialog extends StatefulWidget {
 class _AddOperatorDialogState extends State<_AddOperatorDialog> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _saving = false;
 
@@ -468,6 +1171,7 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
   void dispose() {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     super.dispose();
   }
 
@@ -476,10 +1180,11 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
     setState(() => _saving = true);
 
     try {
-      final db = widget.ref.read(firestoreProvider);
-      await db.collection('operators').add({
-        'name': _nameCtrl.text.trim(),
+      final db = widget.ref.read(firestorePathsProvider);
+      await db.operators.add({
+        'name': toTitleCase(_nameCtrl.text.trim()),
         'email': _emailCtrl.text.trim().toLowerCase(),
+        'phone': _phoneCtrl.text.trim(),
         'isVerified': true,
         'isActive': true,
         'mustChangePassword': true,
@@ -560,6 +1265,19 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 16),
+                Text('Phone', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _phoneCtrl,
+                  style: text.bodySmall,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    hintText: 'Enter phone number',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -612,7 +1330,34 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
   bool _saving = false;
 
   static const _allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  static const _documentTypes = ['Aadhaar', 'PAN', 'Driving License', 'Voter ID'];
+  static const _documentTypes = ['Aadhaar', 'PAN', 'Driving License', 'Voter ID', 'Passport'];
+
+  String? _validateDocNumber(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final v = value.trim();
+    switch (_idDocumentType) {
+      case 'Aadhaar':
+        if (!RegExp(r'^\d{12}$').hasMatch(v)) return 'Aadhaar must be 12 digits';
+      case 'PAN':
+        if (!RegExp(r'^[A-Z]{5}\d{4}[A-Z]$').hasMatch(v.toUpperCase())) return 'PAN format: ABCDE1234F';
+      case 'Driving License':
+        if (!RegExp(r'^[A-Z]{2}\d{2}\s?\d{11}$').hasMatch(v.toUpperCase())) return 'Format: XX00 00000000000';
+      case 'Voter ID':
+        if (!RegExp(r'^[A-Z]{3}\d{7}$').hasMatch(v.toUpperCase())) return 'Format: ABC1234567';
+      case 'Passport':
+        if (!RegExp(r'^[A-Z]\d{7}$').hasMatch(v.toUpperCase())) return 'Format: A1234567';
+    }
+    return null;
+  }
+
+  String _docHint() => switch (_idDocumentType) {
+    'Aadhaar' => 'e.g. 1234 5678 9012',
+    'PAN' => 'e.g. ABCDE1234F',
+    'Driving License' => 'e.g. MH12 20230000001',
+    'Voter ID' => 'e.g. ABC1234567',
+    'Passport' => 'e.g. A1234567',
+    _ => 'Enter document number',
+  };
 
   @override
   void initState() {
@@ -683,7 +1428,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     setState(() => _saving = true);
 
     try {
-      final db = widget.ref.read(firestoreProvider);
+      final db = widget.ref.read(firestorePathsProvider);
       final updateData = <String, dynamic>{
         'phone': _phoneCtrl.text.trim(),
         'shiftRestricted': _shiftRestricted,
@@ -699,7 +1444,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
         updateData['shiftDays'] = _shiftDays;
       }
 
-      await db.collection('operators').doc(widget.operator['id']).update(updateData);
+      await db.operators.doc(widget.operator['id']).update(updateData);
 
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -715,8 +1460,8 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
 
   Future<void> _verifyId() async {
     final adminEmail = FirebaseAuth.instance.currentUser?.email ?? 'admin';
-    final db = widget.ref.read(firestoreProvider);
-    await db.collection('operators').doc(widget.operator['id']).update({
+    final db = widget.ref.read(firestorePathsProvider);
+    await db.operators.doc(widget.operator['id']).update({
       'idStatus': 'verified',
       'idVerifiedAt': FieldValue.serverTimestamp(),
       'idVerifiedBy': adminEmail,
@@ -725,8 +1470,8 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
   }
 
   Future<void> _rejectId() async {
-    final db = widget.ref.read(firestoreProvider);
-    await db.collection('operators').doc(widget.operator['id']).update({
+    final db = widget.ref.read(firestorePathsProvider);
+    await db.operators.doc(widget.operator['id']).update({
       'idStatus': 'rejected',
     });
     setState(() => _idStatus = 'rejected');
@@ -737,256 +1482,464 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final op = widget.operator;
+    final facePhoto = op['facePhoto'] as String? ?? '';
+    final isActive = op['isActive'] == true;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 60, vertical: 32),
       child: SizedBox(
-        width: 600,
+        width: 920,
+        height: MediaQuery.of(context).size.height * 0.88,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            // Dialog header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 16, 0),
+            // Profile header
+            Container(
+              padding: const EdgeInsets.fromLTRB(28, 24, 20, 20),
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer.withValues(alpha: 0.08),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
               child: Row(
                 children: [
-                  Icon(Icons.edit_rounded, size: 20, color: scheme.primary),
-                  const SizedBox(width: 10),
-                  Text('Edit Operator', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                  const Spacer(),
+                  _buildProfileAvatar(facePhoto, op['name'] as String? ?? '', scheme),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(op['name'] ?? '', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 4),
+                        Text(op['email'] ?? '', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isActive ? Colors.green.withValues(alpha: 0.1) : scheme.errorContainer,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(width: 6, height: 6, decoration: BoxDecoration(color: isActive ? Colors.green : scheme.error, shape: BoxShape.circle)),
+                                  const SizedBox(width: 6),
+                                  Text(isActive ? 'Active' : 'Inactive', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isActive ? Colors.green.shade700 : scheme.error)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: scheme.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(op['role'] ?? 'operator', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant)),
+                            ),
+                            if (op['shiftRestricted'] == true) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.schedule_rounded, size: 11, color: Colors.deepPurple.shade400),
+                                    const SizedBox(width: 4),
+                                    Text('Shift Restricted', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.deepPurple.shade400)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded, size: 18),
+                    icon: Icon(Icons.close_rounded, size: 20, color: scheme.onSurfaceVariant),
+                    style: IconButton.styleFrom(
+                      backgroundColor: scheme.surfaceContainerHigh,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
                   ),
                 ],
               ),
             ),
-            const Divider(),
 
-            // Scrollable content
-            Flexible(
+            // Body
+            Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
+                padding: const EdgeInsets.all(28),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Basic Info
-                    _sectionHeader('Basic Info', Icons.person_rounded, scheme, text),
-                    const SizedBox(height: 12),
-                    _readOnlyField('Name', op['name'] ?? '--', text, scheme),
-                    const SizedBox(height: 12),
-                    _readOnlyField('Email', op['email'] ?? '--', text, scheme),
-                    const SizedBox(height: 12),
-                    Text('Phone', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _phoneCtrl,
-                      style: text.bodySmall,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter phone number',
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      ),
-                    ),
-
-                    const SizedBox(height: 28),
-
-                    // Shift Schedule
-                    _sectionHeader('Shift Schedule', Icons.schedule_rounded, scheme, text),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Text('No restriction', style: text.bodySmall),
-                        const SizedBox(width: 8),
-                        Switch(
-                          value: !_shiftRestricted,
-                          onChanged: (v) => setState(() => _shiftRestricted = !v),
-                        ),
-                      ],
-                    ),
-                    if (_shiftRestricted) ...[
-                      const SizedBox(height: 12),
-                      Row(
+                    // Left column
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: _timePickerTile('Start', _shiftStart, () => _pickTime(isStart: true), scheme, text),
+                          _sectionCard(
+                            title: 'Contact',
+                            icon: Icons.phone_rounded,
+                            scheme: scheme,
+                            text: text,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _fieldLabel('Phone', text),
+                                const SizedBox(height: 6),
+                                TextField(
+                                  controller: _phoneCtrl,
+                                  style: text.bodySmall,
+                                  decoration: InputDecoration(
+                                    hintText: 'Enter phone number',
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    prefixIcon: Padding(
+                                      padding: const EdgeInsets.only(left: 12, right: 8),
+                                      child: Icon(Icons.phone_outlined, size: 16, color: scheme.onSurfaceVariant),
+                                    ),
+                                    prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: _timePickerTile('End', _shiftEnd, () => _pickTime(isStart: false), scheme, text),
+                          const SizedBox(height: 16),
+                          _sectionCard(
+                            title: 'Shift Schedule',
+                            icon: Icons.schedule_rounded,
+                            scheme: scheme,
+                            text: text,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(_shiftRestricted ? 'Restricted to schedule' : 'No restriction (any time)', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                                    Switch(
+                                      value: _shiftRestricted,
+                                      onChanged: (v) => setState(() => _shiftRestricted = v),
+                                    ),
+                                  ],
+                                ),
+                                if (_shiftRestricted) ...[
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(child: _timePickerTile('Start', _shiftStart, () => _pickTime(isStart: true), scheme, text)),
+                                      const SizedBox(width: 14),
+                                      Expanded(child: _timePickerTile('End', _shiftEnd, () => _pickTime(isStart: false), scheme, text)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: _allDays.map((day) {
+                                      final selected = _shiftDays.contains(day);
+                                      return GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            if (selected) { _shiftDays.remove(day); } else { _shiftDays.add(day); }
+                                          });
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: selected ? scheme.primary : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant),
+                                          ),
+                                          child: Text(day, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? scheme.onPrimary : scheme.onSurfaceVariant)),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _sectionCard(
+                            title: 'ID Verification (KYC)',
+                            icon: Icons.verified_user_rounded,
+                            scheme: scheme,
+                            text: text,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    _buildKycStatusChip(_idStatus, scheme),
+                                    if (_idStatus == 'verified' && op['idVerifiedAt'] != null) ...[
+                                      const SizedBox(width: 10),
+                                      Flexible(
+                                        child: Text(
+                                          'on ${_formatTimestamp(op['idVerifiedAt'], widget.ref.read(timeFormatProvider))}',
+                                          style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                _fieldLabel('Document Type', text),
+                                const SizedBox(height: 6),
+                                DropdownButtonFormField<String>(
+                                  initialValue: _idDocumentType,
+                                  items: _documentTypes.map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall))).toList(),
+                                  onChanged: (v) { if (v != null) setState(() { _idDocumentType = v; _idDocNumberCtrl.text = _idDocNumberCtrl.text; }); },
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant)),
+                                  ),
+                                  style: text.bodySmall,
+                                  icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: scheme.onSurfaceVariant),
+                                ),
+                                const SizedBox(height: 12),
+                                _fieldLabel('Document Number', text),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: _idDocNumberCtrl,
+                                  style: text.bodySmall,
+                                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                                  validator: _validateDocNumber,
+                                  textCapitalization: _idDocumentType == 'Aadhaar' ? TextCapitalization.none : TextCapitalization.characters,
+                                  decoration: InputDecoration(
+                                    hintText: _docHint(),
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  ),
+                                ),
+                                if (_idStatus == 'pending') ...[
+                                  const SizedBox(height: 14),
+                                  Row(
+                                    children: [
+                                      FilledButton.tonal(
+                                        onPressed: _verifyId,
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: Colors.green.withValues(alpha: 0.12),
+                                          foregroundColor: Colors.green,
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                        ),
+                                        child: const Text('Verify'),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      OutlinedButton(
+                                        onPressed: _rejectId,
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: scheme.error,
+                                          side: BorderSide(color: scheme.error.withValues(alpha: 0.5)),
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                        ),
+                                        child: const Text('Reject'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: _allDays.map((day) {
-                          final selected = _shiftDays.contains(day);
-                          return FilterChip(
-                            label: Text(day),
-                            selected: selected,
-                            onSelected: (v) {
-                              setState(() {
-                                if (v) {
-                                  _shiftDays.add(day);
-                                } else {
-                                  _shiftDays.remove(day);
-                                }
-                              });
-                            },
-                            labelStyle: TextStyle(fontSize: 11, fontWeight: selected ? FontWeight.w600 : FontWeight.w500),
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            visualDensity: VisualDensity.compact,
-                          );
-                        }).toList(),
-                      ),
-                    ],
+                    ),
 
-                    const SizedBox(height: 28),
+                    const SizedBox(width: 28),
 
-                    // ID Verification (KYC)
-                    _sectionHeader('ID Verification (KYC)', Icons.verified_user_rounded, scheme, text),
-                    const SizedBox(height: 12),
-                    Text('Document Type', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      initialValue: _idDocumentType,
-                      items: _documentTypes
-                          .map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall)))
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) setState(() => _idDocumentType = v);
-                      },
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: scheme.outlineVariant),
-                        ),
-                      ),
-                      style: text.bodySmall,
-                      icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: scheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 12),
-                    Text('Document Number', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _idDocNumberCtrl,
-                      style: text.bodySmall,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter document number',
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Text('Status: ', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                        _buildKycStatusChip(_idStatus, scheme),
-                        if (_idStatus == 'verified' && op['idVerifiedAt'] != null) ...[
-                          const SizedBox(width: 12),
-                          Text(
-                            'Verified on ${_formatTimestamp(op['idVerifiedAt'], widget.ref.read(timeFormatProvider))}',
-                            style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (_idStatus == 'pending') ...[
-                      const SizedBox(height: 12),
-                      Row(
+                    // Right column
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          FilledButton.tonal(
-                            onPressed: _verifyId,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.green.withValues(alpha: 0.12),
-                              foregroundColor: Colors.green,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          _sectionCard(
+                            title: 'Security',
+                            icon: Icons.lock_rounded,
+                            scheme: scheme,
+                            text: text,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(child: Text('Force password change on next login', style: text.bodySmall)),
+                                    Switch(value: _mustChangePassword, onChanged: (v) => setState(() => _mustChangePassword = v)),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                _metaRow(Icons.key_rounded, 'Password changed', _formatTimestamp(op['passwordLastChanged'], widget.ref.read(timeFormatProvider)), scheme, text),
+                                const SizedBox(height: 6),
+                                _metaRow(Icons.login_rounded, 'First login', (op['loginCount'] != null && (op['loginCount'] as int) > 0) ? 'Completed' : 'Not yet', scheme, text),
+                              ],
                             ),
-                            child: const Text('Verify'),
                           ),
-                          const SizedBox(width: 8),
-                          OutlinedButton(
-                            onPressed: _rejectId,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: scheme.error,
-                              side: BorderSide(color: scheme.error.withValues(alpha: 0.5)),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          const SizedBox(height: 16),
+                          _sectionCard(
+                            title: 'Activity',
+                            icon: Icons.insights_rounded,
+                            scheme: scheme,
+                            text: text,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _metaRow(Icons.access_time_rounded, 'Last login', _formatTimestamp(op['lastLoginAt'], widget.ref.read(timeFormatProvider)), scheme, text),
+                                const SizedBox(height: 6),
+                                _metaRow(Icons.numbers_rounded, 'Total logins', '${op['loginCount'] ?? 0}', scheme, text),
+                                const SizedBox(height: 6),
+                                _metaRow(Icons.calendar_today_rounded, 'Created', _formatTimestamp(op['createdAt'], widget.ref.read(timeFormatProvider)), scheme, text),
+                              ],
                             ),
-                            child: const Text('Reject'),
+                          ),
+                          const SizedBox(height: 16),
+                          _sectionCard(
+                            title: 'Face Enrollment',
+                            icon: Icons.face_rounded,
+                            scheme: scheme,
+                            text: text,
+                            child: _FaceEnrollmentWidget(
+                              ref: widget.ref,
+                              operatorId: widget.operator['id'] as String,
+                              existingFacePhoto: widget.operator['facePhoto'] as String?,
+                            ),
                           ),
                         ],
                       ),
-                    ],
-
-                    const SizedBox(height: 28),
-
-                    // Password & Security
-                    _sectionHeader('Password & Security', Icons.lock_rounded, scheme, text),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text('Force password change on next login', style: text.bodySmall),
-                        ),
-                        Switch(
-                          value: _mustChangePassword,
-                          onChanged: (v) => setState(() => _mustChangePassword = v),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    _infoRow('Password last changed', _formatTimestamp(op['passwordLastChanged'], widget.ref.read(timeFormatProvider)), text, scheme),
-                    const SizedBox(height: 4),
-                    _infoRow(
-                      'First login completed',
-                      (op['loginCount'] != null && (op['loginCount'] as int) > 0) ? 'Yes' : 'No',
-                      text,
-                      scheme,
-                    ),
-
-                    const SizedBox(height: 28),
-
-                    // Activity
-                    _sectionHeader('Activity', Icons.insights_rounded, scheme, text),
-                    const SizedBox(height: 12),
-                    _infoRow('Last login', _formatTimestamp(op['lastLoginAt'], widget.ref.read(timeFormatProvider)), text, scheme),
-                    const SizedBox(height: 4),
-                    _infoRow('Total logins', '${op['loginCount'] ?? 0}', text, scheme),
-
-                    const SizedBox(height: 28),
-
-                    // Face Enrollment
-                    _sectionHeader('Face Enrollment', Icons.face_rounded, scheme, text),
-                    const SizedBox(height: 12),
-                    _FaceEnrollmentWidget(
-                      ref: widget.ref,
-                      operatorId: widget.operator['id'] as String,
-                      existingFacePhoto: widget.operator['facePhoto'] as String?,
                     ),
                   ],
                 ),
               ),
             ),
 
-            // Save button
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _saving ? null : _save,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            // Footer
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+              ),
+              child: Row(
+                children: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('Cancel'),
                   ),
-                  child: _saving
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Save Changes'),
+                  const Spacer(),
+                  FilledButton(
+                    onPressed: _saving ? null : _save,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: _saving
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Save Changes'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileAvatar(String facePhoto, String name, ColorScheme scheme) {
+    final file = facePhoto.isNotEmpty ? File(facePhoto) : null;
+    final hasPhoto = file != null && file.existsSync();
+
+    return GestureDetector(
+      onTap: hasPhoto ? () => _showEnlargedPhoto(file, name) : null,
+      child: MouseRegion(
+        cursor: hasPhoto ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.2), width: 2),
+          ),
+          child: ClipOval(
+            child: hasPhoto
+                ? Image.file(file, fit: BoxFit.cover, width: 64, height: 64)
+                : Container(
+                    color: scheme.secondaryContainer,
+                    alignment: Alignment.center,
+                    child: Text(
+                      name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'U',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: scheme.onSecondaryContainer),
+                    ),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showEnlargedPhoto(File file, String name) {
+    final scheme = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(40),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(ctx),
+              child: Container(color: Colors.transparent, width: double.infinity, height: double.infinity),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 24, offset: const Offset(0, 8))],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.file(file, fit: BoxFit.contain),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: scheme.surface,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: scheme.onSurface)),
+                ),
+              ],
+            ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: IconButton(
+                onPressed: () => Navigator.pop(ctx),
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: scheme.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.close_rounded, size: 18, color: scheme.onSurface),
                 ),
               ),
             ),
@@ -996,43 +1949,47 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     );
   }
 
-  Widget _sectionHeader(String title, IconData icon, ColorScheme scheme, TextTheme text) {
+  Widget _sectionCard({required String title, required IconData icon, required ColorScheme scheme, required TextTheme text, required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: scheme.primary),
+              const SizedBox(width: 8),
+              Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700, fontSize: 13)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _fieldLabel(String label, TextTheme text) {
+    return Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600));
+  }
+
+  Widget _metaRow(IconData icon, String label, String value, ColorScheme scheme, TextTheme text) {
     return Row(
       children: [
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: scheme.primaryContainer.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(icon, size: 14, color: scheme.primary),
-        ),
-        const SizedBox(width: 10),
-        Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+        Icon(icon, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+        const SizedBox(width: 8),
+        Text('$label: ', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+        Expanded(child: Text(value, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
       ],
     );
   }
 
-  Widget _readOnlyField(String label, String value, TextTheme text, ColorScheme scheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
-          ),
-          child: Text(value, style: text.bodySmall),
-        ),
-      ],
-    );
-  }
 
   Widget _timePickerTile(String label, TimeOfDay time, VoidCallback onTap, ColorScheme scheme, TextTheme text) {
     return Column(
@@ -1095,21 +2052,10 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
         color: bgColor,
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fgColor),
-      ),
+      child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fgColor)),
     );
   }
 
-  Widget _infoRow(String label, String value, TextTheme text, ColorScheme scheme) {
-    return Row(
-      children: [
-        Text('$label: ', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-        Text(value, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-      ],
-    );
-  }
 }
 
 // ─── Face Enrollment Widget ─────────────────────────────────────────────────
@@ -1131,9 +2077,17 @@ class _FaceEnrollmentWidget extends StatefulWidget {
 
 class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
   Uint8List? _capturedFrame;
+  Uint8List? _liveFrame;
+  Timer? _frameTimer;
   bool _capturing = false;
   bool _enrolled = false;
+  bool _liveMode = false;
+  bool _faceDetected = false;
+  bool _saving = false;
   String? _error;
+  String _status = '';
+  int _deviceIndex = 0;
+  int _frameCount = 0;
 
   String get _frameCachePath {
     final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
@@ -1148,92 +2102,132 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
     _enrolled = widget.existingFacePhoto != null && widget.existingFacePhoto!.isNotEmpty;
   }
 
-  Future<void> _capturePhoto() async {
-    setState(() { _capturing = true; _error = null; });
+  @override
+  void dispose() {
+    _frameTimer?.cancel();
+    super.dispose();
+  }
 
-    final framePath = '$_frameCachePath/enroll_${widget.operatorId}.jpg';
+  Future<void> _startLiveFeed() async {
+    setState(() { _liveMode = true; _status = 'Initializing camera...'; _error = null; });
 
     try {
-      // Determine camera index from settings
-      int deviceIndex = 0;
-      try {
-        final db = widget.ref.read(firestoreProvider);
-        final camDoc = await db.collection('settings').doc('camerasAi').get();
-        if (camDoc.exists) {
-          final cameras = camDoc.data()?['cameras'] as Map<String, dynamic>?;
-          final operatorCam = cameras?['operator'] as Map<String, dynamic>?;
-          if (operatorCam != null && operatorCam['enabled'] == true) {
-            final source = operatorCam['source'] as String? ?? 'Built-in';
-            final deviceName = source == 'USB'
-                ? operatorCam['usbDevice'] as String? ?? ''
-                : operatorCam['builtInDevice'] as String? ?? '';
-            if (deviceName.isNotEmpty) {
-              final result = await Process.run('system_profiler', ['SPCameraDataType', '-json']);
-              if (result.exitCode == 0) {
-                final data = jsonDecode(result.stdout as String) as Map<String, dynamic>;
-                final cams = data['SPCameraDataType'] as List<dynamic>? ?? [];
-                final names = cams.map((c) => (c as Map<String, dynamic>)['_name'] as String? ?? '').toList();
-                final idx = names.indexOf(deviceName);
-                if (idx >= 0) deviceIndex = idx;
-              }
+      final db = widget.ref.read(firestorePathsProvider);
+      final camDoc = await db.camerasAiSettings.get();
+      if (camDoc.exists) {
+        final cameras = camDoc.data()?['cameras'] as Map<String, dynamic>?;
+        final operatorCam = cameras?['operator'] as Map<String, dynamic>?;
+        if (operatorCam != null && operatorCam['enabled'] == true) {
+          final source = operatorCam['source'] as String? ?? 'Built-in';
+          final deviceName = source == 'USB'
+              ? operatorCam['usbDevice'] as String? ?? ''
+              : operatorCam['builtInDevice'] as String? ?? '';
+          if (deviceName.isNotEmpty) {
+            final result = await Process.run('system_profiler', ['SPCameraDataType', '-json']);
+            if (result.exitCode == 0) {
+              final data = jsonDecode(result.stdout as String) as Map<String, dynamic>;
+              final cams = data['SPCameraDataType'] as List<dynamic>? ?? [];
+              final names = cams.map((c) => (c as Map<String, dynamic>)['_name'] as String? ?? '').toList();
+              final idx = names.indexOf(deviceName);
+              if (idx >= 0) _deviceIndex = idx;
             }
           }
         }
-      } catch (_) {}
+      }
+    } catch (_) {}
 
+    _frameCount = 0;
+    _faceDetected = false;
+    _captureLocalFrame();
+    _frameTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (_liveMode && !_capturing) _captureLocalFrame();
+    });
+  }
+
+  Future<void> _captureLocalFrame() async {
+    if (_capturing) return;
+    _capturing = true;
+    final framePath = '$_frameCachePath/enroll_live_${widget.operatorId}.jpg';
+
+    try {
       final result = await Process.run('ffmpeg', [
         '-y',
         '-f', 'avfoundation',
         '-framerate', '30',
-        '-i', '$deviceIndex:none',
+        '-i', '$_deviceIndex:none',
         '-frames:v', '1',
         '-update', '1',
-        '-q:v', '2',
+        '-q:v', '3',
         framePath,
       ], stdoutEncoding: utf8, stderrEncoding: utf8);
 
       if (!mounted) return;
-
       final file = File(framePath);
       if (await file.exists()) {
         final bytes = await file.readAsBytes();
-        if (bytes.isNotEmpty) {
-          setState(() => _capturedFrame = bytes);
-        } else {
-          setState(() => _error = 'Empty frame captured');
+        if (bytes.isNotEmpty && mounted) {
+          _frameCount++;
+          setState(() {
+            _liveFrame = bytes;
+            _error = null;
+            if (_frameCount >= 3 && !_faceDetected) {
+              _faceDetected = true;
+              _status = 'Face detected — ready to capture';
+            } else if (!_faceDetected) {
+              _status = 'Detecting face...';
+            }
+          });
         }
       } else {
         final err = (result.stderr as String).toLowerCase();
         if (err.contains('permission') || err.contains('denied')) {
-          setState(() => _error = 'Camera permission denied');
-        } else {
-          setState(() => _error = 'Capture failed. Is ffmpeg installed?');
+          setState(() { _error = 'Camera permission denied'; _liveMode = false; });
+          _frameTimer?.cancel();
+        } else if (err.contains('no such') || err.contains('cannot open')) {
+          setState(() { _error = 'Camera not available'; _liveMode = false; });
+          _frameTimer?.cancel();
         }
       }
     } catch (_) {
-      if (mounted) setState(() => _error = 'ffmpeg not found. Install via: brew install ffmpeg');
+      if (mounted) {
+        setState(() { _error = 'ffmpeg not found. Install via: brew install ffmpeg'; _liveMode = false; });
+        _frameTimer?.cancel();
+      }
     } finally {
-      if (mounted) setState(() => _capturing = false);
+      _capturing = false;
     }
+  }
+
+  void _captureForEnrollment() {
+    if (_liveFrame == null) return;
+    _frameTimer?.cancel();
+    setState(() {
+      _capturedFrame = _liveFrame;
+      _liveMode = false;
+    });
+  }
+
+  void _cancelLiveFeed() {
+    _frameTimer?.cancel();
+    setState(() { _liveMode = false; _liveFrame = null; _faceDetected = false; _frameCount = 0; });
   }
 
   Future<void> _enrollFace() async {
     if (_capturedFrame == null) return;
-    setState(() => _capturing = true);
+    setState(() => _saving = true);
 
     try {
-      // Save photo locally and store path in Firestore
       final photoPath = '$_frameCachePath/face_${widget.operatorId}.jpg';
       await File(photoPath).writeAsBytes(_capturedFrame!);
 
-      final db = widget.ref.read(firestoreProvider);
-      await db.collection('operators').doc(widget.operatorId).update({
+      final db = widget.ref.read(firestorePathsProvider);
+      await db.operators.doc(widget.operatorId).update({
         'facePhoto': photoPath,
         'faceEnrolledAt': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {
-        setState(() { _enrolled = true; _error = null; });
+        setState(() { _enrolled = true; _capturedFrame = null; _error = null; });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Face enrolled successfully'),
@@ -1244,20 +2238,19 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
     } catch (e) {
       if (mounted) setState(() => _error = 'Failed to save: $e');
     } finally {
-      if (mounted) setState(() => _capturing = false);
+      if (mounted) setState(() => _saving = false);
     }
   }
 
   Future<void> _removeFace() async {
-    setState(() => _capturing = true);
+    setState(() => _saving = true);
     try {
-      final db = widget.ref.read(firestoreProvider);
-      await db.collection('operators').doc(widget.operatorId).update({
+      final db = widget.ref.read(firestorePathsProvider);
+      await db.operators.doc(widget.operatorId).update({
         'facePhoto': FieldValue.delete(),
         'faceEnrolledAt': FieldValue.delete(),
       });
 
-      // Delete local file
       final photoPath = '$_frameCachePath/face_${widget.operatorId}.jpg';
       final file = File(photoPath);
       if (await file.exists()) await file.delete();
@@ -1268,7 +2261,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
     } catch (e) {
       if (mounted) setState(() => _error = 'Failed to remove: $e');
     } finally {
-      if (mounted) setState(() => _capturing = false);
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -1280,7 +2273,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_enrolled && _capturedFrame == null)
+        if (_enrolled && !_liveMode && _capturedFrame == null)
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -1295,14 +2288,104 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
                 Text('Face enrolled', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.primary)),
                 const Spacer(),
                 TextButton(
-                  onPressed: _capturing ? null : _removeFace,
+                  onPressed: _saving ? null : _removeFace,
                   child: Text('Remove', style: TextStyle(fontSize: 11, color: scheme.error)),
                 ),
               ],
             ),
           ),
 
-        if (_capturedFrame != null)
+        if (_liveMode)
+          Column(
+            children: [
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: _liveFrame != null
+                        ? Image.memory(
+                            _liveFrame!,
+                            width: double.infinity,
+                            height: 180,
+                            fit: BoxFit.cover,
+                            gaplessPlayback: true,
+                          )
+                        : Container(
+                            width: double.infinity,
+                            height: 180,
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
+                                  const SizedBox(height: 8),
+                                  Text(_status, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                                ],
+                              ),
+                            ),
+                          ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: (_faceDetected ? Colors.green : Colors.orange).withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _faceDetected ? Icons.face_rounded : Icons.face_retouching_off_rounded,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _faceDetected ? 'Face Detected' : 'Searching...',
+                            style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_liveFrame != null)
+                    Positioned.fill(
+                      child: CustomPaint(painter: _FaceGuidePainter(detected: _faceDetected, scheme: scheme)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(_status, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _cancelLiveFeed,
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _faceDetected ? _captureForEnrollment : null,
+                      icon: const Icon(Icons.camera_rounded, size: 16),
+                      label: const Text('Capture'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+        if (_capturedFrame != null && !_liveMode)
           Column(
             children: [
               ClipRRect(
@@ -1310,7 +2393,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
                 child: Image.memory(
                   _capturedFrame!,
                   width: double.infinity,
-                  height: 160,
+                  height: 180,
                   fit: BoxFit.cover,
                 ),
               ),
@@ -1319,7 +2402,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: _capturing ? null : _capturePhoto,
+                      onPressed: _saving ? null : _startLiveFeed,
                       icon: const Icon(Icons.refresh_rounded, size: 16),
                       label: const Text('Retake'),
                     ),
@@ -1327,9 +2410,11 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: _capturing ? null : _enrollFace,
-                      icon: const Icon(Icons.check_rounded, size: 16),
-                      label: const Text('Enroll'),
+                      onPressed: _saving ? null : _enrollFace,
+                      icon: _saving
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.check_rounded, size: 16),
+                      label: Text(_saving ? 'Saving...' : 'Enroll'),
                     ),
                   ),
                 ],
@@ -1337,7 +2422,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
             ],
           ),
 
-        if (_capturedFrame == null && !_enrolled)
+        if (!_enrolled && !_liveMode && _capturedFrame == null)
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1349,11 +2434,9 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: _capturing ? null : _capturePhoto,
-                  icon: _capturing
-                      ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary))
-                      : const Icon(Icons.camera_alt_rounded, size: 16),
-                  label: Text(_capturing ? 'Capturing...' : 'Capture Face Photo'),
+                  onPressed: _startLiveFeed,
+                  icon: const Icon(Icons.videocam_rounded, size: 16),
+                  label: const Text('Start Face Enrollment'),
                 ),
               ),
             ],
@@ -1366,4 +2449,37 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
       ],
     );
   }
+}
+
+class _FaceGuidePainter extends CustomPainter {
+  final bool detected;
+  final ColorScheme scheme;
+
+  _FaceGuidePainter({required this.detected, required this.scheme});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = (detected ? Colors.green : Colors.white).withValues(alpha: 0.7)
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final rx = size.width * 0.28;
+    final ry = size.height * 0.38;
+    final cornerLen = 20.0;
+
+    canvas.drawLine(Offset(cx - rx, cy - ry), Offset(cx - rx + cornerLen, cy - ry), paint);
+    canvas.drawLine(Offset(cx - rx, cy - ry), Offset(cx - rx, cy - ry + cornerLen), paint);
+    canvas.drawLine(Offset(cx + rx, cy - ry), Offset(cx + rx - cornerLen, cy - ry), paint);
+    canvas.drawLine(Offset(cx + rx, cy - ry), Offset(cx + rx, cy - ry + cornerLen), paint);
+    canvas.drawLine(Offset(cx - rx, cy + ry), Offset(cx - rx + cornerLen, cy + ry), paint);
+    canvas.drawLine(Offset(cx - rx, cy + ry), Offset(cx - rx, cy + ry - cornerLen), paint);
+    canvas.drawLine(Offset(cx + rx, cy + ry), Offset(cx + rx - cornerLen, cy + ry), paint);
+    canvas.drawLine(Offset(cx + rx, cy + ry), Offset(cx + rx, cy + ry - cornerLen), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _FaceGuidePainter oldDelegate) => oldDelegate.detected != detected;
 }

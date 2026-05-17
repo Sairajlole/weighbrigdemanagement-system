@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   static const _seed = Color(0xFF059669);
+  static const defaultAccent = Color(0xFF059669);
+  static const successColor = Color(0xFF059669);
 
   static ThemeData lightFrom({Color? seed}) {
     return _build(seed ?? _seed, Brightness.light);

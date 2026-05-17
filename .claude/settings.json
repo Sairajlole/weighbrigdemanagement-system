@@ -1,5 +1,15 @@
 {
   "enabledPlugins": {
     "firebase@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze *)",
+      "Bash(dart analyze *)",
+      "Bash(flutter pub get *)",
+      "Bash(screencapture *)",
+      "Bash(lpoptions *)",
+      "Bash(lpstat *)"
+    ]
   }
 }

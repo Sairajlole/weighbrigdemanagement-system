@@ -3,9 +3,10 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 
 // ---------------------------------------------------------------------------
 // Local persistence helper
@@ -42,9 +43,9 @@ Future<Map<String, dynamic>> _loadLocally() async {
 
 final _notificationsSettingsProvider =
     FutureProvider<Map<String, dynamic>>((ref) async {
-  final db = ref.watch(firestoreProvider);
+  final db = ref.watch(firestorePathsProvider);
   try {
-    final doc = await db.collection('settings').doc('notifications').get();
+    final doc = await db.notificationsSettings.get();
     if (doc.exists) {
       final data = doc.data()!;
       await _saveLocally(data);
@@ -56,9 +57,9 @@ final _notificationsSettingsProvider =
 
 final _operatorsProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  final db = ref.watch(firestoreProvider);
+  final db = ref.watch(firestorePathsProvider);
   try {
-    final snapshot = await db.collection('operators').get();
+    final snapshot = await db.operators.get();
     return snapshot.docs.map((doc) {
       final data = doc.data();
       return {
@@ -159,6 +160,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   bool _saving = false;
   bool _dirty = false;
 
+  String? _headerMsg;
+  bool _headerMsgIsError = false;
+
   // Channels
   bool _smsEnabled = true;
   bool _whatsappEnabled = true;
@@ -212,6 +216,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     if (!_dirty) setState(() => _dirty = true);
   }
 
+  void _showHeaderMsg(String msg, {bool isError = false}) {
+    setState(() { _headerMsg = msg; _headerMsgIsError = isError; });
+    Future.delayed(Duration(seconds: isError ? 5 : 3), () {
+      if (mounted) setState(() => _headerMsg = null);
+    });
+  }
+
   Map<String, dynamic> _buildPayload() {
     final eventsData = <String, dynamic>{};
     for (final def in _eventDefinitions) {
@@ -241,24 +252,18 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     try {
       final payload = _buildPayload();
       await _saveLocally(payload);
-      final db = ref.read(firestoreProvider);
-      await db.collection('settings').doc('notifications').set({
+      final db = ref.read(firestorePathsProvider);
+      await db.notificationsSettings.set({
         ...payload,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       ref.invalidate(_notificationsSettingsProvider);
       if (mounted) {
         setState(() => _dirty = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Notification settings saved')),
-        );
+        _showHeaderMsg('Notification settings saved');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
-      }
+      if (mounted) _showHeaderMsg('Failed: $e', isError: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -308,69 +313,73 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
       decoration: BoxDecoration(
         color: scheme.surface,
-        border: Border(
-          bottom:
-              BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2)),
-        ),
+        border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            onPressed: () => context.go('/settings'),
-            icon: const Icon(Icons.arrow_back_rounded, size: 20),
-            style: IconButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Icon(Icons.notifications_rounded, size: 20, color: scheme.primary),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Text('Notifications',
-                  style: text.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
-              Text(
-                'Alerts and event triggers',
-                style:
-                    text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              IconButton(
+                onPressed: () => context.go('/settings'),
+                icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+              ),
+              const SizedBox(width: 12),
+              Icon(Icons.notifications_rounded, size: 20, color: scheme.primary),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Notifications', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  Text('Alerts and event triggers', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                ],
+              ),
+              const Spacer(),
+              if (_dirty) ...[
+                TextButton(
+                  onPressed: () { setState(() { _loaded = false; _dirty = false; }); ref.invalidate(_notificationsSettingsProvider); },
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+              ],
+              FilledButton.icon(
+                onPressed: _dirty && !_saving ? _save : null,
+                icon: _saving
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.save_rounded, size: 16),
+                label: Text(_saving ? 'Saving...' : 'Save'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
             ],
           ),
-          const Spacer(),
-          if (_dirty) ...[
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _loaded = false;
-                  _dirty = false;
-                });
-                ref.invalidate(_notificationsSettingsProvider);
-              },
-              child: const Text('Discard'),
+          if (_headerMsg != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _headerMsgIsError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+                      size: 15,
+                      color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(width: 8),
-          ],
-          FilledButton.icon(
-            onPressed: _dirty && !_saving ? _save : null,
-            icon: _saving
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.save_rounded, size: 16),
-            label: Text(_saving ? 'Saving...' : 'Save'),
-            style: FilledButton.styleFrom(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
         ],
       ),
     );
@@ -538,15 +547,15 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF059669).withValues(alpha: 0.1),
+                    color: AppTheme.successColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     '${state.channels.length} channel${state.channels.length == 1 ? '' : 's'}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF059669)),
+                        color: AppTheme.successColor),
                   ),
                 ),
             ],

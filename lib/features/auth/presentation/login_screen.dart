@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,7 +9,7 @@ import 'package:weighbridgemanagement/features/auth/presentation/animated_backgr
 import 'package:weighbridgemanagement/features/auth/presentation/change_password_screen.dart';
 import 'package:weighbridgemanagement/features/auth/presentation/mfa_verify_screen.dart';
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/google_auth_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 
@@ -63,19 +64,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
         password: _password.text,
       );
 
-      // Post-login enforcement checks
-      final enforceResult = await _postLoginChecks(_email.text.trim());
-      if (enforceResult != null) {
-        await ref.read(firebaseAuthProvider).signOut();
-        if (mounted) setState(() => _error = enforceResult);
-        return;
+      // Post-login enforcement checks (skip if offline — can't reach Firestore)
+      final online = await _isOnline();
+      if (online) {
+        final enforceResult = await _postLoginChecks(_email.text.trim());
+        if (enforceResult != null) {
+          await ref.read(firebaseAuthProvider).signOut();
+          if (mounted) setState(() => _error = enforceResult);
+          return;
+        }
       }
 
       ref.read(auditServiceProvider).logLogin(success: true, email: _email.text.trim());
-      _updateLoginStats(_email.text.trim());
+      if (online) _updateLoginStats(_email.text.trim());
 
-      // Password change check (doesn't sign out, redirects)
-      if (mounted) await _checkPasswordChange(_email.text.trim());
+      // Password change check (skip offline)
+      if (online && mounted) await _checkPasswordChange(_email.text.trim());
     } on FirebaseAuthMultiFactorException catch (e) {
       if (mounted) {
         await Navigator.of(context).push(
@@ -91,8 +95,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
   }
 
   void _updateLoginStats(String email) {
-    final db = ref.read(firestoreProvider);
-    db.collection('operators').where('email', isEqualTo: email).limit(1).get().then((snap) {
+    final paths = ref.read(firestorePathsProvider);
+    if (!paths.isConfigured) return;
+    paths.operators.where('email', isEqualTo: email).limit(1).get().then((snap) {
       if (snap.docs.isNotEmpty) {
         snap.docs.first.reference.update({
           'lastLoginAt': FieldValue.serverTimestamp(),
@@ -100,7 +105,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
         });
       } else {
         // Admin — track in settings/adminProfile
-        db.collection('settings').doc('adminProfile').set({
+        paths.siteSetting('adminProfile').set({
           'lastLoginAt': FieldValue.serverTimestamp(),
           'loginCount': FieldValue.increment(1),
           'email': email,
@@ -110,32 +115,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
   }
 
   Future<String?> _postLoginChecks(String email) async {
-    final settings = ref.read(securitySettingsProvider).valueOrNull ?? const SecuritySettings();
-    final db = ref.read(firestoreProvider);
+    try {
+      final settings = ref.read(securitySettingsProvider).valueOrNull ?? const SecuritySettings();
 
-    // IP whitelist check
-    final ipAllowed = await isIpAllowed(settings);
-    if (!ipAllowed) return 'Access denied: your IP address is not whitelisted.';
+      final ipAllowed = await isIpAllowed(settings).timeout(const Duration(seconds: 5), onTimeout: () => true);
+      if (!ipAllowed) return 'Access denied: your IP address is not whitelisted.';
 
-    // Shift-based login check
-    final shiftResult = await validateShiftLogin(db, email, settings);
-    if (!shiftResult.allowed) return shiftResult.message;
+      final paths = ref.read(firestorePathsProvider);
+      final shiftResult = await validateShiftLogin(paths, email, settings).timeout(const Duration(seconds: 5));
+      if (!shiftResult.allowed) return shiftResult.message;
 
-    return null;
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _checkPasswordChange(String email) async {
-    final settings = ref.read(securitySettingsProvider).valueOrNull ?? const SecuritySettings();
-    final db = ref.read(firestoreProvider);
-
-    final pwResult = await checkPasswordStatus(db, email, settings);
-    if (pwResult.mustChange && mounted) {
-      final changed = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(builder: (_) => ChangePasswordScreen(reason: pwResult.reason ?? 'Password change required.')),
-      );
-      if (changed != true && mounted) {
-        await ref.read(firebaseAuthProvider).signOut();
+    try {
+      final settings = ref.read(securitySettingsProvider).valueOrNull ?? const SecuritySettings();
+      final paths = ref.read(firestorePathsProvider);
+      final pwResult = await checkPasswordStatus(paths, email, settings).timeout(const Duration(seconds: 5));
+      if (pwResult.mustChange && mounted) {
+        final changed = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(builder: (_) => ChangePasswordScreen(reason: pwResult.reason ?? 'Password change required.')),
+        );
+        if (changed != true && mounted) {
+          await ref.read(firebaseAuthProvider).signOut();
+        }
       }
+    } catch (_) {
+      // Skip password check if network is unavailable
     }
   }
 
@@ -145,11 +155,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
       await ref.read(googleSignInServiceProvider).signIn();
       final email = FirebaseAuth.instance.currentUser?.email ?? '';
 
-      final enforceResult = await _postLoginChecks(email);
-      if (enforceResult != null) {
-        await ref.read(firebaseAuthProvider).signOut();
-        if (mounted) setState(() => _error = enforceResult);
-        return;
+      final online = await _isOnline();
+      if (online) {
+        final enforceResult = await _postLoginChecks(email);
+        if (enforceResult != null) {
+          await ref.read(firebaseAuthProvider).signOut();
+          if (mounted) setState(() => _error = enforceResult);
+          return;
+        }
       }
 
       ref.read(auditServiceProvider).logLogin(success: true, email: email);
@@ -165,6 +178,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<bool> _isOnline() async {
+    try {
+      final result = await InternetAddress.lookup('google.com')
+          .timeout(const Duration(seconds: 2));
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
     }
   }
 

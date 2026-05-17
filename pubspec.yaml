@@ -14,6 +14,7 @@ dependencies:
   firebase_core: ^3.13.0
   firebase_auth: ^5.5.3
   cloud_firestore: ^5.6.7
+  cloud_functions: ^5.2.3
   firebase_storage: ^12.4.4
 
   # State Management
@@ -27,6 +28,9 @@ dependencies:
 
   # UI
   google_fonts: ^6.2.1
+
+  # Local Storage
+  shared_preferences: ^2.3.4
 
   # Utilities
   uuid: ^4.5.1
@@ -45,12 +49,14 @@ dependencies:
   pdf: ^3.11.2
   printing: ^5.14.2
   barcode: ^2.2.8
+  barcode_widget: ^2.0.4
 
   # Maps
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   window_manager: ^0.5.1
   crypto: ^3.0.7
+  encrypt: ^5.0.3
 
 dev_dependencies:
   flutter_test:

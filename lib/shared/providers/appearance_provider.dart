@@ -3,8 +3,9 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 
 class AppearanceSettings {
   final ThemeMode themeMode;
@@ -15,7 +16,7 @@ class AppearanceSettings {
 
   const AppearanceSettings({
     this.themeMode = ThemeMode.light,
-    this.accentColor = const Color(0xFF059669),
+    this.accentColor = AppTheme.defaultAccent,
     this.backgroundArt = 'none',
     this.fontScale = 1.0,
     this.locale = 'en',
@@ -103,8 +104,9 @@ class AppearanceNotifier extends StateNotifier<AppearanceSettings> {
   Future<void> _loadFromFirestore() async {
     if (_firestoreLoaded) return;
     try {
-      final db = _ref.read(firestoreProvider);
-      final doc = await db.collection('settings').doc('appearance').get();
+      final paths = _ref.read(firestorePathsProvider);
+      if (!paths.isConfigured) return;
+      final doc = await paths.appearanceSettings.get();
       if (doc.exists) {
         final settings = AppearanceSettings.fromMap(doc.data()!);
         state = settings;
@@ -118,8 +120,9 @@ class AppearanceNotifier extends StateNotifier<AppearanceSettings> {
     state = settings;
     _saveLocal(settings);
     try {
-      final db = _ref.read(firestoreProvider);
-      await db.collection('settings').doc('appearance').set({
+      final paths = _ref.read(firestorePathsProvider);
+      if (!paths.isConfigured) return;
+      await paths.appearanceSettings.set({
         ...settings.toMap(),
         'updatedAt': FieldValue.serverTimestamp(),
       });

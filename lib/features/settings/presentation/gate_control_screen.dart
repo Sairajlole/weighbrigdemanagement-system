@@ -3,15 +3,18 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/gate_provider.dart';
 import 'package:weighbridgemanagement/shared/services/gate_service.dart';
+import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 
 final _gateSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final db = ref.watch(firestoreProvider);
-  final doc = await db.collection('settings').doc('gateControl').get();
+  final db = ref.watch(firestorePathsProvider);
+  final doc = await db.gateControlSettings.get();
   return doc.exists ? doc.data()! : {};
 });
 
@@ -26,7 +29,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
   bool _enabled = false;
   bool _loaded = false;
   bool _saving = false;
-  bool _dirty = false;
+  String _savedSnapshot = '';
 
   // Entry gate
   bool _entryEnabled = true;
@@ -58,6 +61,16 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
   String _rfidProtocol = 'Wiegand 26';
   final _rfidIp = TextEditingController();
   final _rfidTimeout = TextEditingController(text: '10');
+
+  // Testing state
+  bool _testingEntry = false;
+  bool _testingExit = false;
+  String? _entryTestResult;
+  String? _exitTestResult;
+
+  // Header message
+  String? _headerMsg;
+  bool _headerMsgIsError = false;
 
   @override
   void dispose() {
@@ -97,11 +110,10 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
     _rfidProtocol = data['rfidProtocol'] ?? 'Wiegand 26';
     _rfidIp.text = data['rfidIp'] ?? '';
     _rfidTimeout.text = '${data['rfidTimeout'] ?? 10}';
+    _savedSnapshot = jsonEncode(_buildPayload());
   }
 
-  void _markDirty() {
-    if (!_dirty) setState(() => _dirty = true);
-  }
+  bool get _dirty => _savedSnapshot.isNotEmpty && _savedSnapshot != jsonEncode(_buildPayload());
 
   Map<String, dynamic> _buildPayload() => {
     'enabled': _enabled,
@@ -130,72 +142,142 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
     'rfidTimeout': int.tryParse(_rfidTimeout.text) ?? 10,
   };
 
+  List<String> _validateConfig() {
+    final errors = <String>[];
+    final entryIpValid = isValidHostOrIp(_entryIp.text.trim());
+    final exitIpValid = isValidHostOrIp(_exitIp.text.trim());
+    final rfidIpValid = isValidHostOrIp(_rfidIp.text.trim());
+
+    if (_enabled) {
+      if (_entryEnabled && !entryIpValid) errors.add('Entry gate enabled but IP is missing or invalid');
+      if (_exitEnabled && !exitIpValid) errors.add('Exit gate enabled but IP is missing or invalid');
+      if (!_entryEnabled && !_exitEnabled) errors.add('Gate system enabled but no individual gate is active');
+    }
+    if (_rfidEnabled && !rfidIpValid) errors.add('RFID enabled but scanner IP is missing or invalid');
+
+    final dur1 = int.tryParse(_entryDuration.text) ?? 0;
+    final dur2 = int.tryParse(_exitDuration.text) ?? 0;
+    if (_entryEnabled && (dur1 < 5 || dur1 > 300)) errors.add('Entry gate duration must be 5–300 seconds');
+    if (_exitEnabled && (dur2 < 5 || dur2 > 300)) errors.add('Exit gate duration must be 5–300 seconds');
+
+    return errors;
+  }
+
+  void _sanitizeBeforeSave() {
+    final entryIpValid = isValidHostOrIp(_entryIp.text.trim());
+    final exitIpValid = isValidHostOrIp(_exitIp.text.trim());
+    final rfidIpValid = isValidHostOrIp(_rfidIp.text.trim());
+
+    if (!entryIpValid) _entryEnabled = false;
+    if (!exitIpValid) _exitEnabled = false;
+    if (!rfidIpValid) _rfidEnabled = false;
+
+    if (!entryIpValid && !exitIpValid) {
+      _enabled = false;
+      _sensorCheck = false;
+      _emergencyStop = false;
+      _audibleBuzzer = false;
+      _interlockGates = false;
+      _antiTailgating = false;
+    }
+  }
+
+  void _showHeaderMsg(String msg, {bool isError = false}) {
+    setState(() { _headerMsg = msg; _headerMsgIsError = isError; });
+    Future.delayed(Duration(seconds: isError ? 5 : 3), () {
+      if (mounted) setState(() => _headerMsg = null);
+    });
+  }
+
   Future<void> _save() async {
+    final errors = _validateConfig();
+    if (errors.isNotEmpty) {
+      _showHeaderMsg(errors.first, isError: true);
+      return;
+    }
+
     setState(() => _saving = true);
     try {
+      _sanitizeBeforeSave();
       final payload = _buildPayload();
 
-      // Local persistence
       final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
       final dir = Directory('$home/.weighbridge');
       if (!dir.existsSync()) dir.createSync(recursive: true);
       await File('${dir.path}/gate_config.json').writeAsString(jsonEncode(payload));
 
-      // Firestore
-      final db = ref.read(firestoreProvider);
-      await db.collection('settings').doc('gateControl').set({
+      final db = ref.read(firestorePathsProvider);
+      await db.gateControlSettings.set({
         ...payload,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Update running service
       ref.read(gateServiceProvider).updateConfig(GateSystemConfig.fromMap(payload));
       ref.invalidate(_gateSettingsProvider);
       ref.invalidate(gateConfigProvider);
 
       if (mounted) {
-        setState(() => _dirty = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gate configuration saved')));
+        _savedSnapshot = jsonEncode(_buildPayload());
+        setState(() {});
+        _showHeaderMsg('Gate configuration saved');
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      if (mounted) _showHeaderMsg('Save failed: $e', isError: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
   Future<void> _testGate(GateId gateId) async {
+    final isEntry = gateId == GateId.entry;
+    setState(() { if (isEntry) { _testingEntry = true; _entryTestResult = null; } else { _testingExit = true; _exitTestResult = null; } });
+
     final service = ref.read(gateServiceProvider);
     service.updateConfig(GateSystemConfig.fromMap(_buildPayload()));
     final result = await service.testGate(gateId);
+    logGateEvent(
+      gateId: gateId.name,
+      action: 'test',
+      success: result.success,
+      message: result.message,
+      responseTimeMs: result.responseTimeMs,
+    );
+
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Row(
-        children: [
-          Icon(result.success ? Icons.check_circle_rounded : Icons.error_rounded, size: 16, color: Colors.white),
-          const SizedBox(width: 8),
-          Text(result.message),
-        ],
-      ),
-      backgroundColor: result.success ? const Color(0xFF059669) : null,
-    ));
+    setState(() {
+      if (isEntry) {
+        _testingEntry = false;
+        _entryTestResult = result.success ? 'ok' : 'fail';
+      } else {
+        _testingExit = false;
+        _exitTestResult = result.success ? 'ok' : 'fail';
+      }
+    });
+    _showHeaderMsg(
+      result.success
+        ? '${isEntry ? "Entry" : "Exit"} gate reachable (${result.responseTimeMs ?? "?"}ms)'
+        : '${isEntry ? "Entry" : "Exit"}: ${result.message}',
+      isError: !result.success,
+    );
   }
 
   Future<void> _manualOpen(GateId gateId) async {
     final service = ref.read(gateServiceProvider);
     service.updateConfig(GateSystemConfig.fromMap(_buildPayload()));
     final result = await service.openGate(gateId);
+    logGateEvent(
+      gateId: gateId.name,
+      action: 'open',
+      success: result.success,
+      message: result.message,
+    );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Row(
-        children: [
-          Icon(result.success ? Icons.check_circle_rounded : Icons.error_rounded, size: 16, color: Colors.white),
-          const SizedBox(width: 8),
-          Text(result.success ? 'Gate opened (auto-close in ${gateId == GateId.entry ? _entryDuration.text : _exitDuration.text}s)' : result.message),
-        ],
-      ),
-      backgroundColor: result.success ? const Color(0xFF059669) : null,
-    ));
+    _showHeaderMsg(
+      result.success
+        ? 'Gate opened (auto-close in ${gateId == GateId.entry ? _entryDuration.text : _exitDuration.text}s)'
+        : result.message,
+      isError: !result.success,
+    );
   }
 
   @override
@@ -209,7 +291,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
       backgroundColor: scheme.surfaceContainerLowest,
       body: Column(
         children: [
-          _Header(scheme: scheme, text: text, dirty: _dirty, saving: _saving, onSave: _save, onBack: () => context.go('/settings')),
+          _buildHeader(scheme, text),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -219,33 +301,8 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Master enable
-                    _SectionCard(
-                      scheme: scheme,
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40, height: 40,
-                            decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(10)),
-                            child: Icon(Icons.sensor_door_rounded, size: 20, color: scheme.primary),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Enable Gate Control System', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                                Text('Global master switch for gate automation and weighing logic', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                              ],
-                            ),
-                          ),
-                          Switch(value: _enabled, onChanged: (v) { setState(() => _enabled = v); _markDirty(); }),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Gate configs side by side
+                    _buildMasterSwitch(scheme, text),
+                    const SizedBox(height: 24),
                     if (_enabled) ...[
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,69 +312,13 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
                           Expanded(child: _buildGateSection('Exit Gate', false, scheme, text)),
                         ],
                       ),
-                      const SizedBox(height: 20),
-
-                      // RFID
-                      _SectionCard(
-                        scheme: scheme,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.nfc_rounded, size: 18, color: scheme.secondary),
-                                const SizedBox(width: 10),
-                                Text('RFID / Tag Scanner', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                                const Spacer(),
-                                Switch(value: _rfidEnabled, onChanged: (v) { setState(() => _rfidEnabled = v); _markDirty(); }),
-                              ],
-                            ),
-                            if (_rfidEnabled) ...[
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(child: _buildDropdown('Protocol', _rfidProtocol, ['Wiegand 26', 'Wiegand 34', 'RS-485', 'TCP/IP', 'USB HID'], (v) { setState(() => _rfidProtocol = v!); _markDirty(); }, scheme, text)),
-                                  const SizedBox(width: 14),
-                                  Expanded(child: _buildField('Scanner IP / Port', _rfidIp, '192.168.1.200', scheme, text)),
-                                  const SizedBox(width: 14),
-                                  Expanded(child: _buildField('Scan Timeout (sec)', _rfidTimeout, '10', scheme, text)),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Safety
-                      _SectionCard(
-                        scheme: scheme,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.shield_rounded, size: 18, color: const Color(0xFFF59E0B)),
-                                const SizedBox(width: 10),
-                                Text('Safety & Protection Settings', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Wrap(
-                              spacing: 24,
-                              runSpacing: 12,
-                              children: [
-                                _SafetyCheck(label: 'Sensor Check', subtitle: 'Verify path clearance before closing gate', value: _sensorCheck, onChanged: (v) { setState(() => _sensorCheck = v); _markDirty(); }),
-                                _SafetyCheck(label: 'Emergency Stop', subtitle: 'Override all controls via hardware switch', value: _emergencyStop, onChanged: (v) { setState(() => _emergencyStop = v); _markDirty(); }),
-                                _SafetyCheck(label: 'Audible Buzzer', subtitle: 'Sound alarm when gate is in motion', value: _audibleBuzzer, onChanged: (v) { setState(() => _audibleBuzzer = v); _markDirty(); }),
-                                _SafetyCheck(label: 'Interlock Gates', subtitle: 'Prevent both gates from opening at once', value: _interlockGates, onChanged: (v) { setState(() => _interlockGates = v); _markDirty(); }),
-                                _SafetyCheck(label: 'Anti-Tailgating', subtitle: 'Detect multiple vehicles in single entry', value: _antiTailgating, onChanged: (v) { setState(() => _antiTailgating = v); _markDirty(); }),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
+                      const SizedBox(height: 24),
+                      _buildRfidSection(scheme, text),
+                      const SizedBox(height: 24),
+                      _buildSafetySection(scheme, text),
                     ],
+                    if (!_enabled)
+                      _buildDisabledState(scheme, text),
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -325,6 +326,121 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(ColorScheme scheme, TextTheme text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+      decoration: BoxDecoration(color: scheme.surface, border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2)))),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              IconButton(onPressed: () { if (ref.read(wizardModeProvider)) { ref.read(setupWizardProvider.notifier).previousStep(); } else { context.go('/settings'); } }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+              const SizedBox(width: 12),
+              Icon(Icons.sensor_door_rounded, size: 20, color: scheme.primary),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Gate Control', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  Text('Barriers, RFID, and safety automation', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                ],
+              ),
+              const Spacer(),
+              if (_dirty) ...[
+                TextButton(
+                  onPressed: () { setState(() { _loaded = false; }); ref.invalidate(_gateSettingsProvider); },
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+              ],
+              FilledButton.icon(
+                onPressed: _dirty && !_saving ? _save : null,
+                icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
+                label: Text(_saving ? 'Saving...' : 'Save'),
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+              ),
+            ],
+          ),
+          if (_headerMsg != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _headerMsgIsError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+                      size: 15,
+                      color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMasterSwitch(ColorScheme scheme, TextTheme text) {
+    return _SectionCard(
+      scheme: scheme,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(color: (_enabled ? scheme.primary : scheme.outlineVariant).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                child: Icon(Icons.sensor_door_rounded, size: 20, color: _enabled ? scheme.primary : scheme.outlineVariant),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Enable Gate Control System', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    Text('Master switch for all gate automation, RFID, and safety systems', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              Switch(value: _enabled, onChanged: (v) => setState(() => _enabled = v)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _buildInfoRow('Controls relay boards, RFID scanners, and safety interlocks. At least one gate must have a valid IP address configured for the system to remain enabled after saving.', scheme, text),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDisabledState(ColorScheme scheme, TextTheme text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 40),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.sensor_door_outlined, size: 48, color: scheme.outlineVariant),
+            const SizedBox(height: 16),
+            Text('Gate control system is disabled', style: text.titleSmall?.copyWith(color: scheme.onSurfaceVariant)),
+            const SizedBox(height: 6),
+            Text('Enable the master switch above to configure gates, RFID, and safety settings.', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
+          ],
+        ),
       ),
     );
   }
@@ -337,6 +453,8 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
     final durationCtrl = isEntry ? _entryDuration : _exitDuration;
     final trigger = isEntry ? _entryTrigger : _exitTrigger;
     final autoClose = isEntry ? _entryAutoClose : _exitAutoClose;
+    final testing = isEntry ? _testingEntry : _testingExit;
+    final testResult = isEntry ? _entryTestResult : _exitTestResult;
 
     return _SectionCard(
       scheme: scheme,
@@ -346,74 +464,89 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
         children: [
           Row(
             children: [
-              Icon(isEntry ? Icons.login_rounded : Icons.logout_rounded, size: 18, color: enabled ? scheme.primary : scheme.outlineVariant),
+              Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(
+                  color: (enabled ? (isEntry ? const Color(0xFF2563EB) : const Color(0xFF7C3AED)) : scheme.outlineVariant).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(isEntry ? Icons.login_rounded : Icons.logout_rounded, size: 16, color: enabled ? (isEntry ? const Color(0xFF2563EB) : const Color(0xFF7C3AED)) : scheme.outlineVariant),
+              ),
               const SizedBox(width: 10),
-              Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-              const Spacer(),
-              Switch(value: enabled, onChanged: (v) { setState(() { if (isEntry) { _entryEnabled = v; } else { _exitEnabled = v; } }); _markDirty(); }),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    if (enabled && testResult != null)
+                      Row(
+                        children: [
+                          Container(
+                            width: 6, height: 6,
+                            decoration: BoxDecoration(shape: BoxShape.circle, color: testResult == 'ok' ? AppTheme.successColor : scheme.error),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(testResult == 'ok' ? 'Connected' : 'Unreachable', style: TextStyle(fontSize: 10, color: testResult == 'ok' ? AppTheme.successColor : scheme.error, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              Switch(value: enabled, onChanged: (v) => setState(() { if (isEntry) { _entryEnabled = v; } else { _exitEnabled = v; } })),
             ],
           ),
           if (!enabled)
             Padding(
-              padding: const EdgeInsets.only(top: 20),
+              padding: const EdgeInsets.only(top: 20, bottom: 8),
               child: Center(
                 child: Column(
                   children: [
-                    Icon(Icons.lock_rounded, size: 28, color: scheme.outlineVariant),
+                    Icon(Icons.power_settings_new_rounded, size: 28, color: scheme.outlineVariant.withValues(alpha: 0.5)),
                     const SizedBox(height: 8),
-                    Text('$title is currently disabled', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                    Text('Toggle the switch above to configure', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
+                    Text('$title disabled', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
                   ],
                 ),
               ),
             ),
           if (enabled) ...[
-            const SizedBox(height: 16),
-            _buildDropdown('Protocol', protocol, ['HTTP Relay', 'TCP Socket', 'RS-485 Serial', 'Dry Contact', 'Modbus RTU', 'MQTT'], (v) { setState(() { if (isEntry) { _entryProtocol = v!; } else { _exitProtocol = v!; } }); _markDirty(); }, scheme, text),
+            const SizedBox(height: 12),
+            _buildInfoRow(
+              isEntry
+                ? 'Opens when a vehicle arrives for weighment. Connects to a relay board over HTTP or TCP to control the barrier motor.'
+                : 'Opens after weighment is complete and slip is printed. Use a different relay channel or board from the entry gate.',
+              scheme, text,
+            ),
+            const SizedBox(height: 14),
+            _buildDropdown('Communication Protocol', protocol, ['HTTP Relay', 'TCP Socket', 'RS-485 Serial', 'Dry Contact', 'Modbus RTU', 'MQTT'], (v) => setState(() { if (isEntry) { _entryProtocol = v!; } else { _exitProtocol = v!; } }), scheme, text),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _buildField('Relay Board IP', ipCtrl, '192.168.1.150', scheme, text)),
+                Expanded(child: _buildIpField('Relay Board IP', ipCtrl, isEntry ? '192.168.1.150' : '192.168.1.151', scheme, text)),
                 const SizedBox(width: 12),
-                Expanded(child: _buildDropdown('Relay Channel', channel, ['Channel 01', 'Channel 02', 'Channel 03', 'Channel 04'], (v) { setState(() { if (isEntry) { _entryChannel = v!; } else { _exitChannel = v!; } }); _markDirty(); }, scheme, text)),
+                Expanded(child: _buildDropdown('Relay Channel', channel, ['Channel 01', 'Channel 02', 'Channel 03', 'Channel 04'], (v) => setState(() { if (isEntry) { _entryChannel = v!; } else { _exitChannel = v!; } }), scheme, text)),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _buildField('Open Duration (s)', durationCtrl, '30', scheme, text)),
+                Expanded(child: _buildField('Open Duration (sec)', durationCtrl, '30', scheme, text, suffix: 's')),
                 const SizedBox(width: 12),
-                Expanded(child: _buildDropdown('Trigger Type', trigger, ['Weight Detected', 'RFID Scan', 'Manual', 'Weighment Complete', 'IR Sensor'], (v) { setState(() { if (isEntry) { _entryTrigger = v!; } else { _exitTrigger = v!; } }); _markDirty(); }, scheme, text)),
+                Expanded(child: _buildDropdown('Open Trigger', trigger, ['Weight Detected', 'RFID Scan', 'Manual', 'Weighment Complete', 'IR Sensor'], (v) => setState(() { if (isEntry) { _entryTrigger = v!; } else { _exitTrigger = v!; } }), scheme, text)),
               ],
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Text('Auto-close', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                      const SizedBox(width: 8),
-                      Switch(value: autoClose, onChanged: (v) { setState(() { if (isEntry) { _entryAutoClose = v; } else { _exitAutoClose = v; } }); _markDirty(); }, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                    ],
-                  ),
-                ),
-              ],
+            _buildInfoRow(
+              'Duration: how long gate stays open before auto-close activates. Trigger: what event causes the gate to open automatically.',
+              scheme, text,
             ),
             const SizedBox(height: 14),
             Row(
               children: [
-                FilledButton.tonal(
-                  onPressed: () => _testGate(isEntry ? GateId.entry : GateId.exit),
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.wifi_tethering_rounded, size: 14, color: scheme.primary), const SizedBox(width: 6), const Text('Test')]),
-                ),
-                const SizedBox(width: 10),
-                OutlinedButton(
-                  onPressed: () => _manualOpen(isEntry ? GateId.entry : GateId.exit),
-                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                  child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.open_in_new_rounded, size: 14), SizedBox(width: 6), Text('Manual Open')]),
-                ),
+                _buildToggleChip('Auto-close', autoClose, (v) => setState(() { if (isEntry) { _entryAutoClose = v; } else { _exitAutoClose = v; } }), scheme, text),
+                const Spacer(),
+                _buildTestButton(testing, () => _testGate(isEntry ? GateId.entry : GateId.exit), scheme, text),
+                const SizedBox(width: 8),
+                _buildActionButton('Open', Icons.open_in_new_rounded, () => _manualOpen(isEntry ? GateId.entry : GateId.exit), scheme, text),
               ],
             ),
           ],
@@ -422,19 +555,305 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
     );
   }
 
-  Widget _buildField(String label, TextEditingController ctrl, String hint, ColorScheme scheme, TextTheme text) {
+  Widget _buildRfidSection(ColorScheme scheme, TextTheme text) {
+    return _SectionCard(
+      scheme: scheme,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(color: scheme.secondary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+                child: Icon(Icons.nfc_rounded, size: 16, color: scheme.secondary),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('RFID / Tag Scanner', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    Text('Automatic vehicle identification', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              Switch(value: _rfidEnabled, onChanged: (v) => setState(() => _rfidEnabled = v)),
+            ],
+          ),
+          if (_rfidEnabled) ...[
+            const SizedBox(height: 12),
+            _buildInfoRow('RFID tags on vehicles are scanned at the gate to auto-identify them. Matching is done against registered vehicles in the cloud. If the tag is unregistered or blacklisted, the gate will not open.', scheme, text),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(child: _buildDropdown('Scanner Protocol', _rfidProtocol, ['Wiegand 26', 'Wiegand 34', 'RS-485', 'TCP/IP', 'USB HID'], (v) => setState(() => _rfidProtocol = v!), scheme, text)),
+                const SizedBox(width: 14),
+                Expanded(child: _buildIpField('Scanner IP / Host', _rfidIp, '192.168.1.200', scheme, text)),
+                const SizedBox(width: 14),
+                SizedBox(width: 120, child: _buildField('Timeout (sec)', _rfidTimeout, '10', scheme, text, suffix: 's')),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _buildInfoRow('Timeout: how long to wait for a tag scan before prompting manual vehicle entry. Protocol must match your reader hardware.', scheme, text),
+          ],
+          if (!_rfidEnabled)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: _buildInfoRow('Enable to allow automatic vehicle identification via RFID tags at gate entry/exit points.', scheme, text),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSafetySection(ColorScheme scheme, TextTheme text) {
+    return _SectionCard(
+      scheme: scheme,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.shield_rounded, size: 16, color: Color(0xFFF59E0B)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Safety & Protection', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    Text('Personnel and vehicle safety features', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildInfoRow('Safety features protect people and vehicles near the gate. Sensor check and emergency stop are strongly recommended. These settings are automatically disabled if no gate hardware is configured.', scheme, text),
+          const SizedBox(height: 16),
+          _buildSafetyToggle(
+            'Sensor Check',
+            'Verify path is clear before gate closes — prevents crushing',
+            Icons.sensors_rounded,
+            _sensorCheck,
+            (v) => setState(() => _sensorCheck = v),
+            scheme, text,
+            recommended: true,
+          ),
+          _buildSafetyToggle(
+            'Emergency Stop',
+            'Hardware override button halts all gate movement instantly',
+            Icons.emergency_rounded,
+            _emergencyStop,
+            (v) => setState(() => _emergencyStop = v),
+            scheme, text,
+            recommended: true,
+          ),
+          _buildSafetyToggle(
+            'Interlock Gates',
+            'Only one gate can be open at a time — prevents drive-through',
+            Icons.lock_rounded,
+            _interlockGates,
+            (v) => setState(() => _interlockGates = v),
+            scheme, text,
+          ),
+          _buildSafetyToggle(
+            'Anti-Tailgating',
+            'Detect multiple vehicles attempting to pass on a single gate open',
+            Icons.directions_car_filled_rounded,
+            _antiTailgating,
+            (v) => setState(() => _antiTailgating = v),
+            scheme, text,
+          ),
+          _buildSafetyToggle(
+            'Audible Buzzer',
+            'Sound alarm when gate is opening or closing as a warning',
+            Icons.volume_up_rounded,
+            _audibleBuzzer,
+            (v) => setState(() => _audibleBuzzer = v),
+            scheme, text,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSafetyToggle(String label, String subtitle, IconData icon, bool value, ValueChanged<bool> onChanged, ColorScheme scheme, TextTheme text, {bool recommended = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: InkWell(
+        onTap: () => onChanged(!value),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Row(
+            children: [
+              Icon(icon, size: 16, color: value ? const Color(0xFFF59E0B) : scheme.outlineVariant),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(label, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                        if (recommended) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(color: AppTheme.successColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                            child: Text('Recommended', style: TextStyle(fontSize: 9, color: AppTheme.successColor, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ],
+                    ),
+                    Text(subtitle, style: TextStyle(fontSize: 10.5, color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              Switch(value: value, onChanged: onChanged, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTestButton(bool testing, VoidCallback onPressed, ColorScheme scheme, TextTheme text) {
+    return FilledButton.tonal(
+      onPressed: testing ? null : onPressed,
+      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (testing)
+            SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: scheme.primary))
+          else
+            Icon(Icons.wifi_tethering_rounded, size: 14, color: scheme.primary),
+          const SizedBox(width: 6),
+          Text(testing ? 'Testing...' : 'Test', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(String label, IconData icon, VoidCallback onPressed, ColorScheme scheme, TextTheme text) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 14), const SizedBox(width: 6), Text(label, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w500))]),
+    );
+  }
+
+  Widget _buildToggleChip(String label, bool value, ValueChanged<bool> onChanged, ColorScheme scheme, TextTheme text) {
+    return InkWell(
+      onTap: () => onChanged(!value),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: value ? scheme.primaryContainer.withValues(alpha: 0.4) : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: value ? scheme.primary.withValues(alpha: 0.3) : scheme.outlineVariant.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(value ? Icons.timer_rounded : Icons.timer_off_rounded, size: 13, color: value ? scheme.primary : scheme.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Text(label, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w500, color: value ? scheme.primary : scheme.onSurfaceVariant)),
+            const SizedBox(width: 4),
+            Icon(value ? Icons.check_rounded : Icons.close_rounded, size: 11, color: value ? scheme.primary : scheme.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField(String label, TextEditingController ctrl, String hint, ColorScheme scheme, TextTheme text, {String? suffix}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
         const SizedBox(height: 5),
         TextField(
           controller: ctrl,
           style: text.bodySmall,
-          onChanged: (_) => _markDirty(),
-          decoration: InputDecoration(hintText: hint, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), isDense: true),
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: hint,
+            suffixText: suffix,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            isDense: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildIpField(String label, TextEditingController ctrl, String hint, ColorScheme scheme, TextTheme text) {
+    final hasValue = ctrl.text.trim().isNotEmpty;
+    final valid = !hasValue || isValidHostOrIp(ctrl.text.trim());
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
+        const SizedBox(height: 5),
+        TextField(
+          controller: ctrl,
+          style: text.bodySmall,
+          inputFormatters: [IpInputFormatter()],
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: hint,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            isDense: true,
+            prefixIcon: Padding(
+              padding: const EdgeInsets.only(left: 10, right: 6),
+              child: Icon(
+                hasValue ? (valid ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded) : Icons.lan_outlined,
+                size: 14,
+                color: hasValue ? (valid ? AppTheme.successColor : scheme.error) : scheme.outlineVariant,
+              ),
+            ),
+            prefixIconConstraints: const BoxConstraints(minWidth: 30),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: hasValue && !valid ? scheme.error.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.5)),
+            ),
+            errorText: hasValue && !valid ? 'Invalid IP address' : null,
+            errorStyle: const TextStyle(fontSize: 10),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoRow(String infoText, ColorScheme scheme, TextTheme textTheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary.withValues(alpha: 0.6)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(infoText, style: textTheme.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant, height: 1.4))),
+        ],
+      ),
     );
   }
 
@@ -442,58 +861,21 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
         const SizedBox(height: 5),
         DropdownButtonFormField<String>(
-          initialValue: value,
+          initialValue: items.contains(value) ? value : items.first,
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall))).toList(),
-          onChanged: onChanged,
-          decoration: InputDecoration(contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), isDense: true, border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant))),
+          onChanged: (v) { onChanged(v); setState(() {}); },
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            isDense: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+          ),
           icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: scheme.onSurfaceVariant),
         ),
       ],
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final ColorScheme scheme;
-  final TextTheme text;
-  final bool dirty;
-  final bool saving;
-  final VoidCallback onSave;
-  final VoidCallback onBack;
-
-  const _Header({required this.scheme, required this.text, required this.dirty, required this.saving, required this.onSave, required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-      decoration: BoxDecoration(color: scheme.surface, border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2)))),
-      child: Row(
-        children: [
-          IconButton(onPressed: onBack, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
-          const SizedBox(width: 12),
-          Icon(Icons.sensor_door_rounded, size: 20, color: scheme.primary),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Gate Control', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-              Text('Barriers, RFID, and safety', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-            ],
-          ),
-          const Spacer(),
-          if (dirty) ...[TextButton(onPressed: () {}, child: const Text('Cancel')), const SizedBox(width: 8)],
-          FilledButton.icon(
-            onPressed: dirty && !saving ? onSave : null,
-            icon: saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
-            label: Text(saving ? 'Saving...' : 'Save'),
-            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -517,39 +899,6 @@ class _SectionCard extends StatelessWidget {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: child,
-    );
-  }
-}
-
-class _SafetyCheck extends StatelessWidget {
-  final String label;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _SafetyCheck({required this.label, required this.subtitle, required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-
-    return SizedBox(
-      width: 220,
-      child: Row(
-        children: [
-          Checkbox(value: value, onChanged: (v) => onChanged(v ?? false)),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                Text(subtitle, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

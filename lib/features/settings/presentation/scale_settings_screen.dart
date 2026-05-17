@@ -4,15 +4,18 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
+import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 
 final _scaleSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final db = ref.watch(firestoreProvider);
-  final doc = await db.collection('settings').doc('scale').get();
+  final db = ref.watch(firestorePathsProvider);
+  final doc = await db.scaleSettings.get();
   return doc.exists ? doc.data()! : {};
 });
 
@@ -26,9 +29,12 @@ class ScaleSettingsScreen extends ConsumerStatefulWidget {
 class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
   bool _loaded = false;
   bool _saving = false;
-  bool _dirty = false;
   bool _testingConnection = false;
   String? _testResult;
+
+  // Per-card dirty tracking
+  final _dirtyCards = <String>{};
+
 
   // Stability / Capture
   int _uniformitySeconds = 5;
@@ -39,13 +45,20 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
   final _manualPasswordCtrl = TextEditingController();
   bool _requireFaceVerification = false;
 
+  // Connection Type
+  String _connectionType = 'serial';
+
   // Serial Connection (HyperTerminal)
-  String _port = 'COM1';
+  String _port = '';
   int _baudRate = 9600;
   int _dataBits = 8;
   String _parity = 'None';
   String _stopBits = '1';
   String _flowControl = 'None';
+
+  // TCP/Wireless
+  final _tcpHostCtrl = TextEditingController();
+  final _tcpPortCtrl = TextEditingController(text: '3001');
 
   // Advanced Serial
   int _readTimeout = 1000;
@@ -53,11 +66,25 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
   int _readBufferSize = 4096;
   int _writeBufferSize = 2048;
   String _delimiter = '\\r\\n';
+  final _customDelimiterCtrl = TextEditingController();
   String _weightRegex = r'(\d+\.?\d*)';
   bool _dtrEnable = false;
   bool _rtsEnable = false;
 
-  List<String> _ports = ['COM1', 'COM2', 'COM3', 'COM4', '/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyS0'];
+  // Advanced mode
+  bool _advancedMode = false;
+
+  // Auto-detect
+  bool _autoDetecting = false;
+  String _autoDetectPhase = '';
+  ScaleConfig? _detectedConfig;
+
+  // Header toast message (replaces snackbars)
+  String? _headerMsg;
+  bool _headerMsgIsError = false;
+  Timer? _headerMsgTimer;
+
+  List<String> _ports = [];
   final _baudRates = ['110', '300', '600', '1200', '2400', '4800', '9600', '14400', '19200', '38400', '57600', '115200', '128000', '256000'];
   final _dataBitOptions = ['5', '6', '7', '8'];
   final _parityOptions = ['None', 'Odd', 'Even', 'Mark', 'Space'];
@@ -69,7 +96,13 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
   void dispose() {
     _liveReadingSub?.cancel();
     _rawDataSub?.cancel();
+    _testTimeout?.cancel();
+    _headerMsgTimer?.cancel();
+    _autoDetecting = false;
     _manualPasswordCtrl.dispose();
+    _tcpHostCtrl.dispose();
+    _tcpPortCtrl.dispose();
+    _customDelimiterCtrl.dispose();
     super.dispose();
   }
 
@@ -77,85 +110,295 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
     if (_loaded) return;
     _loaded = true;
     _detectPorts();
+    _connectionType = data['connectionType'] ?? 'serial';
     _uniformitySeconds = data['uniformitySeconds'] ?? 5;
     _autoCaptureWhenStable = data['autoCaptureWhenStable'] ?? true;
     _allowManualEntry = data['allowManualEntry'] ?? false;
     _manualPasswordCtrl.text = data['manualEntryPassword'] ?? '';
     _requireFaceVerification = data['requireFaceVerification'] ?? false;
-    _port = data['port'] ?? 'COM1';
+    final savedPort = data['port'] ?? '';
+    _port = _ports.contains(savedPort) ? savedPort : (_ports.isNotEmpty ? _ports.first : '');
     _baudRate = data['baudRate'] ?? 9600;
     _dataBits = data['dataBits'] ?? 8;
     _parity = data['parity'] ?? 'None';
     _stopBits = data['stopBits'] ?? '1';
     _flowControl = data['flowControl'] ?? 'None';
+    _tcpHostCtrl.text = data['tcpHost'] ?? '';
+    _tcpPortCtrl.text = '${data['tcpPort'] ?? 3001}';
     _readTimeout = data['readTimeout'] ?? 1000;
     _writeTimeout = data['writeTimeout'] ?? 1000;
     _readBufferSize = data['readBufferSize'] ?? 4096;
     _writeBufferSize = data['writeBufferSize'] ?? 2048;
-    _delimiter = data['delimiter'] ?? '\\r\\n';
+    final savedDelim = data['delimiter'] ?? '\\r\\n';
+    final standardDelims = ['\\r\\n', '\\r', '\\n', 'STX/ETX'];
+    if (standardDelims.contains(savedDelim)) {
+      _delimiter = savedDelim;
+    } else {
+      _delimiter = 'Custom';
+      _customDelimiterCtrl.text = savedDelim;
+    }
     _weightRegex = data['weightRegex'] ?? r'(\d+\.?\d*)';
     _dtrEnable = data['dtrEnable'] ?? false;
     _rtsEnable = data['rtsEnable'] ?? false;
   }
 
-  void _markDirty() {
-    if (!_dirty) setState(() => _dirty = true);
+  String get _autoDetectHint {
+    if (_connectionType == 'tcp') {
+      final ip = _tcpHostCtrl.text.trim();
+      if (ip.isEmpty) return 'Configure IP first';
+      if (!isValidIpAddress(ip)) return 'Valid IP required';
+    } else {
+      if (_port.isEmpty) return 'No port available';
+    }
+    if (_testResult == 'failed') return 'Host unreachable — retry';
+    if (_testResult == null) return 'Needs a working connection';
+    return '';
   }
 
-  Future<void> _save() async {
+  void _showHeaderMsg(String msg, {bool isError = false, int seconds = 4}) {
+    _headerMsgTimer?.cancel();
+    setState(() { _headerMsg = msg; _headerMsgIsError = isError; });
+    _headerMsgTimer = Timer(Duration(seconds: seconds), () {
+      if (mounted) setState(() => _headerMsg = null);
+    });
+  }
+
+  void _markCardDirty(String card) {
+    setState(() => _dirtyCards.add(card));
+  }
+
+  bool get _anyDirty => _dirtyCards.isNotEmpty;
+
+  Map<String, dynamic> _buildPayload() => {
+    'connectionType': _connectionType,
+    'uniformitySeconds': _uniformitySeconds,
+    'autoCaptureWhenStable': _autoCaptureWhenStable,
+    'allowManualEntry': _allowManualEntry,
+    'manualEntryPassword': _manualPasswordCtrl.text,
+    'requireFaceVerification': _requireFaceVerification,
+    'port': _port,
+    'baudRate': _baudRate,
+    'dataBits': _dataBits,
+    'parity': _parity,
+    'stopBits': _stopBits,
+    'flowControl': _flowControl,
+    'tcpHost': _tcpHostCtrl.text.trim(),
+    'tcpPort': int.tryParse(_tcpPortCtrl.text) ?? 3001,
+    'readTimeout': _readTimeout,
+    'writeTimeout': _writeTimeout,
+    'readBufferSize': _readBufferSize,
+    'writeBufferSize': _writeBufferSize,
+    'delimiter': _delimiter == 'Custom' ? _customDelimiterCtrl.text : _delimiter,
+    'weightRegex': _weightRegex,
+    'dtrEnable': _dtrEnable,
+    'rtsEnable': _rtsEnable,
+  };
+
+  Future<void> _saveCard(String card) async {
+    if (card == 'connection' && _connectionType == 'tcp') {
+      final ip = _tcpHostCtrl.text.trim();
+      if (ip.isNotEmpty && !isValidIpAddress(ip)) {
+        _showHeaderMsg('Invalid IP address format', isError: true);
+        return;
+      }
+    }
     setState(() => _saving = true);
     try {
-      final payload = {
-        'uniformitySeconds': _uniformitySeconds,
-        'autoCaptureWhenStable': _autoCaptureWhenStable,
-        'allowManualEntry': _allowManualEntry,
-        'manualEntryPassword': _manualPasswordCtrl.text,
-        'requireFaceVerification': _requireFaceVerification,
-        'port': _port,
-        'baudRate': _baudRate,
-        'dataBits': _dataBits,
-        'parity': _parity,
-        'stopBits': _stopBits,
-        'flowControl': _flowControl,
-        'readTimeout': _readTimeout,
-        'writeTimeout': _writeTimeout,
-        'readBufferSize': _readBufferSize,
-        'writeBufferSize': _writeBufferSize,
-        'delimiter': _delimiter,
-        'weightRegex': _weightRegex,
-        'dtrEnable': _dtrEnable,
-        'rtsEnable': _rtsEnable,
-      };
+      final payload = _buildPayload();
 
-      // Save locally
       final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
       final dir = Directory('$home/.weighbridge');
       if (!dir.existsSync()) dir.createSync(recursive: true);
       await File('${dir.path}/scale_config.json').writeAsString(jsonEncode(payload));
 
-      // Save to Firestore
-      final db = ref.read(firestoreProvider);
-      await db.collection('settings').doc('scale').set({
+      final db = ref.read(firestorePathsProvider);
+      await db.scaleSettings.set({
         ...payload,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Update running service config
       ref.read(scaleServiceProvider).updateConfig(ScaleConfig.fromMap(payload));
       ref.invalidate(_scaleSettingsProvider);
       ref.invalidate(scaleConfigProvider);
 
       if (mounted) {
-        setState(() => _dirty = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scale settings saved')));
+        setState(() {
+          _dirtyCards.remove(card);
+        });
+        _showHeaderMsg('${_cardLabel(card)} saved');
+        _testConnection();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+        _showHeaderMsg('Save failed: $e', isError: true);
       }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _saveAll() async {
+    setState(() => _saving = true);
+    try {
+      final payload = _buildPayload();
+
+      final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
+      final dir = Directory('$home/.weighbridge');
+      if (!dir.existsSync()) dir.createSync(recursive: true);
+      await File('${dir.path}/scale_config.json').writeAsString(jsonEncode(payload));
+
+      final db = ref.read(firestorePathsProvider);
+      await db.scaleSettings.set({
+        ...payload,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      ref.read(scaleServiceProvider).updateConfig(ScaleConfig.fromMap(payload));
+      ref.invalidate(_scaleSettingsProvider);
+      ref.invalidate(scaleConfigProvider);
+
+      if (mounted) {
+        setState(() {
+          _dirtyCards.clear();
+        });
+        _showHeaderMsg('All settings saved');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showHeaderMsg('Save failed: $e', isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  String _cardLabel(String card) {
+    switch (card) {
+      case 'connection': return 'Connection settings';
+      case 'advanced': return 'Advanced settings';
+      case 'capture': return 'Weight capture settings';
+      case 'manual': return 'Manual entry settings';
+      default: return 'Settings';
+    }
+  }
+
+  bool _isAtDefaults(String card) {
+    switch (card) {
+      case 'connection':
+        if (_connectionType == 'tcp') {
+          return _tcpHostCtrl.text.isEmpty &&
+              (_tcpPortCtrl.text == '3001' || _tcpPortCtrl.text.isEmpty) &&
+              _delimiter == '\\r\\n' &&
+              _weightRegex == r'(\d+\.?\d*)';
+        }
+        return _baudRate == 9600 &&
+            _dataBits == 8 &&
+            _parity == 'None' &&
+            _stopBits == '1' &&
+            _flowControl == 'None';
+      case 'advanced':
+        return _readTimeout == 1000 &&
+            _writeTimeout == 1000 &&
+            _readBufferSize == 4096 &&
+            _writeBufferSize == 2048 &&
+            _delimiter == '\\r\\n' &&
+            _weightRegex == r'(\d+\.?\d*)' &&
+            !_dtrEnable &&
+            !_rtsEnable;
+      case 'capture':
+        return _uniformitySeconds == 5 && _autoCaptureWhenStable == true;
+      case 'manual':
+        return !_allowManualEntry &&
+            _manualPasswordCtrl.text.isEmpty &&
+            !_requireFaceVerification;
+      default:
+        return true;
+    }
+  }
+
+  void _applyDefaults(String card) {
+    switch (card) {
+      case 'connection':
+        // Keep _connectionType and _port unchanged
+        if (_connectionType == 'tcp') {
+          _tcpHostCtrl.text = '';
+          _tcpPortCtrl.text = '3001';
+          _delimiter = '\\r\\n';
+          _customDelimiterCtrl.clear();
+          _weightRegex = r'(\d+\.?\d*)';
+        } else {
+          _baudRate = 9600;
+          _dataBits = 8;
+          _parity = 'None';
+          _stopBits = '1';
+          _flowControl = 'None';
+        }
+        break;
+      case 'advanced':
+        _readTimeout = 1000;
+        _writeTimeout = 1000;
+        _readBufferSize = 4096;
+        _writeBufferSize = 2048;
+        _delimiter = '\\r\\n';
+        _customDelimiterCtrl.clear();
+        _weightRegex = r'(\d+\.?\d*)';
+        _dtrEnable = false;
+        _rtsEnable = false;
+        _advancedMode = false;
+        break;
+      case 'capture':
+        _uniformitySeconds = 5;
+        _autoCaptureWhenStable = true;
+        break;
+      case 'manual':
+        _allowManualEntry = false;
+        _manualPasswordCtrl.text = '';
+        _requireFaceVerification = false;
+        break;
+    }
+  }
+
+  void _resetCardToDefaults(String card) {
+    setState(() {
+      _applyDefaults(card);
+      _dirtyCards.remove(card);
+    });
+    _saveCard(card);
+  }
+
+  void _resetAllToDefaults() {
+    setState(() {
+      for (final card in ['connection', 'advanced', 'capture', 'manual']) {
+        _applyDefaults(card);
+      }
+      _dirtyCards.clear();
+    });
+    _saveAll();
+  }
+
+  Future<bool> _onWillPop() async {
+    if (!_anyDirty) return true;
+    // If test connection succeeded with a reading, auto-save
+    if (_testResult == 'connected' && _liveWeight > 0) {
+      await _saveAll();
+      return true;
+    }
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Unsaved Changes'),
+        content: const Text('You have unsaved changes. Would you like to save before leaving?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, 'discard'), child: const Text('Discard')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, 'save'), child: const Text('Save All')),
+        ],
+      ),
+    );
+    if (result == 'save') {
+      await _saveAll();
+      return true;
+    }
+    return result == 'discard';
   }
 
   StreamSubscription<ScaleReading>? _liveReadingSub;
@@ -164,34 +407,62 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
   bool _liveStable = false;
   String _rawStream = '';
 
+  static final _serialPortWhitelist = RegExp(
+    r'(usbserial|usbmodem|ttyUSB|ttyS\d|ttyACM|COM\d|serial|SLAB|CH34|PL23|FT23|CP21)',
+    caseSensitive: false,
+  );
+
   void _detectPorts() {
-    final detected = ScaleService.availablePorts;
+    final all = ScaleService.availablePorts;
+    var detected = all.where((p) => _serialPortWhitelist.hasMatch(p)).toList();
+    // Fallback: if whitelist yields nothing, show all /dev/cu.* except obvious non-serial
+    if (detected.isEmpty) {
+      detected = all.where((p) {
+        final lower = p.toLowerCase();
+        return !lower.contains('bluetooth') &&
+            !lower.contains('buds') &&
+            !lower.contains('airpods') &&
+            !lower.contains('headphone') &&
+            !lower.contains('audio') &&
+            !lower.contains('speaker') &&
+            !lower.contains('beats') &&
+            !lower.contains('wlan') &&
+            !lower.contains('debug');
+      }).toList();
+    }
     if (detected.isNotEmpty) {
       setState(() {
-        _ports = [...detected, ..._ports.where((p) => !detected.contains(p))];
+        _ports = detected;
         if (!_ports.contains(_port)) _port = detected.first;
       });
     }
   }
 
+  Timer? _testTimeout;
+
   void _testConnection() {
     setState(() { _testingConnection = true; _testResult = null; _rawStream = ''; });
     _liveReadingSub?.cancel();
     _rawDataSub?.cancel();
+    _testTimeout?.cancel();
 
     final service = ref.read(scaleServiceProvider);
+    final resolvedDelimiter = _delimiter == 'Custom' ? _customDelimiterCtrl.text : _delimiter;
     final testConfig = ScaleConfig(
+      connectionType: _connectionType,
       port: _port,
       baudRate: _baudRate,
       dataBits: _dataBits,
       parity: _parity,
       stopBits: _stopBits,
       flowControl: _flowControl,
+      tcpHost: _tcpHostCtrl.text.trim(),
+      tcpPort: int.tryParse(_tcpPortCtrl.text) ?? 3001,
       readTimeout: _readTimeout,
       writeTimeout: _writeTimeout,
       readBufferSize: _readBufferSize,
       writeBufferSize: _writeBufferSize,
-      delimiter: _delimiter,
+      delimiter: resolvedDelimiter,
       weightRegex: _weightRegex,
       dtrEnable: _dtrEnable,
       rtsEnable: _rtsEnable,
@@ -199,6 +470,17 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       autoCaptureWhenStable: _autoCaptureWhenStable,
     );
     service.updateConfig(testConfig);
+
+    // Hard UI-level timeout — absolutely never spin longer than 10s
+    _testTimeout = Timer(const Duration(seconds: 10), () {
+      if (mounted && _testingConnection) {
+        service.disconnect();
+        setState(() {
+          _testingConnection = false;
+          _testResult = 'failed';
+        });
+      }
+    });
 
     _rawDataSub = service.rawDataStream.listen((data) {
       if (mounted) {
@@ -214,17 +496,27 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
         setState(() {
           _liveWeight = reading.weight;
           _liveStable = reading.stable;
-          if (_testResult != 'connected') _testResult = 'connected';
+          if (_testResult != 'connected') {
+            _testTimeout?.cancel();
+            _testingConnection = false;
+            _testResult = 'connected';
+          }
         });
       }
     });
 
     service.connect().then((success) {
+      _testTimeout?.cancel();
       if (mounted) {
         setState(() {
           _testingConnection = false;
           _testResult = success ? 'connected' : 'failed';
         });
+      }
+    }).catchError((_) {
+      _testTimeout?.cancel();
+      if (mounted) {
+        setState(() { _testingConnection = false; _testResult = 'failed'; });
       }
     });
   }
@@ -245,7 +537,19 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
     final async = ref.watch(_scaleSettingsProvider);
     async.whenData(_loadData);
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_anyDirty,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _onWillPop() && mounted) {
+          if (ref.read(wizardModeProvider)) {
+            ref.read(setupWizardProvider.notifier).previousStep();
+          } else {
+            context.go('/settings');
+          }
+        }
+      },
+      child: Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
       body: Column(
         children: [
@@ -259,15 +563,23 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildWeightCapture(scheme, text),
-                    const SizedBox(height: 20),
-                    _buildManualEntry(scheme, text),
-                    const SizedBox(height: 20),
-                    _buildSerialConnection(scheme, text),
-                    const SizedBox(height: 20),
-                    _buildAdvancedSerial(scheme, text),
-                    const SizedBox(height: 20),
-                    _buildConnectionTest(scheme, text),
+                    // Connection (type + details merged)
+                    _buildConnectionCard(scheme, text),
+                    const SizedBox(height: 24),
+                    // Advanced config (merged toggle + details)
+                    _buildAdvancedConfig(scheme, text),
+                    const SizedBox(height: 24),
+                    // Row 3: Weight Capture + Manual Entry
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(child: _buildWeightCapture(scheme, text)),
+                          const SizedBox(width: 24),
+                          Expanded(child: _buildManualEntry(scheme, text)),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -276,19 +588,26 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 
   Widget _buildHeader(ColorScheme scheme, TextTheme text) {
+    final isConnected = _testResult == 'connected';
+    final isFailed = _testResult == 'failed';
+    final canAutoDetect = isConnected || (!isFailed && _testResult != null && (_connectionType == 'serial'
+        ? _port.isNotEmpty
+        : _tcpHostCtrl.text.trim().isNotEmpty && isValidIpAddress(_tcpHostCtrl.text.trim())));
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
       decoration: BoxDecoration(color: scheme.surface, border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2)))),
       child: Row(
         children: [
-          IconButton(onPressed: () => context.go('/settings'), icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
-          const SizedBox(width: 12),
-          Icon(Icons.scale_rounded, size: 20, color: scheme.primary),
+          IconButton(onPressed: () async { if (await _onWillPop()) { if (ref.read(wizardModeProvider)) { ref.read(setupWizardProvider.notifier).previousStep(); } else { context.go('/settings'); } } }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
           const SizedBox(width: 10),
+          Icon(Icons.scale_rounded, size: 20, color: scheme.primary),
+          const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -296,13 +615,184 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               Text('Scale and indicator setup', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
             ],
           ),
+          const SizedBox(width: 24),
+          // Live weight / status display
+          Container(
+            constraints: const BoxConstraints(minWidth: 160),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isConnected
+                  ? scheme.primaryContainer.withValues(alpha: 0.3)
+                  : isFailed
+                      ? scheme.errorContainer.withValues(alpha: 0.2)
+                      : _autoDetecting
+                          ? scheme.tertiaryContainer.withValues(alpha: 0.2)
+                          : scheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isConnected
+                    ? scheme.primary.withValues(alpha: 0.4)
+                    : isFailed
+                        ? scheme.error.withValues(alpha: 0.4)
+                        : _autoDetecting
+                            ? scheme.tertiary.withValues(alpha: 0.4)
+                            : scheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_testingConnection || _autoDetecting)
+                  SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: _autoDetecting ? scheme.tertiary : null))
+                else
+                  Container(
+                    width: 8, height: 8,
+                    decoration: BoxDecoration(
+                      color: isConnected ? AppTheme.successColor : isFailed ? scheme.error : scheme.outlineVariant,
+                      shape: BoxShape.circle,
+                      boxShadow: isConnected ? [BoxShadow(color: AppTheme.successColor.withValues(alpha: 0.4), blurRadius: 6)] : null,
+                    ),
+                  ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      isConnected
+                          ? '${_liveWeight.toStringAsFixed(1)} KG'
+                          : _autoDetecting
+                              ? 'Detecting...'
+                              : _testingConnection
+                                  ? 'Connecting...'
+                                  : isFailed
+                                      ? 'Connection Failed'
+                                      : '------- KG',
+                      style: text.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        fontFamily: isConnected || (!_testingConnection && !isFailed && !_autoDetecting) ? 'monospace' : null,
+                        color: isConnected ? scheme.onSurface : isFailed ? scheme.error : _autoDetecting ? scheme.tertiary : scheme.outlineVariant,
+                      ),
+                    ),
+                    if (_autoDetecting)
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 180),
+                        child: Text(
+                          _autoDetectPhase,
+                          style: TextStyle(fontSize: 10, color: scheme.tertiary.withValues(alpha: 0.8)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    if (isFailed && !_testingConnection && !_autoDetecting)
+                      Text(
+                        ref.read(scaleServiceProvider).lastError ?? (_connectionType == 'tcp' ? 'Unreachable: ${_tcpHostCtrl.text.trim()}:${_tcpPortCtrl.text}' : 'Cannot open: $_port'),
+                        style: TextStyle(fontSize: 10, color: scheme.error.withValues(alpha: 0.7)),
+                      ),
+                    if (_testingConnection && !_autoDetecting)
+                      Text(
+                        _connectionType == 'tcp' ? '${_tcpHostCtrl.text.trim()}:${_tcpPortCtrl.text}' : '$_port @ $_baudRate',
+                        style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                      ),
+                  ],
+                ),
+                if (isConnected) ...[
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: (_liveStable ? AppTheme.successColor : const Color(0xFFF59E0B)).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      _liveStable ? 'STABLE' : 'SETTLING',
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: _liveStable ? AppTheme.successColor : const Color(0xFFF59E0B)),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Test connection button
+          TextButton(
+            onPressed: _testingConnection ? null : isConnected ? _disconnectTest : _testConnection,
+            style: TextButton.styleFrom(
+              foregroundColor: isConnected ? scheme.error : scheme.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(isConnected ? 'Disconnect' : isFailed ? 'Retry' : 'Test Connection', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 4),
+          // Auto-detect button with hint
+          if (_autoDetecting)
+            TextButton(
+              onPressed: () => setState(() => _autoDetecting = false),
+              style: TextButton.styleFrom(
+                foregroundColor: scheme.error,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Cancel Detection', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            )
+          else
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton(
+                  onPressed: canAutoDetect && !_testingConnection ? _startAutoDetect : null,
+                  style: TextButton.styleFrom(
+                    foregroundColor: _detectedConfig != null ? AppTheme.successColor : scheme.primary,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: Text(
+                    _detectedConfig != null ? 'Re-detect' : 'Auto-Detect',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                if (!canAutoDetect && !_testingConnection)
+                  Text(
+                    _autoDetectHint,
+                    style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                  ),
+              ],
+            ),
+          if (_headerMsg != null) ...[
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: (_headerMsgIsError ? scheme.error : AppTheme.successColor).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: (_headerMsgIsError ? scheme.error : AppTheme.successColor).withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _headerMsgIsError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+                    size: 14,
+                    color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _headerMsg!,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _headerMsgIsError ? scheme.error : AppTheme.successColor),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const Spacer(),
-          if (_dirty) ...[TextButton(onPressed: () { setState(() { _loaded = false; _dirty = false; }); ref.invalidate(_scaleSettingsProvider); }, child: const Text('Discard')), const SizedBox(width: 8)],
-          FilledButton.icon(
-            onPressed: _dirty && !_saving ? _save : null,
-            icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
-            label: Text(_saving ? 'Saving...' : 'Save'),
-            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+          TextButton(
+            onPressed: _resetAllToDefaults,
+            style: TextButton.styleFrom(
+              foregroundColor: scheme.onSurfaceVariant,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Reset All to Defaults', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -315,7 +805,12 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       icon: Icons.monitor_weight_rounded,
       title: 'Weight Capture',
       subtitle: 'Stability detection & auto-capture behaviour',
+      isDirty: _dirtyCards.contains('capture'),
+      onSave: _saving ? null : () => _saveCard('capture'),
+      onResetDefault: _isAtDefaults('capture') ? null : () => _resetCardToDefaults('capture'),
       children: [
+        _buildInfoRow('Scale readings fluctuate — uniformity duration ensures the weight is truly settled before capture.', scheme, text),
+        const SizedBox(height: 12),
         Text('Uniformity Duration', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
         Row(
@@ -324,7 +819,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
             return Padding(
               padding: const EdgeInsets.only(right: 10),
               child: GestureDetector(
-                onTap: () { setState(() => _uniformitySeconds = s); _markDirty(); },
+                onTap: () { setState(() => _uniformitySeconds = s); _markCardDirty('capture'); },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
@@ -347,7 +842,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
         const SizedBox(height: 8),
         Text('Weight must remain uniform for $_uniformitySeconds seconds before considered stable', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
         const SizedBox(height: 16),
-        _SwitchRow(label: 'Auto-Capture When Stable', subtitle: 'Automatically record weight once uniformity is achieved', value: _autoCaptureWhenStable, onChanged: (v) { setState(() => _autoCaptureWhenStable = v); _markDirty(); }),
+        _SwitchRow(label: 'Auto-Capture When Stable', subtitle: 'Automatically record weight once uniformity is achieved', value: _autoCaptureWhenStable, onChanged: (v) { setState(() => _autoCaptureWhenStable = v); _markCardDirty('capture'); }),
       ],
     );
   }
@@ -358,53 +853,278 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       icon: Icons.keyboard_rounded,
       title: 'Manual Entry',
       subtitle: 'Password-protected manual weight input',
+      isDirty: _dirtyCards.contains('manual'),
+      onSave: _saving ? null : () => _saveCard('manual'),
+      onResetDefault: _isAtDefaults('manual') ? null : () => _resetCardToDefaults('manual'),
       children: [
-        _SwitchRow(label: 'Allow Manual Weight Entry', subtitle: 'Operators can type weight manually when enabled', value: _allowManualEntry, onChanged: (v) { setState(() => _allowManualEntry = v); _markDirty(); }),
+        _buildInfoRow('Use when the scale is unavailable or for manual corrections. Protected by password to prevent misuse.', scheme, text),
+        const SizedBox(height: 12),
+        _SwitchRow(label: 'Allow Manual Weight Entry', subtitle: 'Operators can type weight manually when enabled', value: _allowManualEntry, onChanged: (v) { setState(() => _allowManualEntry = v); _markCardDirty('manual'); }),
         if (_allowManualEntry) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text('Manual Entry Password', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           TextField(
             controller: _manualPasswordCtrl,
             obscureText: true,
             style: text.bodySmall,
-            onChanged: (_) => _markDirty(),
+            onChanged: (_) => _markCardDirty('manual'),
             decoration: const InputDecoration(hintText: 'Admin-set password for manual entry', prefixIcon: Icon(Icons.lock_rounded, size: 16), prefixIconConstraints: BoxConstraints(minWidth: 40), isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
           ),
-          const SizedBox(height: 6),
-          Text('Operators must enter this password to use manual entry.', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-          const SizedBox(height: 14),
-          _SwitchRow(label: 'Require Face Verification', subtitle: 'Operator must pass face ID during verification step', value: _requireFaceVerification, onChanged: (v) { setState(() => _requireFaceVerification = v); _markDirty(); }),
-          if (_requireFaceVerification) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(8)),
-              child: Row(
-                children: [
-                  Icon(Icons.face_rounded, size: 18, color: scheme.primary),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text('Face verification triggers during operator verification. Admin grants manual entry privilege per operator.', style: text.bodySmall?.copyWith(color: scheme.onPrimaryContainer))),
-                ],
-              ),
-            ),
-          ],
+          const SizedBox(height: 4),
+          Text('Operators must enter this password to use manual entry.', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+          const SizedBox(height: 12),
+          _SwitchRow(label: 'Require Face Verification', subtitle: 'Operator must pass face ID during verification step', value: _requireFaceVerification, onChanged: (v) { setState(() => _requireFaceVerification = v); _markCardDirty('manual'); }),
         ],
       ],
     );
   }
 
 
-  Widget _buildSerialConnection(ColorScheme scheme, TextTheme text) {
+  Widget _buildConnectionCard(ColorScheme scheme, TextTheme text) {
     return _Section(
       scheme: scheme,
-      icon: Icons.settings_input_svideo_rounded,
-      title: 'Serial Port Connection',
-      subtitle: 'COM port settings for scale communication',
+      icon: Icons.swap_horiz_rounded,
+      title: 'Scale Connection',
+      subtitle: 'Configure how the scale communicates with this system',
+      isDirty: _dirtyCards.contains('connection'),
+      onSave: _saving ? null : () => _saveCard('connection'),
+      onResetDefault: _isAtDefaults('connection') ? null : () => _resetCardToDefaults('connection'),
       children: [
+        _buildInfoRow('Serial is standard for most weighbridges. Use TCP for Wi-Fi indicators or remote scales.', scheme, text),
+        const SizedBox(height: 12),
+        // Type selector
         Row(
           children: [
-            Expanded(child: _buildDropdown('Port', _port, _ports, (v) { setState(() => _port = v!); _markDirty(); }, text)),
+            Expanded(child: _buildConnectionTypeChip('serial', 'Serial / USB', Icons.usb_rounded, scheme)),
+            const SizedBox(width: 10),
+            Expanded(child: _buildConnectionTypeChip('tcp', 'Wireless / TCP', Icons.wifi_rounded, scheme)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
+        const SizedBox(height: 16),
+        // Connection details
+        if (_connectionType == 'serial') ..._buildSerialFields(scheme, text)
+        else ..._buildTcpFields(scheme, text),
+      ],
+    );
+  }
+
+  Widget _buildConnectionTypeChip(String type, String label, IconData icon, ColorScheme scheme) {
+    final selected = _connectionType == type;
+    return GestureDetector(
+      onTap: () { setState(() { _connectionType = type; _testResult = null; _headerMsg = null; }); _markCardDirty('connection'); },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? scheme.primaryContainer.withValues(alpha: 0.5) : scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: selected ? scheme.primary.withValues(alpha: 0.6) : scheme.outlineVariant.withValues(alpha: 0.3), width: selected ? 1.5 : 1),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18, color: selected ? scheme.primary : scheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: selected ? scheme.primary : scheme.onSurface)),
+            if (selected) ...[const SizedBox(width: 6), Icon(Icons.check_circle_rounded, size: 14, color: scheme.primary)],
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildTcpFields(ColorScheme scheme, TextTheme text) {
+    return [
+      _buildInfoRow('Enter the IP address and port of your wireless scale or TCP-to-serial converter.', scheme, text),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Host / IP Address', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 5),
+                TextFormField(
+                  controller: _tcpHostCtrl,
+                  style: text.bodySmall,
+                  inputFormatters: [IpInputFormatter()],
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  validator: validateIpAddress,
+                  onChanged: (_) => _markCardDirty('connection'),
+                  decoration: InputDecoration(
+                    hintText: '192.168.1.100',
+                    prefixIcon: const Icon(Icons.router_rounded, size: 16),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 40),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Port', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 5),
+                TextField(
+                  controller: _tcpPortCtrl,
+                  style: text.bodySmall,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => _markCardDirty('connection'),
+                  decoration: InputDecoration(
+                    hintText: '3001',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 14),
+      _buildInfoRow('Delimiter marks where each weight reading ends. Regex extracts the numeric value.', scheme, text),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(child: _buildDelimiterField('connection', text, scheme)),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text('Weight Regex', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 4),
+                    Tooltip(message: 'Pattern to extract numeric weight from raw data.\nDefault works for most scales outputting plain numbers.', child: Icon(Icons.info_outline_rounded, size: 12, color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                TextField(
+                  controller: TextEditingController(text: _weightRegex),
+                  style: text.bodySmall?.copyWith(fontFamily: 'monospace'),
+                  onChanged: (v) { _weightRegex = v; _markCardDirty('connection'); },
+                  decoration: InputDecoration(hintText: r'(\d+\.?\d*)', isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 14),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+        child: Row(
+          children: [
+            Icon(Icons.terminal_rounded, size: 14, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Text(
+              'tcp://${_tcpHostCtrl.text.isEmpty ? '...' : _tcpHostCtrl.text}:${_tcpPortCtrl.text}',
+              style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontWeight: FontWeight.w600, color: scheme.primary),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  void _startAutoDetect() {
+    setState(() { _autoDetecting = true; _autoDetectPhase = 'Connecting...'; _detectedConfig = null; });
+
+    ScaleService.autoDetect(
+      port: _connectionType == 'serial' ? _port : null,
+      tcpHost: _connectionType == 'tcp' ? _tcpHostCtrl.text.trim() : null,
+      tcpPort: _connectionType == 'tcp' ? (int.tryParse(_tcpPortCtrl.text) ?? 3001) : null,
+      onProgress: (_, __, desc) {
+        if (mounted) setState(() => _autoDetectPhase = desc);
+      },
+      isCancelled: () => !_autoDetecting,
+    ).timeout(const Duration(seconds: 15), onTimeout: () => null).then((config) {
+      if (!mounted) return;
+      if (config != null) {
+        setState(() {
+          _detectedConfig = config;
+          _autoDetecting = false;
+          _connectionType = config.connectionType;
+          _baudRate = config.baudRate;
+          _dataBits = config.dataBits;
+          _parity = config.parity;
+          _stopBits = config.stopBits;
+          _delimiter = config.delimiter;
+          _weightRegex = config.weightRegex;
+          if (config.connectionType == 'tcp') {
+            _tcpHostCtrl.text = config.tcpHost;
+            _tcpPortCtrl.text = '${config.tcpPort}';
+          }
+        });
+        _markCardDirty('connection');
+        _showHeaderMsg('Scale detected successfully');
+      } else {
+        setState(() { _autoDetecting = false; _detectedConfig = null; });
+        final reason = _connectionType == 'tcp'
+            ? 'Cannot reach ${_tcpHostCtrl.text.trim()}:${_tcpPortCtrl.text}'
+            : _ports.isEmpty
+                ? 'No serial ports available'
+                : 'No scale data received on $_port';
+        _showHeaderMsg('Detection failed — $reason', isError: true, seconds: 6);
+      }
+    });
+  }
+
+
+  List<Widget> _buildSerialFields(ColorScheme scheme, TextTheme text) {
+    return [
+      if (_ports.isEmpty) ...[
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: scheme.errorContainer.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.usb_off_rounded, size: 20, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('No serial ports detected', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text('Connect a USB-to-Serial adapter and tap refresh', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              IconButton.outlined(
+                onPressed: _detectPorts,
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                tooltip: 'Detect available ports',
+                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+      ] else ...[
+        _buildInfoRow('Select the COM port your scale is connected to and match the baud rate from your scale manual.', scheme, text),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _buildDropdown('Port', _port, _ports, (v) { setState(() => _port = v!); _markCardDirty('connection'); }, text)),
             const SizedBox(width: 8),
             Padding(
               padding: const EdgeInsets.only(top: 18),
@@ -416,26 +1136,30 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               ),
             ),
             const SizedBox(width: 14),
-            Expanded(child: _buildDropdown('Bits Per Second (Baud Rate)', _baudRate.toString(), _baudRates, (v) { setState(() => _baudRate = int.parse(v!)); _markDirty(); }, text)),
+            Expanded(child: _buildDropdown('Baud Rate', _baudRate.toString(), _baudRates, (v) { setState(() => _baudRate = int.parse(v!)); _markCardDirty('connection'); }, text)),
           ],
         ),
+      ],
+      const SizedBox(height: 14),
+      _buildInfoRow('Data format settings must match your scale. Most scales use 8-N-1 (8 data bits, no parity, 1 stop bit).', scheme, text),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(child: _buildDropdown('Data Bits', _dataBits.toString(), _dataBitOptions, (v) { setState(() => _dataBits = int.parse(v!)); _markCardDirty('connection'); }, text)),
+          const SizedBox(width: 14),
+          Expanded(child: _buildDropdown('Parity', _parity, _parityOptions, (v) { setState(() => _parity = v!); _markCardDirty('connection'); }, text)),
+        ],
+      ),
+      const SizedBox(height: 14),
+      Row(
+        children: [
+          Expanded(child: _buildDropdown('Stop Bits', _stopBits, _stopBitOptions, (v) { setState(() => _stopBits = v!); _markCardDirty('connection'); }, text)),
+          const SizedBox(width: 14),
+          Expanded(child: _buildDropdown('Flow Control', _flowControl, _flowControlOptions, (v) { setState(() => _flowControl = v!); _markCardDirty('connection'); }, text)),
+        ],
+      ),
+      if (_port.isNotEmpty) ...[
         const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(child: _buildDropdown('Data Bits', _dataBits.toString(), _dataBitOptions, (v) { setState(() => _dataBits = int.parse(v!)); _markDirty(); }, text)),
-            const SizedBox(width: 14),
-            Expanded(child: _buildDropdown('Parity', _parity, _parityOptions, (v) { setState(() => _parity = v!); _markDirty(); }, text)),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(child: _buildDropdown('Stop Bits', _stopBits, _stopBitOptions, (v) { setState(() => _stopBits = v!); _markDirty(); }, text)),
-            const SizedBox(width: 14),
-            Expanded(child: _buildDropdown('Flow Control', _flowControl, _flowControlOptions, (v) { setState(() => _flowControl = v!); _markDirty(); }, text)),
-          ],
-        ),
-        const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
@@ -451,212 +1175,173 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           ),
         ),
       ],
-    );
+    ];
   }
 
-  Widget _buildAdvancedSerial(ColorScheme scheme, TextTheme text) {
-    return _Section(
-      scheme: scheme,
-      icon: Icons.tune_rounded,
-      title: 'Advanced Serial Configuration',
-      subtitle: 'Timeouts, buffers, line parsing & control signals',
-      children: [
-        Row(
-          children: [
-            Expanded(child: _buildNumberField('Read Timeout (ms)', _readTimeout, (v) { _readTimeout = v; _markDirty(); }, text)),
-            const SizedBox(width: 14),
-            Expanded(child: _buildNumberField('Write Timeout (ms)', _writeTimeout, (v) { _writeTimeout = v; _markDirty(); }, text)),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(child: _buildNumberField('Read Buffer (bytes)', _readBufferSize, (v) { _readBufferSize = v; _markDirty(); }, text)),
-            const SizedBox(width: 14),
-            Expanded(child: _buildNumberField('Write Buffer (bytes)', _writeBufferSize, (v) { _writeBufferSize = v; _markDirty(); }, text)),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(child: _buildDropdown('Line Delimiter', _delimiter, _delimiterOptions, (v) { setState(() => _delimiter = v!); _markDirty(); }, text)),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Weight Extraction Regex', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 5),
-                  TextField(
-                    controller: TextEditingController(text: _weightRegex),
-                    style: text.bodySmall?.copyWith(fontFamily: 'monospace'),
-                    onChanged: (v) { _weightRegex = v; _markDirty(); },
-                    decoration: InputDecoration(hintText: r'(\d+\.?\d*)', isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 18),
-        Text('Control Signals', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(child: _SwitchRow(label: 'DTR (Data Terminal Ready)', subtitle: 'Assert DTR on connect', value: _dtrEnable, onChanged: (v) { setState(() => _dtrEnable = v); _markDirty(); })),
-            const SizedBox(width: 14),
-            Expanded(child: _SwitchRow(label: 'RTS (Request To Send)', subtitle: 'Assert RTS on connect', value: _rtsEnable, onChanged: (v) { setState(() => _rtsEnable = v); _markDirty(); })),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildConnectionTest(ColorScheme scheme, TextTheme text) {
-    final isConnected = _testResult == 'connected';
-    final isFailed = _testResult == 'failed';
-
-    return _Section(
-      scheme: scheme,
-      icon: Icons.speed_rounded,
-      title: 'Connection Test & Live Weight',
-      subtitle: 'Verify serial link and view incoming data',
-      borderColor: isConnected ? scheme.primary.withValues(alpha: 0.3) : isFailed ? scheme.error.withValues(alpha: 0.3) : null,
-      children: [
-        Row(
-          children: [
-            FilledButton.tonal(
-              onPressed: _testingConnection ? null : (isConnected ? _disconnectTest : _testConnection),
-              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _testingConnection
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Icon(isConnected ? Icons.link_off_rounded : Icons.cable_rounded, size: 16, color: isConnected ? scheme.error : scheme.primary),
-                  const SizedBox(width: 8),
-                  Text(_testingConnection ? 'Connecting...' : isConnected ? 'Disconnect' : 'Test Connection'),
-                ],
-              ),
-            ),
-            const SizedBox(width: 14),
-            if (isConnected) ...[
-              Container(width: 8, height: 8, decoration: BoxDecoration(color: const Color(0xFF059669), shape: BoxShape.circle, boxShadow: [BoxShadow(color: const Color(0xFF059669).withValues(alpha: 0.4), blurRadius: 6)])),
-              const SizedBox(width: 6),
-              Text('Connected', style: text.labelMedium?.copyWith(color: const Color(0xFF059669), fontWeight: FontWeight.w600)),
-            ] else if (isFailed) ...[
-              Container(width: 8, height: 8, decoration: BoxDecoration(color: scheme.error, shape: BoxShape.circle)),
-              const SizedBox(width: 6),
-              Text('Failed to connect', style: text.labelMedium?.copyWith(color: scheme.error, fontWeight: FontWeight.w600)),
-            ],
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isConnected ? scheme.primary.withValues(alpha: 0.3) : scheme.outlineVariant.withValues(alpha: 0.2)),
-          ),
-          child: Row(
+  Widget _buildAdvancedConfig(ColorScheme scheme, TextTheme text) {
+    final isDirty = _dirtyCards.contains('advanced');
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDirty ? scheme.primary.withValues(alpha: 0.4) : _advancedMode ? scheme.primary.withValues(alpha: 0.25) : scheme.outlineVariant.withValues(alpha: 0.25)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Icon(Icons.monitor_weight_outlined, size: 24, color: isConnected ? scheme.primary : scheme.outlineVariant),
-              const SizedBox(width: 14),
-              Text(
-                isConnected ? '${_liveWeight.toStringAsFixed(1)} kg' : '--- kg',
-                style: text.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontFamily: 'monospace',
-                  letterSpacing: 1,
-                  color: isConnected ? scheme.onSurface : scheme.outlineVariant,
+              Icon(Icons.tune_rounded, size: 18, color: _advancedMode ? scheme.primary : scheme.onSurfaceVariant),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Advanced Configuration', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      _advancedMode
+                          ? 'Custom parameters active — timeouts, buffers, signals'
+                          : 'Using defaults — enable to customize',
+                      style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isConnected
-                      ? (_liveStable ? const Color(0xFF059669) : const Color(0xFFF59E0B)).withValues(alpha: 0.1)
-                      : scheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(6),
+              if (!_isAtDefaults('advanced'))
+                TextButton(
+                  onPressed: () => _resetCardToDefaults('advanced'),
+                  style: TextButton.styleFrom(foregroundColor: scheme.onSurfaceVariant, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))),
+                  child: const Text('Reset to Default', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                 ),
-                child: Text(
-                  isConnected ? (_liveStable ? 'STABLE' : 'SETTLING') : 'NO SIGNAL',
-                  style: text.labelSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                    color: isConnected
-                        ? (_liveStable ? const Color(0xFF059669) : const Color(0xFFF59E0B))
-                        : scheme.outlineVariant,
-                  ),
+              if (isDirty) ...[
+                const SizedBox(width: 6),
+                FilledButton(
+                  onPressed: _saving ? null : () => _saveCard('advanced'),
+                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)), textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  child: const Text('Save'),
                 ),
+              ],
+              const SizedBox(width: 10),
+              Switch(
+                value: _advancedMode,
+                onChanged: (v) {
+                  setState(() {
+                    _advancedMode = v;
+                    if (!v) _resetToDefaults();
+                  });
+                },
               ),
             ],
           ),
-        ),
-        if (isConnected && _rawStream.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: scheme.surfaceContainerLowest, borderRadius: BorderRadius.circular(8)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (_advancedMode) ...[
+            const SizedBox(height: 16),
+            Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
+            const SizedBox(height: 16),
+            _buildInfoRow('Timeouts control how long to wait for data before giving up.', scheme, text),
+            const SizedBox(height: 10),
+            Row(
               children: [
-                Text('Raw Data Stream', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-                const SizedBox(height: 4),
-                Text(
-                  _rawStream.replaceAll('\r', '\\r').replaceAll('\n', '\\n'),
-                  style: text.bodySmall?.copyWith(fontFamily: 'monospace', color: scheme.primary),
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
+                Expanded(child: _buildNumberFieldWithInfo('Read Timeout (ms)', _readTimeout, 'How long to wait for incoming data before timeout', (v) { _readTimeout = v; _markCardDirty('advanced'); }, text, scheme)),
+                const SizedBox(width: 14),
+                Expanded(child: _buildNumberFieldWithInfo('Write Timeout (ms)', _writeTimeout, 'How long to wait for outgoing data to be sent', (v) { _writeTimeout = v; _markCardDirty('advanced'); }, text, scheme)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _buildInfoRow('Buffers store incoming/outgoing bytes. Increase if data is being lost.', scheme, text),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _buildNumberFieldWithInfo('Read Buffer (bytes)', _readBufferSize, 'Size of incoming data buffer — increase for high-speed scales', (v) { _readBufferSize = v; _markCardDirty('advanced'); }, text, scheme)),
+                const SizedBox(width: 14),
+                Expanded(child: _buildNumberFieldWithInfo('Write Buffer (bytes)', _writeBufferSize, 'Size of outgoing command buffer', (v) { _writeBufferSize = v; _markCardDirty('advanced'); }, text, scheme)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _buildInfoRow('Delimiter marks where each weight reading ends. Regex extracts the number.', scheme, text),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _buildDelimiterField('advanced', text, scheme)),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text('Weight Regex', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+                          const SizedBox(width: 4),
+                          Tooltip(message: 'Pattern to extract numeric weight from raw data.\nDefault works for most scales outputting plain numbers.', child: Icon(Icons.info_outline_rounded, size: 12, color: scheme.onSurfaceVariant)),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      TextField(
+                        controller: TextEditingController(text: _weightRegex),
+                        style: text.bodySmall?.copyWith(fontFamily: 'monospace'),
+                        onChanged: (v) { _weightRegex = v; _markCardDirty('advanced'); },
+                        decoration: InputDecoration(hintText: r'(\d+\.?\d*)', isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
-        if (isFailed) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(8)),
-            child: Row(
+            const SizedBox(height: 14),
+            _buildInfoRow('Control signals power some older scale indicators. Enable only if required.', scheme, text),
+            const SizedBox(height: 10),
+            Row(
               children: [
-                Icon(Icons.info_outline_rounded, size: 14, color: scheme.error),
-                const SizedBox(width: 8),
-                Expanded(child: Text('Check port name, cable connection, and ensure no other application is using the port.', style: text.bodySmall?.copyWith(color: scheme.onErrorContainer))),
+                Expanded(child: _SwitchRow(label: 'DTR (Data Terminal Ready)', subtitle: 'Powers indicator via serial pin', value: _dtrEnable, onChanged: (v) { setState(() => _dtrEnable = v); _markCardDirty('advanced'); })),
+                const SizedBox(width: 14),
+                Expanded(child: _SwitchRow(label: 'RTS (Request To Send)', subtitle: 'Flow control signal for older scales', value: _rtsEnable, onChanged: (v) { setState(() => _rtsEnable = v); _markCardDirty('advanced'); })),
               ],
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
-  Widget _buildDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged, TextTheme text) {
+  void _resetToDefaults() {
+    _resetCardToDefaults('advanced');
+  }
+
+  Widget _buildInfoRow(String text, ColorScheme scheme, TextTheme textTheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary.withValues(alpha: 0.6)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: textTheme.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant, height: 1.4))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNumberFieldWithInfo(String label, int value, String tooltip, ValueChanged<int> onChanged, TextTheme text, ColorScheme scheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 5),
-        DropdownButtonFormField<String>(
-          initialValue: value,
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall))).toList(),
-          onChanged: onChanged,
-          decoration: InputDecoration(contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), isDense: true),
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
+        Row(
+          children: [
+            Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(width: 4),
+            Tooltip(message: tooltip, child: Icon(Icons.info_outline_rounded, size: 12, color: scheme.onSurfaceVariant)),
+          ],
         ),
-      ],
-    );
-  }
-
-  Widget _buildNumberField(String label, int value, ValueChanged<int> onChanged, TextTheme text) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 5),
         TextField(
           controller: TextEditingController(text: value.toString()),
@@ -668,6 +1353,65 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       ],
     );
   }
+
+
+  Widget _buildDelimiterField(String card, TextTheme text, ColorScheme scheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Line Delimiter', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 5),
+        DropdownButtonFormField<String>(
+          initialValue: _delimiterOptions.contains(_delimiter) ? _delimiter : 'Custom',
+          items: _delimiterOptions.map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall))).toList(),
+          onChanged: (v) {
+            if (v != _delimiter) {
+              setState(() => _delimiter = v!);
+              _markCardDirty(card);
+            }
+          },
+          decoration: InputDecoration(contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), isDense: true),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
+        ),
+        if (_delimiter == 'Custom') ...[
+          const SizedBox(height: 8),
+          TextField(
+            controller: _customDelimiterCtrl,
+            style: text.bodySmall?.copyWith(fontFamily: 'monospace'),
+            onChanged: (_) => _markCardDirty(card),
+            decoration: InputDecoration(
+              hintText: r'e.g. \x02...\x03, |, ;',
+              hintStyle: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged, TextTheme text) {
+    final safeValue = items.contains(value) ? value : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 5),
+        DropdownButtonFormField<String>(
+          initialValue: safeValue,
+          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall))).toList(),
+          onChanged: (v) {
+            if (v != value) onChanged(v);
+          },
+          decoration: InputDecoration(contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), isDense: true),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
+        ),
+      ],
+    );
+  }
+
 }
 
 class _Section extends StatelessWidget {
@@ -676,9 +1420,11 @@ class _Section extends StatelessWidget {
   final String title;
   final String subtitle;
   final List<Widget> children;
-  final Color? borderColor;
+  final bool isDirty;
+  final VoidCallback? onSave;
+  final VoidCallback? onResetDefault;
 
-  const _Section({required this.scheme, required this.icon, required this.title, required this.subtitle, required this.children, this.borderColor});
+  const _Section({required this.scheme, required this.icon, required this.title, required this.subtitle, required this.children, this.isDirty = false, this.onSave, this.onResetDefault});
 
   @override
   Widget build(BuildContext context) {
@@ -689,26 +1435,51 @@ class _Section extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor ?? scheme.outlineVariant.withValues(alpha: 0.25)),
+        border: Border.all(color: isDirty ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Icon(icon, size: 18, color: scheme.primary),
               const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                  Text(subtitle, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(subtitle, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                  ],
+                ),
               ),
+              if (onResetDefault != null)
+                TextButton(
+                  onPressed: onResetDefault,
+                  style: TextButton.styleFrom(
+                    foregroundColor: scheme.onSurfaceVariant,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  child: const Text('Reset to Default', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                ),
+              if (isDirty && onSave != null) ...[
+                const SizedBox(width: 6),
+                FilledButton(
+                  onPressed: onSave,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                  child: const Text('Save'),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           ...children,
         ],
       ),

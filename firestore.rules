@@ -3,67 +3,176 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Companies
+    // ─── Top-level: Companies ───────────────────────────────────────
     match /companies/{companyId} {
       allow read: if true;
       allow create: if true;
       allow update, delete: if true;
+
+      // ─── Company-wide collections ──────────────────────────────────
+
+      match /customers/{customerId} {
+        allow read, write: if true;
+      }
+
+      match /customers_deleted/{customerId} {
+        allow read, write: if true;
+      }
+
+      match /customer_merges/{mergeId} {
+        allow read, write: if true;
+      }
+
+      match /materials/{materialId} {
+        allow read, write: if true;
+      }
+
+      match /vehicles/{vehicleId} {
+        allow read, write: if true;
+      }
+
+      match /auditLog/{logId} {
+        allow read: if true;
+        allow create: if true;
+        allow update, delete: if false;
+      }
+
+      match /notifications/{notifId} {
+        allow read, write: if true;
+      }
+
+      match /training_data/{sampleId} {
+        allow read, write: if true;
+      }
+
+      // ─── Sites ────────────────────────────────────────────────────
+
+      match /sites/{siteId} {
+        allow read, write: if true;
+
+        match /operators/{operatorId} {
+          allow read, write: if true;
+        }
+
+        match /settings/{settingId} {
+          allow read, write: if true;
+        }
+
+        match /sessions/{sessionId} {
+          allow read, write: if true;
+        }
+
+        // ─── Weighbridges ──────────────────────────────────────────
+
+        match /weighbridges/{weighbridgeId} {
+          allow read, write: if true;
+
+          match /weighments/{weighmentId} {
+            allow read, write: if true;
+          }
+
+          match /queues/{queueId} {
+            allow read, write: if true;
+          }
+
+          match /counters/{counterId} {
+            allow read, write: if true;
+          }
+
+          match /cameras/{cameraId} {
+            allow read, write: if true;
+          }
+
+          match /gateEvents/{eventId} {
+            allow read: if true;
+            allow create: if true;
+            allow update, delete: if false;
+          }
+
+          match /gateCommands/{commandId} {
+            allow read, write: if true;
+          }
+
+          match /settings/{settingId} {
+            allow read, write: if true;
+          }
+
+          match /print_log/{logId} {
+            allow read, write: if true;
+          }
+        }
+      }
     }
 
-    // Operators
+    // ─── Collection group queries (for cross-company lookups) ────────
+
+    match /{path=**}/operators/{operatorId} {
+      allow read: if true;
+    }
+
+    // ─── Legacy flat collections (migration period) ─────────────────
+
     match /operators/{operatorId} {
       allow read, write: if true;
     }
 
-    // Settings
     match /settings/{settingId} {
       allow read, write: if true;
     }
 
-    // Audit Log
     match /auditLog/{logId} {
       allow read: if true;
       allow create: if true;
       allow update, delete: if false;
     }
 
-    // Notifications
     match /notifications/{notifId} {
       allow read, write: if true;
     }
 
-    // Customers
     match /customers/{customerId} {
       allow read, write: if true;
     }
 
-    // Materials
+    match /customers_deleted/{customerId} {
+      allow read, write: if true;
+    }
+
+    match /customer_merges/{mergeId} {
+      allow read, write: if true;
+    }
+
     match /materials/{materialId} {
       allow read, write: if true;
     }
 
-    // Vehicles
     match /vehicles/{vehicleId} {
       allow read, write: if true;
     }
 
-    // Weighments
     match /weighments/{weighmentId} {
       allow read, write: if true;
     }
 
-    // Queues
     match /queues/{queueId} {
       allow read, write: if true;
     }
 
-    // Counters (RST numbers)
     match /counters/{counterId} {
       allow read, write: if true;
     }
 
-    // Cameras configuration
     match /cameras/{cameraId} {
+      allow read, write: if true;
+    }
+
+    match /gateEvents/{eventId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if false;
+    }
+
+    match /gateCommands/{commandId} {
       allow read, write: if true;
     }
   }

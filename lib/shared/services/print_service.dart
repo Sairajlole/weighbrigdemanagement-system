@@ -14,6 +14,34 @@ class PrintService {
 
   PrintService(this._db);
 
+  // ─── Snapshot Extraction ────────────────────────────────────────────────────
+
+  static ({List<String> grossPaths, List<String> tarePaths, List<String> grossLabels, List<String> tareLabels}) extractSnapshots(Map<String, dynamic> w) {
+    final csRaw = w['cameraSnapshots'] as Map<String, dynamic>? ?? {};
+    final labelsMap = w['cameraLabels'] is Map ? (w['cameraLabels'] as Map).cast<String, dynamic>() : <String, dynamic>{};
+    const defaultOrder = ['cam1', 'cam2', 'cam3', 'cam4', 'cam5', 'operator', 'customer'];
+
+    List<String> orderedKeys(Map<String, dynamic> phaseMap) {
+      final keys = defaultOrder.where((k) => phaseMap.containsKey(k)).toList();
+      for (final k in phaseMap.keys) {
+        if (!keys.contains(k)) keys.add(k);
+      }
+      return keys;
+    }
+
+    final grossMap = csRaw['gross'] is Map ? (csRaw['gross'] as Map).cast<String, dynamic>() : <String, dynamic>{};
+    final tareMap = csRaw['tare'] is Map ? (csRaw['tare'] as Map).cast<String, dynamic>() : <String, dynamic>{};
+    final grossKeys = orderedKeys(grossMap);
+    final tareKeys = orderedKeys(tareMap);
+
+    return (
+      grossPaths: grossKeys.map((k) => grossMap[k]?.toString() ?? '').toList(),
+      tarePaths: tareKeys.map((k) => tareMap[k]?.toString() ?? '').toList(),
+      grossLabels: grossKeys.map((k) => labelsMap[k]?.toString() ?? k).toList(),
+      tareLabels: tareKeys.map((k) => labelsMap[k]?.toString() ?? k).toList(),
+    );
+  }
+
   // ─── Data Fetching ─────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> _fetchCompanyInfo() async {
@@ -54,6 +82,23 @@ class PrintService {
   Future<String> _fetchScalePort() async {
     final doc = await _db.collection('settings').doc('scale').get();
     return doc.exists ? (doc.data()?['port'] as String? ?? '') : '';
+  }
+
+  Future<Uint8List?> _fetchImageBytes(String url) async {
+    if (url.isEmpty) return null;
+    final client = HttpClient();
+    try {
+      client.connectionTimeout = const Duration(seconds: 5);
+      final request = await client.getUrl(Uri.parse(url));
+      final response = await request.close();
+      if (response.statusCode != 200) return null;
+      final bytes = await response.fold<List<int>>([], (prev, chunk) => prev..addAll(chunk));
+      return Uint8List.fromList(bytes);
+    } catch (_) {
+      return null;
+    } finally {
+      client.close();
+    }
   }
 
   // ─── Placeholder Substitution ──────────────────────────────────────────────
@@ -187,6 +232,12 @@ class PrintService {
         'rstNumber': '1042',
         'operatorName': 'Rajesh Kumar',
         'status': 'completed',
+        'firstWeighType': 'gross',
+        'cameraSnapshots': {
+          'gross': {'cam1': '', 'cam2': '', 'cam3': '', 'cam4': '', 'cam5': ''},
+          'tare': {'cam1': '', 'cam2': '', 'cam3': '', 'cam4': '', 'cam5': ''},
+        },
+        'cameraLabels': {'cam1': 'Front', 'cam2': 'Rear', 'cam3': 'Top', 'cam4': 'Side-Right', 'cam5': 'Side-Left'},
       };
 
       final placeholders = _buildPlaceholderMap(
@@ -204,7 +255,7 @@ class PrintService {
         case 'dm':
           return await _printDotMatrix(settings, placeholders, logo, 'default', 1);
         case 'normal':
-          return await _printNormal(settings, placeholders, logo, company, 'default', 1);
+          return await _printNormal(settings, placeholders, logo, company, 'default', 1, weighment: sampleWeighment);
         default:
           return PrintResult(success: false, error: 'Unknown type: $type');
       }
@@ -256,6 +307,7 @@ class PrintService {
       final targetPrinter = printerName ?? _resolveTargetPrinter(settings, weighment, type);
       final targetTray = _resolveTargetTray(settings, weighment);
       final copies = settings['copies'] as int? ?? 2;
+      final resolvedPaperSize = _resolvePaperSize(settings, weighment, targetPrinter);
 
       switch (type) {
         case 'thermal':
@@ -263,7 +315,7 @@ class PrintService {
         case 'dm':
           return await _printDotMatrix(settings, placeholders, logo, targetPrinter, copies, tray: targetTray);
         case 'normal':
-          return await _printNormal(settings, placeholders, logo, company, targetPrinter, copies, tray: targetTray);
+          return await _printNormal(settings, placeholders, logo, company, targetPrinter, copies, tray: targetTray, weighment: weighment, paperSizeOverride: resolvedPaperSize);
         default:
           return PrintResult(success: false, error: 'Unknown printer type: $type');
       }
@@ -308,7 +360,10 @@ class PrintService {
       }
     }
 
-    final displayName = status == 'awaitingTare'
+    final isFirstWeigh = status == 'awaitingTare';
+    final firstWeighType = weighment['firstWeighType'] as String? ?? 'gross';
+    final isGrossPhase = isFirstWeigh ? firstWeighType == 'gross' : firstWeighType != 'gross';
+    final displayName = isGrossPhase
         ? settings['grossPrinter'] as String? ?? ''
         : settings['tarePrinter'] as String? ?? '';
     return _resolveToSystemName(displayName, printers);
@@ -328,10 +383,42 @@ class PrintService {
       }
     }
 
-    if (status == 'awaitingTare') {
+    final isFirstWeigh = status == 'awaitingTare';
+    final firstWeighType = weighment['firstWeighType'] as String? ?? 'gross';
+    final isGrossPhase = isFirstWeigh ? firstWeighType == 'gross' : firstWeighType != 'gross';
+    if (isGrossPhase) {
       return settings['grossTray'] as String? ?? '';
     }
     return settings['tareTray'] as String? ?? '';
+  }
+
+  String _resolvePaperSize(Map<String, dynamic> settings, Map<String, dynamic> weighment, String targetPrinter) {
+    final status = weighment['status'] as String? ?? '';
+    final firstWeighType = weighment['firstWeighType'] as String? ?? 'gross';
+    final isFirstWeigh = status == 'awaitingTare';
+    final isGrossPhase = isFirstWeigh ? firstWeighType == 'gross' : firstWeighType != 'gross';
+
+    final phasePaperSize = isGrossPhase
+        ? settings['grossPaperSize'] as String? ?? ''
+        : settings['tarePaperSize'] as String? ?? '';
+    if (phasePaperSize.isNotEmpty) return phasePaperSize;
+
+    final printers = (settings['printers'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    for (final p in printers) {
+      final sysName = p['name'] as String? ?? '';
+      final nickname = p['nickname'] as String? ?? '';
+      if (sysName == targetPrinter || nickname == targetPrinter) {
+        final trayMapping = p['trayMapping'] as Map<String, dynamic>?;
+        if (trayMapping != null && trayMapping.isNotEmpty) {
+          final traySize = trayMapping.values.first as String? ?? '';
+          if (traySize.isNotEmpty) return traySize;
+        }
+        final ps = p['paperSize'] as String? ?? '';
+        if (ps.isNotEmpty) return ps;
+      }
+    }
+
+    return settings['normalPaperSize'] as String? ?? 'A4';
   }
 
   // ─── Thermal Printing ──────────────────────────────────────────────────────
@@ -450,7 +537,7 @@ class PrintService {
   Uint8List _barcodeToEscPosRaster(String data, int maxWidthPx) {
     final bc = Barcode.pdf417();
     final targetWidthPx = maxWidthPx;
-    const targetHeightPx = 60;
+    final targetHeightPx = (targetWidthPx / 5).round().clamp(40, 120);
     final elements = bc.make(data, width: targetWidthPx.toDouble(), height: targetHeightPx.toDouble());
 
     final bitmap = img.Image(width: targetWidthPx, height: targetHeightPx);
@@ -532,12 +619,36 @@ class PrintService {
       decoded = img.copyResize(decoded, width: targetWidthPx);
     }
 
-    // Convert to monochrome (1-bit dithered)
-    final grayscale = img.grayscale(decoded);
-    final mono = img.ditherImage(grayscale);
+    // Detect if logo is mostly dark (white-on-black → needs inversion)
+    final width = decoded.width;
+    final height = decoded.height;
+    final hasAlpha = decoded.numChannels >= 4;
+    int darkCount = 0;
+    int totalOpaque = 0;
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width; x++) {
+        final pixel = decoded.getPixel(x, y);
+        final a = hasAlpha ? pixel.a.toInt() : 255;
+        if (a >= 128) {
+          totalOpaque++;
+          if (img.getLuminance(pixel).toInt() < 128) darkCount++;
+        }
+      }
+    }
+    final invert = totalOpaque > 0 && darkCount > totalOpaque * 0.5;
 
-    final width = mono.width;
-    final height = mono.height;
+    // Convert to monochrome with auto-inversion for dark logos
+    final mono = img.Image(width: width, height: height, numChannels: 3);
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width; x++) {
+        final pixel = decoded.getPixel(x, y);
+        final a = hasAlpha ? pixel.a.toInt() : 255;
+        final lum = img.getLuminance(pixel).toInt();
+        final isDark = a >= 128 && lum < 128;
+        final isInk = invert ? !isDark && a >= 128 : isDark;
+        mono.setPixelRgb(x, y, isInk ? 0 : 255, isInk ? 0 : 255, isInk ? 0 : 255);
+      }
+    }
 
     // ESC/P 8-pin bit-image mode: ESC * 0 nL nH [data...]
     // Each column is 8 vertical dots (1 byte), sent left-to-right per stripe
@@ -566,6 +677,65 @@ class PrintService {
     return Uint8List.fromList(output);
   }
 
+  Uint8List _pdf417ToEscpBitImage(String data, int columns, int marginLeft, int cpi, {double heightInches = 1.0}) {
+    if (data.isEmpty) return Uint8List(0);
+
+    final bc = Barcode.pdf417();
+    // Physical size: 5″ wide × heightInches tall
+    // Horizontal: 60 DPI (ESC/P single density), Vertical: 72 DPI (8-pin)
+    const bcWidthPx = 300; // 5 inches × 60 DPI
+    final bcHeightPx = (heightInches * 72).round(); // height × 72 DPI
+    final paperWidthPx = (columns.toDouble() / cpi * 60).round();
+
+    final elements = bc.make(data, width: bcWidthPx.toDouble(), height: bcHeightPx.toDouble());
+
+    // Render barcode centered on full paper width
+    final fullWidth = paperWidthPx;
+    final fullHeight = bcHeightPx + 16; // 8px quiet zone top and bottom
+    final bitmap = img.Image(width: fullWidth, height: fullHeight, numChannels: 3);
+    img.fill(bitmap, color: img.ColorRgb8(255, 255, 255));
+    final black = img.ColorRgb8(0, 0, 0);
+
+    final offsetX = (fullWidth - bcWidthPx) ~/ 2;
+    const offsetY = 8; // top quiet zone
+    for (final elem in elements) {
+      if (elem is BarcodeBar && elem.black) {
+        final x1 = (elem.left.round() + offsetX).clamp(0, fullWidth - 1);
+        final x2 = ((elem.left + elem.width).round() + offsetX).clamp(0, fullWidth);
+        final y1 = (elem.top.round() + offsetY).clamp(0, fullHeight - 1);
+        final y2 = ((elem.top + elem.height).round() + offsetY).clamp(0, fullHeight);
+        for (var y = y1; y < y2; y++) {
+          for (var x = x1; x < x2; x++) {
+            bitmap.setPixel(x, y, black);
+          }
+        }
+      }
+    }
+
+    // Convert to ESC/P 8-pin bit-image (same format as logo)
+    final output = <int>[];
+    // Add a blank line before barcode for separation
+    output.addAll([0x0D, 0x0A]);
+    for (var stripe = 0; stripe < fullHeight; stripe += 8) {
+      output.addAll([0x1B, 0x2A, 0, fullWidth & 0xFF, (fullWidth >> 8) & 0xFF]);
+      for (var x = 0; x < fullWidth; x++) {
+        var byte = 0;
+        for (var bit = 0; bit < 8; bit++) {
+          final y = stripe + bit;
+          if (y < fullHeight) {
+            final pixel = bitmap.getPixel(x, y);
+            if (img.getLuminance(pixel) < 128) {
+              byte |= (0x80 >> bit);
+            }
+          }
+        }
+        output.add(byte);
+      }
+      output.addAll([0x0D, 0x0A]);
+    }
+    return Uint8List.fromList(output);
+  }
+
   Future<PrintResult> _printDotMatrix(
     Map<String, dynamic> settings,
     Map<String, String> placeholders,
@@ -579,9 +749,24 @@ class PrintService {
     final showLogo = settings['dmLogo'] as bool? ?? false;
     final marginLeft = settings['dmMarginLeft'] as int? ?? 2;
     final logoWidth = settings['dmLogoWidth'] as int? ?? 12;
+    final pageHeight = (settings['dmPageHeight'] as num?)?.toDouble() ?? 6.0;
+    final showPdf417 = settings['dmPdf417'] as bool? ?? (pageHeight >= 4.0);
+    final pdf417Height = (settings['dmPdf417Height'] as num?)?.toDouble() ?? (pageHeight >= 6.0 ? 1.0 : 0.8);
+    final feedAfterPrint = settings['dmFeedAfterPrint'] as int? ?? 0;
+    final formFeed = settings['dmFormFeed'] as bool? ?? false;
+    final topMargin = settings['dmTopMargin'] as int? ?? 0;
+    final tearOffAdvance = settings['dmTearOffAdvance'] as bool? ?? false;
+    final cpi = settings['dmCpi'] as int? ?? 10;
+    final lpi = settings['dmLpi'] as int? ?? 6;
+    final printQuality = settings['dmPrintQuality'] as String? ?? 'draft';
 
     final buf = StringBuffer();
     final leftPad = ' ' * marginLeft;
+
+    // Top margin: blank lines before content
+    for (var i = 0; i < topMargin; i++) {
+      buf.writeln();
+    }
 
     final contentWidth = columns - marginLeft * 2;
 
@@ -629,20 +814,46 @@ class PrintService {
       }
     }
 
-    // If logo binary present, send raw (ESC/P binary needs raw mode)
-    final prefix = logoBinary ?? Uint8List(0);
-    if (prefix.isNotEmpty) {
-      final escpInit = <int>[
-        0x1B, 0x40, // ESC @ - Initialize printer
-        0x1B, 0x50, // ESC P - 10 CPI
-        0x1B, 0x32, // ESC 2 - 6 LPI
-      ];
-      final textBytes = Uint8List.fromList(utf8.encode(buf.toString()));
-      final combined = Uint8List.fromList([...escpInit, ...prefix, ...textBytes]);
-      return _sendBinaryRawToLpr(combined, printer, copies, tray: tray);
+    // Feed after print: blank lines after content
+    for (var i = 0; i < feedAfterPrint; i++) {
+      buf.writeln();
     }
-    // Text only: plain lpr (actual DM printer handles spacing natively)
-    return _sendDmTextToLpr(buf.toString(), printer, copies, tray: tray);
+
+    // Build ESC/P init sequence with CPI + quality
+    final escpInit = <int>[
+      0x1B, 0x40, // ESC @ - Initialize printer
+      // CPI selection
+      if (cpi == 10) ...[0x1B, 0x50], // ESC P - 10 CPI
+      if (cpi == 12) ...[0x1B, 0x4D], // ESC M - 12 CPI
+      if (cpi == 15) ...[0x1B, 0x67], // ESC g - 15 CPI
+      if (cpi == 17) ...[0x0F],       // SI - 17 CPI (condensed)
+      // Print quality
+      0x1B, 0x78, printQuality == 'nlq' ? 0x01 : 0x00, // ESC x n
+      // Line spacing
+      if (lpi == 8) ...[0x1B, 0x30] // ESC 0 - 8 LPI (1/8 inch)
+      else ...[0x1B, 0x32], // ESC 2 - 6 LPI (1/6 inch)
+    ];
+
+    // PDF417 barcode at bottom center
+    Uint8List pdf417Binary = Uint8List(0);
+    if (showPdf417) {
+      final barcodeData = _buildBarcodeDataFromLines(lines, placeholders);
+      pdf417Binary = _pdf417ToEscpBitImage(barcodeData, columns, marginLeft, cpi, heightInches: pdf417Height);
+    }
+
+    // Post-content commands
+    final escpPost = <int>[
+      if (formFeed) 0x0C, // FF - form feed
+      if (tearOffAdvance && !formFeed) ...[
+        0x1B, 0x4A, 0xFF, // ESC J 255 - advance ~255/180 inches to tear bar
+      ],
+    ];
+
+    final prefix = logoBinary ?? Uint8List(0);
+    final textBytes = Uint8List.fromList(utf8.encode(buf.toString()));
+
+    final combined = Uint8List.fromList([...escpInit, ...prefix, ...textBytes, ...pdf417Binary, ...escpPost]);
+    return _sendBinaryRawToLpr(combined, printer, copies, tray: tray);
   }
 
 
@@ -656,8 +867,10 @@ class PrintService {
     String printer,
     int copies, {
     String tray = '',
+    Map<String, dynamic> weighment = const {},
+    String? paperSizeOverride,
   }) async {
-    final paperSize = settings['normalPaperSize'] as String? ?? 'A4';
+    final paperSize = paperSizeOverride ?? settings['normalPaperSize'] as String? ?? 'A4';
     final perSizeConfigs = settings['perSizeConfigs'] as Map<String, dynamic>?;
     final sizeConfig = perSizeConfigs?[paperSize] as Map<String, dynamic>? ?? settings;
 
@@ -666,7 +879,6 @@ class PrintService {
     final marginLeft = (sizeConfig['marginLeft'] as num?)?.toDouble() ?? 15;
     final marginRight = (sizeConfig['marginRight'] as num?)?.toDouble() ?? 15;
     final showLogo = sizeConfig['logo'] as bool? ?? settings['normalLogo'] as bool? ?? true;
-    final headerLayout = sizeConfig['headerLayout'] as String? ?? 'inline';
     final headerRows = sizeConfig['headerRows'] as int? ?? 3;
     final fontSize = (sizeConfig['fontSize'] as num?)?.toDouble() ?? 14;
     final fontName = settings['normalFont'] as String? ?? 'Helvetica';
@@ -708,18 +920,51 @@ class PrintService {
 
     final showPdf417 = sizeConfig['pdf417'] as bool? ?? settings['normalPdf417'] as bool? ?? true;
     final pdf417Position = sizeConfig['pdf417Position'] as String? ?? settings['normalPdf417Position'] as String? ?? 'bottom';
-    final showCctv = sizeConfig['cctv'] as bool? ?? settings['normalCctv'] as bool? ?? false;
-    final cctvCameras = ((sizeConfig['cctvCameras'] ?? settings['normalCctvCameras']) as List?)?.cast<String>() ?? [];
+    final showCctvSetting = sizeConfig['cctv'] as bool? ?? settings['normalCctv'] as bool? ?? false;
+    final cctvSelected = ((sizeConfig['cctvCameras'] ?? settings['normalCctvCameras']) as List?)?.cast<String>() ?? [];
+    final cctvMaxSlots = sizeConfig['cctvMaxSlots'] as int? ?? 2;
+    final snaps = extractSnapshots(weighment);
+    final weighmentHasSnaps = snaps.grossPaths.isNotEmpty || snaps.tarePaths.isNotEmpty;
+    final showCctv = showCctvSetting || weighmentHasSnaps;
 
-    pdf.addPage(
-      pw.Page(
-        pageFormat: pageFormat,
-        theme: pw.ThemeData.withFont(base: pdfFont, bold: pdfFontBold),
-        build: (context) {
-          final widgets = <pw.Widget>[];
+    // Pre-fetch CCTV snapshot images (excluding Operator/Customer)
+    final Map<String, pw.ImageProvider> cctvImages = {};
+    if (showCctv) {
+      const excludeFromPrint = ['Operator', 'Customer'];
+      final grossSnaps = snaps.grossPaths;
+      final tareSnaps = snaps.tarePaths;
+      final grossLabels = snaps.grossLabels;
+      final tareLabels = snaps.tareLabels;
+      List<String> filterSnaps(List<String> paths, List<String> labels) {
+        final filtered = <String>[];
+        for (var i = 0; i < paths.length && filtered.length < cctvMaxSlots; i++) {
+          final label = i < labels.length ? labels[i] : '';
+          if (excludeFromPrint.contains(label)) continue;
+          if (paths[i].isNotEmpty) filtered.add(paths[i]);
+        }
+        return filtered;
+      }
+      final urlsToFetch = <String>{
+        ...filterSnaps(grossSnaps, grossLabels),
+        ...filterSnaps(tareSnaps, tareLabels),
+      };
+      if (urlsToFetch.isNotEmpty) {
+        final futures = urlsToFetch.map((url) async {
+          try {
+            final bytes = await _fetchImageBytes(url);
+            if (bytes != null) cctvImages[url] = pw.MemoryImage(bytes);
+          } catch (_) {}
+        });
+        await Future.wait(futures);
+      }
+    }
+
+    final pdfWidgets = <pw.Widget>[];
+    {
+      final widgets = pdfWidgets;
 
           // Header with logo
-          if (logoImage != null && headerLayout == 'inline') {
+          if (logoImage != null) {
             final headerLineWidgets = <pw.Widget>[];
             var hi = 0;
             var rowsConsumed = 0;
@@ -751,10 +996,6 @@ class PrintService {
             widgets.add(pw.SizedBox(height: 3));
 
             _addPdfLines(widgets, lines, hi, placeholders, fontSize);
-          } else if (logoImage != null && headerLayout == 'stacked') {
-            widgets.add(pw.Center(child: pw.Image(logoImage, width: logoWidth, height: logoHeight)));
-            widgets.add(pw.SizedBox(height: 3));
-            _addPdfLines(widgets, lines, 0, placeholders, fontSize);
           } else {
             _addPdfLines(widgets, lines, 0, placeholders, fontSize);
           }
@@ -762,59 +1003,163 @@ class PrintService {
           // PDF417 barcode (afterText position)
           if (showPdf417 && pdf417Position == 'afterText') {
             final barcodeData = _buildBarcodeDataFromLines(lines, placeholders);
+            final bcW = pageFormat.availableWidth;
             widgets.add(pw.SizedBox(height: 12));
             widgets.add(pw.SizedBox(
-              width: double.infinity,
-              height: 80,
+              width: bcW,
+              height: bcW * 0.2,
               child: pw.BarcodeWidget(barcode: Barcode.pdf417(), data: barcodeData),
             ));
           }
 
-          // CCTV snapshot placeholders (16:9 aspect ratio)
-          if (showCctv && cctvCameras.isNotEmpty) {
-            widgets.add(pw.SizedBox(height: 10));
-            widgets.add(pw.Divider(thickness: 0.5));
-            widgets.add(pw.SizedBox(height: 4));
-            // Available content width for 2 boxes per row
-            final contentW = pageFormat.availableWidth;
-            final boxWidth = (contentW - 8) / 2; // 2 boxes with 4pt margin each side
-            final boxHeight = boxWidth * 9 / 16; // 16:9 aspect ratio
-            for (var ci = 0; ci < cctvCameras.length; ci += 2) {
-              final rowCams = cctvCameras.skip(ci).take(2).toList();
-              widgets.add(pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 4),
-                child: pw.Row(
-                  children: rowCams.map((cam) => pw.Expanded(
-                    child: pw.Container(
-                      height: boxHeight,
-                      margin: const pw.EdgeInsets.symmetric(horizontal: 2),
-                      decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
-                      child: pw.Center(child: pw.Text(cam, style: pw.TextStyle(fontSize: fontSize - 2, color: PdfColors.grey600))),
-                    ),
-                  )).toList(),
-                ),
+          // CCTV snapshots — always two columns: GROSS | TARE (excludes Operator/Customer)
+          if (showCctv) {
+            final grossSnaps = snaps.grossPaths;
+            final tareSnaps = snaps.tarePaths;
+
+            if (grossSnaps.isNotEmpty || tareSnaps.isNotEmpty) {
+              final grossLabels = snaps.grossLabels;
+              final tareLabels = snaps.tareLabels;
+
+              const excludeFromPrint = ['Operator', 'Customer'];
+              final maxSnaps = grossSnaps.length > tareSnaps.length ? grossSnaps.length : tareSnaps.length;
+
+              String effectiveLabel(int i, List<String> labels) => i < labels.length ? labels[i] : 'Cam ${i + 1}';
+
+              // Build printable indices: exclude Operator/Customer, filter by template selection, cap by cctvMaxSlots
+              var indicesToPrint = <int>[];
+              final refLabels = grossLabels.isNotEmpty ? grossLabels : tareLabels;
+              for (var i = 0; i < maxSnaps; i++) {
+                final label = effectiveLabel(i, refLabels);
+                if (excludeFromPrint.contains(label)) continue;
+                if (cctvSelected.isNotEmpty && !cctvSelected.contains(label)) continue;
+                indicesToPrint.add(i);
+              }
+              if (indicesToPrint.length > cctvMaxSlots) {
+                indicesToPrint = indicesToPrint.take(cctvMaxSlots).toList();
+              }
+
+              String grossLabel(int i) => effectiveLabel(i, grossLabels);
+              String tareLabel(int i) => effectiveLabel(i, tareLabels);
+
+              widgets.add(pw.SizedBox(height: 10));
+              widgets.add(pw.Divider(thickness: 0.5));
+              widgets.add(pw.SizedBox(height: 4));
+
+              widgets.add(pw.Row(
+                children: [
+                  pw.Expanded(child: pw.Center(child: pw.Text('GROSS', style: pw.TextStyle(fontSize: fontSize + 2, fontWeight: pw.FontWeight.bold)))),
+                  pw.SizedBox(width: 8),
+                  pw.Expanded(child: pw.Center(child: pw.Text('TARE', style: pw.TextStyle(fontSize: fontSize + 2, fontWeight: pw.FontWeight.bold)))),
+                ],
               ));
+              widgets.add(pw.SizedBox(height: 4));
+
+              final contentW = pageFormat.availableWidth;
+              final colWidth = (contentW - 8) / 2;
+              final boxHeight = colWidth * 9 / 16;
+
+              pw.Widget buildSlot(String? url, String label, {pw.EdgeInsets margin = pw.EdgeInsets.zero}) {
+                final img = url != null ? cctvImages[url] : null;
+                if (img != null) {
+                  return pw.Container(
+                    height: boxHeight,
+                    margin: margin,
+                    decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.3, color: PdfColors.grey400)),
+                    child: pw.Stack(
+                      children: [
+                        pw.Positioned.fill(child: pw.Image(img, fit: pw.BoxFit.cover)),
+                        pw.Positioned(
+                          left: 2, bottom: 1,
+                          child: pw.Container(
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                            color: PdfColors.black,
+                            child: pw.Text(label, style: pw.TextStyle(fontSize: fontSize - 4, color: PdfColors.white)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return pw.Container(
+                  height: boxHeight,
+                  margin: margin,
+                  decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5, color: PdfColors.grey300)),
+                  child: pw.Center(child: pw.Text(label, style: pw.TextStyle(fontSize: fontSize - 2, color: PdfColors.grey600))),
+                );
+              }
+
+              for (final i in indicesToPrint) {
+                final grossUrl = i < grossSnaps.length ? grossSnaps[i] : null;
+                final tareUrl = i < tareSnaps.length ? tareSnaps[i] : null;
+                widgets.add(pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 4),
+                  child: pw.Row(
+                    children: [
+                      pw.Expanded(child: buildSlot(grossUrl, grossLabel(i), margin: const pw.EdgeInsets.only(right: 4))),
+                      pw.Expanded(child: buildSlot(tareUrl, tareLabel(i), margin: const pw.EdgeInsets.only(left: 4))),
+                    ],
+                  ),
+                ));
+              }
             }
           }
 
-          // PDF417 barcode (bottom position)
-          if (showPdf417 && pdf417Position == 'bottom') {
-            final barcodeData = _buildBarcodeDataFromLines(lines, placeholders);
-            widgets.add(pw.SizedBox(height: 4));
-            widgets.add(pw.SizedBox(
-              width: double.infinity,
-              height: 80,
-              child: pw.BarcodeWidget(barcode: Barcode.pdf417(), data: barcodeData),
-            ));
-          }
+    }
 
-          return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: widgets);
+    // Build bottom barcode widget separately so it gets guaranteed space
+    pw.Widget? bottomBarcode;
+    double barcodeHeight = 0;
+    if (showPdf417 && pdf417Position == 'bottom') {
+      final barcodeData = _buildBarcodeDataFromLines(lines, placeholders);
+      final bcW = pageFormat.availableWidth;
+      barcodeHeight = bcW * 0.15;
+      bottomBarcode = pw.SizedBox(
+        width: bcW,
+        height: barcodeHeight,
+        child: pw.BarcodeWidget(barcode: Barcode.pdf417(), data: barcodeData),
+      );
+    }
+
+    // Add barcode to content widgets
+    if (bottomBarcode != null) {
+      pdfWidgets.add(pw.SizedBox(height: 4));
+      pdfWidgets.add(bottomBarcode);
+    }
+
+    // Render with MultiPage — proper layout with natural page breaks
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: pageFormat,
+        maxPages: 10,
+        theme: pw.ThemeData.withFont(base: pdfFont, bold: pdfFontBold),
+        footer: (context) {
+          if (context.pagesCount > 1) {
+            return pw.Container(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Text(
+                'Content clipped to fit - consider a larger paper size',
+                style: pw.TextStyle(fontSize: 6, color: PdfColor.fromHex('#999999')),
+              ),
+            );
+          }
+          return pw.SizedBox.shrink();
         },
+        build: (context) => pdfWidgets,
       ),
     );
 
     final pdfBytes = await pdf.save();
-    return _sendPdfToLpr(pdfBytes, printer, copies, tray: tray);
+    final pageCount = _countPdfPages(pdfBytes);
+    final isOverflowing = pageCount > 1;
+    final warning = isOverflowing ? 'Content exceeds $paperSize page — printed on $pageCount pages. Consider a larger paper size.' : null;
+
+    if (printer == '__share__') return PrintResult(success: true, pdfBytes: pdfBytes, warning: warning);
+    final lprResult = await _sendPdfToLpr(pdfBytes, printer, copies, tray: tray);
+    if (warning != null && lprResult.success) {
+      return PrintResult(success: true, warning: warning, usedBackup: lprResult.usedBackup);
+    }
+    return lprResult;
   }
 
   void _addPdfLines(List<pw.Widget> widgets, List<Map<String, dynamic>> lines, int startIdx, Map<String, String> placeholders, double fontSize) {
@@ -899,6 +1244,12 @@ class PrintService {
     }
     parts.add('EOF=1');
     return parts.join('|');
+  }
+
+  int _countPdfPages(Uint8List pdfBytes) {
+    final str = String.fromCharCodes(pdfBytes);
+    // Match "/Type /Page" but NOT "/Type /Pages"
+    return RegExp(r'/Type\s*/Page[^s]').allMatches(str).length;
   }
 
   PdfPageFormat _getPageFormat(String size) {
@@ -1038,7 +1389,9 @@ class PrintService {
 class PrintResult {
   final bool success;
   final String? error;
+  final String? warning;
   final bool usedBackup;
+  final Uint8List? pdfBytes;
 
-  const PrintResult({required this.success, this.error, this.usedBackup = false});
+  const PrintResult({required this.success, this.error, this.warning, this.usedBackup = false, this.pdfBytes});
 }

@@ -1,11 +1,28 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 
 final generalSettingsProvider = StreamProvider<Map<String, dynamic>>((ref) {
-  final db = ref.watch(firestoreProvider);
-  return db.collection('settings').doc('general').snapshots().map(
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  return paths.generalSettings.snapshots().map(
+    (snap) => snap.exists ? snap.data()! : {},
+  );
+});
+
+final scaleSettingsProvider = StreamProvider<Map<String, dynamic>>((ref) {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  return paths.scaleSettings.snapshots().map(
+    (snap) => snap.exists ? snap.data()! : {},
+  );
+});
+
+final printSettingsProvider = StreamProvider<Map<String, dynamic>>((ref) {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  return paths.printingSettings.snapshots().map(
     (snap) => snap.exists ? snap.data()! : {},
   );
 });

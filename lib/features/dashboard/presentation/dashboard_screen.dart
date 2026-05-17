@@ -6,15 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 
 // ─── Providers ─────────────────────────────────────────────────────────────────
 
 final _weighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
-  final db = ref.watch(firestoreProvider);
-  return db
-      .collection('weighments')
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  return paths.weighments
       .orderBy('createdAt', descending: true)
       .limit(100)
       .snapshots()
@@ -24,16 +24,17 @@ final _weighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
 final _operatorProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return null;
-  final db = ref.read(firestoreProvider);
-  final snap = await db.collection('operators').where('uid', isEqualTo: user.uid).limit(1).get();
+  final paths = ref.read(firestorePathsProvider);
+  if (!paths.isConfigured) return null;
+  final snap = await paths.operators.where('uid', isEqualTo: user.uid).limit(1).get();
   if (snap.docs.isEmpty) return null;
   return {'id': snap.docs.first.id, ...snap.docs.first.data()};
 });
 
 final _customersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
-  final db = ref.watch(firestoreProvider);
-  return db
-      .collection('customers')
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  return paths.customers
       .orderBy('totalWeighments', descending: true)
       .limit(10)
       .snapshots()
@@ -95,7 +96,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       return ts != null && ts.toDate().isAfter(todayStart);
     }).toList();
     final completed = today.where((w) => w['status'] == 'completed').length;
-    final awaitingTare = weighments.where((w) => w['status'] == 'awaitingTare').toList();
+    final pending = weighments.where((w) => w['status'] == 'awaitingTare').toList();
     final totalNetWeight = weighments.fold<double>(
         0, (acc, w) => acc + ((w['netWeight'] as num?) ?? 0).toDouble());
     final todayNetWeight = today.fold<double>(
@@ -147,14 +148,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     const SizedBox(width: 16),
                     Expanded(
                       child: _MetricCard(
-                        title: 'Awaiting Tare',
-                        value: awaitingTare.length,
+                        title: 'Pending',
+                        value: pending.length,
                         suffix: 'vehicles',
                         icon: Icons.hourglass_top_rounded,
                         gradient: [scheme.tertiary, scheme.tertiary.withValues(alpha: 0.7)],
                         sparkData: const [],
                         pulseController: _pulseController,
-                        alert: awaitingTare.length > 3,
+                        alert: pending.length > 3,
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -167,6 +168,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         gradient: [scheme.secondary, scheme.secondary.withValues(alpha: 0.7)],
                         sparkData: hourlyData,
                         pulseController: _pulseController,
+                        valueColor: todayNetWeight < 0 ? scheme.error : null,
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -182,6 +184,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         ],
                         sparkData: weeklyData,
                         pulseController: _pulseController,
+                        valueColor: totalNetWeight < 0 ? scheme.error : null,
                       ),
                     ),
                   ],
@@ -241,11 +244,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         ),
                       ),
                       const SizedBox(width: 16),
-                      // Awaiting Tare Queue
+                      // Pending Queue
                       Expanded(
                         flex: 2,
                         child: _AwaitingTareQueue(
-                          items: awaitingTare,
+                          items: pending,
                           scheme: scheme,
                           text: text,
                         ),
@@ -291,7 +294,7 @@ List<double> _computeWeeklyData(List<Map<String, dynamic>> weighments, DateTime 
     final ts = w['createdAt'] as Timestamp?;
     if (ts == null) continue;
     final diff = now.difference(ts.toDate()).inDays;
-    if (diff < 7) {
+    if (diff >= 0 && diff < 7) {
       data[6 - diff] += ((w['netWeight'] as num?) ?? 0).toDouble();
     }
   }
@@ -499,6 +502,7 @@ class _MetricCard extends StatefulWidget {
   final List<double> sparkData;
   final AnimationController pulseController;
   final bool alert;
+  final Color? valueColor;
 
   const _MetricCard({
     required this.title,
@@ -509,6 +513,7 @@ class _MetricCard extends StatefulWidget {
     required this.sparkData,
     required this.pulseController,
     this.alert = false,
+    this.valueColor,
   });
 
   @override
@@ -624,6 +629,7 @@ class _MetricCardState extends State<_MetricCard> with SingleTickerProviderState
                   style: text.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
+                    color: widget.valueColor,
                   ),
                 );
               },
@@ -1042,7 +1048,7 @@ class _MaterialBreakdownCard extends StatelessWidget {
                       Text(
                         '${NumberFormat.compact().format(entries[i].value)} kg',
                         style: text.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                          color: entries[i].value < 0 ? scheme.error : scheme.onSurfaceVariant.withValues(alpha: 0.7),
                         ),
                       ),
                     ],
@@ -1244,7 +1250,7 @@ class _ActivityItem extends StatelessWidget {
                 if (weight != null)
                   Text(
                     '${NumberFormat('#,###').format(weight)} kg',
-                    style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700),
+                    style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: weight! < 0 ? scheme.error : null),
                   ),
                 Text(
                   time,
@@ -1303,7 +1309,7 @@ class _AwaitingTareQueue extends StatelessWidget {
               Icon(Icons.queue_rounded, size: 18, color: scheme.tertiary),
               const SizedBox(width: 8),
               Text(
-                'Tare Queue',
+                'Pending Queue',
                 style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
               const Spacer(),
@@ -1392,12 +1398,15 @@ class _AwaitingTareQueue extends StatelessWidget {
                                     w['vehicleNumber'] ?? '--',
                                     style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700),
                                   ),
-                                  Text(
-                                    '${w['customerName'] ?? ''} • ${((w['grossWeight'] as num?)?.toStringAsFixed(0) ?? '--')} kg gross',
-                                    style: text.labelSmall?.copyWith(
-                                      color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
-                                    ),
-                                  ),
+                                  Builder(builder: (_) {
+                                    final wt = (w['grossWeight'] ?? w['tareWeight']) as num?;
+                                    return Text(
+                                      '${w['customerName'] ?? ''} • ${wt?.toStringAsFixed(0) ?? '--'} kg',
+                                      style: text.labelSmall?.copyWith(
+                                        color: wt != null && wt < 0 ? scheme.error : scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                      ),
+                                    );
+                                  }),
                                 ],
                               ),
                             ),
@@ -1559,7 +1568,7 @@ class _TopCustomersCard extends StatelessWidget {
                               children: [
                                 Text(
                                   NumberFormat.compact().format(totalKg),
-                                  style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700),
+                                  style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: totalKg < 0 ? scheme.error : null),
                                 ),
                                 Text(
                                   '$totalW trips',

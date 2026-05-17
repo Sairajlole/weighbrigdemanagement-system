@@ -5,25 +5,95 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image/image.dart' as img;
 import 'package:latlong2/latlong.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
+import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
+import 'package:weighbridgemanagement/shared/utils/title_case.dart';
+import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
+
+// ─── Country Codes ──────────────────────────────────────────────────────────
+
+const _countryCodes = [
+  (name: 'India', code: '+91'),
+  (name: 'United States', code: '+1'),
+  (name: 'United Kingdom', code: '+44'),
+  (name: 'Australia', code: '+61'),
+  (name: 'Canada', code: '+1'),
+  (name: 'Germany', code: '+49'),
+  (name: 'France', code: '+33'),
+  (name: 'Japan', code: '+81'),
+  (name: 'China', code: '+86'),
+  (name: 'Brazil', code: '+55'),
+  (name: 'South Africa', code: '+27'),
+  (name: 'UAE', code: '+971'),
+  (name: 'Saudi Arabia', code: '+966'),
+  (name: 'Singapore', code: '+65'),
+  (name: 'Nepal', code: '+977'),
+  (name: 'Bangladesh', code: '+880'),
+  (name: 'Pakistan', code: '+92'),
+  (name: 'Sri Lanka', code: '+94'),
+  (name: 'Indonesia', code: '+62'),
+  (name: 'Malaysia', code: '+60'),
+];
 
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 final _generalSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final db = ref.watch(firestoreProvider);
-  final results = await Future.wait([
-    db.collection('settings').doc('general').get(),
-    db.collection('settings').doc('general_docs').get(),
+  final db = ref.watch(firestorePathsProvider);
+  final docResults = await Future.wait([
+    db.generalSettings.get(),
+    db.generalDocsSettings.get(),
   ]);
-  final data = results[0].exists ? Map<String, dynamic>.from(results[0].data()!) : <String, dynamic>{};
-  if (results[1].exists) {
-    data.addAll(results[1].data()!);
+  final data = docResults[0].exists ? Map<String, dynamic>.from(docResults[0].data()!) : <String, dynamic>{};
+  if (docResults[1].exists) {
+    data.addAll(docResults[1].data()!);
+  }
+  // Pre-fill from operator/company records if general settings don't have values yet
+  if ((data['email'] as String? ?? '').isEmpty || (data['phone'] as String? ?? '').isEmpty || (data['companyName'] as String? ?? '').isEmpty) {
+    final cachedEmail = await LocalCacheService.getCachedCurrentUserEmail();
+    // Check site-scoped operators first, then flat collection
+    QuerySnapshot<Map<String, dynamic>>? opSnap;
+    try {
+      opSnap = await db.operators.limit(1).get();
+      if (opSnap.docs.isEmpty && cachedEmail != null) {
+        opSnap = await db.firestore.collection('operators').where('email', isEqualTo: cachedEmail).limit(1).get();
+      }
+    } catch (_) {
+      if (cachedEmail != null) {
+        try {
+          opSnap = await db.firestore.collection('operators').where('email', isEqualTo: cachedEmail).limit(1).get();
+        } catch (_) {}
+      }
+    }
+    if (opSnap != null && opSnap.docs.isNotEmpty) {
+      final op = opSnap.docs.first.data();
+      if ((data['email'] as String? ?? '').isEmpty) data['email'] = op['email'] ?? '';
+      if ((data['phone'] as String? ?? '').isEmpty) data['phone'] = op['phone'] ?? '';
+    }
+    // Pre-fill company name from companies collection
+    if ((data['companyName'] as String? ?? '').isEmpty) {
+      try {
+        final companyDoc = await db.firestore.doc(db.context.companyPath).get();
+        if (companyDoc.exists) {
+          data['companyName'] = companyDoc.data()?['name'] ?? '';
+        }
+      } catch (_) {}
+    }
+  }
+  // Always fetch weighbridge name from the weighbridge document
+  if ((data['weighbridgeName'] as String? ?? '').isEmpty) {
+    try {
+      final wbDoc = await db.firestore.doc(db.context.weighbridgePath).get();
+      if (wbDoc.exists) {
+        data['weighbridgeName'] = wbDoc.data()?['name'] ?? '';
+      }
+    } catch (_) {}
   }
   return data;
 });
@@ -52,13 +122,17 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
   final _officeLatitude = TextEditingController();
   final _officeLongitude = TextEditingController();
 
+  String _selectedDialCode = '+91';
   String _dateFormat = 'DD/MM/YYYY';
   String _timeFormat = '24-hour';
   String _currency = 'INR';
   String _systemCode = '';
   bool _loaded = false;
   bool _saving = false;
-  bool _dirty = false;
+  String _savedSnapshot = '';
+
+  String? _headerMsg;
+  bool _headerMsgIsError = false;
 
   String? _gstinError;
   String? _panError;
@@ -94,7 +168,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     _companyName.text = data['companyName'] ?? '';
     _address1.text = data['address1'] ?? '';
     _address2.text = data['address2'] ?? '';
-    _phone.text = data['phone'] ?? '';
+    _parsePhone(data['phone'] as String? ?? '');
     _email.text = data['email'] ?? '';
     _gstin.text = data['gstin'] ?? '';
     _pan.text = data['pan'] ?? '';
@@ -111,6 +185,8 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     _logoUrl = data['company_logo'] as String? ?? data['logoUrl'] as String?;
     _gstinCertUrl = data['gstin_certificate'] as String? ?? data['gstinCertUrl'] as String?;
     _panCardUrl = data['pan_card'] as String? ?? data['panCardUrl'] as String?;
+    _savedSnapshot = jsonEncode(_buildPayload());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateWizardValidation());
   }
 
   String _generateSystemCode() {
@@ -118,17 +194,63 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     return 'WB-${now.year}-${now.millisecondsSinceEpoch.toRadixString(16).substring(4, 8).toUpperCase()}';
   }
 
-  void _markDirty() {
-    if (!_dirty) setState(() => _dirty = true);
+  void _parsePhone(String raw) {
+    if (raw.isEmpty) {
+      _phone.text = '';
+      return;
+    }
+    // Try to extract dial code from stored value like "+91 9999900000"
+    for (final c in _countryCodes) {
+      if (raw.startsWith(c.code)) {
+        _selectedDialCode = c.code;
+        _phone.text = raw.substring(c.code.length).trim();
+        return;
+      }
+    }
+    _phone.text = raw;
   }
 
-  String _toTitleCase(String text) {
-    if (text.isEmpty) return text;
-    return text.split(' ').map((word) {
-      if (word.isEmpty) return word;
-      return word[0].toUpperCase() + word.substring(1).toLowerCase();
-    }).join(' ');
+  bool get _dirty => _savedSnapshot.isNotEmpty && _savedSnapshot != jsonEncode(_buildPayload());
+
+  String get _fullPhone => _phone.text.trim().isNotEmpty ? '$_selectedDialCode ${_phone.text.trim()}' : '';
+
+  Map<String, dynamic> _buildPayload() => {
+    'companyName': _companyName.text.trim(),
+    'address1': _address1.text.trim(),
+    'address2': _address2.text.trim(),
+    'phone': _fullPhone,
+    'email': _email.text.trim(),
+    'gstin': _gstin.text.trim(),
+    'pan': _pan.text.trim(),
+    'weighbridgeName': _weighbridgeName.text.trim(),
+    'locationNotes': _locationNotes.text.trim(),
+    'latitude': _latitude.text.trim(),
+    'longitude': _longitude.text.trim(),
+    'officeLatitude': _officeLatitude.text.trim(),
+    'officeLongitude': _officeLongitude.text.trim(),
+    'dateFormat': _dateFormat,
+    'timeFormat': _timeFormat,
+    'currency': _currency,
+  };
+
+  void _markDirty() {
+    setState(() {});
+    _updateWizardValidation();
   }
+
+  void _updateWizardValidation() {
+    if (!ref.read(wizardModeProvider)) return;
+    final valid = _address1.text.trim().isNotEmpty && _gstin.text.trim().isNotEmpty;
+    ref.read(companyInfoValidProvider.notifier).state = valid;
+  }
+
+  void _showHeaderMsg(String msg, {bool isError = false}) {
+    setState(() { _headerMsg = msg; _headerMsgIsError = isError; });
+    Future.delayed(Duration(seconds: isError ? 5 : 3), () {
+      if (mounted) setState(() => _headerMsg = null);
+    });
+  }
+
 
   bool _validateGstin(String value) {
     if (value.isEmpty) return true;
@@ -144,11 +266,11 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
   Future<(double, double)> _getCurrentLocation() async {
     try {
-      final response = await http.get(Uri.parse('http://ip-api.com/json/?fields=lat,lon')).timeout(const Duration(seconds: 3));
+      final response = await http.get(Uri.parse('https://ipapi.co/json/')).timeout(const Duration(seconds: 3));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final lat = (data['lat'] as num?)?.toDouble();
-        final lon = (data['lon'] as num?)?.toDouble();
+        final lat = (data['latitude'] as num?)?.toDouble();
+        final lon = (data['longitude'] as num?)?.toDouble();
         if (lat != null && lon != null) return (lat, lon);
       }
     } catch (_) {}
@@ -232,11 +354,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
     // PDFs can't be compressed — reject if too large
     if (isPdf && file.lengthSync() > _maxBytes) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PDF too large. Maximum 500 KB allowed.')),
-        );
-      }
+      if (mounted) _showHeaderMsg('PDF too large. Maximum 500 KB allowed.', isError: true);
       return;
     }
 
@@ -260,21 +378,17 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
         if (mounted && wasCompressed) {
           final savedKb = ((originalSize - bytes.length) / 1024).round();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Compressed: ${(originalSize / 1024).round()} KB → ${(bytes.length / 1024).round()} KB (saved $savedKb KB)'),
-              duration: const Duration(seconds: 3),
-            ),
-          );
+          _showHeaderMsg('Compressed: ${(originalSize / 1024).round()} KB → ${(bytes.length / 1024).round()} KB (saved $savedKb KB)');
         }
       }
 
       final b64 = base64Encode(bytes);
-      final dataUri = 'data:image/$mimeExt;base64,$b64';
+      final mime = isPdf ? 'application/pdf' : 'image/$mimeExt';
+      final dataUri = 'data:$mime;base64,$b64';
 
-      final db = ref.read(firestoreProvider);
+      final db = ref.read(firestorePathsProvider);
       final docKey = docType.replaceAll(' ', '_').toLowerCase();
-      await db.collection('settings').doc('general_docs').set({
+      await db.generalDocsSettings.set({
         docKey: dataUri,
         '${docKey}_name': path.split('/').last,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -287,11 +401,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
       });
       _markDirty();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e')),
-        );
-      }
+      if (mounted) _showHeaderMsg('Upload failed: $e', isError: true);
     } finally {
       setState(() {
         _uploadingLogo = false;
@@ -299,6 +409,22 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
         _uploadingPan = false;
       });
     }
+  }
+
+  Future<void> _removeDocument(String docType) async {
+    final db = ref.read(firestorePathsProvider);
+    final docKey = docType.replaceAll(' ', '_').toLowerCase();
+    await db.generalDocsSettings.update({
+      docKey: FieldValue.delete(),
+      '${docKey}_name': FieldValue.delete(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    setState(() {
+      if (docType == 'Company Logo') _logoUrl = null;
+      if (docType == 'GSTIN Certificate') _gstinCertUrl = null;
+      if (docType == 'PAN Card') _panCardUrl = null;
+    });
+    _markDirty();
   }
 
   Future<void> _save() async {
@@ -316,18 +442,18 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     setState(() => _saving = true);
 
     try {
-      final db = ref.read(firestoreProvider);
-      await db.collection('settings').doc('general').set({
-        'companyName': _toTitleCase(_companyName.text.trim()),
-        'address1': _toTitleCase(_address1.text.trim()),
-        'address2': _toTitleCase(_address2.text.trim()),
-        'phone': _phone.text.trim(),
+      final db = ref.read(firestorePathsProvider);
+      await db.generalSettings.set({
+        'companyName': toTitleCase(_companyName.text.trim()),
+        'address1': toTitleCase(_address1.text.trim()),
+        'address2': toTitleCase(_address2.text.trim()),
+        'phone': _fullPhone,
         'email': _email.text.trim().toLowerCase(),
         'gstin': gstin,
         'pan': pan,
-        'weighbridgeName': _toTitleCase(_weighbridgeName.text.trim()),
+        'weighbridgeName': toTitleCase(_weighbridgeName.text.trim()),
         'systemCode': _systemCode,
-        'locationNotes': _locationNotes.text.trim(),
+        'locationNotes': toTitleCase(_locationNotes.text.trim()),
         'latitude': double.tryParse(_latitude.text.trim()),
         'longitude': double.tryParse(_longitude.text.trim()),
         'officeLatitude': double.tryParse(_officeLatitude.text.trim()),
@@ -341,21 +467,17 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
       ref.invalidate(_generalSettingsProvider);
       ref.read(auditServiceProvider).log(event: 'settingChange', description: 'General settings updated');
       if (mounted) {
-        setState(() => _dirty = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Settings saved successfully')),
-        );
+        _savedSnapshot = jsonEncode(_buildPayload());
+        setState(() {});
+        _showHeaderMsg('Settings saved successfully');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e')),
-        );
-      }
+      if (mounted) _showHeaderMsg('Failed to save: $e', isError: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -376,53 +498,82 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
               color: scheme.surface,
               border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
-                  onPressed: () => context.go('/settings'),
-                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                  style: IconButton.styleFrom(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Icon(Icons.settings_rounded, size: 20, color: scheme.primary),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Text('General Settings', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    Text(
-                      'Company, region, and site identity',
-                      style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    IconButton(
+                      onPressed: () {
+                        if (ref.read(wizardModeProvider)) {
+                          ref.read(setupWizardProvider.notifier).previousStep();
+                        } else {
+                          context.go('/settings');
+                        }
+                      },
+                      icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                      style: IconButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(Icons.settings_rounded, size: 20, color: scheme.primary),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('General Settings', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        Text(
+                          'Company, region, and site identity',
+                          style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    if (_dirty) ...[
+                      TextButton(
+                        onPressed: () { setState(() { _loaded = false; _savedSnapshot = ''; }); ref.invalidate(_generalSettingsProvider); },
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    FilledButton.icon(
+                      onPressed: _dirty && !_saving ? _save : null,
+                      icon: _saving
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.save_rounded, size: 16),
+                      label: Text(_saving ? 'Saving...' : 'Save'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
                   ],
                 ),
-                const Spacer(),
-                if (_dirty) ...[
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _loaded = false;
-                        _dirty = false;
-                      });
-                      ref.invalidate(_generalSettingsProvider);
-                    },
-                    child: const Text('Discard'),
+                if (_headerMsg != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _headerMsgIsError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+                            size: 15,
+                            color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                ],
-                FilledButton.icon(
-                  onPressed: _dirty && !_saving ? _save : null,
-                  icon: _saving
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.save_rounded, size: 16),
-                  label: Text(_saving ? 'Saving...' : 'Save'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
               ],
             ),
           ),
@@ -438,13 +589,13 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildCompanySection(scheme, text),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
                     _buildRegionalSection(scheme, text),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
                     _buildWeighbridgeIdentity(scheme, text),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
                     _buildLocationSection(scheme, text),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
                     _buildDocumentsSection(scheme, text),
                     const SizedBox(height: 40),
                   ],
@@ -459,6 +610,27 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
   // ─── Company Information ─────────────────────────────────────────────────
 
+  Widget _buildInfoRow(String infoText, ColorScheme scheme, TextTheme textTheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary.withValues(alpha: 0.6)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(infoText, style: textTheme.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant, height: 1.4))),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCompanySection(ColorScheme scheme, TextTheme text) {
     return _SettingsCard(
       icon: Icons.business_rounded,
@@ -467,12 +639,9 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
       text: text,
       child: Column(
         children: [
-          _Field(
-            label: 'Company Name',
-            controller: _companyName,
-            hint: 'e.g. Shri Balaji Weighbridge Pvt. Ltd.',
-            onChanged: (_) => _markDirty(),
-          ),
+          _buildInfoRow('Appears on weighment slips, invoices, and reports. GSTIN and PAN are validated on save.', scheme, text),
+          const SizedBox(height: 14),
+          _ReadOnlyField(label: 'Company Name', value: _companyName.text, scheme: scheme, text: text),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -484,9 +653,9 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _Field(label: 'Phone Number', controller: _phone, hint: 'e.g. +91 79 2589 3456', onChanged: (_) => _markDirty())),
+              Expanded(child: _ReadOnlyField(label: 'Phone Number', value: _fullPhone, scheme: scheme, text: text)),
               const SizedBox(width: 14),
-              Expanded(child: _Field(label: 'Email Address', controller: _email, hint: 'e.g. info@balajiweighbridge.in', onChanged: (_) => _markDirty())),
+              Expanded(child: _ReadOnlyField(label: 'Email Address', value: _email.text, scheme: scheme, text: text)),
             ],
           ),
           const SizedBox(height: 16),
@@ -532,47 +701,53 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
       title: 'Regional Settings',
       scheme: scheme,
       text: text,
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: _DropdownField(
-              label: 'Date Format',
-              value: _dateFormat,
-              items: const ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'],
-              onChanged: (v) {
-                setState(() => _dateFormat = v!);
-                _markDirty();
-              },
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Time Format', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 6),
-                Row(
+          _buildInfoRow('Affects how dates, times, and currency are displayed throughout the app and on printed slips.', scheme, text),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _DropdownField(
+                  label: 'Date Format',
+                  value: _dateFormat,
+                  items: const ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'],
+                  onChanged: (v) {
+                    setState(() => _dateFormat = v!);
+                    _markDirty();
+                  },
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _RadioChip(label: '12-hour', selected: _timeFormat == '12-hour', onTap: () { setState(() => _timeFormat = '12-hour'); _markDirty(); }),
-                    const SizedBox(width: 8),
-                    _RadioChip(label: '24-hour', selected: _timeFormat == '24-hour', onTap: () { setState(() => _timeFormat = '24-hour'); _markDirty(); }),
+                    Text('Time Format', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        _RadioChip(label: '12-hour', selected: _timeFormat == '12-hour', onTap: () { setState(() => _timeFormat = '12-hour'); _markDirty(); }),
+                        const SizedBox(width: 8),
+                        _RadioChip(label: '24-hour', selected: _timeFormat == '24-hour', onTap: () { setState(() => _timeFormat = '24-hour'); _markDirty(); }),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: _DropdownField(
-              label: 'Currency',
-              value: _currency,
-              items: const ['INR', 'USD', 'EUR', 'GBP'],
-              onChanged: (v) {
-                setState(() => _currency = v!);
-                _markDirty();
-              },
-            ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _DropdownField(
+                  label: 'Currency',
+                  value: _currency,
+                  items: const ['INR', 'USD', 'EUR', 'GBP'],
+                  onChanged: (v) {
+                    setState(() => _currency = v!);
+                    _markDirty();
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -589,15 +764,12 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
       text: text,
       child: Column(
         children: [
+          _buildInfoRow('Identifies this weighbridge in reports and cloud sync. System code is auto-generated and cannot be changed.', scheme, text),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
-                child: _Field(
-                  label: 'Weighbridge Name',
-                  controller: _weighbridgeName,
-                  hint: 'e.g. Gate No. 1 - Pitless 80T',
-                  onChanged: (_) => _markDirty(),
-                ),
+                child: _ReadOnlyField(label: 'Weighbridge Name', value: _weighbridgeName.text, scheme: scheme, text: text),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -655,6 +827,8 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
       text: text,
       child: Column(
         children: [
+          _buildInfoRow('Coordinates are used for satellite imagery on reports and to verify the weighbridge physical location. Click "Pick on Map" for visual selection.', scheme, text),
+          const SizedBox(height: 14),
           Row(
             children: [
               Icon(Icons.scale_rounded, size: 16, color: scheme.primary),
@@ -744,13 +918,19 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
       subtitle: 'Upload official documents for record-keeping',
       scheme: scheme,
       text: text,
-      child: Row(
+      child: Column(
         children: [
-          Expanded(child: _UploadTile(label: 'Company Logo', icon: Icons.image_rounded, scheme: scheme, text: text, dataUri: _logoUrl, uploading: _uploadingLogo, onTap: () => _pickAndUpload('Company Logo'))),
-          const SizedBox(width: 14),
-          Expanded(child: _UploadTile(label: 'GSTIN Certificate', icon: Icons.description_rounded, scheme: scheme, text: text, dataUri: _gstinCertUrl, uploading: _uploadingGstin, onTap: () => _pickAndUpload('GSTIN Certificate'))),
-          const SizedBox(width: 14),
-          Expanded(child: _UploadTile(label: 'PAN Card', icon: Icons.credit_card_rounded, scheme: scheme, text: text, dataUri: _panCardUrl, uploading: _uploadingPan, onTap: () => _pickAndUpload('PAN Card'))),
+          _buildInfoRow('Logo appears on printed slips and reports. GSTIN/PAN certificates are stored for compliance records. Supported: PNG, JPG, PDF.', scheme, text),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: _UploadTile(label: 'Company Logo', icon: Icons.image_rounded, scheme: scheme, text: text, dataUri: _logoUrl, uploading: _uploadingLogo, onTap: () => _pickAndUpload('Company Logo'), onRemove: _logoUrl != null ? () => _removeDocument('Company Logo') : null)),
+              const SizedBox(width: 14),
+              Expanded(child: _UploadTile(label: 'GSTIN Certificate', icon: Icons.description_rounded, scheme: scheme, text: text, dataUri: _gstinCertUrl, uploading: _uploadingGstin, onTap: () => _pickAndUpload('GSTIN Certificate'), onRemove: _gstinCertUrl != null ? () => _removeDocument('GSTIN Certificate') : null)),
+              const SizedBox(width: 14),
+              Expanded(child: _UploadTile(label: 'PAN Card', icon: Icons.credit_card_rounded, scheme: scheme, text: text, dataUri: _panCardUrl, uploading: _uploadingPan, onTap: () => _pickAndUpload('PAN Card'), onRemove: _panCardUrl != null ? () => _removeDocument('PAN Card') : null)),
+            ],
+          ),
         ],
       ),
     );
@@ -858,8 +1038,56 @@ class _Field extends StatelessWidget {
             hintText: hint,
             errorText: error,
             errorStyle: TextStyle(fontSize: 10, color: scheme.error),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             isDense: true,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReadOnlyField extends StatelessWidget {
+  final String label;
+  final String value;
+  final ColorScheme scheme;
+  final TextTheme text;
+
+  const _ReadOnlyField({
+    required this.label,
+    required this.value,
+    required this.scheme,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  value.isNotEmpty ? value : '—',
+                  style: text.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: value.isNotEmpty ? scheme.onSurface : scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Icon(Icons.lock_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+            ],
           ),
         ),
       ],
@@ -895,7 +1123,7 @@ class _DropdownField extends StatelessWidget {
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall))).toList(),
           onChanged: onChanged,
           decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             isDense: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -903,7 +1131,7 @@ class _DropdownField extends StatelessWidget {
             ),
           ),
           style: text.bodySmall,
-          icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: scheme.onSurfaceVariant),
+          icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: scheme.onSurfaceVariant),
         ),
       ],
     );
@@ -1150,11 +1378,12 @@ class _UploadTile extends StatelessWidget {
   final String? dataUri;
   final bool uploading;
   final VoidCallback onTap;
+  final VoidCallback? onRemove;
 
-  const _UploadTile({required this.label, required this.icon, required this.scheme, required this.text, required this.dataUri, required this.uploading, required this.onTap});
+  const _UploadTile({required this.label, required this.icon, required this.scheme, required this.text, required this.dataUri, required this.uploading, required this.onTap, this.onRemove});
 
   bool get uploaded => dataUri != null;
-  bool get _isImage => dataUri != null && !dataUri!.contains('application/pdf');
+  bool get _isImage => dataUri != null && !dataUri!.contains('application/pdf') && !dataUri!.contains('image/pdf');
 
   Uint8List? get _imageBytes {
     if (!_isImage || dataUri == null) return null;
@@ -1165,60 +1394,158 @@ class _UploadTile extends StatelessWidget {
     }
   }
 
+  void _viewDocument(BuildContext context) {
+    if (dataUri == null) return;
+    final bytes = dataUri!.contains(',') ? base64Decode(dataUri!.split(',').last) : null;
+    if (bytes == null) return;
+
+    if (_isImage) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(ctx).size.width * 0.6,
+              maxHeight: MediaQuery.of(ctx).size.height * 0.8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 8, 8),
+                  child: Row(
+                    children: [
+                      Icon(icon, size: 18, color: scheme.primary),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(label, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700))),
+                      IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded, size: 18)),
+                    ],
+                  ),
+                ),
+                Flexible(child: Image.memory(bytes, fit: BoxFit.contain)),
+              ],
+            ),
+          ),
+        ),
+      );
+    } else {
+      _openInSystemViewer(bytes);
+    }
+  }
+
+  Future<void> _openInSystemViewer(Uint8List bytes) async {
+    final tmpDir = Directory.systemTemp;
+    final file = File('${tmpDir.path}/weighbridge_preview_${label.replaceAll(' ', '_')}.pdf');
+    await file.writeAsBytes(bytes);
+    if (Platform.isMacOS) {
+      Process.run('open', [file.path]);
+    } else if (Platform.isWindows) {
+      Process.run('start', ['', file.path], runInShell: true);
+    } else {
+      Process.run('xdg-open', [file.path]);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bytes = _imageBytes;
 
-    return GestureDetector(
-      onTap: uploading ? null : onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: uploaded ? scheme.primaryContainer.withValues(alpha: 0.15) : scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: uploaded ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          children: [
-            // Preview area
-            Container(
-              width: double.infinity,
-              height: 80,
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: uploading
-                  ? const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)))
-                  : bytes != null
-                      ? Image.memory(bytes, fit: BoxFit.contain)
-                      : uploaded && !_isImage
-                          ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.picture_as_pdf_rounded, size: 28, color: scheme.error.withValues(alpha: 0.7)),
-                                  const SizedBox(height: 4),
-                                  Text('PDF', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-                                ],
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: uploaded ? scheme.primaryContainer.withValues(alpha: 0.15) : scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: uploaded ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          // Preview area — tap to view
+          GestureDetector(
+            onTap: uploaded && !uploading ? () => _viewDocument(context) : (uploading ? null : onTap),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Container(
+                width: double.infinity,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: uploading
+                    ? const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)))
+                    : bytes != null
+                        ? Image.memory(bytes, fit: BoxFit.contain)
+                        : uploaded && !_isImage
+                            ? Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.picture_as_pdf_rounded, size: 28, color: scheme.error.withValues(alpha: 0.7)),
+                                    const SizedBox(height: 4),
+                                    Text('PDF', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
+                                  ],
+                                ),
+                              )
+                            : Center(
+                                child: Icon(icon, size: 28, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
                               ),
-                            )
-                          : Center(
-                              child: Icon(icon, size: 28, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
-                            ),
+              ),
             ),
-            const SizedBox(height: 10),
-            Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 3),
-            Text(
-              uploaded ? 'Click to replace' : 'Click to upload',
-              style: text.labelSmall?.copyWith(fontSize: 10, color: uploaded ? scheme.primary : scheme.onSurfaceVariant, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 10),
+          Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          if (uploaded) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: () => _viewDocument(context),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Text('View', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('·', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+                ),
+                GestureDetector(
+                  onTap: uploading ? null : onTap,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Text('Replace', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
+                  ),
+                ),
+                if (onRemove != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('·', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+                  ),
+                  GestureDetector(
+                    onTap: onRemove,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Text('Remove', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.error)),
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ),
+          ] else
+            GestureDetector(
+              onTap: uploading ? null : onTap,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Text('Click to upload', style: text.labelSmall?.copyWith(fontSize: 10, color: scheme.onSurfaceVariant, fontWeight: FontWeight.w500)),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
+

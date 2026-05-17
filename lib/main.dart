@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -17,6 +18,11 @@ void main() async {
   await windowManager.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  );
+
   // On macOS, attempt sign-in (keychain issues may prevent this)
   if (Platform.isMacOS && FirebaseAuth.instance.currentUser == null) {
     try {
@@ -26,11 +32,16 @@ void main() async {
     }
   }
 
-  await windowManager.setFullScreen(true);
   await windowManager.waitUntilReadyToShow(null, () async {
     await windowManager.show();
+    await windowManager.maximize();
     await windowManager.focus();
   });
+
+  await Future.delayed(const Duration(milliseconds: 500));
+  final size = await windowManager.getSize();
+  await windowManager.setMinimumSize(size);
+  await windowManager.setMaximumSize(size);
 
   runApp(const ProviderScope(child: WeighbridgeApp()));
 }

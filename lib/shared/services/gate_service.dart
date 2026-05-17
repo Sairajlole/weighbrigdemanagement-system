@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -223,9 +224,9 @@ class GateService {
       final host = parts[0];
       final port = parts.length > 1 ? int.tryParse(parts[1]) ?? 502 : 502;
 
-      final uri = Uri.parse('http://$host:$port');
-      await http.get(uri).timeout(const Duration(seconds: 5));
+      final socket = await Socket.connect(host, port, timeout: const Duration(seconds: 5));
       stopwatch.stop();
+      await socket.close();
 
       return GateTestResult(
         success: true,
@@ -234,43 +235,81 @@ class GateService {
       );
     } on TimeoutException {
       return const GateTestResult(success: false, message: 'TCP connection timed out');
+    } on SocketException catch (e) {
+      return GateTestResult(success: false, message: 'TCP connection refused: ${e.message}');
     } catch (e) {
       return GateTestResult(success: false, message: 'TCP failed: $e');
     }
   }
 
   Future<GateTestResult> _sendOpenCommand(GateConfig gateConfig) async {
-    if (gateConfig.protocol == 'HTTP Relay') {
-      try {
-        final channel = gateConfig.channelNumber;
-        final uri = Uri.parse('http://${gateConfig.ip}/relay/$channel/on');
-        final response = await http.get(uri).timeout(const Duration(seconds: 5));
-        if (response.statusCode == 200) {
-          return const GateTestResult(success: true, message: 'Gate opened');
+    switch (gateConfig.protocol) {
+      case 'HTTP Relay':
+        try {
+          final channel = gateConfig.channelNumber;
+          final uri = Uri.parse('http://${gateConfig.ip}/relay/$channel/on');
+          final response = await http.get(uri).timeout(const Duration(seconds: 5));
+          if (response.statusCode == 200) {
+            return const GateTestResult(success: true, message: 'Gate opened');
+          }
+          return GateTestResult(success: false, message: 'HTTP ${response.statusCode}');
+        } catch (e) {
+          return GateTestResult(success: false, message: 'Failed: $e');
         }
-        return GateTestResult(success: false, message: 'HTTP ${response.statusCode}');
-      } catch (e) {
-        return GateTestResult(success: false, message: 'Failed: $e');
-      }
+      case 'TCP Socket':
+        return _sendTcpCommand(gateConfig, 'OPEN');
+      default:
+        return GateTestResult(success: false, message: '${gateConfig.protocol} not supported');
     }
-    return const GateTestResult(success: false, message: 'Protocol not implemented');
   }
 
   Future<GateTestResult> _sendCloseCommand(GateConfig gateConfig) async {
-    if (gateConfig.protocol == 'HTTP Relay') {
-      try {
-        final channel = gateConfig.channelNumber;
-        final uri = Uri.parse('http://${gateConfig.ip}/relay/$channel/off');
-        final response = await http.get(uri).timeout(const Duration(seconds: 5));
-        if (response.statusCode == 200) {
-          return const GateTestResult(success: true, message: 'Gate closed');
+    switch (gateConfig.protocol) {
+      case 'HTTP Relay':
+        try {
+          final channel = gateConfig.channelNumber;
+          final uri = Uri.parse('http://${gateConfig.ip}/relay/$channel/off');
+          final response = await http.get(uri).timeout(const Duration(seconds: 5));
+          if (response.statusCode == 200) {
+            return const GateTestResult(success: true, message: 'Gate closed');
+          }
+          return GateTestResult(success: false, message: 'HTTP ${response.statusCode}');
+        } catch (e) {
+          return GateTestResult(success: false, message: 'Failed: $e');
         }
-        return GateTestResult(success: false, message: 'HTTP ${response.statusCode}');
-      } catch (e) {
-        return GateTestResult(success: false, message: 'Failed: $e');
-      }
+      case 'TCP Socket':
+        return _sendTcpCommand(gateConfig, 'CLOSE');
+      default:
+        return GateTestResult(success: false, message: '${gateConfig.protocol} not supported');
     }
-    return const GateTestResult(success: false, message: 'Protocol not implemented');
+  }
+
+  Future<GateTestResult> _sendTcpCommand(GateConfig gateConfig, String command) async {
+    try {
+      final parts = gateConfig.ip.split(':');
+      final host = parts[0];
+      final port = parts.length > 1 ? int.tryParse(parts[1]) ?? 502 : 502;
+      final channel = gateConfig.channelNumber;
+
+      final socket = await Socket.connect(host, port, timeout: const Duration(seconds: 5));
+      socket.write('$command:$channel\n');
+      await socket.flush();
+
+      final response = await socket.first.timeout(const Duration(seconds: 3));
+      final reply = String.fromCharCodes(response).trim();
+      await socket.close();
+
+      if (reply.contains('OK') || reply.contains('ACK')) {
+        return GateTestResult(success: true, message: 'Gate ${command.toLowerCase()}ed');
+      }
+      return GateTestResult(success: false, message: 'Unexpected response: $reply');
+    } on TimeoutException {
+      return const GateTestResult(success: false, message: 'TCP command timed out');
+    } on SocketException catch (e) {
+      return GateTestResult(success: false, message: 'TCP error: ${e.message}');
+    } catch (e) {
+      return GateTestResult(success: false, message: 'TCP failed: $e');
+    }
   }
 
   void _scheduleAutoClose(GateId gateId, int seconds) {

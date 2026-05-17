@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
+import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
 
 enum BackupStatus { idle, running, success, failed }
 
@@ -72,8 +73,8 @@ class S3Config {
       enabled: data['enabled'] as bool? ?? false,
       bucket: data['bucket'] as String? ?? '',
       region: data['region'] as String? ?? 'ap-south-1',
-      accessKey: data['accessKey'] as String? ?? '',
-      secretKey: data['secretKey'] as String? ?? '',
+      accessKey: CryptoService.decrypt(data['accessKey'] as String? ?? ''),
+      secretKey: CryptoService.decrypt(data['secretKey'] as String? ?? ''),
       prefix: data['prefix'] as String? ?? 'weighbridge/',
       frequency: data['frequency'] as String? ?? 'daily',
     );
@@ -83,8 +84,8 @@ class S3Config {
     'enabled': enabled,
     'bucket': bucket,
     'region': region,
-    'accessKey': accessKey,
-    'secretKey': secretKey,
+    'accessKey': CryptoService.encrypt(accessKey),
+    'secretKey': CryptoService.encrypt(secretKey),
     'prefix': prefix,
     'frequency': frequency,
   };
@@ -237,18 +238,78 @@ class CloudBackupService {
     }
 
     try {
-      // Write to local staging area for manual upload or OAuth flow
-      final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
-      final backupDir = Directory('$home/.weighbridge/backups/gdrive');
-      if (!backupDir.existsSync()) backupDir.createSync(recursive: true);
+      final tokenDoc = await _db.collection('settings').doc('integrations').get();
+      final gdriveToken = tokenDoc.data()?['gdrive']?['accessToken'] as String?;
+      final refreshToken = tokenDoc.data()?['gdrive']?['refreshToken'] as String?;
 
-      final file = File('${backupDir.path}/$filename');
-      await file.writeAsString(content);
+      if (gdriveToken == null || gdriveToken.isEmpty) {
+        // Fall back to local staging if no OAuth token available
+        final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
+        final backupDir = Directory('$home/.weighbridge/backups/gdrive');
+        if (!backupDir.existsSync()) backupDir.createSync(recursive: true);
+        final file = File('${backupDir.path}/$filename');
+        await file.writeAsString(content);
+        return BackupResult(success: false, message: 'GDrive: no access token — staged locally. Please authorize via Settings > Integrations.');
+      }
 
-      return BackupResult(success: true, message: 'GDrive: staged locally', filesUploaded: 1, bytesTransferred: content.length);
+      var accessToken = CryptoService.decrypt(gdriveToken);
+
+      // Try upload
+      var response = await _gdriveUpload(accessToken, filename, content);
+
+      // Token expired — try refresh
+      if (response.statusCode == 401 && refreshToken != null && refreshToken.isNotEmpty) {
+        final newToken = await _refreshGDriveToken(CryptoService.decrypt(refreshToken));
+        if (newToken != null) {
+          accessToken = newToken;
+          await _db.collection('settings').doc('integrations').set({
+            'gdrive': {'accessToken': CryptoService.encrypt(newToken)},
+          }, SetOptions(merge: true));
+          response = await _gdriveUpload(accessToken, filename, content);
+        }
+      }
+
+      if (response.statusCode == 200) {
+        return BackupResult(success: true, message: 'GDrive: uploaded', filesUploaded: 1, bytesTransferred: content.length);
+      }
+      final respBody = await response.transform(utf8.decoder).join();
+      final truncated = respBody.length > 100 ? respBody.substring(0, 100) : respBody;
+      return BackupResult(success: false, message: 'GDrive HTTP ${response.statusCode}: $truncated');
     } catch (e) {
       return BackupResult(success: false, message: 'GDrive error: $e');
     }
+  }
+
+  Future<HttpClientResponse> _gdriveUpload(String accessToken, String filename, String content) async {
+    final metadata = jsonEncode({'name': filename, 'parents': [_gdriveConfig.folder]});
+    final boundary = '===weighbridge_boundary===';
+    final body = '--$boundary\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n$metadata\r\n--$boundary\r\nContent-Type: application/json\r\n\r\n$content\r\n--$boundary--';
+
+    final client = HttpClient();
+    final request = await client.postUrl(Uri.parse('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'));
+    request.headers.set('Authorization', 'Bearer $accessToken');
+    request.headers.set('Content-Type', 'multipart/related; boundary=$boundary');
+    request.write(body);
+    final response = await request.close();
+    client.close();
+    return response;
+  }
+
+  Future<String?> _refreshGDriveToken(String refreshToken) async {
+    try {
+      final client = HttpClient();
+      final request = await client.postUrl(Uri.parse('https://oauth2.googleapis.com/token'));
+      request.headers.set('Content-Type', 'application/x-www-form-urlencoded');
+      request.write('client_id=${_gdriveConfig.clientId}&refresh_token=$refreshToken&grant_type=refresh_token');
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        return data['access_token'] as String?;
+      }
+      client.close();
+    } catch (_) {}
+    return null;
   }
 
   Map<String, String> _signS3Request(String method, String path, String host, String dateStamp, DateTime now, {String? body}) {

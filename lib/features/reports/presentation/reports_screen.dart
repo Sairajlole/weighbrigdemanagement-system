@@ -2,13 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 
 final _allWeighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
-  final db = ref.watch(firestoreProvider);
-  return db.collection('weighments').orderBy('createdAt', descending: true).snapshots().map(
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  return paths.weighments.orderBy('createdAt', descending: true).snapshots().map(
         (snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList(),
       );
 });

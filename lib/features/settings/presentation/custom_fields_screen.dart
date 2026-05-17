@@ -1,12 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 
 final _customFieldsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  final db = ref.watch(firestoreProvider);
-  final doc = await db.collection('settings').doc('customFields').get();
+  final db = ref.watch(firestorePathsProvider);
+  final doc = await db.customFieldsSettings.get();
   if (!doc.exists) return List.generate(3, (_) => _defaultField());
   final fields = doc.data()?['fields'] as List<dynamic>?;
   if (fields == null || fields.isEmpty) return List.generate(3, (_) => _defaultField());
@@ -39,6 +40,9 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
   bool _dirty = false;
   int _expandedIndex = 0;
 
+  String? _headerMsg;
+  bool _headerMsgIsError = false;
+
   void _loadData(List<Map<String, dynamic>> data) {
     if (_loaded) return;
     _loaded = true;
@@ -52,25 +56,28 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
     if (!_dirty) setState(() => _dirty = true);
   }
 
+  void _showHeaderMsg(String msg, {bool isError = false}) {
+    setState(() { _headerMsg = msg; _headerMsgIsError = isError; });
+    Future.delayed(Duration(seconds: isError ? 5 : 3), () {
+      if (mounted) setState(() => _headerMsg = null);
+    });
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      final db = ref.read(firestoreProvider);
-      await db.collection('settings').doc('customFields').set({
+      final db = ref.read(firestorePathsProvider);
+      await db.customFieldsSettings.set({
         'fields': _fields,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       ref.invalidate(_customFieldsProvider);
       if (mounted) {
         setState(() => _dirty = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Custom fields saved')),
-        );
+        _showHeaderMsg('Custom fields saved');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
-      }
+      if (mounted) _showHeaderMsg('Failed: $e', isError: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -102,39 +109,68 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
               color: scheme.surface,
               border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
-                  onPressed: () => context.go('/settings'),
-                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                  style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                ),
-                const SizedBox(width: 12),
-                Icon(Icons.text_fields_rounded, size: 20, color: scheme.primary),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Text('Custom Fields', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    Text('Additional fields on dockets', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                    IconButton(
+                      onPressed: () => context.go('/settings'),
+                      icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(Icons.text_fields_rounded, size: 20, color: scheme.primary),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Custom Fields', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        Text('Additional fields on dockets', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                      ],
+                    ),
+                    const Spacer(),
+                    if (_dirty) ...[
+                      TextButton(onPressed: _resetDefaults, child: const Text('Cancel')),
+                      const SizedBox(width: 8),
+                    ],
+                    FilledButton.icon(
+                      onPressed: _dirty && !_saving ? _save : null,
+                      icon: _saving
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.save_rounded, size: 16),
+                      label: Text(_saving ? 'Saving...' : 'Save'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
                   ],
                 ),
-                const Spacer(),
-                if (_dirty) ...[
-                  TextButton(onPressed: _resetDefaults, child: const Text('Reset Defaults')),
-                  const SizedBox(width: 8),
-                ],
-                FilledButton.icon(
-                  onPressed: _dirty && !_saving ? _save : null,
-                  icon: _saving
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.save_rounded, size: 16),
-                  label: Text(_saving ? 'Saving...' : 'Save'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                if (_headerMsg != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _headerMsgIsError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+                            size: 15,
+                            color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -412,7 +448,7 @@ class _FieldConfig extends StatelessWidget {
 
           // Expanded content
           if (expanded) ...[
-            Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
+            Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(

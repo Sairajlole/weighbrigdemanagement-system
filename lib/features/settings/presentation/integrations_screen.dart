@@ -1,17 +1,21 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/integrations_provider.dart';
 import 'package:weighbridgemanagement/shared/services/display_board_service.dart';
 import 'package:weighbridgemanagement/shared/services/tally_service.dart';
+import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 final _integrationsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final db = ref.watch(firestoreProvider);
-  final doc = await db.collection('settings').doc('integrations').get();
+  final db = ref.watch(firestorePathsProvider);
+  final doc = await db.integrationsSettings.get();
   return doc.exists ? doc.data()! : {};
 });
 
@@ -27,7 +31,10 @@ class IntegrationsScreen extends ConsumerStatefulWidget {
 class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
   bool _loaded = false;
   bool _saving = false;
-  bool _dirty = false;
+  String _savedSnapshot = '';
+
+  String? _headerMsg;
+  bool _headerMsgIsError = false;
 
   // ── Tally Sync ──
   bool _tallyEnabled = false;
@@ -113,67 +120,75 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     _s3Prefix.text = s3['prefix'] as String? ?? 'weighbridge/';
     _s3Frequency = s3['frequency'] as String? ?? 'daily';
 
-
+    _savedSnapshot = jsonEncode(_buildPayload());
   }
 
+  bool get _dirty => _savedSnapshot.isNotEmpty && _savedSnapshot != jsonEncode(_buildPayload());
+
+  Map<String, dynamic> _buildPayload() => {
+    'tally': {
+      'enabled': _tallyEnabled,
+      'host': _tallyHost.text.trim(),
+      'port': int.tryParse(_tallyPort.text.trim()) ?? 9000,
+      'company': _tallyCompany.text.trim(),
+      'syncMode': _tallySyncMode,
+      'pushVouchers': _tallyPushVouchers,
+      'pushLedgers': _tallyPushLedgers,
+      'mapMaterials': _tallyMapMaterials,
+    },
+    'hardware': {
+      'displayBoards': _displayBoards,
+    },
+    'cloud': {
+      'gdrive': {
+        'enabled': _gdriveEnabled,
+        'clientId': _gdriveClientId.text.trim(),
+        'folder': _gdriveFolder.text.trim(),
+        'frequency': _gdriveFrequency,
+      },
+      's3': {
+        'enabled': _s3Enabled,
+        'bucket': _s3Bucket.text.trim(),
+        'region': _s3Region.text.trim(),
+        'accessKey': _s3AccessKey.text.trim(),
+        'secretKey': _s3SecretKey.text.trim(),
+        'prefix': _s3Prefix.text.trim(),
+        'frequency': _s3Frequency,
+      },
+    },
+  };
+
   void _markDirty() {
-    if (!_dirty) setState(() => _dirty = true);
+    setState(() {});
+  }
+
+  void _showHeaderMsg(String msg, {bool isError = false}) {
+    setState(() { _headerMsg = msg; _headerMsgIsError = isError; });
+    Future.delayed(Duration(seconds: isError ? 5 : 3), () {
+      if (mounted) setState(() => _headerMsg = null);
+    });
   }
 
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      final db = ref.read(firestoreProvider);
+      final db = ref.read(firestorePathsProvider);
       final payload = {
-        'tally': {
-          'enabled': _tallyEnabled,
-          'host': _tallyHost.text.trim(),
-          'port': int.tryParse(_tallyPort.text.trim()) ?? 9000,
-          'company': _tallyCompany.text.trim(),
-          'syncMode': _tallySyncMode,
-          'pushVouchers': _tallyPushVouchers,
-          'pushLedgers': _tallyPushLedgers,
-          'mapMaterials': _tallyMapMaterials,
-        },
-        'hardware': {
-          'displayBoards': _displayBoards,
-        },
-        'cloud': {
-          'gdrive': {
-            'enabled': _gdriveEnabled,
-            'clientId': _gdriveClientId.text.trim(),
-            'folder': _gdriveFolder.text.trim(),
-            'frequency': _gdriveFrequency,
-          },
-          's3': {
-            'enabled': _s3Enabled,
-            'bucket': _s3Bucket.text.trim(),
-            'region': _s3Region.text.trim(),
-            'accessKey': _s3AccessKey.text.trim(),
-            'secretKey': _s3SecretKey.text.trim(),
-            'prefix': _s3Prefix.text.trim(),
-            'frequency': _s3Frequency,
-          },
-        },
+        ..._buildPayload(),
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      await db.collection('settings').doc('integrations').set(payload, SetOptions(merge: true));
+      await db.integrationsSettings.set(payload, SetOptions(merge: true));
       ref.invalidate(_integrationsProvider);
       ref.invalidate(integrationsConfigProvider);
-      setState(() => _dirty = false);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Integration settings saved'), backgroundColor: Theme.of(context).colorScheme.primary),
-        );
+        _savedSnapshot = jsonEncode(_buildPayload());
+        setState(() {});
+        _showHeaderMsg('Integration settings saved');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e'), backgroundColor: Theme.of(context).colorScheme.error),
-        );
-      }
+      if (mounted) _showHeaderMsg('Failed to save: $e', isError: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -213,40 +228,77 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
             children: [
               // Header
               Container(
-                padding: const EdgeInsets.fromLTRB(28, 20, 28, 16),
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
                 decoration: BoxDecoration(
                   color: scheme.surface,
                   border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
                 ),
-                child: Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      onPressed: () => context.go('/settings'),
-                      icon: Icon(Icons.arrow_back_rounded, size: 20, color: scheme.onSurface),
-                      tooltip: 'Back',
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(Icons.hub_rounded, size: 20, color: scheme.primary),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
                       children: [
-                        Text('Integrations', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                        Text('Tally, displays, and cloud sync', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                        IconButton(
+                          onPressed: () => context.go('/settings'),
+                          icon: Icon(Icons.arrow_back_rounded, size: 20, color: scheme.onSurface),
+                          tooltip: 'Back',
+                          style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(Icons.hub_rounded, size: 20, color: scheme.primary),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Integrations', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                            Text('Tally, displays, and cloud sync', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                          ],
+                        ),
+                        const Spacer(),
+                        if (_dirty) ...[
+                          TextButton(
+                            onPressed: () { setState(() { _loaded = false; _savedSnapshot = ''; }); ref.invalidate(_integrationsProvider); },
+                            child: const Text('Cancel'),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        FilledButton.icon(
+                          onPressed: _dirty && !_saving ? _save : null,
+                          icon: _saving
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.save_rounded, size: 16),
+                          label: Text(_saving ? 'Saving...' : 'Save'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
                       ],
                     ),
-                    const Spacer(),
-                    FilledButton.icon(
-                      onPressed: _dirty && !_saving ? _save : null,
-                      icon: _saving
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.save_rounded, size: 16),
-                      label: Text(_saving ? 'Saving...' : 'Save'),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    if (_headerMsg != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _headerMsgIsError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+                                size: 15,
+                                color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -258,9 +310,9 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildTallySection(scheme, text),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
                       _buildHardwareSection(scheme, text),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
                       _buildCloudSection(scheme, text),
                       const SizedBox(height: 40),
                     ],
@@ -286,10 +338,12 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
       text: text,
       trailing: Switch(value: _tallyEnabled, onChanged: (v) { setState(() => _tallyEnabled = v); _markDirty(); }),
       children: [
+        _buildInfoRow('Syncs weighment data to Tally ERP as vouchers. The Tally XML server must be running and accessible on your LAN.', scheme, text),
         if (_tallyEnabled) ...[
+          const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _field('Host / IP', _tallyHost, hint: '192.168.1.100', scheme: scheme, text: text)),
+              Expanded(child: _ipField('Host / IP', _tallyHost, hint: '192.168.1.100', scheme: scheme, text: text)),
               const SizedBox(width: 14),
               SizedBox(width: 100, child: _field('Port', _tallyPort, hint: '9000', scheme: scheme, text: text)),
             ],
@@ -390,6 +444,8 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
         ],
       ),
       children: [
+        _buildInfoRow('Serial LED boards display weight readings in real-time. Match baud rate and protocol to your board manual. Multiple boards can show different info.', scheme, text),
+        const SizedBox(height: 12),
         if (_availablePorts.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -495,6 +551,8 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
       scheme: scheme,
       text: text,
       children: [
+        _buildInfoRow('Automated off-site backup of weighment records and configuration. Data is encrypted in transit. Configure at least one provider for disaster recovery.', scheme, text),
+        const SizedBox(height: 14),
         // Google Drive
         _subHeader('Google Drive', Icons.add_to_drive_rounded, scheme, text),
         const SizedBox(height: 8),
@@ -563,6 +621,29 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     );
   }
 
+  Widget _ipField(String label, TextEditingController ctrl, {String? hint, required ColorScheme scheme, required TextTheme text}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: ctrl,
+          style: text.bodySmall,
+          inputFormatters: [IpInputFormatter()],
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          validator: validateIpAddress,
+          decoration: InputDecoration(
+            hintText: hint,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          onChanged: (_) => _markDirty(),
+        ),
+      ],
+    );
+  }
+
   Widget _dropdownRow(String label, String value, List<String> options, ValueChanged<String> onChanged, ColorScheme scheme, TextTheme text) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -579,7 +660,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant)),
           ),
           style: text.bodySmall,
-          icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: scheme.onSurfaceVariant),
+          icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: scheme.onSurfaceVariant),
         ),
       ],
     );
@@ -606,6 +687,27 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
       ],
     );
   }
+
+  Widget _buildInfoRow(String infoText, ColorScheme scheme, TextTheme textTheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary.withValues(alpha: 0.6)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(infoText, style: textTheme.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant, height: 1.4))),
+        ],
+      ),
+    );
+  }
 }
 
 // ─── Section Card Widget ────────────────────────────────────────────────────
@@ -625,32 +727,32 @@ class _Section extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 3))],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             decoration: BoxDecoration(
-              color: scheme.primaryContainer.withValues(alpha: 0.15),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              color: scheme.primaryContainer.withValues(alpha: 0.12),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.15))),
             ),
             child: Row(
               children: [
                 Container(
-                  width: 28, height: 28,
+                  width: 32, height: 32,
                   decoration: BoxDecoration(
                     color: scheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(7),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, size: 15, color: scheme.primary),
+                  child: Icon(icon, size: 16, color: scheme.primary),
                 ),
                 const SizedBox(width: 10),
-                Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.2)),
+                Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                 if (trailing != null) ...[
                   const Spacer(),
                   trailing!,
@@ -659,7 +761,7 @@ class _Section extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: children,

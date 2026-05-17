@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
   final String reason;
@@ -88,17 +88,19 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   Future<void> _applyPasswordChange(User user) async {
     await user.updatePassword(_newPassword.text);
 
-    final db = ref.read(firestoreProvider);
-    final snap = await db.collection('operators').where('email', isEqualTo: user.email).limit(1).get();
-    if (snap.docs.isNotEmpty) {
-      await snap.docs.first.reference.update({
-        'passwordLastChanged': FieldValue.serverTimestamp(),
-        'mustChangePassword': false,
-      });
-    } else {
-      await db.collection('settings').doc('adminProfile').set({
-        'passwordLastChanged': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+    final paths = ref.read(firestorePathsProvider);
+    if (paths.isConfigured) {
+      final snap = await paths.operators.where('email', isEqualTo: user.email).limit(1).get();
+      if (snap.docs.isNotEmpty) {
+        await snap.docs.first.reference.update({
+          'passwordLastChanged': FieldValue.serverTimestamp(),
+          'mustChangePassword': false,
+        });
+      } else {
+        await paths.siteSetting('adminProfile').set({
+          'passwordLastChanged': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
     }
 
     if (mounted) Navigator.of(context).pop(true);

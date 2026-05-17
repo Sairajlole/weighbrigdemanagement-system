@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
 import 'package:weighbridgemanagement/shared/services/tally_service.dart';
 import 'package:weighbridgemanagement/shared/services/display_board_service.dart';
@@ -35,9 +36,10 @@ Future<void> _saveLocalConfig(Map<String, dynamic> data) async {
 // ─── Config Provider ────────────────────────────────────────────────────────
 
 final integrationsConfigProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final db = ref.watch(firestoreProvider);
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return _loadLocalConfig();
   try {
-    final doc = await db.collection('settings').doc('integrations').get();
+    final doc = await paths.integrationsSettings.get();
     if (doc.exists) {
       final data = doc.data()!;
       await _saveLocalConfig(data);
@@ -106,8 +108,8 @@ final backupStatusProvider = StreamProvider<BackupStatus>((ref) {
 
 Future<void> saveIntegrationsConfig(WidgetRef ref, Map<String, dynamic> data) async {
   await _saveLocalConfig(data);
-  final db = ref.read(firestoreProvider);
-  await db.collection('settings').doc('integrations').set({
+  final paths = ref.read(firestorePathsProvider);
+  await paths.integrationsSettings.set({
     ...data,
     'updatedAt': FieldValue.serverTimestamp(),
   }, SetOptions(merge: true));

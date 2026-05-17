@@ -11,9 +11,11 @@ import 'package:intl/intl.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:weighbridgemanagement/features/auth/presentation/change_password_screen.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/offline_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
+import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 
 // ─── Active user provider (supports switching) ──────────────────────────────
 
@@ -23,41 +25,50 @@ final _profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final override = ref.watch(activeUserProvider);
   if (override != null) return override;
 
-  final db = ref.watch(firestoreProvider);
+  final db = ref.watch(firestorePathsProvider);
   final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return {'role': 'admin'};
+  final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
+
+  if (email == null || email.isEmpty) return {'role': 'admin'};
 
   try {
-    // Check if user is an operator
-    final snap = await db.collection('operators').where('email', isEqualTo: user.email).limit(1).get();
+    final snap = await db.operators.where('email', isEqualTo: email).limit(1).get();
     if (snap.docs.isNotEmpty) {
-      return {'role': 'operator', 'id': snap.docs.first.id, ...snap.docs.first.data()};
+      return {'role': snap.docs.first.data()['role'] ?? 'operator', 'id': snap.docs.first.id, ...snap.docs.first.data()};
     }
   } catch (_) {}
 
-  // Admin — read from admin profile doc
   try {
-    final adminDoc = await db.collection('settings').doc('adminProfile').get();
+    final adminDoc = await db.adminProfileSettings.get();
     if (adminDoc.exists) {
-      return {'role': 'admin', 'email': user.email, 'name': user.displayName, ...adminDoc.data()!};
+      final profile = {'role': 'admin', 'email': email, 'name': user?.displayName, ...adminDoc.data()!};
+      LocalCacheService.cacheAdminProfile(profile.map((k, v) => MapEntry(k, v?.toString())));
+      return profile;
     }
   } catch (_) {}
-  return {'role': 'admin', 'email': user.email, 'name': user.displayName};
+
+  final cached = await LocalCacheService.getCachedAdminProfile();
+  if (cached != null) return {'role': 'admin', 'email': email, 'name': user?.displayName, ...cached};
+  return {'role': 'admin', 'email': email, 'name': user?.displayName};
 });
 
 final _allOperatorsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  final db = ref.watch(firestoreProvider);
+  final db = ref.watch(firestorePathsProvider);
   try {
-    final snap = await db.collection('operators').where('isActive', isEqualTo: true).get();
-    return snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+    final snap = await db.operators.where('isActive', isEqualTo: true).get();
+    final operators = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+    LocalCacheService.cacheOperators(operators);
+    return operators;
   } catch (_) {}
+  final cached = await LocalCacheService.getCachedOperators();
+  if (cached.isNotEmpty) return cached;
   return [];
 });
 
 final _cameraSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final db = ref.watch(firestoreProvider);
+  final db = ref.watch(firestorePathsProvider);
   try {
-    final doc = await db.collection('settings').doc('camerasAi').get();
+    final doc = await db.camerasAiSettings.get();
     if (doc.exists) return doc.data()!;
   } catch (_) {}
   return {};
@@ -73,6 +84,68 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  Timer? _ipTimer;
+  String _currentIp = '...';
+  final DateTime _sessionStartTime = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshIp();
+    // Scan IP every 30 seconds (standard for network session monitoring)
+    _ipTimer = Timer.periodic(const Duration(seconds: 30), (_) => _refreshIp());
+    _recordSession();
+  }
+
+  @override
+  void dispose() {
+    _ipTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshIp() async {
+    final ip = await _getLocalIp();
+    if (mounted && ip != _currentIp) {
+      setState(() => _currentIp = ip);
+      _updateSessionIp(ip);
+    }
+  }
+
+  Future<void> _recordSession() async {
+    try {
+      final db = ref.read(firestorePathsProvider);
+      final profile = ref.read(_profileProvider).valueOrNull;
+      final role = profile?['role'] as String? ?? 'admin';
+      final userId = role == 'admin' ? 'admin' : (profile?['id'] as String? ?? 'unknown');
+      final ip = await _getLocalIp();
+      if (mounted) setState(() => _currentIp = ip);
+
+      await db.sessions.doc(userId).set({
+        'userId': userId,
+        'role': role,
+        'machine': Platform.localHostname,
+        'platform': Platform.operatingSystem,
+        'ip': ip,
+        'startedAt': FieldValue.serverTimestamp(),
+        'lastSeenAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (_) {}
+  }
+
+  Future<void> _updateSessionIp(String ip) async {
+    try {
+      final db = ref.read(firestorePathsProvider);
+      final profile = ref.read(_profileProvider).valueOrNull;
+      final role = profile?['role'] as String? ?? 'admin';
+      final userId = role == 'admin' ? 'admin' : (profile?['id'] as String? ?? 'unknown');
+
+      await db.sessions.doc(userId).update({
+        'ip': ip,
+        'lastSeenAt': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -91,6 +164,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           final isAdmin = role == 'admin';
           final name = profile['name'] as String? ?? user?.displayName ?? 'Admin';
           final email = profile['email'] as String? ?? user?.email ?? '--';
+          final phone = profile['phone'] as String? ?? '';
+          final employeeId = profile['employeeId'] as String? ?? '';
           final idStatus = profile['idStatus'] as String? ?? 'not_submitted';
           final lastLogin = profile['lastLoginAt'];
           final loginCount = profile['loginCount'] as int? ?? 0;
@@ -103,41 +178,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           final createdAt = profile['createdAt'];
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
-                Row(
-                  children: [
-                    Icon(Icons.person_rounded, size: 22, color: scheme.primary),
-                    const SizedBox(width: 10),
-                    Text('Profile', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                  ],
-                ),
+                // Hero header
+                _buildHeroHeader(scheme, text, name, email, role, phone, createdAt),
                 const SizedBox(height: 28),
 
-                // Row 1: Identity + Security Status
+                // Row 1: Details + Security
                 IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(child: _buildIdentityCard(scheme, text, name, email, role, idStatus, createdAt)),
-                      const SizedBox(width: 20),
-                      Expanded(child: _buildSecurityCard(scheme, text, isAdmin, lastLogin, passwordLastChanged, mustChangePassword, settings, loginCount)),
+                      Expanded(flex: 3, child: _buildDetailsCard(scheme, text, isAdmin, email, phone, employeeId, idStatus, createdAt)),
+                      const SizedBox(width: 16),
+                      Expanded(flex: 2, child: _buildSecurityCard(scheme, text, isAdmin, lastLogin, passwordLastChanged, mustChangePassword, settings, loginCount)),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
-                // Row 2: Session Info + Switch User
+                // Row 2: Session + Switch User
                 IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(child: _buildSessionCard(scheme, text, isAdmin, shiftRestricted, shiftStart, shiftEnd, shiftDays)),
-                      const SizedBox(width: 20),
-                      Expanded(child: _buildSwitchUserCard(scheme, text)),
+                      Expanded(flex: 3, child: _buildSessionCard(scheme, text, isAdmin, shiftRestricted, shiftStart, shiftEnd, shiftDays)),
+                      const SizedBox(width: 16),
+                      Expanded(flex: 2, child: _buildSwitchUserCard(scheme, text, isAdmin)),
                     ],
                   ),
                 ),
@@ -150,63 +219,118 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // IDENTITY CARD
+  // HERO HEADER
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildIdentityCard(ColorScheme scheme, TextTheme text, String name, String email, String role, String idStatus, dynamic createdAt) {
+  Widget _buildHeroHeader(ColorScheme scheme, TextTheme text, String name, String email, String role, String phone, dynamic createdAt) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [scheme.primary.withValues(alpha: 0.08), scheme.primaryContainer.withValues(alpha: 0.12)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [scheme.primary, scheme.primary.withValues(alpha: 0.75)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 4))],
+            ),
+            child: Center(
+              child: Text(
+                name.isNotEmpty ? name[0].toUpperCase() : '?',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: scheme.onPrimary),
+              ),
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(name, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: role == 'admin' ? scheme.primary : scheme.tertiary,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        role == 'admin' ? 'Admin' : 'Operator',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: role == 'admin' ? scheme.onPrimary : scheme.onTertiary),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(email, style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+                if (phone.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(phone, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
+                ],
+              ],
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ChangePasswordScreen(reason: 'Change your password')),
+              );
+            },
+            icon: const Icon(Icons.lock_reset_rounded, size: 16),
+            label: const Text('Change Password'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DETAILS CARD
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildDetailsCard(ColorScheme scheme, TextTheme text, bool isAdmin, String email, String phone, String employeeId, String idStatus, dynamic createdAt) {
     return _Card(
-      icon: Icons.badge_rounded,
-      title: 'Identity',
+      icon: Icons.person_rounded,
+      title: 'Details',
       scheme: scheme,
       text: text,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [scheme.primary, scheme.primary.withValues(alpha: 0.7)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Center(
-                child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : '?',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: scheme.onPrimary),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text(email, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _InfoRow(label: 'Role', scheme: scheme, text: text, child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: role == 'admin' ? scheme.primaryContainer : scheme.tertiaryContainer,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            role == 'admin' ? 'Administrator' : 'Operator',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: role == 'admin' ? scheme.onPrimaryContainer : scheme.onTertiaryContainer),
-          ),
+        _InfoRow(label: 'Email', scheme: scheme, text: text, child: Text(
+          email,
+          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
         )),
         const SizedBox(height: 10),
-        if (role != 'admin') ...[
+        _InfoRow(label: 'Phone', scheme: scheme, text: text, child: Text(
+          phone.isNotEmpty ? phone : '--',
+          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: phone.isNotEmpty ? null : scheme.onSurfaceVariant),
+        )),
+        const SizedBox(height: 10),
+        if (!isAdmin) ...[
+          _InfoRow(label: 'Employee ID', scheme: scheme, text: text, child: Text(
+            employeeId.isNotEmpty ? employeeId : '--',
+            style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: employeeId.isNotEmpty ? null : scheme.onSurfaceVariant),
+          )),
+          const SizedBox(height: 10),
           _InfoRow(label: 'KYC Status', scheme: scheme, text: text, child: _buildKycChip(idStatus, scheme)),
           const SizedBox(height: 10),
         ],
@@ -220,7 +344,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SECURITY STATUS CARD (with Reset Password)
+  // SECURITY STATUS CARD
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildSecurityCard(ColorScheme scheme, TextTheme text, bool isAdmin, dynamic lastLogin, dynamic passwordLastChanged, bool mustChangePassword, SecuritySettings settings, int loginCount) {
@@ -229,7 +353,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return _Card(
       icon: Icons.shield_rounded,
-      title: 'Security Status',
+      title: 'Security',
       scheme: scheme,
       text: text,
       children: [
@@ -238,12 +362,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
         )),
         const SizedBox(height: 10),
-        _InfoRow(label: 'Total Logins', scheme: scheme, text: text, child: Text(
+        _InfoRow(label: 'Logins', scheme: scheme, text: text, child: Text(
           '$loginCount',
           style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
         )),
         const SizedBox(height: 10),
-        _InfoRow(label: 'Password Age', scheme: scheme, text: text, child: Row(
+        _InfoRow(label: 'Password', scheme: scheme, text: text, child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(passwordAge, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
@@ -257,14 +381,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ],
           ],
         )),
-        const SizedBox(height: 10),
         if (settings.passwordExpiryDays > 0) ...[
-          _InfoRow(label: 'Expiry Policy', scheme: scheme, text: text, child: Text(
+          const SizedBox(height: 10),
+          _InfoRow(label: 'Expiry', scheme: scheme, text: text, child: Text(
             'Every ${settings.passwordExpiryDays} days',
             style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           )),
-          const SizedBox(height: 10),
         ],
+        const SizedBox(height: 10),
         _InfoRow(label: 'MFA', scheme: scheme, text: text, child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
@@ -276,21 +400,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: mfaEnabled ? scheme.primary : scheme.onSurfaceVariant),
           ),
         )),
-        const SizedBox(height: 16),
-        // Reset Password button
-        FilledButton.icon(
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ChangePasswordScreen(reason: 'Change your password')),
-            );
-          },
-          icon: const Icon(Icons.lock_reset_rounded, size: 16),
-          label: const Text('Reset Password'),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-        ),
       ],
     );
   }
@@ -301,12 +410,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _buildSessionCard(ColorScheme scheme, TextTheme text, bool isAdmin, bool shiftRestricted, String? shiftStart, String? shiftEnd, List<String>? shiftDays) {
     final hostname = Platform.localHostname;
-    final now = DateTime.now();
-    final sessionStart = '${DateFormat('dd MMM yyyy').format(now)}, ${getTimeFormatter(ref.read(timeFormatProvider)).format(now)}';
+    final sessionStart = '${DateFormat('dd MMM yyyy').format(_sessionStartTime)}, ${getTimeFormatter(ref.read(timeFormatProvider)).format(_sessionStartTime)}';
+    final uptime = DateTime.now().difference(_sessionStartTime);
+    final uptimeStr = uptime.inHours > 0
+        ? '${uptime.inHours}h ${uptime.inMinutes.remainder(60)}m'
+        : '${uptime.inMinutes}m';
 
     return _Card(
       icon: Icons.computer_rounded,
-      title: 'Session Info',
+      title: 'Session',
       scheme: scheme,
       text: text,
       children: [
@@ -315,28 +427,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
         )),
         const SizedBox(height: 10),
-        _InfoRow(label: 'Session Start', scheme: scheme, text: text, child: Text(
+        _InfoRow(label: 'Started', scheme: scheme, text: text, child: Text(
           sessionStart,
           style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
         )),
         const SizedBox(height: 10),
-        _InfoRow(label: 'Platform', scheme: scheme, text: text, child: Text(
-          Platform.operatingSystem.toUpperCase(),
+        _InfoRow(label: 'Uptime', scheme: scheme, text: text, child: Text(
+          uptimeStr,
           style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
         )),
         const SizedBox(height: 10),
-        FutureBuilder<String>(
-          future: _getLocalIp(),
-          builder: (_, snap) => _InfoRow(label: 'IP Address', scheme: scheme, text: text, child: Text(
-            snap.data ?? '...',
-            style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-          )),
-        ),
+        _InfoRow(label: 'Platform', scheme: scheme, text: text, child: Text(
+          '${Platform.operatingSystem[0].toUpperCase()}${Platform.operatingSystem.substring(1)}',
+          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+        )),
+        const SizedBox(height: 10),
+        _InfoRow(label: 'IP Address', scheme: scheme, text: text, child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_currentIp, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: _refreshIp,
+              child: Icon(Icons.refresh_rounded, size: 14, color: scheme.primary),
+            ),
+          ],
+        )),
         if (!isAdmin && shiftRestricted) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           const Divider(height: 1),
           const SizedBox(height: 12),
-          Text('Shift Schedule', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+          Text('Shift Schedule', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           _InfoRow(label: 'Hours', scheme: scheme, text: text, child: Text(
             '${shiftStart ?? '--'} – ${shiftEnd ?? '--'}',
@@ -358,7 +479,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // SWITCH USER CARD
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildSwitchUserCard(ColorScheme scheme, TextTheme text) {
+  Widget _buildSwitchUserCard(ColorScheme scheme, TextTheme text, bool isAdmin) {
     return _Card(
       icon: Icons.swap_horiz_rounded,
       title: 'Switch User',
@@ -366,12 +487,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       text: text,
       children: [
         Text(
-          'Switch to another operator or admin account on this machine.',
+          'Switch to another operator account on this machine.',
           style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
         const SizedBox(height: 16),
 
-        // Face scan option
         OutlinedButton.icon(
           onPressed: _showFaceScanDialog,
           icon: const Icon(Icons.face_rounded, size: 18),
@@ -384,31 +504,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         const SizedBox(height: 10),
 
-        // Manual select option
         FilledButton.icon(
           onPressed: _showManualSwitchDialog,
           icon: const Icon(Icons.people_rounded, size: 18),
-          label: const Text('Select User'),
+          label: const Text('Select Operator'),
           style: FilledButton.styleFrom(
             minimumSize: const Size(double.infinity, 42),
             textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         ),
-        const SizedBox(height: 14),
 
-        // Switch to admin
-        OutlinedButton.icon(
-          onPressed: _showAdminSwitchDialog,
-          icon: Icon(Icons.admin_panel_settings_rounded, size: 18, color: scheme.primary),
-          label: Text('Switch to Admin', style: TextStyle(color: scheme.primary)),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 42),
-            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            side: BorderSide(color: scheme.primary.withValues(alpha: 0.4)),
+        // Only show "Switch to Admin" when NOT already admin
+        if (!isAdmin) ...[
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: _showAdminSwitchDialog,
+            icon: Icon(Icons.admin_panel_settings_rounded, size: 18, color: scheme.primary),
+            label: Text('Switch to Admin', style: TextStyle(color: scheme.primary)),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 42),
+              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              side: BorderSide(color: scheme.primary.withValues(alpha: 0.4)),
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -428,19 +549,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ref.read(activeUserProvider.notifier).state = {...operator, 'role': 'operator'};
           ref.invalidate(_profileProvider);
 
-          final db = ref.read(firestoreProvider);
           final opId = operator['id'] as String?;
+          final online = ref.read(isOnlineProvider);
+
           if (opId != null) {
-            db.collection('operators').doc(opId).update({
-              'lastLoginAt': FieldValue.serverTimestamp(),
-              'loginCount': FieldValue.increment(1),
+            if (online) {
+              final db = ref.read(firestorePathsProvider);
+              db.operators.doc(opId).update({
+                'lastLoginAt': FieldValue.serverTimestamp(),
+                'loginCount': FieldValue.increment(1),
+              });
+            } else {
+              ref.read(offlineQueueProvider).enqueueOperatorUpdate(opId, {
+                'lastLoginAt': DateTime.now().toIso8601String(),
+                'loginCount': 1,
+              });
+            }
+          }
+
+          if (online) {
+            ref.read(auditServiceProvider).log(
+              event: 'userSwitch',
+              description: 'Face scan switch to: ${operator['name']}',
+              user: operator['email'] as String? ?? 'unknown',
+            );
+          } else {
+            ref.read(offlineQueueProvider).enqueueAuditLog({
+              'event': 'userSwitch',
+              'description': 'Face scan switch to: ${operator['name']}',
+              'user': operator['email'] as String? ?? 'unknown',
+              'machine': Platform.localHostname,
+              'timestamp': DateTime.now().toIso8601String(),
+              'success': true,
             });
           }
-          ref.read(auditServiceProvider).log(
-            event: 'userSwitch',
-            description: 'Face scan switch to: ${operator['name']}',
-            user: operator['email'] as String? ?? 'unknown',
-          );
 
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Switched to ${operator['name']}'),
@@ -580,22 +722,59 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ref.invalidate(_profileProvider);
     Navigator.pop(ctx);
 
-    // Record switch in Firestore
-    final db = ref.read(firestoreProvider);
     final opId = operator['id'] as String?;
+    final online = ref.read(isOnlineProvider);
+
     if (opId != null) {
-      db.collection('operators').doc(opId).update({
-        'lastLoginAt': FieldValue.serverTimestamp(),
-        'loginCount': FieldValue.increment(1),
-      });
+      if (online) {
+        final db = ref.read(firestorePathsProvider);
+        db.operators.doc(opId).update({
+          'lastLoginAt': FieldValue.serverTimestamp(),
+          'loginCount': FieldValue.increment(1),
+        });
+        db.sessions.doc(opId).set({
+          'userId': opId,
+          'role': 'operator',
+          'machine': Platform.localHostname,
+          'platform': Platform.operatingSystem,
+          'ip': _currentIp,
+          'startedAt': FieldValue.serverTimestamp(),
+          'lastSeenAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } else {
+        final queue = ref.read(offlineQueueProvider);
+        queue.enqueueOperatorUpdate(opId, {
+          'lastLoginAt': DateTime.now().toIso8601String(),
+          'loginCount': 1,
+        });
+        queue.enqueueSessionUpdate(opId, {
+          'userId': opId,
+          'role': 'operator',
+          'machine': Platform.localHostname,
+          'platform': Platform.operatingSystem,
+          'ip': _currentIp,
+          'startedAt': DateTime.now().toIso8601String(),
+          'lastSeenAt': DateTime.now().toIso8601String(),
+        });
+      }
     }
 
-    // Audit log
-    ref.read(auditServiceProvider).log(
-      event: 'userSwitch',
-      description: 'Switched to operator: ${operator['name']}',
-      user: operator['email'] as String? ?? 'unknown',
-    );
+    if (online) {
+      ref.read(auditServiceProvider).log(
+        event: 'userSwitch',
+        description: 'Switched to operator: ${operator['name']}',
+        user: operator['email'] as String? ?? 'unknown',
+      );
+    } else {
+      ref.read(offlineQueueProvider).enqueueAuditLog({
+        'event': 'userSwitch',
+        'description': 'Switched to operator: ${operator['name']}',
+        'user': operator['email'] as String? ?? 'unknown',
+        'machine': Platform.localHostname,
+        'timestamp': DateTime.now().toIso8601String(),
+        'success': true,
+      });
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -623,8 +802,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           await user.reauthenticateWithCredential(cred);
         }
         if (ctx.mounted) _completeAdminSwitch(ctx);
-      } on FirebaseAuthException {
-        setSt(() => error = 'Incorrect password');
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'network-request-failed') {
+          // Offline — allow switch (admin already authenticated in this session)
+          if (ctx.mounted) _completeAdminSwitch(ctx);
+        } else {
+          setSt(() => error = 'Incorrect password');
+        }
       } catch (_) {
         if (ctx.mounted) _completeAdminSwitch(ctx);
       }
@@ -680,18 +864,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ref.read(activeUserProvider.notifier).state = null;
     ref.invalidate(_profileProvider);
 
-    // Update admin login stats
-    final db = ref.read(firestoreProvider);
-    db.collection('settings').doc('adminProfile').set({
-      'lastLoginAt': FieldValue.serverTimestamp(),
-      'loginCount': FieldValue.increment(1),
-    }, SetOptions(merge: true));
+    final online = ref.read(isOnlineProvider);
 
-    // Audit log
-    ref.read(auditServiceProvider).log(
-      event: 'userSwitch',
-      description: 'Switched back to admin',
-    );
+    if (online) {
+      final db = ref.read(firestorePathsProvider);
+      db.adminProfileSettings.set({
+        'lastLoginAt': FieldValue.serverTimestamp(),
+        'loginCount': FieldValue.increment(1),
+      }, SetOptions(merge: true));
+      db.sessions.doc('admin').set({
+        'userId': 'admin',
+        'role': 'admin',
+        'machine': Platform.localHostname,
+        'platform': Platform.operatingSystem,
+        'ip': _currentIp,
+        'startedAt': FieldValue.serverTimestamp(),
+        'lastSeenAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      ref.read(auditServiceProvider).log(
+        event: 'userSwitch',
+        description: 'Switched back to admin',
+      );
+    } else {
+      final queue = ref.read(offlineQueueProvider);
+      queue.enqueueSessionUpdate('admin', {
+        'userId': 'admin',
+        'role': 'admin',
+        'machine': Platform.localHostname,
+        'platform': Platform.operatingSystem,
+        'ip': _currentIp,
+        'startedAt': DateTime.now().toIso8601String(),
+        'lastSeenAt': DateTime.now().toIso8601String(),
+      });
+      queue.enqueueAuditLog({
+        'event': 'userSwitch',
+        'description': 'Switched back to admin',
+        'machine': Platform.localHostname,
+        'timestamp': DateTime.now().toIso8601String(),
+        'success': true,
+      });
+    }
 
     if (ctx.mounted) Navigator.pop(ctx);
     if (mounted) {

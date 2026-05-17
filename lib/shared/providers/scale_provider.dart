@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
 
 // ─── Config persistence ─────────────────────────────────────────────────────
@@ -34,9 +34,13 @@ Future<void> _saveLocalConfig(Map<String, dynamic> data) async {
 // ─── Providers ──────────────────────────────────────────────────────────────
 
 final scaleConfigProvider = FutureProvider<ScaleConfig>((ref) async {
-  final db = ref.watch(firestoreProvider);
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) {
+    final localData = await _loadLocalConfig();
+    return ScaleConfig.fromMap(localData);
+  }
   try {
-    final doc = await db.collection('settings').doc('scale').get();
+    final doc = await paths.scaleSettings.get();
     if (doc.exists) {
       final data = doc.data()!;
       await _saveLocalConfig(data);
@@ -77,10 +81,10 @@ final availablePortsProvider = Provider<List<String>>((ref) {
 // ─── Save config action ─────────────────────────────────────────────────────
 
 Future<void> saveScaleConfig(WidgetRef ref, ScaleConfig config) async {
-  final db = ref.read(firestoreProvider);
+  final paths = ref.read(firestorePathsProvider);
   final data = config.toMap();
   await _saveLocalConfig(data);
-  await db.collection('settings').doc('scale').set({
+  await paths.scaleSettings.set({
     ...data,
     'updatedAt': FieldValue.serverTimestamp(),
   });

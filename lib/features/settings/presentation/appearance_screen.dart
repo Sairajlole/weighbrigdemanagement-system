@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart';
 
 const _accentColors = <Color>[
@@ -49,6 +51,9 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
   bool _dirty = false;
   bool _saving = false;
 
+  String? _headerMsg;
+  bool _headerMsgIsError = false;
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +69,13 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
     if (!_dirty) setState(() => _dirty = true);
   }
 
+  void _showHeaderMsg(String msg, {bool isError = false}) {
+    setState(() { _headerMsg = msg; _headerMsgIsError = isError; });
+    Future.delayed(Duration(seconds: isError ? 5 : 3), () {
+      if (mounted) setState(() => _headerMsg = null);
+    });
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
@@ -77,18 +89,10 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
         ),
       );
       setState(() { _dirty = false; _saving = false; });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Appearance settings saved'), duration: Duration(seconds: 2)),
-        );
-      }
+      if (mounted) _showHeaderMsg('Appearance settings saved');
     } catch (e) {
       setState(() => _saving = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e'), backgroundColor: Theme.of(context).colorScheme.error),
-        );
-      }
+      if (mounted) _showHeaderMsg('Save failed: $e', isError: true);
     }
   }
 
@@ -103,56 +107,92 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.fromLTRB(28, 20, 28, 16),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
             decoration: BoxDecoration(
               color: scheme.surface,
               border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
-                  onPressed: () => context.go('/settings'),
-                  icon: Icon(Icons.arrow_back_rounded, size: 20, color: scheme.onSurface),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.palette_rounded, size: 20, color: scheme.primary),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Text('Appearance', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                    Text('Theme, colors, and language', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                    IconButton(
+                      onPressed: () {
+                        if (ref.read(wizardModeProvider)) {
+                          ref.read(setupWizardProvider.notifier).previousStep();
+                        } else {
+                          context.go('/settings');
+                        }
+                      },
+                      icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(Icons.palette_rounded, size: 20, color: scheme.primary),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Appearance', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        Text('Theme, colors, and language', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                      ],
+                    ),
+                    const Spacer(),
+                    if (_dirty) ...[
+                      TextButton(
+                        onPressed: () {
+                          final settings = ref.read(appearanceProvider);
+                          setState(() {
+                            _themeMode = settings.themeMode;
+                            _accentColor = settings.accentColor;
+                            _backgroundArt = settings.backgroundArt;
+                            _fontScale = settings.fontScale;
+                            _locale = settings.locale;
+                            _dirty = false;
+                          });
+                        },
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    FilledButton.icon(
+                      onPressed: _dirty && !_saving ? _save : null,
+                      icon: _saving
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.save_rounded, size: 16),
+                      label: Text(_saving ? 'Saving...' : 'Save'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
                   ],
                 ),
-                const Spacer(),
-                if (_dirty) ...[
-                  TextButton(
-                    onPressed: () {
-                      final settings = ref.read(appearanceProvider);
-                      setState(() {
-                        _themeMode = settings.themeMode;
-                        _accentColor = settings.accentColor;
-                        _backgroundArt = settings.backgroundArt;
-                        _fontScale = settings.fontScale;
-                        _locale = settings.locale;
-                        _dirty = false;
-                      });
-                    },
-                    child: const Text('Discard'),
+                if (_headerMsg != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _headerMsgIsError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+                            size: 15,
+                            color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                ],
-                FilledButton.icon(
-                  onPressed: _dirty && !_saving ? _save : null,
-                  icon: _saving
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.save_rounded, size: 16),
-                  label: Text(_saving ? 'Saving...' : 'Save'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
               ],
             ),
           ),
@@ -165,13 +205,13 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildThemeSection(scheme, text),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   _buildAccentSection(scheme, text),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   _buildBackgroundSection(scheme, text),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   _buildFontSection(scheme, text),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   _buildLanguageSection(scheme, text),
                   const SizedBox(height: 40),
                 ],
@@ -420,18 +460,18 @@ class _Section extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 3))],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.15),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.15))),
             ),
             child: Row(
@@ -453,7 +493,7 @@ class _Section extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
           ),
         ],

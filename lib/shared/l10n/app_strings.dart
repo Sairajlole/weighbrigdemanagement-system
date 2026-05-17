@@ -12,6 +12,7 @@ abstract class AppStrings {
   // Navigation
   String get dashboard;
   String get weighment;
+  String get weighments;
   String get customers;
   String get operators;
   String get reports;
@@ -87,7 +88,8 @@ class EnStrings extends AppStrings {
   const EnStrings();
 
   @override String get dashboard => 'Dashboard';
-  @override String get weighment => 'Weighment';
+  @override String get weighment => 'Weigh';
+  @override String get weighments => 'Weighments';
   @override String get customers => 'Customers';
   @override String get operators => 'Operators';
   @override String get reports => 'Reports';
@@ -158,6 +160,7 @@ class HiStrings extends AppStrings {
 
   @override String get dashboard => 'डैशबोर्ड';
   @override String get weighment => 'तौल';
+  @override String get weighments => 'तौल सूची';
   @override String get customers => 'ग्राहक';
   @override String get operators => 'ऑपरेटर';
   @override String get reports => 'रिपोर्ट';

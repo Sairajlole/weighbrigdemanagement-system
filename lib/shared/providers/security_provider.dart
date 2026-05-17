@@ -5,7 +5,8 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
 
 // ─── Security Settings Model ─────────────────────────────────────────────────
 
@@ -52,6 +53,9 @@ class SecuritySettings {
   final bool restrictUsb;
   final bool blockRemoteDesktop;
 
+  // Privacy / Archival
+  final bool anonymizeVehicleOnArchive;
+
   // Screen protection
   final bool preventScreenshots;
   final bool dimOnInactiveWindow;
@@ -92,6 +96,7 @@ class SecuritySettings {
     this.autoLogoutMinutes = 30,
     this.restrictUsb = false,
     this.blockRemoteDesktop = false,
+    this.anonymizeVehicleOnArchive = false,
     this.preventScreenshots = false,
     this.dimOnInactiveWindow = false,
     this.watermarkEnabled = false,
@@ -131,6 +136,7 @@ class SecuritySettings {
       autoLogoutMinutes: data['autoLogoutMinutes'] as int? ?? 30,
       restrictUsb: data['restrictUsb'] as bool? ?? false,
       blockRemoteDesktop: data['blockRemoteDesktop'] as bool? ?? false,
+      anonymizeVehicleOnArchive: data['anonymizeVehicleOnArchive'] as bool? ?? false,
       preventScreenshots: data['preventScreenshots'] as bool? ?? false,
       dimOnInactiveWindow: data['dimOnInactiveWindow'] as bool? ?? false,
       watermarkEnabled: data['watermarkEnabled'] as bool? ?? false,
@@ -149,19 +155,21 @@ final securitySettingsProvider = StreamProvider<SecuritySettings>((ref) {
   if (override != null) {
     return Stream.value(override);
   }
-  final db = ref.watch(firestoreProvider);
-  return db.collection('settings').doc('security').snapshots().map((snap) {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return Stream.value(const SecuritySettings());
+  return paths.securitySettings.snapshots().map((snap) {
     if (snap.exists) return SecuritySettings.fromMap(snap.data()!);
     return const SecuritySettings();
   });
 });
 
 final currentUserRoleProvider = FutureProvider<String>((ref) async {
-  final db = ref.watch(firestoreProvider);
+  final paths = ref.watch(firestorePathsProvider);
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) return Platform.isMacOS ? 'admin' : 'operator';
+  if (!paths.isConfigured) return 'admin';
   try {
-    final doc = await db.collection('operators').where('email', isEqualTo: user.email).limit(1).get();
+    final doc = await paths.operators.where('email', isEqualTo: user.email).limit(1).get();
     if (doc.docs.isNotEmpty) {
       return doc.docs.first.data()['role'] as String? ?? 'operator';
     }
@@ -177,11 +185,12 @@ final isAdminProvider = Provider<bool>((ref) {
 // ─── KYC Status Provider ────────────────────────────────────────────────────
 
 final currentOperatorKycProvider = FutureProvider<bool>((ref) async {
-  final db = ref.watch(firestoreProvider);
+  final paths = ref.watch(firestorePathsProvider);
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) return true;
+  if (!paths.isConfigured) return true;
   try {
-    final snap = await db.collection('operators').where('email', isEqualTo: user.email).limit(1).get();
+    final snap = await paths.operators.where('email', isEqualTo: user.email).limit(1).get();
     if (snap.docs.isEmpty) return true; // admin (not in operators collection)
     return snap.docs.first.data()['idStatus'] == 'verified';
   } catch (_) {}
@@ -228,16 +237,16 @@ class PermissionService {
 // ─── Audit Log Service ───────────────────────────────────────────────────────
 
 final auditServiceProvider = Provider<AuditService>((ref) {
-  final db = ref.watch(firestoreProvider);
+  final paths = ref.watch(firestorePathsProvider);
   final settings = ref.watch(securitySettingsProvider).valueOrNull ?? const SecuritySettings();
-  return AuditService(db: db, settings: settings);
+  return AuditService(paths: paths, settings: settings);
 });
 
 class AuditService {
-  final FirebaseFirestore db;
+  final FirestorePaths paths;
   final SecuritySettings settings;
 
-  const AuditService({required this.db, required this.settings});
+  const AuditService({required this.paths, required this.settings});
 
   Future<void> log({
     required String event,
@@ -246,6 +255,7 @@ class AuditService {
     Map<String, dynamic>? metadata,
   }) async {
     if (!settings.auditEnabled) return;
+    if (!paths.isConfigured) return;
 
     if (event == 'settingChange' && !settings.auditLogSettingChanges) return;
     if (event == 'weighmentEdit' && !settings.auditLogWeighmentEdits) return;
@@ -256,31 +266,38 @@ class AuditService {
     final currentUser = FirebaseAuth.instance.currentUser;
     final hostname = Platform.localHostname;
 
-    await db.collection('auditLog').add({
-      'event': event,
-      'description': description,
-      'user': user ?? currentUser?.email ?? 'unknown',
-      'machine': hostname,
-      'ip': await _getLocalIp(),
-      'timestamp': FieldValue.serverTimestamp(),
-      'success': true,
-      ...?metadata,
-    });
+    try {
+      await paths.auditLog.add({
+        'event': event,
+        'description': description,
+        'user': user ?? currentUser?.email ?? 'unknown',
+        'machine': hostname,
+        'ip': await _getLocalIp(),
+        'timestamp': FieldValue.serverTimestamp(),
+        'success': true,
+        ...?metadata,
+      });
+    } catch (_) {
+      // Swallow network errors — Firestore offline persistence will queue it
+    }
   }
 
   Future<void> logLogin({required bool success, String? email}) async {
     if (!settings.auditEnabled || !settings.auditLogLogins) return;
+    if (!paths.isConfigured) return;
 
     final hostname = Platform.localHostname;
-    await db.collection('auditLog').add({
-      'event': 'login',
-      'description': success ? 'Successful login' : 'Failed login attempt',
-      'user': email ?? FirebaseAuth.instance.currentUser?.email ?? 'unknown',
-      'machine': hostname,
-      'ip': await _getLocalIp(),
-      'timestamp': FieldValue.serverTimestamp(),
-      'success': success,
-    });
+    try {
+      await paths.auditLog.add({
+        'event': 'login',
+        'description': success ? 'Successful login' : 'Failed login attempt',
+        'user': email ?? FirebaseAuth.instance.currentUser?.email ?? 'unknown',
+        'machine': hostname,
+        'ip': await _getLocalIp(),
+        'timestamp': FieldValue.serverTimestamp(),
+        'success': success,
+      });
+    } catch (_) {}
   }
 
   Future<String> _getLocalIp() async {
@@ -487,11 +504,11 @@ class ShiftValidationResult {
   const ShiftValidationResult({required this.allowed, this.message});
 }
 
-Future<ShiftValidationResult> validateShiftLogin(FirebaseFirestore db, String email, SecuritySettings settings) async {
+Future<ShiftValidationResult> validateShiftLogin(FirestorePaths paths, String email, SecuritySettings settings) async {
   if (!settings.shiftBasedLogin) return const ShiftValidationResult(allowed: true);
 
   try {
-    final snap = await db.collection('operators').where('email', isEqualTo: email).limit(1).get();
+    final snap = await paths.operators.where('email', isEqualTo: email).limit(1).get();
     if (snap.docs.isEmpty) return const ShiftValidationResult(allowed: true); // admin
     final data = snap.docs.first.data();
 
@@ -522,7 +539,10 @@ Future<ShiftValidationResult> validateShiftLogin(FirebaseFirestore db, String em
     if (nowMinutes < startMinutes || nowMinutes > endMinutes) {
       return ShiftValidationResult(allowed: false, message: 'Outside your shift hours ($shiftStart – $shiftEnd). Current time: ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}');
     }
-  } catch (_) {}
+  } catch (e) {
+    // Deny access on validation failure — fail closed
+    return ShiftValidationResult(allowed: false, message: 'Shift validation error: $e');
+  }
   return const ShiftValidationResult(allowed: true);
 }
 
@@ -534,9 +554,9 @@ class PasswordCheckResult {
   const PasswordCheckResult({required this.mustChange, this.reason});
 }
 
-Future<PasswordCheckResult> checkPasswordStatus(FirebaseFirestore db, String email, SecuritySettings settings) async {
+Future<PasswordCheckResult> checkPasswordStatus(FirestorePaths paths, String email, SecuritySettings settings) async {
   try {
-    final snap = await db.collection('operators').where('email', isEqualTo: email).limit(1).get();
+    final snap = await paths.operators.where('email', isEqualTo: email).limit(1).get();
     if (snap.docs.isEmpty) return const PasswordCheckResult(mustChange: false); // admin
 
     final data = snap.docs.first.data();
@@ -561,7 +581,10 @@ Future<PasswordCheckResult> checkPasswordStatus(FirebaseFirestore db, String ema
         return PasswordCheckResult(mustChange: true, reason: 'Your password expired $daysSince days ago (policy: every ${settings.passwordExpiryDays} days).');
       }
     }
-  } catch (_) {}
+  } catch (e) {
+    // Fail closed: require change if we can't verify
+    return PasswordCheckResult(mustChange: true, reason: 'Unable to verify password status: $e');
+  }
   return const PasswordCheckResult(mustChange: false);
 }
 
@@ -579,7 +602,8 @@ Future<bool> isIpAllowed(SecuritySettings settings) async {
       }
     }
   } catch (_) {
-    return true;
+    // Fail closed: deny if we can't check
+    return false;
   }
   return false;
 }
@@ -597,7 +621,9 @@ Future<SecuritySettings> loadSecuritySettingsLocally() async {
   try {
     final file = File(_localCachePath);
     if (await file.exists()) {
-      final data = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      final content = await file.readAsString();
+      final decrypted = CryptoService.decrypt(content);
+      final data = jsonDecode(decrypted) as Map<String, dynamic>;
       return SecuritySettings.fromMap(data);
     }
   } catch (_) {}
@@ -606,7 +632,8 @@ Future<SecuritySettings> loadSecuritySettingsLocally() async {
 
 Future<void> cacheSecuritySettings(Map<String, dynamic> data) async {
   try {
-    await File(_localCachePath).writeAsString(jsonEncode(data));
+    final json = jsonEncode(data);
+    await File(_localCachePath).writeAsString(CryptoService.encrypt(json));
   } catch (_) {}
 }
 

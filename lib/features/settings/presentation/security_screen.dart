@@ -4,11 +4,13 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
 import 'package:intl/intl.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/mfa_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
@@ -37,9 +39,9 @@ Future<Map<String, dynamic>> _loadLocally() async {
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 final _securitySettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final db = ref.watch(firestoreProvider);
+  final db = ref.watch(firestorePathsProvider);
   try {
-    final doc = await db.collection('settings').doc('security').get();
+    final doc = await db.securitySettings.get();
     if (doc.exists) {
       final data = doc.data()!;
       await _saveLocally(data);
@@ -62,6 +64,9 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   bool _loaded = false;
   bool _saving = false;
   bool _dirty = false;
+
+  String? _headerMsg;
+  bool _headerMsgIsError = false;
 
   // ── KYC enforcement ──
   bool _requireKycForSensitiveOps = false;
@@ -102,6 +107,9 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   bool _forcePasswordChangeFirstLogin = true;
   int _passwordExpiryDays = 0; // 0 = never
 
+  // ── Privacy / Archival ──
+  bool _anonymizeVehicleOnArchive = false;
+
   // ── Screen Protection ──
   bool _preventScreenshots = false;
   bool _dimOnInactiveWindow = false;
@@ -139,8 +147,8 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
 
   Future<void> _loadSessionLogs() async {
     try {
-      final db = ref.read(firestoreProvider);
-      final snap = await db.collection('auditLog')
+      final db = ref.read(firestorePathsProvider);
+      final snap = await db.auditLog
           .where('event', isEqualTo: 'login')
           .orderBy('timestamp', descending: true)
           .limit(10)
@@ -202,6 +210,8 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     _forcePasswordChangeFirstLogin = data['forcePasswordChangeFirstLogin'] as bool? ?? true;
     _passwordExpiryDays = data['passwordExpiryDays'] as int? ?? 0;
 
+    _anonymizeVehicleOnArchive = data['anonymizeVehicleOnArchive'] as bool? ?? false;
+
     _preventScreenshots = data['preventScreenshots'] as bool? ?? false;
     _dimOnInactiveWindow = data['dimOnInactiveWindow'] as bool? ?? false;
     _watermarkEnabled = data['watermarkEnabled'] as bool? ?? false;
@@ -218,6 +228,13 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   }
 
   void _markDirty() => setState(() => _dirty = true);
+
+  void _showHeaderMsg(String msg, {bool isError = false}) {
+    setState(() { _headerMsg = msg; _headerMsgIsError = isError; });
+    Future.delayed(Duration(seconds: isError ? 5 : 3), () {
+      if (mounted) setState(() => _headerMsg = null);
+    });
+  }
 
   Future<void> _save() async {
     setState(() => _saving = true);
@@ -249,6 +266,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       'shiftBasedLogin': _shiftBasedLogin,
       'forcePasswordChangeFirstLogin': _forcePasswordChangeFirstLogin,
       'passwordExpiryDays': _passwordExpiryDays,
+      'anonymizeVehicleOnArchive': _anonymizeVehicleOnArchive,
       'preventScreenshots': _preventScreenshots,
       'dimOnInactiveWindow': _dimOnInactiveWindow,
       'watermarkEnabled': _watermarkEnabled,
@@ -261,21 +279,13 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       'whitelistedIps': _whitelistedIps,
     };
     try {
-      final db = ref.read(firestoreProvider);
-      await db.collection('settings').doc('security').set(data, SetOptions(merge: true));
+      final db = ref.read(firestorePathsProvider);
+      await db.securitySettings.set(data, SetOptions(merge: true));
       await _saveLocally(data);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Settings saved'), backgroundColor: Theme.of(context).colorScheme.primary),
-        );
-      }
+      if (mounted) _showHeaderMsg('Security settings saved');
     } catch (e) {
       await _saveLocally(data);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e'), backgroundColor: Theme.of(context).colorScheme.error),
-        );
-      }
+      if (mounted) _showHeaderMsg('Save failed: $e', isError: true);
     }
     ref.read(securitySettingsOverrideProvider.notifier).state = SecuritySettings.fromMap(data);
     ref.invalidate(_securitySettingsProvider);
@@ -301,30 +311,72 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               color: scheme.surface,
               border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                  onPressed: () => context.go('/settings'),
-                  style: IconButton.styleFrom(padding: const EdgeInsets.all(8)),
-                ),
-                const SizedBox(width: 12),
-                Icon(Icons.shield_rounded, size: 22, color: scheme.primary),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Text('Security', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                    Text('Access control and audit', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                      onPressed: () {
+                        if (ref.read(wizardModeProvider)) {
+                          ref.read(setupWizardProvider.notifier).previousStep();
+                        } else {
+                          context.go('/settings');
+                        }
+                      },
+                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(Icons.shield_rounded, size: 20, color: scheme.primary),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Security', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        Text('Access control and audit', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                      ],
+                    ),
+                    const Spacer(),
+                    if (_dirty) ...[
+                      TextButton(
+                        onPressed: () { setState(() { _loaded = false; _dirty = false; }); ref.invalidate(_securitySettingsProvider); },
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    FilledButton.icon(
+                      onPressed: _dirty && !_saving ? _save : null,
+                      icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
+                      label: Text(_saving ? 'Saving...' : 'Save'),
+                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    ),
                   ],
                 ),
-                const Spacer(),
-                FilledButton.icon(
-                  onPressed: _dirty && !_saving ? _save : null,
-                  icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
-                  label: Text(_saving ? 'Saving...' : 'Save'),
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10)),
-                ),
+                if (_headerMsg != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _headerMsgIsError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+                            size: 15,
+                            color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -554,6 +606,12 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
         Padding(
           padding: const EdgeInsets.only(left: 44),
           child: Text('Phone, PAN, Aadhaar hidden for non-admin roles', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
+        ),
+        const SizedBox(height: 14),
+        _PermissionToggle(label: 'Anonymize vehicle number on archive', value: _anonymizeVehicleOnArchive, onChanged: (v) { setState(() => _anonymizeVehicleOnArchive = v); _markDirty(); }),
+        Padding(
+          padding: const EdgeInsets.only(left: 44),
+          child: Text('When a customer is archived, also replace vehicle numbers on their weighments with [Archived]', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
         ),
       ],
     );
@@ -1197,8 +1255,8 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     final exportPath = chosen.endsWith('/') ? chosen.substring(0, chosen.length - 1) : chosen;
 
     try {
-      final db = ref.read(firestoreProvider);
-      final snap = await db.collection('auditLog')
+      final db = ref.read(firestorePathsProvider);
+      final snap = await db.auditLog
           .orderBy('timestamp', descending: true)
           .limit(5000)
           .get();
@@ -1267,21 +1325,18 @@ class _SectionCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 3)),
-          BoxShadow(color: scheme.primary.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 1)),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.15),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.15))),
             ),
             child: Row(
@@ -1297,7 +1352,7 @@ class _SectionCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: children,

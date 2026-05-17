@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/features/auth/presentation/animated_background.dart';
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 
 enum _AccountType { operator, admin }
 
@@ -67,7 +67,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> with SingleTickerPr
     setState(() { _loading = true; _error = null; });
 
     try {
-      final db = ref.read(firestoreProvider);
+      final paths = ref.read(firestorePathsProvider);
 
       if (_accountType == _AccountType.admin) {
         final cred = await ref.read(firebaseAuthProvider).createUserWithEmailAndPassword(
@@ -75,17 +75,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> with SingleTickerPr
         final uid = cred.user!.uid;
         final now = Timestamp.now();
 
-        final companyRef = await db.collection('companies').add({
+        final companyRef = await paths.flat('companies').add({
           'name': _companyName.text.trim(), 'adminUid': uid, 'createdAt': now,
         });
 
-        await db.collection('operators').add({
+        await paths.flat('operators').add({
           'uid': uid, 'name': _name.text.trim(), 'email': _email.text.trim(),
           'phone': _phone.text.trim(), 'role': 'companyAdmin',
           'companyId': companyRef.id, 'isVerified': true, 'isActive': true, 'createdAt': now,
         });
       } else {
-        final companySnap = await db.collection('companies')
+        final companySnap = await paths.flat('companies')
             .where('linkageCode', isEqualTo: _companyCode.text.trim().toUpperCase()).limit(1).get();
         if (companySnap.docs.isEmpty) {
           setState(() { _error = 'Invalid company code. Contact your administrator.'; _loading = false; });
@@ -98,7 +98,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> with SingleTickerPr
         final uid = cred.user!.uid;
         final now = Timestamp.now();
 
-        await db.collection('operators').add({
+        await paths.flat('operators').add({
           'uid': uid, 'name': _name.text.trim(), 'email': _email.text.trim(),
           'phone': _phone.text.trim(), 'role': 'operator',
           'companyId': companyDoc.id, 'isVerified': false, 'isActive': true, 'createdAt': now,

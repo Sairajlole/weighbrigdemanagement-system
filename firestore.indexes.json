@@ -25,7 +25,81 @@
         { "fieldPath": "success", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "gateEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "gateId", "order": "ASCENDING" },
+        { "fieldPath": "success", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "gateCommands",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "weighments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "customerName", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "weighments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "customerName", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "weighments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "operatorId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "weighments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "operators",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "isArchived", "order": "ASCENDING" }
+      ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "operators",
+      "fieldPath": "email",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
+      "collectionGroup": "operators",
+      "fieldPath": "phone",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    }
+  ]
 }
