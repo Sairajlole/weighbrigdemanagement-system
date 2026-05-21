@@ -1,9 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart';
 
 final stringsProvider = Provider<AppStrings>((ref) {
-  final locale = ref.watch(appearanceProvider.select((s) => s.locale));
-  return locale == 'hi' ? const HiStrings() : const EnStrings();
+  return const EnStrings();
 });
 
 abstract class AppStrings {
@@ -155,73 +153,3 @@ class EnStrings extends AppStrings {
   @override String get refresh => 'Refresh';
 }
 
-class HiStrings extends AppStrings {
-  const HiStrings();
-
-  @override String get dashboard => 'डैशबोर्ड';
-  @override String get weighment => 'तौल';
-  @override String get weighments => 'तौल सूची';
-  @override String get customers => 'ग्राहक';
-  @override String get operators => 'ऑपरेटर';
-  @override String get reports => 'रिपोर्ट';
-  @override String get settings => 'सेटिंग्स';
-  @override String get profile => 'प्रोफ़ाइल';
-
-  @override String get grossWeight => 'कुल वज़न';
-  @override String get tareWeight => 'खाली वज़न';
-  @override String get netWeight => 'शुद्ध वज़न';
-  @override String get vehicleNumber => 'वाहन नंबर';
-  @override String get material => 'सामग्री';
-  @override String get supplier => 'आपूर्तिकर्ता';
-  @override String get firstWeighment => 'पहली तौल';
-  @override String get secondWeighment => 'दूसरी तौल';
-  @override String get captureWeight => 'वज़न दर्ज करें';
-  @override String get printDocket => 'पर्ची प्रिंट करें';
-  @override String get stable => 'स्थिर';
-  @override String get unstable => 'अस्थिर';
-
-  @override String get addCustomer => 'ग्राहक जोड़ें';
-  @override String get customerName => 'ग्राहक का नाम';
-  @override String get phone => 'फ़ोन';
-  @override String get address => 'पता';
-  @override String get search => 'खोजें';
-
-  @override String get addOperator => 'ऑपरेटर जोड़ें';
-  @override String get operatorName => 'ऑपरेटर का नाम';
-  @override String get role => 'भूमिका';
-  @override String get active => 'सक्रिय';
-  @override String get inactive => 'निष्क्रिय';
-
-  @override String get dailyReport => 'दैनिक रिपोर्ट';
-  @override String get monthlyReport => 'मासिक रिपोर्ट';
-  @override String get exportReport => 'रिपोर्ट निर्यात';
-  @override String get dateRange => 'तिथि सीमा';
-  @override String get totalWeighments => 'कुल तौल';
-  @override String get totalWeight => 'कुल वज़न';
-
-  @override String get general => 'सामान्य';
-  @override String get customFields => 'कस्टम फ़ील्ड';
-  @override String get materials => 'सामग्री';
-  @override String get gateControl => 'गेट नियंत्रण';
-  @override String get weighbridge => 'वेब्रिज';
-  @override String get cameras => 'कैमरा व AI';
-  @override String get notifications => 'सूचनाएं';
-  @override String get printing => 'प्रिंटिंग';
-  @override String get backup => 'बैकअप';
-  @override String get security => 'सुरक्षा';
-  @override String get integrations => 'इंटीग्रेशन';
-  @override String get appearance => 'दिखावट';
-  @override String get dataBackup => 'डेटा व बैकअप';
-
-  @override String get save => 'सहेजें';
-  @override String get cancel => 'रद्द करें';
-  @override String get delete => 'हटाएं';
-  @override String get edit => 'संपादित करें';
-  @override String get add => 'जोड़ें';
-  @override String get confirm => 'पुष्टि करें';
-  @override String get loading => 'लोड हो रहा है...';
-  @override String get error => 'त्रुटि';
-  @override String get success => 'सफल';
-  @override String get noData => 'कोई डेटा नहीं';
-  @override String get refresh => 'रिफ़्रेश';
-}

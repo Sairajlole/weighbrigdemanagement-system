@@ -55,10 +55,13 @@ class FirestorePaths {
   // ─── Per-site collections ─────────────────────────────────────
 
   CollectionReference<Map<String, dynamic>> get operators =>
-      _db.collection('$_sitePrefix/operators');
+      _db.collection('$_companyPrefix/operators');
 
   DocumentReference<Map<String, dynamic>> siteSetting(String id) =>
       _db.doc('$_sitePrefix/settings/$id');
+
+  DocumentReference<Map<String, dynamic>> companySetting(String id) =>
+      _db.doc('$_companyPrefix/settings/$id');
 
   // ─── Company-wide collections ─────────────────────────────────
 
@@ -72,7 +75,7 @@ class FirestorePaths {
       _db.collection('$_companyPrefix/customer_merges');
 
   CollectionReference<Map<String, dynamic>> get materials =>
-      _db.collection('$_companyPrefix/materials');
+      _db.collection('$_weighbridgePrefix/materials');
 
   CollectionReference<Map<String, dynamic>> get vehicles =>
       _db.collection('$_companyPrefix/vehicles');
@@ -101,36 +104,38 @@ class FirestorePaths {
   DocumentReference<Map<String, dynamic>> get printingSettings =>
       weighbridgeSetting('printing');
 
-  /// Site-scoped settings: security, notifications, integrations
+  /// Company-scoped settings (shared across all PCs/sites)
   DocumentReference<Map<String, dynamic>> get securitySettings =>
-      siteSetting('security');
-
-  DocumentReference<Map<String, dynamic>> get notificationsSettings =>
-      siteSetting('notifications');
+      companySetting('security');
 
   DocumentReference<Map<String, dynamic>> get integrationsSettings =>
-      siteSetting('integrations');
+      companySetting('integrations');
 
   DocumentReference<Map<String, dynamic>> get generalSettings =>
-      siteSetting('general');
+      companySetting('general');
 
   DocumentReference<Map<String, dynamic>> get generalDocsSettings =>
-      siteSetting('general_docs');
+      companySetting('general_docs');
+
+  DocumentReference<Map<String, dynamic>> get dataBackupSettings =>
+      companySetting('dataBackup');
+
+  DocumentReference<Map<String, dynamic>> get customFieldsSettings =>
+      companySetting('customFields');
+
+  DocumentReference<Map<String, dynamic>> get adminProfileSettings =>
+      companySetting('adminProfile');
+
+  /// Site-scoped settings (per physical location)
+  DocumentReference<Map<String, dynamic>> get notificationsSettings =>
+      siteSetting('notifications');
 
   DocumentReference<Map<String, dynamic>> get appearanceSettings =>
       siteSetting('appearance');
 
-  DocumentReference<Map<String, dynamic>> get dataBackupSettings =>
-      siteSetting('dataBackup');
-
-  DocumentReference<Map<String, dynamic>> get customFieldsSettings =>
-      siteSetting('customFields');
-
+  /// Weighbridge-scoped settings (per individual scale/PC)
   DocumentReference<Map<String, dynamic>> get materialsSettings =>
-      siteSetting('materials');
-
-  DocumentReference<Map<String, dynamic>> get adminProfileSettings =>
-      siteSetting('adminProfile');
+      weighbridgeSetting('materials');
 
   /// Site settings collection (for iterating all settings docs)
   CollectionReference<Map<String, dynamic>> get siteSettings =>

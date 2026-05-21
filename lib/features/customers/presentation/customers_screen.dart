@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:csv/csv.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:weighbridgemanagement/features/weighments/presentation/weighments_screen.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 
 final _customersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
@@ -24,6 +26,25 @@ final _customersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
           return list;
         },
       );
+});
+
+final _siteFilteredCustomersProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, siteId) {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  return paths.customers.where('siteId', isEqualTo: siteId).snapshots().map(
+        (snap) {
+          final list = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+          list.sort((a, b) => (a['name'] as String? ?? '').compareTo(b['name'] as String? ?? ''));
+          return list;
+        },
+      );
+});
+
+final _crossSiteCustomersProvider = FutureProvider<bool>((ref) async {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return false;
+  final doc = await paths.generalSettings.get();
+  return doc.data()?['crossSiteCustomers'] == true;
 });
 
 final _allWeighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
@@ -95,6 +116,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   bool _selectMode = false;
   _SelectPurpose _selectPurpose = _SelectPurpose.merge;
   _SortOption _sortOption = _SortOption.nameAsc;
+  bool _viewAllSites = false;
   late final List<_TimeColumn> _availableTimeColumns = _buildAvailableTimeColumns();
   final Set<int> _visibleTimeColumns = {0, 4, 5};
 
@@ -331,7 +353,12 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final customersAsync = ref.watch(_customersProvider);
+    final ctx = ref.watch(siteContextProvider);
+    final crossSite = ref.watch(_crossSiteCustomersProvider).valueOrNull ?? false;
+    final showAll = _viewAllSites || crossSite;
+    final customersAsync = showAll
+        ? ref.watch(_customersProvider)
+        : ref.watch(_siteFilteredCustomersProvider(ctx.siteId));
     final weighmentsAsync = ref.watch(_allWeighmentsProvider);
     final shouldMask = ref.watch(permissionServiceProvider).shouldMaskSensitive;
 
@@ -345,7 +372,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         }
         return KeyEventResult.ignored;
       },
-      child: Padding(
+      child: Column(
+        children: [
+          Expanded(
+            child: Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -407,8 +437,12 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         ],
       ),
     ),
+          ),
+        ],
+      ),
     );
   }
+
 
   Widget _buildBottomSummary(ColorScheme scheme, AsyncValue<List<Map<String, dynamic>>> customersAsync, AsyncValue<List<Map<String, dynamic>>> weighmentsAsync) {
     final customers = customersAsync.valueOrNull ?? [];
@@ -516,10 +550,87 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       return ts.toDate().isAfter(monthStart);
     }).length;
 
+    final siteCtx = ref.watch(siteContextProvider);
+    final crossSite = ref.watch(_crossSiteCustomersProvider).valueOrNull ?? false;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Customers', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+        Row(
+          children: [
+            Text('Customers', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+            const Spacer(),
+            if (crossSite)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.swap_horiz_rounded, size: 12, color: scheme.primary),
+                    const SizedBox(width: 5),
+                    Text('Cross-Site', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
+                  ],
+                ),
+              )
+            else ...[
+              Container(
+                height: 34,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.all(3),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: () => setState(() => _viewAllSites = false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        height: 28,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: !_viewAllSites ? scheme.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.location_on_rounded, size: 12, color: !_viewAllSites ? scheme.onPrimary : scheme.onSurfaceVariant),
+                            const SizedBox(width: 5),
+                            FutureBuilder<String>(
+                              future: ref.read(firestorePathsProvider).firestore.doc('companies/${siteCtx.companyId}/sites/${siteCtx.siteId}').get().then((d) => d.data()?['name'] as String? ?? 'This Site'),
+                              builder: (_, snap) => Text(snap.data ?? 'This Site', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: !_viewAllSites ? scheme.onPrimary : scheme.onSurfaceVariant)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    GestureDetector(
+                      onTap: () => setState(() => _viewAllSites = true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        height: 28,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: _viewAllSites ? scheme.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('All Sites', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _viewAllSites ? scheme.onPrimary : scheme.onSurfaceVariant)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
         const SizedBox(height: 20),
 
         // Row 2: Stats bar
@@ -586,6 +697,24 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 ),
               ),
             ),
+            GestureDetector(
+              onTap: () => _importFromCsv(context),
+              child: Container(
+                height: 32,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Import CSV', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onPrimary)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
             Container(
               height: 32,
               decoration: BoxDecoration(
@@ -1054,6 +1183,19 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // IMPORT FROM CSV
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _importFromCsv(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _CsvImportDialog(ref: ref),
+    );
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // MERGE CUSTOMERS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1315,6 +1457,11 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       'reverted': false,
     });
 
+    ref.read(auditServiceProvider).log(
+      event: 'weighmentEdit',
+      description: 'Merged ${others.length} customer(s) into $primaryName',
+    );
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Merged ${others.length} customer(s) into $primaryName'),
@@ -1541,6 +1688,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
         data['originalId'] = id;
         await db.customersDeleted.doc(id).set(data);
         await db.customers.doc(id).delete();
+        ref.read(auditServiceProvider).log(event: 'weighmentEdit', description: 'Customer "$name" deleted (no weighments)');
         if (ctx.mounted) Navigator.pop(ctx);
       }
     } else {
@@ -1813,16 +1961,40 @@ class _WeighmentHistory extends StatelessWidget {
     this.onViewWeighment,
   });
 
+  Future<List<Map<String, dynamic>>> _fetchAllWbWeighments() async {
+    final db = ref.read(firestorePathsProvider);
+    final ctx = db.context;
+    final firestore = db.firestore;
+    final all = <Map<String, dynamic>>[];
+    final sitesSnap = await firestore.collection('companies/${ctx.companyId}/sites').get();
+    for (final site in sitesSnap.docs) {
+      final wbSnap = await firestore.collection('companies/${ctx.companyId}/sites/${site.id}/weighbridges').get();
+      for (final wb in wbSnap.docs) {
+        final wbName = wb.data()['name'] as String? ?? 'Unnamed WB';
+        final wmSnap = await firestore
+            .collection('companies/${ctx.companyId}/sites/${site.id}/weighbridges/${wb.id}/weighments')
+            .where('customerName', isEqualTo: customerName)
+            .orderBy('createdAt', descending: true)
+            .limit(50)
+            .get();
+        for (final d in wmSnap.docs) {
+          all.add({'id': d.id, 'weighbridgeName': wbName, ...d.data()});
+        }
+      }
+    }
+    all.sort((a, b) {
+      final ta = a['createdAt'];
+      final tb = b['createdAt'];
+      if (ta is Timestamp && tb is Timestamp) return tb.compareTo(ta);
+      return 0;
+    });
+    return all;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final db = ref.read(firestorePathsProvider);
-
-    return FutureBuilder<QuerySnapshot>(
-      future: db.weighments
-          .where('customerName', isEqualTo: customerName)
-          .orderBy('createdAt', descending: true)
-          .limit(50)
-          .get(),
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchAllWbWeighments(),
       builder: (_, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -1842,7 +2014,7 @@ class _WeighmentHistory extends StatelessWidget {
           );
         }
 
-        final docs = snap.data?.docs ?? [];
+        final docs = snap.data ?? [];
         if (docs.isEmpty) {
           return Center(
             child: Column(
@@ -1859,8 +2031,7 @@ class _WeighmentHistory extends StatelessWidget {
         // Material breakdown
         final materialCounts = <String, int>{};
         double totalNet = 0;
-        for (final doc in docs) {
-          final d = doc.data() as Map<String, dynamic>;
+        for (final d in docs) {
           final m = d['material'] as String? ?? 'Unknown';
           materialCounts[m] = (materialCounts[m] ?? 0) + 1;
           final net = d['netWeight'];
@@ -1909,6 +2080,7 @@ class _WeighmentHistory extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(flex: 3, child: Text('Date', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant))),
+                  Expanded(flex: 2, child: Text('WB', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant))),
                   Expanded(flex: 3, child: Text('Vehicle', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant))),
                   Expanded(flex: 2, child: Text('Material', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant))),
                   Expanded(flex: 2, child: Text('Gross (kg)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant), textAlign: TextAlign.right)),
@@ -1924,13 +2096,14 @@ class _WeighmentHistory extends StatelessWidget {
                 itemCount: docs.length,
                 separatorBuilder: (_, __) => Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
                 itemBuilder: (_, i) {
-                  final data = docs[i].data() as Map<String, dynamic>;
+                  final data = docs[i];
                   final material = data['material'] as String? ?? '--';
                   final vehicleNo = data['vehicleNumber'] as String? ?? data['vehicleNo'] as String? ?? '--';
                   final grossWeight = data['grossWeight'] as num?;
                   final tareWeight = data['tareWeight'] as num?;
                   final netWeight = data['netWeight'] as num?;
                   final createdAt = data['createdAt'] as Timestamp?;
+                  final wbName = data['weighbridgeName'] as String? ?? '--';
 
                   final dateStr = createdAt != null
                       ? DateFormat('dd MMM yy').format(createdAt.toDate())
@@ -1955,6 +2128,7 @@ class _WeighmentHistory extends StatelessWidget {
                             ],
                           ),
                         ),
+                        Expanded(flex: 2, child: Text(wbName, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary), overflow: TextOverflow.ellipsis)),
                         Expanded(flex: 3, child: Text(vehicleNo, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
                         Expanded(flex: 2, child: Text(material, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis)),
                         Expanded(flex: 2, child: Text(fmtKg(grossWeight), style: TextStyle(fontSize: 11, color: grossWeight != null && grossWeight < 0 ? scheme.error : null), textAlign: TextAlign.right)),
@@ -1963,7 +2137,7 @@ class _WeighmentHistory extends StatelessWidget {
                         SizedBox(
                           width: 32,
                           child: IconButton(
-                            onPressed: onViewWeighment != null ? () => onViewWeighment!({'id': docs[i].id, ...data}) : null,
+                            onPressed: onViewWeighment != null ? () => onViewWeighment!(data) : null,
                             icon: Icon(Icons.open_in_new_rounded, size: 14, color: scheme.primary.withValues(alpha: 0.6)),
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
@@ -3441,11 +3615,54 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
   bool _showCameraPicker = false;
   List<String> _availableCameras = [];
 
+  // Site & WB selection
+  String? _selectedSiteId;
+  String? _selectedWbId;
+  List<Map<String, dynamic>> _sites = [];
+  List<Map<String, dynamic>> _wbs = [];
+
   String get _frameCachePath {
     final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
     final dir = Directory('$home/.weighbridge/frames');
     if (!dir.existsSync()) dir.createSync(recursive: true);
     return dir.path;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSites();
+  }
+
+  Future<void> _loadSites() async {
+    final db = widget.ref.read(firestorePathsProvider);
+    final ctx = widget.ref.read(siteContextProvider);
+    try {
+      final sitesSnap = await db.firestore.collection('companies/${ctx.companyId}/sites').get();
+      final sites = sitesSnap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+      if (mounted) {
+        setState(() {
+          _sites = sites;
+          _selectedSiteId = ctx.siteId;
+        });
+        _loadWbsForSite(ctx.siteId);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadWbsForSite(String siteId) async {
+    final db = widget.ref.read(firestorePathsProvider);
+    final ctx = widget.ref.read(siteContextProvider);
+    try {
+      final wbsSnap = await db.firestore.collection('companies/${ctx.companyId}/sites/$siteId/weighbridges').get();
+      final wbs = wbsSnap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+      if (mounted) {
+        setState(() {
+          _wbs = wbs;
+          _selectedWbId = wbs.length == 1 ? wbs.first['id'] as String : (siteId == ctx.siteId ? ctx.weighbridgeId : null);
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -3470,6 +3687,15 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
   }
 
   Future<void> _startScan() async {
+    if (_selectedSiteId == null) {
+      setState(() { _status = 'Select a site first'; });
+      return;
+    }
+    if (_wbs.length > 1 && _selectedWbId == null) {
+      setState(() { _status = 'Select a weighbridge for camera'; });
+      return;
+    }
+
     setState(() { _scanning = true; _status = 'Initializing camera...'; _faceDetected = false; _frameCount = 0; _showCameraPicker = false; });
 
     final systemCams = await _getSystemCameras();
@@ -3478,7 +3704,10 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
 
     try {
       final db = widget.ref.read(firestorePathsProvider);
-      final camDoc = await db.camerasAiSettings.get();
+      final ctx = widget.ref.read(siteContextProvider);
+      final wbId = _selectedWbId ?? ctx.weighbridgeId;
+      final camDocRef = db.firestore.doc('companies/${ctx.companyId}/sites/$_selectedSiteId/weighbridges/$wbId/settings/camerasAi');
+      final camDoc = await camDocRef.get();
       if (camDoc.exists) {
         allConfiguredCams = camDoc.data()?['cameras'] as Map<String, dynamic>?;
         final customerCam = allConfiguredCams?['customer'] as Map<String, dynamic>?;
@@ -3614,6 +3843,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
 
   Future<void> _save() async {
     if (_nameC.text.trim().isEmpty || _phoneC.text.trim().isEmpty) return;
+    if (_selectedSiteId == null) return;
     setState(() => _saving = true);
 
     final db = widget.ref.read(firestorePathsProvider);
@@ -3636,6 +3866,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
       'name': toTitleCase(_nameC.text.trim()),
       'phone': phone,
       'address': _addressC.text.trim().isEmpty ? null : toTitleCase(_addressC.text.trim()),
+      'siteId': _selectedSiteId,
       'totalWeighments': 0,
       'createdAt': now,
       'updatedAt': now,
@@ -3688,6 +3919,65 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                 ],
               ),
             ),
+
+            // Site & WB selector
+            if (_sites.length > 1)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _selectedSiteId,
+                        isExpanded: true,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: InputDecoration(
+                          labelText: 'Site *',
+                          prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        ),
+                        items: _sites.map((s) => DropdownMenuItem(
+                          value: s['id'] as String,
+                          child: Text(s['name'] as String? ?? s['id'] as String, style: const TextStyle(fontSize: 13)),
+                        )).toList(),
+                        onChanged: (v) {
+                          if (v == null) return;
+                          setState(() {
+                            _selectedSiteId = v;
+                            _selectedWbId = null;
+                            _wbs = [];
+                          });
+                          _loadWbsForSite(v);
+                        },
+                      ),
+                    ),
+                    if (_wbs.length > 1) ...[
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          initialValue: _selectedWbId,
+                          isExpanded: true,
+                          style: const TextStyle(fontSize: 13),
+                          decoration: InputDecoration(
+                            labelText: 'Camera from WB',
+                            prefixIcon: const Icon(Icons.videocam_rounded, size: 18),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          ),
+                          items: _wbs.map((w) => DropdownMenuItem(
+                            value: w['id'] as String,
+                            child: Text(w['name'] as String? ?? w['id'] as String, style: const TextStyle(fontSize: 13)),
+                          )).toList(),
+                          onChanged: (v) => setState(() => _selectedWbId = v),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
 
             // Body
             Padding(
@@ -4268,4 +4558,650 @@ Widget _buildFaceFromPath(String path) {
     if (bytes.isNotEmpty) return Image.memory(Uint8List.fromList(bytes), fit: BoxFit.cover);
   } catch (_) {}
   return const Icon(Icons.face_rounded, size: 16);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CSV IMPORT DIALOG — stays open through format guide → file pick → validate → edit → import
+// ═══════════════════════════════════════════════════════════════════════════════
+
+enum _CsvStage { guide, loading, review, importing, done }
+
+class _CsvImportDialog extends StatefulWidget {
+  final WidgetRef ref;
+  const _CsvImportDialog({required this.ref});
+
+  @override
+  State<_CsvImportDialog> createState() => _CsvImportDialogState();
+}
+
+class _CsvImportDialogState extends State<_CsvImportDialog> {
+  _CsvStage _stage = _CsvStage.guide;
+  List<Map<String, String>> _rows = [];
+  List<Map<String, String>> _invalidRows = [];
+  String? _error;
+  int _importedCount = 0;
+  int _duplicateCount = 0;
+
+  Future<void> _pickAndParse() async {
+    setState(() { _stage = _CsvStage.loading; _error = null; });
+
+    final result = await Process.run('osascript', [
+      '-e',
+      'set theFile to choose file of type {"public.comma-separated-values-text", "public.text", "public.plain-text"} with prompt "Select CSV file (Name, Phone, Address columns)"',
+      '-e',
+      'POSIX path of theFile',
+    ]);
+    final path = (result.stdout as String).trim();
+    if (path.isEmpty) {
+      setState(() => _stage = _CsvStage.guide);
+      return;
+    }
+
+    final file = File(path);
+    if (!file.existsSync()) {
+      setState(() { _error = 'File not found'; _stage = _CsvStage.guide; });
+      return;
+    }
+
+    final ext = path.split('.').last.toLowerCase();
+    if (ext != 'csv' && ext != 'txt') {
+      setState(() { _error = 'Invalid file type (.$ext). Only .csv or .txt files are accepted.'; _stage = _CsvStage.guide; });
+      return;
+    }
+
+    final content = file.readAsStringSync();
+    final csvRows = const CsvToListConverter(eol: '\n', shouldParseNumbers: false).convert(content);
+    if (csvRows.isEmpty) {
+      setState(() { _error = 'File is empty'; _stage = _CsvStage.guide; });
+      return;
+    }
+
+    // Detect header
+    final firstRow = csvRows.first.map((e) => e.toString().toLowerCase().trim()).toList();
+    int nameCol = -1, phoneCol = -1, addressCol = -1;
+    for (var i = 0; i < firstRow.length; i++) {
+      final h = firstRow[i];
+      if (nameCol == -1 && (h.contains('name') || h.contains('party') || h.contains('customer'))) nameCol = i;
+      else if (phoneCol == -1 && (h.contains('phone') || h.contains('mobile') || h.contains('number') || h.contains('contact'))) phoneCol = i;
+      else if (addressCol == -1 && (h.contains('address') || h.contains('city') || h.contains('location'))) addressCol = i;
+    }
+
+    bool hasHeader = nameCol >= 0 || phoneCol >= 0 || addressCol >= 0;
+    var dataRows = hasHeader ? csvRows.sublist(1) : csvRows;
+    if (!hasHeader) {
+      nameCol = 0;
+      phoneCol = csvRows.first.length > 1 ? 1 : -1;
+      addressCol = csvRows.first.length > 2 ? 2 : -1;
+    }
+
+    if (nameCol < 0) {
+      setState(() { _error = 'Could not detect a Name column'; _stage = _CsvStage.guide; });
+      return;
+    }
+
+    // Parse all rows
+    final valid = <Map<String, String>>[];
+    final invalid = <Map<String, String>>[];
+    final seenPhones = <String>{};
+
+    for (var i = 0; i < dataRows.length; i++) {
+      final row = dataRows[i];
+      if (row.isEmpty || row.every((c) => c.toString().trim().isEmpty)) continue;
+      final name = nameCol < row.length ? row[nameCol].toString().trim() : '';
+      final phone = phoneCol >= 0 && phoneCol < row.length ? row[phoneCol].toString().trim().replaceAll(RegExp(r'[^0-9]'), '') : '';
+      final address = addressCol >= 0 && addressCol < row.length ? row[addressCol].toString().trim() : '';
+
+      final entry = {'name': name, 'phone': phone, 'address': address};
+
+      // Validate
+      final issues = <String>[];
+      if (name.isEmpty) issues.add('name');
+      if (phone.isEmpty) issues.add('phone');
+      else if (phone.length < 10) issues.add('phone<10');
+      else if (phone.length > 12) issues.add('phone>12');
+      else if (seenPhones.contains(phone)) issues.add('dup');
+      if (address.isEmpty) issues.add('address');
+
+      if (issues.isEmpty) {
+        seenPhones.add(phone);
+        valid.add(entry);
+      } else {
+        entry['_issues'] = issues.join(',');
+        invalid.add(entry);
+      }
+    }
+
+    if (valid.isEmpty && invalid.isEmpty) {
+      setState(() { _error = 'No data rows found in file'; _stage = _CsvStage.guide; });
+      return;
+    }
+
+    setState(() { _rows = valid; _invalidRows = invalid; _stage = _CsvStage.review; });
+  }
+
+  void _fixRow(int index, String name, String phone, String address) {
+    final cleaned = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    final issues = <String>[];
+    if (name.trim().isEmpty) issues.add('name');
+    if (cleaned.isEmpty) issues.add('phone');
+    else if (cleaned.length < 10) issues.add('phone<10');
+    else if (cleaned.length > 12) issues.add('phone>12');
+    if (address.trim().isEmpty) issues.add('address');
+
+    // Check dup against valid rows
+    if (issues.isEmpty && _rows.any((r) => r['phone'] == cleaned)) {
+      issues.add('dup');
+    }
+
+    setState(() {
+      if (issues.isEmpty) {
+        _invalidRows.removeAt(index);
+        _rows.add({'name': name.trim(), 'phone': cleaned, 'address': address.trim()});
+      } else {
+        _invalidRows[index] = {'name': name.trim(), 'phone': cleaned, 'address': address.trim(), '_issues': issues.join(',')};
+      }
+    });
+  }
+
+  void _removeInvalidRow(int index) {
+    setState(() => _invalidRows.removeAt(index));
+  }
+
+  Future<void> _doImport() async {
+    if (_rows.isEmpty) return;
+    setState(() => _stage = _CsvStage.importing);
+
+    final db = widget.ref.read(firestorePathsProvider);
+    final existing = widget.ref.read(_customersProvider).valueOrNull ?? [];
+    final existingPhones = existing.map((c) => c['phone'] as String? ?? '').where((p) => p.isNotEmpty).toSet();
+    final siteId = widget.ref.read(siteContextProvider).siteId;
+    int imported = 0;
+    int duplicates = 0;
+
+    for (var i = 0; i < _rows.length; i += 500) {
+      final chunk = _rows.sublist(i, (i + 500).clamp(0, _rows.length));
+      final batch = db.batch();
+      for (final row in chunk) {
+        final phone = row['phone'] ?? '';
+        if (existingPhones.contains(phone)) { duplicates++; continue; }
+        existingPhones.add(phone);
+        batch.set(db.customers.doc(), {
+          'name': toTitleCase(row['name']!),
+          'phone': phone,
+          'address': row['address'] ?? '',
+          'siteId': siteId,
+          'totalWeighments': 0,
+          'importedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        imported++;
+      }
+      await batch.commit();
+    }
+
+    setState(() { _importedCount = imported; _duplicateCount = duplicates; _stage = _CsvStage.done; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 580),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
+              decoration: BoxDecoration(color: scheme.surfaceContainerLow),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34, height: 34,
+                    decoration: BoxDecoration(color: scheme.tertiaryContainer, borderRadius: BorderRadius.circular(9)),
+                    child: Icon(Icons.upload_file_rounded, size: 17, color: scheme.tertiary),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Import Customers', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                      Text(_stageSubtitle, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 11)),
+                    ],
+                  )),
+                  if (_stage != _CsvStage.importing)
+                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded, size: 20)),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // Body
+            Flexible(child: _buildBody(scheme, text)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String get _stageSubtitle => switch (_stage) {
+    _CsvStage.guide => 'CSV format guide',
+    _CsvStage.loading => 'Reading file...',
+    _CsvStage.review => '${_rows.length} valid${_invalidRows.isNotEmpty ? ' · ${_invalidRows.length} need attention' : ''}',
+    _CsvStage.importing => 'Importing...',
+    _CsvStage.done => 'Import complete',
+  };
+
+  Widget _buildBody(ColorScheme scheme, TextTheme text) {
+    return switch (_stage) {
+      _CsvStage.guide => _buildGuide(scheme, text),
+      _CsvStage.loading => const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator())),
+      _CsvStage.review => _buildReview(scheme, text),
+      _CsvStage.importing => const Center(child: Padding(padding: EdgeInsets.all(40), child: Column(mainAxisSize: MainAxisSize.min, children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Importing customers...')]))),
+      _CsvStage.done => _buildDone(scheme, text),
+    };
+  }
+
+  Widget _buildGuide(ColorScheme scheme, TextTheme text) {
+    return Column(
+      children: [
+        Expanded(child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_error != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.error.withValues(alpha: 0.3))),
+                  child: Row(children: [
+                    Icon(Icons.error_outline_rounded, size: 14, color: scheme.error),
+                    const SizedBox(width: 8),
+                    Text(_error!, style: text.bodySmall?.copyWith(color: scheme.error, fontWeight: FontWeight.w500)),
+                  ]),
+                ),
+              ],
+              Text('Required Columns (all 3 mandatory)', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              _CsvFormatRow(label: 'Name', description: 'Customer/party name', example: 'Rajesh Kumar', scheme: scheme, text: text),
+              _CsvFormatRow(label: 'Phone', description: 'Mobile number (10-12 digits)', example: '9876543210', scheme: scheme, text: text),
+              _CsvFormatRow(label: 'Address', description: 'Village/city/area', example: 'Vatva, Ahmedabad', scheme: scheme, text: text),
+              const SizedBox(height: 16),
+              Text('Accepted Formats', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: scheme.surfaceContainerHighest.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('With header row:', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    Text('Name, Phone, Address\nRajesh Kumar, 9876543210, Vatva', style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontSize: 11, color: scheme.onSurfaceVariant, height: 1.5)),
+                    const SizedBox(height: 10),
+                    Text('Without header (columns in order):', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    Text('Rajesh Kumar, 9876543210, Vatva\nSuresh Patel, 8765432109, Naroda', style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontSize: 11, color: scheme.onSurfaceVariant, height: 1.5)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
+                child: Row(children: [
+                  Icon(Icons.lightbulb_outline_rounded, size: 14, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Header keywords: name/party/customer, phone/mobile/contact, address/city/location. Names are auto title-cased. Non-digit characters in phone are stripped.', style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.primary))),
+                ]),
+              ),
+            ],
+          ),
+        )),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Row(
+            children: [
+              const Spacer(),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _pickAndParse,
+                icon: const Icon(Icons.file_open_rounded, size: 16),
+                label: Text(_error != null ? 'Try Another File' : 'Select CSV File'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReview(ColorScheme scheme, TextTheme text) {
+    return Column(
+      children: [
+        // Valid rows table
+        if (_rows.isNotEmpty) ...[
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            alignment: Alignment.centerLeft,
+            child: Row(children: [
+              Icon(Icons.check_circle_rounded, size: 14, color: Colors.green.shade600),
+              const SizedBox(width: 6),
+              Text('${_rows.length} valid row${_rows.length != 1 ? 's' : ''}', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: Colors.green.shade700)),
+            ]),
+          ),
+          Flexible(
+            flex: 3,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+              clipBehavior: Clip.antiAlias,
+              child: Column(children: [
+                Container(
+                  color: scheme.surfaceContainerLow,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  child: Row(children: [
+                    SizedBox(width: 28, child: Text('#', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant))),
+                    Expanded(flex: 3, child: Text('Name', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700))),
+                    Expanded(flex: 2, child: Text('Phone', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700))),
+                    Expanded(flex: 3, child: Text('Address', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700))),
+                  ]),
+                ),
+                Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
+                Flexible(child: ListView.separated(
+                  itemCount: _rows.length.clamp(0, 100),
+                  separatorBuilder: (_, __) => Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.12)),
+                  itemBuilder: (_, i) {
+                    final r = _rows[i];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      child: Row(children: [
+                        SizedBox(width: 28, child: Text('${i + 1}', style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant))),
+                        Expanded(flex: 3, child: Text(toTitleCase(r['name']!), style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                        Expanded(flex: 2, child: Text(r['phone']!, style: text.bodySmall, overflow: TextOverflow.ellipsis)),
+                        Expanded(flex: 3, child: Text(r['address']!, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis)),
+                      ]),
+                    );
+                  },
+                )),
+                if (_rows.length > 100) ...[
+                  Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
+                  Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Text('+ ${_rows.length - 100} more', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 11))),
+                ],
+              ]),
+            ),
+          ),
+        ],
+        // Invalid rows — editable
+        if (_invalidRows.isNotEmpty) ...[
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+            alignment: Alignment.centerLeft,
+            child: Row(children: [
+              Icon(Icons.edit_note_rounded, size: 16, color: scheme.error),
+              const SizedBox(width: 6),
+              Text('${_invalidRows.length} row${_invalidRows.length != 1 ? 's' : ''} need fixing', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.error)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () => setState(() => _invalidRows.clear()),
+                icon: Icon(Icons.delete_sweep_rounded, size: 14, color: scheme.error),
+                label: Text('Remove All', style: TextStyle(fontSize: 11, color: scheme.error)),
+                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), minimumSize: Size.zero),
+              ),
+            ]),
+          ),
+          Flexible(
+            flex: 2,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _invalidRows.length,
+              itemBuilder: (_, i) => _InvalidRowTile(
+                row: _invalidRows[i],
+                index: i,
+                scheme: scheme,
+                text: text,
+                onFix: _fixRow,
+                onRemove: _removeInvalidRow,
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        // Footer
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          child: Row(children: [
+            OutlinedButton.icon(
+              onPressed: _pickAndParse,
+              icon: const Icon(Icons.refresh_rounded, size: 15),
+              label: const Text('Re-upload'),
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), textStyle: const TextStyle(fontSize: 12)),
+            ),
+            const Spacer(),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              onPressed: _rows.isEmpty ? null : _doImport,
+              icon: const Icon(Icons.upload_rounded, size: 16),
+              label: Text('Import ${_rows.length} Customer${_rows.length != 1 ? 's' : ''}'),
+            ),
+          ]),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDone(ColorScheme scheme, TextTheme text) {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle_rounded, size: 48, color: Colors.green.shade600),
+          const SizedBox(height: 16),
+          Text('$_importedCount customer${_importedCount != 1 ? 's' : ''} imported', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          if (_duplicateCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text('$_duplicateCount duplicate phone${_duplicateCount != 1 ? 's' : ''} skipped', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+            ),
+          const SizedBox(height: 24),
+          FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done')),
+        ],
+      ),
+    );
+  }
+}
+
+class _InvalidRowTile extends StatefulWidget {
+  final Map<String, String> row;
+  final int index;
+  final ColorScheme scheme;
+  final TextTheme text;
+  final void Function(int index, String name, String phone, String address) onFix;
+  final void Function(int index) onRemove;
+
+  const _InvalidRowTile({required this.row, required this.index, required this.scheme, required this.text, required this.onFix, required this.onRemove});
+
+  @override
+  State<_InvalidRowTile> createState() => _InvalidRowTileState();
+}
+
+class _InvalidRowTileState extends State<_InvalidRowTile> {
+  late final TextEditingController _nameC;
+  late final TextEditingController _phoneC;
+  late final TextEditingController _addressC;
+  bool _expanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameC = TextEditingController(text: widget.row['name'] ?? '');
+    _phoneC = TextEditingController(text: widget.row['phone'] ?? '');
+    _addressC = TextEditingController(text: widget.row['address'] ?? '');
+  }
+
+  @override
+  void didUpdateWidget(_InvalidRowTile old) {
+    super.didUpdateWidget(old);
+    if (old.row != widget.row) {
+      _nameC.text = widget.row['name'] ?? '';
+      _phoneC.text = widget.row['phone'] ?? '';
+      _addressC.text = widget.row['address'] ?? '';
+    }
+  }
+
+  @override
+  void dispose() { _nameC.dispose(); _phoneC.dispose(); _addressC.dispose(); super.dispose(); }
+
+  String _issueLabel(String code) => switch (code) {
+    'name' => 'Missing name',
+    'phone' => 'Missing phone',
+    'phone<10' => 'Phone too short',
+    'phone>12' => 'Phone too long',
+    'dup' => 'Duplicate phone',
+    'address' => 'Missing address',
+    _ => code,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final issues = (widget.row['_issues'] ?? '').split(',');
+    final scheme = widget.scheme;
+    final text = widget.text;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: scheme.error.withValues(alpha: 0.25)),
+        color: scheme.errorContainer.withValues(alpha: 0.06),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(children: [
+                Icon(_expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 16, color: scheme.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Expanded(child: Text(
+                  widget.row['name']?.isNotEmpty == true ? widget.row['name']! : '(empty name)',
+                  style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                )),
+                const SizedBox(width: 8),
+                ...issues.map((code) => Container(
+                  margin: const EdgeInsets.only(right: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: scheme.error.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                  child: Text(_issueLabel(code), style: TextStyle(fontSize: 9, color: scheme.error, fontWeight: FontWeight.w600)),
+                )),
+                IconButton(
+                  onPressed: () => widget.onRemove(widget.index),
+                  icon: Icon(Icons.close_rounded, size: 14, color: scheme.error),
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  padding: EdgeInsets.zero,
+                  tooltip: 'Remove row',
+                ),
+              ]),
+            ),
+          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              child: Row(children: [
+                Expanded(child: TextField(
+                  controller: _nameC,
+                  style: const TextStyle(fontSize: 12),
+                  decoration: InputDecoration(
+                    labelText: 'Name',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                    errorText: issues.contains('name') ? '' : null,
+                    errorStyle: const TextStyle(height: 0, fontSize: 0),
+                  ),
+                )),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(
+                  controller: _phoneC,
+                  style: const TextStyle(fontSize: 12),
+                  decoration: InputDecoration(
+                    labelText: 'Phone',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                    errorText: issues.any((c) => c.startsWith('phone') || c == 'dup') ? '' : null,
+                    errorStyle: const TextStyle(height: 0, fontSize: 0),
+                  ),
+                )),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(
+                  controller: _addressC,
+                  style: const TextStyle(fontSize: 12),
+                  decoration: InputDecoration(
+                    labelText: 'Address',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                    errorText: issues.contains('address') ? '' : null,
+                    errorStyle: const TextStyle(height: 0, fontSize: 0),
+                  ),
+                )),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => widget.onFix(widget.index, _nameC.text, _phoneC.text, _addressC.text),
+                  icon: Icon(Icons.check_circle_rounded, size: 20, color: Colors.green.shade600),
+                  tooltip: 'Validate',
+                ),
+              ]),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CsvFormatRow extends StatelessWidget {
+  final String label;
+  final String description;
+  final String example;
+  final ColorScheme scheme;
+  final TextTheme text;
+
+  const _CsvFormatRow({required this.label, required this.description, required this.example, required this.scheme, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 70,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(label, style: text.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.primary)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text(description, style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant))),
+          Text(example, style: text.bodySmall?.copyWith(fontSize: 11, fontFamily: 'monospace', color: scheme.outline)),
+        ],
+      ),
+    );
+  }
 }

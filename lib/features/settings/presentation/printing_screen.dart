@@ -9,13 +9,13 @@ import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
 import 'package:image/image.dart' as img;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/print_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
@@ -92,31 +92,43 @@ class _Placeholder {
 
 const _builtInPlaceholders = [
   // Company
-  _Placeholder('{company_name}', 'Company Name', 'Company'),
-  _Placeholder('{company_address1}', 'Company Address Line 1', 'Company'),
-  _Placeholder('{company_address2}', 'Company Address Line 2', 'Company'),
-  _Placeholder('{company_phone}', 'Company Phone', 'Company'),
-  _Placeholder('{company_gstin}', 'Company GSTIN', 'Company'),
+  _Placeholder('{company_name}', 'Name', 'Company'),
+  _Placeholder('{company_address1}', 'Address Line 1', 'Company'),
+  _Placeholder('{company_address2}', 'Address Line 2', 'Company'),
+  _Placeholder('{company_phone}', 'Phone', 'Company'),
+  _Placeholder('{company_email}', 'Email', 'Company'),
+  _Placeholder('{company_gstin}', 'GSTIN', 'Company'),
+  _Placeholder('{company_pan}', 'PAN', 'Company'),
   // Customer
-  _Placeholder('{customer_name}', 'Customer Name', 'Customer'),
-  _Placeholder('{customer_address}', 'Customer Address', 'Customer'),
-  _Placeholder('{customer_phone}', 'Customer Phone', 'Customer'),
+  _Placeholder('{customer_name}', 'Name', 'Customer'),
+  _Placeholder('{customer_address}', 'Address', 'Customer'),
+  _Placeholder('{customer_phone}', 'Phone', 'Customer'),
   // Weighment
   _Placeholder('{vehicle}', 'Vehicle Number', 'Weighment'),
   _Placeholder('{material}', 'Material', 'Weighment'),
-  _Placeholder('{gross}', 'Gross Weight (kg)', 'Weighment'),
-  _Placeholder('{tare}', 'Tare Weight (kg)', 'Weighment'),
-  _Placeholder('{net}', 'Net Weight (kg)', 'Weighment'),
-  _Placeholder('{gross_datetime}', 'Gross Weighment Date & Time', 'Weighment'),
-  _Placeholder('{tare_datetime}', 'Tare Weighment Date & Time', 'Weighment'),
-  _Placeholder('{net_datetime}', 'Net Weighment Date & Time', 'Weighment'),
+  _Placeholder('{gross}', 'Gross Weight (includes KG)', 'Weighment'),
+  _Placeholder('{tare}', 'Tare Weight (includes KG)', 'Weighment'),
+  _Placeholder('{net}', 'Net Weight (includes KG)', 'Weighment'),
+  _Placeholder('{gross_datetime}', 'Gross Date & Time', 'Weighment'),
+  _Placeholder('{gross_date}', 'Gross Date', 'Weighment'),
+  _Placeholder('{gross_time}', 'Gross Time', 'Weighment'),
+  _Placeholder('{tare_datetime}', 'Tare Date & Time', 'Weighment'),
+  _Placeholder('{tare_date}', 'Tare Date', 'Weighment'),
+  _Placeholder('{tare_time}', 'Tare Time', 'Weighment'),
+  _Placeholder('{net_datetime}', 'Net Date & Time', 'Weighment'),
+  _Placeholder('{net_date}', 'Net Date', 'Weighment'),
+  _Placeholder('{net_time}', 'Net Time', 'Weighment'),
   _Placeholder('{rst}', 'RST Number', 'Weighment'),
-  _Placeholder('{operator}', 'Operator Name', 'Weighment'),
+  _Placeholder('{operator}', 'Operator', 'Weighment'),
+  _Placeholder('{status}', 'Status', 'Weighment'),
+  _Placeholder('{weigh_type}', 'First Weigh Type', 'Weighment'),
   // System
   _Placeholder('{date}', 'Current Date', 'System'),
+  _Placeholder('{time}', 'Current Time', 'System'),
   _Placeholder('{pc_name}', 'PC Name', 'System'),
-  _Placeholder('{port_name}', 'Port Name', 'System'),
-  _Placeholder('{weighbridge_name}', 'Weighbridge Name', 'System'),
+  _Placeholder('{port_name}', 'Scale Port', 'System'),
+  _Placeholder('{weighbridge_name}', 'Weighbridge', 'System'),
+  _Placeholder('{site_name}', 'Site Name', 'System'),
 ];
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
@@ -224,7 +236,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
             }
           }
         } else {
-          final cupsPrinterName = name.replaceAll(' ', '_');
+          final cupsPrinterName = name.replaceAll(RegExp(r'[\s\-]+'), '_');
           final result = await Process.run('lpoptions', ['-p', cupsPrinterName, '-l']);
           if (result.exitCode == 0) {
             final output = result.stdout as String;
@@ -574,11 +586,11 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       {'text': 'Customer: {customer_name}', 'align': 'left', 'style': 'normal', 'group': 3},
       {'text': 'Address: {customer_address}', 'align': 'left', 'style': 'normal', 'group': 3},
       {'text': '', 'align': 'left', 'style': 'separator'},
-      {'text': 'Gross: {gross} KG', 'align': 'left', 'style': 'normal', 'group': 4},
+      {'text': 'Gross: {gross}', 'align': 'left', 'style': 'normal', 'group': 4},
       {'text': '({gross_datetime})', 'align': 'left', 'style': 'normal', 'group': 4},
-      {'text': 'Tare: {tare} KG', 'align': 'left', 'style': 'normal', 'group': 5},
+      {'text': 'Tare: {tare}', 'align': 'left', 'style': 'normal', 'group': 5},
       {'text': '({tare_datetime})', 'align': 'left', 'style': 'normal', 'group': 5},
-      {'text': 'Net: {net} KG', 'align': 'left', 'style': 'bold', 'group': 6},
+      {'text': 'Net: {net}', 'align': 'left', 'style': 'bold', 'group': 6},
       {'text': '({net_datetime})', 'align': 'left', 'style': 'normal', 'group': 6},
       {'text': '', 'align': 'left', 'style': 'separator'},
       {'text': 'Operator: {operator}', 'align': 'left', 'style': 'normal', 'group': 7},
@@ -608,9 +620,9 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     {'text': 'Customer: {customer_name}', 'align': 'left', 'size': 'normal'},
     {'text': 'Address: {customer_address}', 'align': 'left', 'size': 'normal'},
     {'text': '', 'align': 'left', 'size': 'separator'},
-    {'text': 'Gross: {gross} KG', 'align': 'left', 'size': 'normal'},
-    {'text': 'Tare: {tare} KG', 'align': 'left', 'size': 'normal'},
-    {'text': 'Net: {net} KG', 'align': 'left', 'size': 'bold'},
+    {'text': 'Gross: {gross}', 'align': 'left', 'size': 'normal'},
+    {'text': 'Tare: {tare}', 'align': 'left', 'size': 'normal'},
+    {'text': 'Net: {net}', 'align': 'left', 'size': 'bold'},
     {'text': '', 'align': 'left', 'size': 'separator'},
     {'text': 'Operator: {operator}', 'align': 'left', 'size': 'normal'},
     {'text': 'Weighbridge: {weighbridge_name}', 'align': 'left', 'size': 'normal'},
@@ -631,11 +643,11 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       {'text': 'Customer: {customer_name}', 'align': 'left', 'style': 'normal', 'group': 3},
       {'text': 'Address: {customer_address}', 'align': 'left', 'style': 'normal', 'group': 3},
       {'text': '', 'align': 'left', 'style': 'blank'},
-      {'text': 'Gross: {gross} KG', 'align': 'left', 'style': 'normal', 'group': 4},
+      {'text': 'Gross: {gross}', 'align': 'left', 'style': 'normal', 'group': 4},
       {'text': '({gross_datetime})', 'align': 'left', 'style': 'normal', 'group': 4},
-      {'text': 'Tare: {tare} KG', 'align': 'left', 'style': 'normal', 'group': 5},
+      {'text': 'Tare: {tare}', 'align': 'left', 'style': 'normal', 'group': 5},
       {'text': '({tare_datetime})', 'align': 'left', 'style': 'normal', 'group': 5},
-      {'text': 'Net: {net} KG', 'align': 'left', 'style': 'bold', 'group': 6},
+      {'text': 'Net: {net}', 'align': 'left', 'style': 'bold', 'group': 6},
       {'text': '({net_datetime})', 'align': 'left', 'style': 'normal', 'group': 6},
       {'text': '', 'align': 'left', 'style': 'blank'},
       {'text': 'Operator: {operator}', 'align': 'left', 'style': 'normal', 'group': 7},
@@ -1013,44 +1025,57 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     final now = DateTime.now();
     final grossTime = now.subtract(const Duration(hours: 2, minutes: 27));
     final dateStr = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+    final grossDateStr = '${grossTime.day.toString().padLeft(2, '0')}/${grossTime.month.toString().padLeft(2, '0')}/${grossTime.year}';
     return {
       '{company_name}': company['companyName'] as String? ?? 'Your Company Name',
       '{company_address1}': company['address1'] as String? ?? 'Address Line 1',
       '{company_address2}': company['address2'] as String? ?? 'Address Line 2',
       '{company_phone}': company['phone'] as String? ?? '+91 98765 43210',
+      '{company_email}': company['email'] as String? ?? 'info@company.com',
       '{company_gstin}': company['gstin'] as String? ?? '22AAAAA0000A1Z5',
+      '{company_pan}': company['pan'] as String? ?? 'AAAAA0000A',
       '{customer_name}': 'Sample Customer',
       '{customer_address}': 'Customer Address',
       '{customer_phone}': '+91 91234 56789',
       '{vehicle}': 'MH-12-AB-1234',
       '{material}': 'Iron Ore',
-      '{gross}': '48,520',
-      '{tare}': '16,200',
-      '{net}': '32,320',
-      '{gross_datetime}': '$dateStr ${timeFmt.format(grossTime)}',
+      '{gross}': '48,520 KG',
+      '{tare}': '16,200 KG',
+      '{net}': '32,320 KG',
+      '{gross_datetime}': '$grossDateStr ${timeFmt.format(grossTime)}',
+      '{gross_date}': grossDateStr,
+      '{gross_time}': timeFmt.format(grossTime),
       '{tare_datetime}': '$dateStr ${timeFmt.format(now)}',
+      '{tare_date}': dateStr,
+      '{tare_time}': timeFmt.format(now),
       '{net_datetime}': '$dateStr ${timeFmt.format(now)}',
+      '{net_date}': dateStr,
+      '{net_time}': timeFmt.format(now),
       '{rst}': '1042',
       '{operator}': 'Rajesh Kumar',
+      '{status}': 'completed',
+      '{weigh_type}': 'gross',
       '{date}': dateStr,
+      '{time}': timeFmt.format(now),
       '{pc_name}': Platform.localHostname,
       '{port_name}': ref.read(scaleConfigProvider).valueOrNull?.port ?? '',
       '{weighbridge_name}': company['weighbridgeName'] as String? ?? 'Weighbridge',
+      '{site_name}': company['siteName'] as String? ?? 'Main Site',
     };
   }
 
   String _substituteLine(String text) {
     var result = text;
     final placeholders = _previewPlaceholders();
-    // Pad weight values to align KG
-    final grossLen = placeholders['{gross}']!.length;
-    final tareLen = placeholders['{tare}']!.length;
-    final netLen = placeholders['{net}']!.length;
-    final maxW = [grossLen, tareLen, netLen].reduce((a, b) => a > b ? a : b);
+    // Align weight numbers (strip " KG", pad numbers, re-append " KG")
+    final grossNum = placeholders['{gross}']!.replaceAll(' KG', '');
+    final tareNum = placeholders['{tare}']!.replaceAll(' KG', '');
+    final netNum = placeholders['{net}']!.replaceAll(' KG', '');
+    final maxW = [grossNum.length, tareNum.length, netNum.length].reduce((a, b) => a > b ? a : b);
     final padded = Map<String, String>.from(placeholders);
-    padded['{gross}'] = placeholders['{gross}']!.padLeft(maxW);
-    padded['{tare}'] = placeholders['{tare}']!.padLeft(maxW);
-    padded['{net}'] = placeholders['{net}']!.padLeft(maxW);
+    padded['{gross}'] = '${grossNum.padLeft(maxW)} KG';
+    padded['{tare}'] = '${tareNum.padLeft(maxW)} KG';
+    padded['{net}'] = '${netNum.padLeft(maxW)} KG';
     for (final entry in padded.entries) {
       result = result.replaceAll(entry.key, entry.value);
     }
@@ -1070,6 +1095,15 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       body: Column(
         children: [
           _buildHeader(scheme, text),
+          WeighbridgeContextBar(
+            label: 'Printing for',
+            onSwitched: () {
+              ref.invalidate(_printSettingsProvider);
+              ref.invalidate(_companyInfoProvider);
+              ref.invalidate(_companyLogoProvider);
+              setState(() => _loaded = false);
+            },
+          ),
           Expanded(
             child: settingsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -1144,7 +1178,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
         children: [
           Row(
             children: [
-              IconButton(onPressed: () { if (ref.read(wizardModeProvider)) { ref.read(setupWizardProvider.notifier).previousStep(); } else { context.go('/settings'); } }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+              IconButton(onPressed: () { context.go('/settings'); }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
               const SizedBox(width: 12),
               Icon(Icons.print_rounded, size: 20, color: scheme.primary),
               const SizedBox(width: 10),
@@ -1708,6 +1742,7 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     if (_dmLogo && logoBytes != null) {
       var decoded = img.decodeImage(logoBytes);
       if (decoded != null) {
+        decoded = img.bakeOrientation(decoded);
         if (decoded.height > 0) {
           _dmLogoAspectRatio = decoded.width / decoded.height;
         }
@@ -1826,11 +1861,15 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
     final outH = (targetH * scale).round();
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, outW.toDouble(), outH.toDouble()));
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, outW.toDouble(), outH.toDouble()),
+      Paint()..color = const Color(0xFFFFFDE8),
+    );
     canvas.drawImageRect(
       fullImage,
       Rect.fromLTWH(0, 0, fullImage.width.toDouble(), fullImage.height.toDouble()),
       Rect.fromLTWH(0, 0, outW.toDouble(), outH.toDouble()),
-      Paint()..filterQuality = FilterQuality.high,
+      Paint()..filterQuality = FilterQuality.high..blendMode = BlendMode.darken,
     );
 
     // Composite logo on top — not affected by CPI compression

@@ -24,7 +24,83 @@ Map<String, dynamic> _defaultField() => {
       'required': false,
       'minLength': 1,
       'maxLength': 50,
+      'unit': '',
+      'unitNumerator': '',
+      'unitDenominator': '',
+      'currency': 'INR',
+      'decimalPlaces': 2,
     };
+
+const _fieldTypes = ['Text', 'Number', 'Currency', 'Rate', 'Dropdown', 'Date', 'Boolean'];
+
+const _weightUnits = ['kg', 'tonne', 'quintal', 'MT', 'lb', 'ton (US)'];
+const _volumeUnits = ['litre', 'kL', 'gallon', 'm³'];
+const _lengthUnits = ['m', 'km', 'ft', 'inch'];
+const _areaUnits = ['m²', 'hectare', 'acre', 'sq ft'];
+const _countUnits = ['pcs', 'bags', 'trips', 'loads', 'units'];
+const _timeUnits = ['hr', 'min', 'day', 'month'];
+
+const _allUnits = [..._weightUnits, ..._volumeUnits, ..._lengthUnits, ..._areaUnits, ..._countUnits, ..._timeUnits];
+
+const _currencies = [
+  ('INR', '₹'),
+  ('USD', '\$'),
+  ('EUR', '€'),
+  ('GBP', '£'),
+  ('AED', 'د.إ'),
+  ('SAR', '﷼'),
+  ('BDT', '৳'),
+  ('NPR', 'रू'),
+  ('LKR', 'Rs'),
+];
+
+String _currencyToDisplay(String code) {
+  final match = _currencies.where((c) => c.$1 == code);
+  if (match.isNotEmpty) return '${match.first.$1} (${match.first.$2})';
+  return '${code} (${code})';
+}
+
+String _previewHint(Map<String, dynamic> field) {
+  final type = field['type'] as String? ?? 'Text';
+  switch (type) {
+    case 'Number':
+      return '0.00';
+    case 'Currency':
+      final cur = _currencies.firstWhere((c) => c.$1 == (field['currency'] ?? 'INR'), orElse: () => ('INR', '₹'));
+      return '${cur.$2} 0.00';
+    case 'Rate':
+      final num = (field['unitNumerator'] as String?)?.isNotEmpty == true ? field['unitNumerator'] as String : 'INR (₹)';
+      final den = (field['unitDenominator'] as String?)?.isNotEmpty == true ? field['unitDenominator'] as String : 'kg';
+      final symbol = num.contains('(') ? num.split('(').last.replaceAll(')', '') : num;
+      return '$symbol 0.00 / $den';
+    case 'Date':
+      return 'dd/mm/yyyy';
+    case 'Boolean':
+      return '';
+    default:
+      return 'Enter ${field['label'] ?? 'value'}';
+  }
+}
+
+String _previewSuffix(Map<String, dynamic> field) {
+  final type = field['type'] as String? ?? 'Text';
+  if (type == 'Number') {
+    final unit = field['unit'] as String? ?? '';
+    return unit.isNotEmpty && unit != '(none)' ? unit : '';
+  }
+  if (type == 'Rate') {
+    final den = (field['unitDenominator'] as String?)?.isNotEmpty == true ? field['unitDenominator'] as String : '';
+    return den.isNotEmpty ? '/ $den' : '';
+  }
+  return '';
+}
+
+String _ratePreview(Map<String, dynamic> field) {
+  final num = (field['unitNumerator'] as String?)?.isNotEmpty == true ? field['unitNumerator'] as String : 'INR (₹)';
+  final den = (field['unitDenominator'] as String?)?.isNotEmpty == true ? field['unitDenominator'] as String : 'kg';
+  final symbol = num.contains('(') ? num.split('(').last.replaceAll(')', '') : num;
+  return 'Preview: $symbol 1,250.00 / $den  →  e.g. freight rate per $den';
+}
 
 class CustomFieldsScreen extends ConsumerStatefulWidget {
   const CustomFieldsScreen({super.key});
@@ -267,13 +343,16 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                           final label = f['label'] as String;
                           final type = f['type'] as String;
                           final required = f['required'] == true;
-                          final placeholder = (f['placeholder'] as String?)?.isNotEmpty == true ? f['placeholder'] as String : 'Enter $label';
+                          final placeholder = (f['placeholder'] as String?)?.isNotEmpty == true ? f['placeholder'] as String : _previewHint(f);
+                          final suffix = _previewSuffix(f);
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: _PreviewField(
                               label: '$label${required ? ' *' : ''}',
                               hint: placeholder,
+                              suffix: suffix,
                               isDropdown: type == 'Dropdown',
+                              isToggle: type == 'Boolean',
                               scheme: scheme,
                               text: text,
                             ),
@@ -323,14 +402,25 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
 class _PreviewField extends StatelessWidget {
   final String label;
   final String hint;
+  final String suffix;
   final bool isDropdown;
+  final bool isToggle;
   final ColorScheme scheme;
   final TextTheme text;
 
-  const _PreviewField({required this.label, required this.hint, this.isDropdown = false, required this.scheme, required this.text});
+  const _PreviewField({required this.label, required this.hint, this.suffix = '', this.isDropdown = false, this.isToggle = false, required this.scheme, required this.text});
 
   @override
   Widget build(BuildContext context) {
+    if (isToggle) {
+      return Row(
+        children: [
+          SizedBox(width: 28, height: 16, child: FittedBox(child: Switch(value: false, onChanged: null))),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -348,6 +438,16 @@ class _PreviewField extends StatelessWidget {
               Expanded(
                 child: Text(hint, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5))),
               ),
+              if (suffix.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(suffix, style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: scheme.primary)),
+                ),
               if (isDropdown) Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: scheme.onSurfaceVariant),
             ],
           ),
@@ -473,7 +573,7 @@ class _FieldConfig extends StatelessWidget {
                           child: _ConfigField(
                             label: 'Field Label',
                             value: field['label'] ?? '',
-                            hint: 'e.g. Vehicle Source',
+                            hint: 'e.g. Freight Rate',
                             onChanged: (v) => _update('label', v),
                           ),
                         ),
@@ -482,12 +582,138 @@ class _FieldConfig extends StatelessWidget {
                           child: _ConfigDropdown(
                             label: 'Field Type',
                             value: field['type'] ?? 'Text',
-                            items: const ['Text', 'Dropdown', 'Number'],
+                            items: _fieldTypes,
                             onChanged: (v) => _update('type', v),
                           ),
                         ),
                       ],
                     ),
+
+                    // ── Unit config for Number type ──
+                    if (field['type'] == 'Number') ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ConfigDropdown(
+                              label: 'Unit',
+                              value: (field['unit'] as String?)?.isNotEmpty == true ? field['unit'] as String : '(none)',
+                              items: ['(none)', ..._allUnits],
+                              onChanged: (v) => _update('unit', v == '(none)' ? '' : v),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          SizedBox(
+                            width: 100,
+                            child: _ConfigField(
+                              label: 'Decimals',
+                              value: '${field['decimalPlaces'] ?? 2}',
+                              hint: '2',
+                              onChanged: (v) => _update('decimalPlaces', int.tryParse(v) ?? 2),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                    // ── Currency config ──
+                    if (field['type'] == 'Currency') ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ConfigDropdown(
+                              label: 'Currency',
+                              value: _currencyToDisplay(field['currency'] ?? 'INR'),
+                              items: _currencies.map((c) => '${c.$1} (${c.$2})').toList(),
+                              onChanged: (v) => _update('currency', v.split(' ').first),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          SizedBox(
+                            width: 100,
+                            child: _ConfigField(
+                              label: 'Decimals',
+                              value: '${field['decimalPlaces'] ?? 2}',
+                              hint: '2',
+                              onChanged: (v) => _update('decimalPlaces', int.tryParse(v) ?? 2),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                    // ── Rate config (compound unit: currency / weight unit) ──
+                    if (field['type'] == 'Rate') ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: scheme.primaryContainer.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: scheme.primary.withValues(alpha: 0.15)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.functions_rounded, size: 14, color: scheme.primary),
+                                const SizedBox(width: 6),
+                                Text('Compound Unit', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.primary)),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _ConfigDropdown(
+                                    label: 'Numerator (value)',
+                                    value: (field['unitNumerator'] as String?)?.isNotEmpty == true ? field['unitNumerator'] : 'INR (₹)',
+                                    items: _currencies.map((c) => '${c.$1} (${c.$2})').toList(),
+                                    onChanged: (v) => _update('unitNumerator', v),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  child: Column(
+                                    children: [
+                                      const SizedBox(height: 16),
+                                      Text('/', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w300, color: scheme.onSurfaceVariant)),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _ConfigDropdown(
+                                    label: 'Denominator (per)',
+                                    value: (field['unitDenominator'] as String?)?.isNotEmpty == true ? field['unitDenominator'] : _weightUnits.first,
+                                    items: _allUnits,
+                                    onChanged: (v) => _update('unitDenominator', v),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _ratePreview(field),
+                              style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: 100,
+                        child: _ConfigField(
+                          label: 'Decimals',
+                          value: '${field['decimalPlaces'] ?? 2}',
+                          hint: '2',
+                          onChanged: (v) => _update('decimalPlaces', int.tryParse(v) ?? 2),
+                        ),
+                      ),
+                    ],
+
+                    // ── Dropdown options ──
                     if (field['type'] == 'Dropdown') ...[
                       const SizedBox(height: 14),
                       _ConfigField(
@@ -497,6 +723,7 @@ class _FieldConfig extends StatelessWidget {
                         onChanged: (v) => _update('options', v),
                       ),
                     ],
+
                     const SizedBox(height: 14),
                     Row(
                       children: [
@@ -529,27 +756,42 @@ class _FieldConfig extends StatelessWidget {
                           onChanged: (v) => _update('required', v),
                         ),
                         Text('Required Field', style: text.bodySmall),
-                        const SizedBox(width: 24),
-                        SizedBox(
-                          width: 80,
-                          child: _ConfigField(
-                            label: 'Min Length',
-                            value: '${field['minLength'] ?? 1}',
-                            hint: '1',
-                            onChanged: (v) => _update('minLength', int.tryParse(v) ?? 1),
+                        if (field['type'] == 'Text') ...[
+                          const SizedBox(width: 24),
+                          SizedBox(
+                            width: 80,
+                            child: _ConfigField(
+                              label: 'Min Length',
+                              value: '${field['minLength'] ?? 1}',
+                              hint: '1',
+                              onChanged: (v) => _update('minLength', int.tryParse(v) ?? 1),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 14),
-                        SizedBox(
-                          width: 80,
-                          child: _ConfigField(
-                            label: 'Max Length',
-                            value: '${field['maxLength'] ?? 50}',
-                            hint: '50',
-                            onChanged: (v) => _update('maxLength', int.tryParse(v) ?? 50),
+                          const SizedBox(width: 14),
+                          SizedBox(
+                            width: 80,
+                            child: _ConfigField(
+                              label: 'Max Length',
+                              value: '${field['maxLength'] ?? 50}',
+                              hint: '50',
+                              onChanged: (v) => _update('maxLength', int.tryParse(v) ?? 50),
+                            ),
                           ),
-                        ),
+                        ],
                       ],
+                    ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () => onChanged(_defaultField()),
+                        icon: Icon(Icons.restart_alt_rounded, size: 14, color: scheme.error),
+                        label: Text('Reset Field', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.error)),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                      ),
                     ),
                   ],
                 ],
@@ -605,13 +847,15 @@ class _ConfigDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
+    final safeValue = items.contains(value) ? value : items.first;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 5),
         DropdownButtonFormField<String>(
-          initialValue: value,
+          key: ValueKey('$label:$safeValue'),
+          initialValue: safeValue,
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall))).toList(),
           onChanged: (v) { if (v != null) onChanged(v); },
           decoration: InputDecoration(

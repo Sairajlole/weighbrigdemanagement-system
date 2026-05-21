@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
 import 'package:weighbridgemanagement/shared/services/tally_service.dart';
 import 'package:weighbridgemanagement/shared/services/display_board_service.dart';
 import 'package:weighbridgemanagement/shared/services/cloud_backup_service.dart';
@@ -92,9 +91,9 @@ final cloudBackupServiceProvider = Provider<CloudBackupService>((ref) {
 
   final gdriveConfig = GDriveConfig.fromMap(gdriveData);
   final s3Config = S3Config.fromMap(s3Data);
-  final db = ref.read(firestoreProvider);
+  final paths = ref.read(firestorePathsProvider);
 
-  final service = CloudBackupService(gdriveConfig, s3Config, db);
+  final service = CloudBackupService(gdriveConfig, s3Config, paths);
   ref.onDispose(() => service.dispose());
   return service;
 });

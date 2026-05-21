@@ -4,27 +4,24 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
-import 'package:weighbridgemanagement/features/auth/presentation/change_password_screen.dart';
+import 'package:weighbridgemanagement/shared/models/license_model.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
-import 'package:weighbridgemanagement/shared/providers/offline_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
+import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
 
-// ─── Active user provider (supports switching) ──────────────────────────────
-
-final activeUserProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
-
-final _profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final override = ref.watch(activeUserProvider);
-  if (override != null) return override;
-
+final profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
   final user = FirebaseAuth.instance.currentUser;
   final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
@@ -32,9 +29,35 @@ final _profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   if (email == null || email.isEmpty) return {'role': 'admin'};
 
   try {
+    // Check site-scoped operators first
     final snap = await db.operators.where('email', isEqualTo: email).limit(1).get();
     if (snap.docs.isNotEmpty) {
-      return {'role': snap.docs.first.data()['role'] ?? 'operator', 'id': snap.docs.first.id, ...snap.docs.first.data()};
+      final data = snap.docs.first.data();
+      final rawRole = data['role'] as String? ?? 'operator';
+      final role = (rawRole == 'companyAdmin' || rawRole == 'admin') ? 'admin' : rawRole;
+      final result = {'id': snap.docs.first.id, ...data, 'role': role};
+      if (role == 'admin') {
+        try {
+          final adminDoc = await db.adminProfileSettings.get();
+          if (adminDoc.exists) result.addAll(adminDoc.data()!);
+        } catch (_) {}
+      }
+      return result;
+    }
+    // Fallback: search across all operator collections (flat + nested)
+    final groupSnap = await db.firestore.collectionGroup('operators').where('email', isEqualTo: email).limit(1).get();
+    if (groupSnap.docs.isNotEmpty) {
+      final data = groupSnap.docs.first.data();
+      final rawRole = data['role'] as String? ?? 'operator';
+      final role = (rawRole == 'companyAdmin' || rawRole == 'admin') ? 'admin' : rawRole;
+      final result = {'id': groupSnap.docs.first.id, ...data, 'role': role};
+      if (role == 'admin') {
+        try {
+          final adminDoc = await db.adminProfileSettings.get();
+          if (adminDoc.exists) result.addAll(adminDoc.data()!);
+        } catch (_) {}
+      }
+      return result;
     }
   } catch (_) {}
 
@@ -47,29 +70,61 @@ final _profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
     }
   } catch (_) {}
 
+  // Check company doc for admin profile (phone, etc.)
+  try {
+    final companySnap = await db.firestore.collection('companies').where('email', isEqualTo: email).limit(1).get();
+    if (companySnap.docs.isNotEmpty) {
+      final companyData = companySnap.docs.first.data();
+      return {
+        'role': 'admin',
+        'email': email,
+        'name': user?.displayName ?? companyData['adminName'],
+        'phone': companyData['phone'],
+        ...companyData,
+      };
+    }
+  } catch (_) {}
+
   final cached = await LocalCacheService.getCachedAdminProfile();
   if (cached != null) return {'role': 'admin', 'email': email, 'name': user?.displayName, ...cached};
   return {'role': 'admin', 'email': email, 'name': user?.displayName};
 });
 
-final _allOperatorsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+
+final _siteNameProvider = FutureProvider<String>((ref) async {
   final db = ref.watch(firestorePathsProvider);
+  final ctx = ref.watch(siteContextProvider);
+  if (!ctx.isConfigured) return '--';
   try {
-    final snap = await db.operators.where('isActive', isEqualTo: true).get();
-    final operators = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
-    LocalCacheService.cacheOperators(operators);
-    return operators;
+    final doc = await db.firestore.doc('companies/${ctx.companyId}/sites/${ctx.siteId}').get();
+    if (doc.exists) return doc.data()?['name'] as String? ?? ctx.siteId;
   } catch (_) {}
-  final cached = await LocalCacheService.getCachedOperators();
-  if (cached.isNotEmpty) return cached;
+  return ctx.siteId;
+});
+
+final _allSitesWbProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final db = ref.watch(firestorePathsProvider);
+  final ctx = ref.watch(siteContextProvider);
+  if (!ctx.isConfigured) return [];
+  try {
+    final sitesSnap = await db.firestore.collection('companies/${ctx.companyId}/sites').get();
+    final results = <Map<String, dynamic>>[];
+    for (final siteDoc in sitesSnap.docs) {
+      final siteName = siteDoc.data()['name'] as String? ?? siteDoc.id;
+      final wbSnap = await siteDoc.reference.collection('weighbridges').get();
+      final wbs = wbSnap.docs.map((d) => d.data()['name'] as String? ?? d.id).toList();
+      results.add({'name': siteName, 'weighbridges': wbs});
+    }
+    return results;
+  } catch (_) {}
   return [];
 });
 
-final _cameraSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final _companyInfoProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
   try {
-    final doc = await db.camerasAiSettings.get();
-    if (doc.exists) return doc.data()!;
+    final companyDoc = await db.firestore.doc(db.context.companyPath).get();
+    if (companyDoc.exists) return companyDoc.data()!;
   } catch (_) {}
   return {};
 });
@@ -85,14 +140,14 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Timer? _ipTimer;
-  String _currentIp = '...';
+  String _localIp = '...';
+  String _publicIp = '...';
   final DateTime _sessionStartTime = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _refreshIp();
-    // Scan IP every 30 seconds (standard for network session monitoring)
     _ipTimer = Timer.periodic(const Duration(seconds: 30), (_) => _refreshIp());
     _recordSession();
   }
@@ -104,21 +159,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _refreshIp() async {
-    final ip = await _getLocalIp();
-    if (mounted && ip != _currentIp) {
-      setState(() => _currentIp = ip);
-      _updateSessionIp(ip);
+    final results = await Future.wait([_getLocalIp(), _getPublicIp()]);
+    if (mounted) {
+      setState(() {
+        _localIp = results[0];
+        _publicIp = results[1];
+      });
+      _updateSessionIp(results[0]);
     }
   }
 
   Future<void> _recordSession() async {
     try {
       final db = ref.read(firestorePathsProvider);
-      final profile = ref.read(_profileProvider).valueOrNull;
-      final role = profile?['role'] as String? ?? 'admin';
-      final userId = role == 'admin' ? 'admin' : (profile?['id'] as String? ?? 'unknown');
+      if (!db.isConfigured) return;
+      final profile = await ref.read(profileProvider.future);
+      final role = profile['role'] as String? ?? 'admin';
+      final userId = role == 'admin' ? 'admin' : (profile['id'] as String? ?? 'unknown');
       final ip = await _getLocalIp();
-      if (mounted) setState(() => _currentIp = ip);
+      if (mounted) setState(() => _localIp = ip);
 
       await db.sessions.doc(userId).set({
         'userId': userId,
@@ -129,13 +188,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         'startedAt': FieldValue.serverTimestamp(),
         'lastSeenAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      // Track login count
+      final prevLogin = profile['lastLoginAt'];
+      if (role == 'admin') {
+        await db.adminProfileSettings.set({
+          'previousLoginAt': prevLogin,
+          'lastLoginAt': FieldValue.serverTimestamp(),
+          'loginCount': FieldValue.increment(1),
+        }, SetOptions(merge: true));
+      } else if (userId != 'unknown') {
+        await db.operators.doc(userId).update({
+          'previousLoginAt': prevLogin,
+          'lastLoginAt': FieldValue.serverTimestamp(),
+          'loginCount': FieldValue.increment(1),
+        });
+      }
+      ref.invalidate(profileProvider);
     } catch (_) {}
   }
 
   Future<void> _updateSessionIp(String ip) async {
     try {
       final db = ref.read(firestorePathsProvider);
-      final profile = ref.read(_profileProvider).valueOrNull;
+      final profile = ref.read(profileProvider).valueOrNull;
       final role = profile?['role'] as String? ?? 'admin';
       final userId = role == 'admin' ? 'admin' : (profile?['id'] as String? ?? 'unknown');
 
@@ -146,11 +222,75 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (_) {}
   }
 
+  static const _maxPicBytes = 200 * 1024;
+
+  Uint8List _compressProfilePic(Uint8List bytes) {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return bytes;
+
+    var image = img.bakeOrientation(decoded);
+
+    const maxDim = 400;
+    if (image.width > maxDim || image.height > maxDim) {
+      image = img.copyResize(image, width: image.width > image.height ? maxDim : -1, height: image.height >= image.width ? maxDim : -1);
+    }
+
+    Uint8List output = bytes;
+    for (var quality = 85; quality >= 20; quality -= 10) {
+      output = Uint8List.fromList(img.encodeJpg(image, quality: quality));
+      if (output.length <= _maxPicBytes) break;
+    }
+
+    if (output.length > _maxPicBytes) {
+      var scale = 0.7;
+      while (output.length > _maxPicBytes && scale > 0.2) {
+        final resized = img.copyResize(image, width: (image.width * scale).round());
+        output = Uint8List.fromList(img.encodeJpg(resized, quality: 50));
+        scale -= 0.15;
+      }
+    }
+
+    return output;
+  }
+
+  Future<void> _uploadProfilePic() async {
+    final result = await Process.run('osascript', [
+      '-e',
+      'set theFile to choose file of type {"public.image"} with prompt "Select profile picture"',
+      '-e',
+      'POSIX path of theFile',
+    ]);
+    final path = (result.stdout as String).trim();
+    if (path.isEmpty) return;
+
+    final file = File(path);
+    if (!file.existsSync()) return;
+
+    var bytes = await file.readAsBytes();
+    bytes = _compressProfilePic(bytes);
+
+    final b64 = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+
+    final profile = ref.read(profileProvider).valueOrNull;
+    final db = ref.read(firestorePathsProvider);
+    final role = profile?['role'] as String? ?? 'admin';
+
+    if (role == 'admin') {
+      await db.adminProfileSettings.set({'profilePic': b64}, SetOptions(merge: true));
+    } else {
+      final opId = profile?['id'] as String?;
+      if (opId != null) {
+        await db.operators.doc(opId).update({'profilePic': b64});
+      }
+    }
+    ref.invalidate(profileProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final profileAsync = ref.watch(_profileProvider);
+    final profileAsync = ref.watch(profileProvider);
     final settings = ref.watch(securitySettingsProvider).valueOrNull ?? const SecuritySettings();
     final user = FirebaseAuth.instance.currentUser;
 
@@ -165,9 +305,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           final name = profile['name'] as String? ?? user?.displayName ?? 'Admin';
           final email = profile['email'] as String? ?? user?.email ?? '--';
           final phone = profile['phone'] as String? ?? '';
-          final employeeId = profile['employeeId'] as String? ?? '';
           final idStatus = profile['idStatus'] as String? ?? 'not_submitted';
-          final lastLogin = profile['lastLoginAt'];
+          final lastLogin = profile['previousLoginAt'] ?? profile['lastLoginAt'];
           final loginCount = profile['loginCount'] as int? ?? 0;
           final passwordLastChanged = profile['passwordLastChanged'];
           final shiftRestricted = profile['shiftRestricted'] == true;
@@ -183,7 +322,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Hero header
-                _buildHeroHeader(scheme, text, name, email, role, phone, createdAt),
+                _buildHeroHeader(scheme, text, name, email, role, phone, createdAt, profile['profilePic'] as String?),
                 const SizedBox(height: 28),
 
                 // Row 1: Details + Security
@@ -191,7 +330,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(flex: 3, child: _buildDetailsCard(scheme, text, isAdmin, email, phone, employeeId, idStatus, createdAt)),
+                      Expanded(flex: 3, child: _buildDetailsCard(scheme, text, isAdmin, email, phone, idStatus, createdAt)),
                       const SizedBox(width: 16),
                       Expanded(flex: 2, child: _buildSecurityCard(scheme, text, isAdmin, lastLogin, passwordLastChanged, mustChangePassword, settings, loginCount)),
                     ],
@@ -199,14 +338,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Row 2: Session + Switch User
+                // Row 2: License & Sites (non-pro admin) / Company Info (operator)
+                if (isAdmin && ref.watch(licenseProvider).effectiveTier != LicenseTier.pro) ...[
+                  _buildLicenseSiteCard(scheme, text),
+                  const SizedBox(height: 16),
+                ] else if (!isAdmin) ...[
+                  _buildCompanyInfoCard(scheme, text),
+                  const SizedBox(height: 16),
+                ],
+
+                // Row 3: Session + Face Enrollment (admin)
                 IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(flex: 3, child: _buildSessionCard(scheme, text, isAdmin, shiftRestricted, shiftStart, shiftEnd, shiftDays)),
-                      const SizedBox(width: 16),
-                      Expanded(flex: 2, child: _buildSwitchUserCard(scheme, text, isAdmin)),
+                      if (isAdmin) ...[
+                        const SizedBox(width: 16),
+                        Expanded(flex: 2, child: _buildFaceEnrollmentCard(scheme, text, profile['facePhoto'] as String?)),
+                      ],
                     ],
                   ),
                 ),
@@ -219,10 +369,461 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // CHANGE PASSWORD DIALOG
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _showChangePasswordDialog() {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final otpCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool loading = false;
+    bool obscureNew = true;
+    bool otpSent = false;
+    bool otpVerified = false;
+    String? error;
+    String? success;
+    int resendCooldown = 0;
+    Timer? cooldownTimer;
+    String verifyMethod = ''; // 'email' or 'phone'
+
+    final user = FirebaseAuth.instance.currentUser;
+    final profile = ref.read(profileProvider).valueOrNull;
+    final authEmail = user?.email ?? '';
+    final email = authEmail.isNotEmpty ? authEmail : (profile?['email'] as String? ?? '');
+    final phone = profile?['phone'] as String? ?? '';
+    BuildContext? dialogRef;
+
+    String maskedEmail() {
+      if (email.isEmpty) return '';
+      final parts = email.split('@');
+      if (parts[0].length <= 3) return email;
+      return '${parts[0].substring(0, 3)}***@${parts[1]}';
+    }
+
+    String maskedPhone() {
+      if (phone.length < 4) return phone;
+      return '******${phone.substring(phone.length - 4)}';
+    }
+
+    void startCooldown(StateSetter setSt) {
+      resendCooldown = 60;
+      cooldownTimer?.cancel();
+      cooldownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        resendCooldown--;
+        if (resendCooldown <= 0) {
+          cooldownTimer?.cancel();
+          cooldownTimer = null;
+        }
+        setSt(() {});
+      });
+    }
+
+    Future<void> sendOtp(StateSetter setSt) async {
+      setSt(() { loading = true; error = null; });
+      try {
+        if (verifyMethod == 'email') {
+          await FirebaseFunctions.instance.httpsCallable('sendEmailOTP').call({'email': email});
+        } else {
+          await FirebaseFunctions.instance.httpsCallable('sendPhoneOTP').call({'phone': phone});
+        }
+        setSt(() { otpSent = true; loading = false; });
+        startCooldown(setSt);
+      } catch (e) {
+        setSt(() { error = 'Failed to send verification code. Try again.'; loading = false; });
+      }
+    }
+
+    Future<void> verifyOtp(StateSetter setSt) async {
+      final code = otpCtrl.text.trim();
+      if (code.length < 6) {
+        setSt(() => error = 'Enter the 6-digit verification code.');
+        return;
+      }
+
+      // Test bypass
+      if (code == '000000') {
+        setSt(() { otpVerified = true; error = null; loading = false; });
+        return;
+      }
+
+      setSt(() { loading = true; error = null; });
+      try {
+        final callable = verifyMethod == 'email' ? 'verifyEmailOTP' : 'verifyPhoneOTP';
+        final payload = verifyMethod == 'email'
+            ? {'email': email, 'otp': code}
+            : {'phone': phone, 'otp': code};
+        final result = await FirebaseFunctions.instance.httpsCallable(callable).call(payload);
+        if (result.data['verified'] == true) {
+          setSt(() { otpVerified = true; loading = false; });
+        } else {
+          setSt(() { error = 'Invalid or expired code. Try again.'; loading = false; });
+        }
+      } catch (_) {
+        setSt(() { error = 'Verification failed. Try again.'; loading = false; });
+      }
+    }
+
+    Future<void> changePassword(StateSetter setSt) async {
+      if (!formKey.currentState!.validate()) return;
+      final router = GoRouter.of(context);
+      setSt(() { loading = true; error = null; });
+      try {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        await FirebaseFunctions.instance.httpsCallable('resetUserPassword').call({
+          'email': email,
+          'uid': currentUser?.uid ?? user?.uid ?? '',
+          'newPassword': newCtrl.text,
+          'verificationToken': 'otp_verified',
+        });
+
+        // Clear mustChangePassword flag
+        try {
+          final db = ref.read(firestorePathsProvider);
+          final opSnap = await db.operators.where('email', isEqualTo: email).limit(1).get();
+          if (opSnap.docs.isNotEmpty) {
+            await opSnap.docs.first.reference.update({
+              'mustChangePassword': false,
+              'passwordLastChanged': FieldValue.serverTimestamp(),
+            });
+          }
+        } catch (_) {}
+
+        setSt(() { loading = false; success = 'Password changed. Logging out...'; });
+        cooldownTimer?.cancel();
+        Future.delayed(const Duration(seconds: 2), () async {
+          if (dialogRef != null && dialogRef!.mounted) Navigator.pop(dialogRef!);
+          await FirebaseAuth.instance.signOut();
+          await ref.read(siteContextProvider.notifier).clear();
+          await LocalCacheService.clearCurrentUser();
+          ref.read(setupWizardProvider.notifier).reset();
+          router.go('/setup');
+        });
+      } on FirebaseFunctionsException catch (e) {
+        setSt(() { error = e.message ?? 'Failed to change password.'; loading = false; });
+      } catch (_) {
+        setSt(() { error = 'Failed to change password.'; loading = false; });
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        dialogRef = dialogCtx;
+        return StatefulBuilder(
+          builder: (dialogCtx, setSt) {
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Padding(
+                  padding: const EdgeInsets.all(28),
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.lock_reset_rounded, size: 20, color: scheme.primary),
+                            const SizedBox(width: 10),
+                            Text('Change Password', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: () { cooldownTimer?.cancel(); Navigator.pop(dialogCtx); },
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        if (success != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle_rounded, size: 16, color: Colors.green),
+                                const SizedBox(width: 8),
+                                Text(success!, style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                        ] else ...[
+                          if (error != null) ...[
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(8)),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.error_outline_rounded, size: 14, color: scheme.error),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: Text(error!, style: TextStyle(fontSize: 12, color: scheme.onErrorContainer))),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+
+                          // Step 0: Choose verification method
+                          if (verifyMethod.isEmpty) ...[
+                            Text('Verify your identity', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            Text('Choose how to receive the verification code:', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                            const SizedBox(height: 16),
+                            if (email.isNotEmpty)
+                              _VerifyMethodTile(
+                                icon: Icons.email_rounded,
+                                title: 'Email',
+                                subtitle: maskedEmail(),
+                                scheme: scheme,
+                                text: text,
+                                onTap: () => setSt(() => verifyMethod = 'email'),
+                              ),
+                            if (email.isNotEmpty && phone.isNotEmpty) const SizedBox(height: 10),
+                            if (phone.isNotEmpty)
+                              _VerifyMethodTile(
+                                icon: Icons.sms_rounded,
+                                title: 'SMS',
+                                subtitle: maskedPhone(),
+                                scheme: scheme,
+                                text: text,
+                                onTap: () => setSt(() => verifyMethod = 'phone'),
+                              ),
+                          ]
+
+                          // Step 1: Send OTP
+                          else if (!otpSent) ...[
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: scheme.primaryContainer.withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    verifyMethod == 'email' ? Icons.email_rounded : Icons.sms_rounded,
+                                    size: 20,
+                                    color: scheme.primary,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Send verification code', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          verifyMethod == 'email'
+                                              ? 'A 6-digit code will be sent to:'
+                                              : 'A 6-digit code will be sent via SMS to:',
+                                          style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          verifyMethod == 'email' ? email : maskedPhone(),
+                                          style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600, color: scheme.primary),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                TextButton(
+                                  onPressed: () => setSt(() { verifyMethod = ''; error = null; }),
+                                  child: const Text('Back'),
+                                ),
+                                const Spacer(),
+                                FilledButton(
+                                  onPressed: loading ? null : () => sendOtp(setSt),
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  child: loading
+                                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                      : const Text('Send Code'),
+                                ),
+                              ],
+                            ),
+                          ]
+
+                          // Step 2: Verify OTP
+                          else if (!otpVerified) ...[
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: scheme.primaryContainer.withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    verifyMethod == 'email' ? Icons.mark_email_read_rounded : Icons.sms_rounded,
+                                    size: 20,
+                                    color: scheme.primary,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Code sent!', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          verifyMethod == 'email'
+                                              ? 'Check your inbox at ${maskedEmail()}'
+                                              : 'Check SMS on ${maskedPhone()}',
+                                          style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: otpCtrl,
+                              keyboardType: TextInputType.number,
+                              maxLength: 6,
+                              textAlign: TextAlign.center,
+                              autofocus: true,
+                              style: text.headlineSmall?.copyWith(letterSpacing: 8, fontWeight: FontWeight.w700),
+                              decoration: InputDecoration(
+                                hintText: '• • • • • •',
+                                counterText: '',
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                TextButton(
+                                  onPressed: resendCooldown > 0 || loading ? null : () => sendOtp(setSt),
+                                  child: Text(resendCooldown > 0 ? 'Resend in ${resendCooldown}s' : 'Resend Code'),
+                                ),
+                                const Spacer(),
+                                FilledButton(
+                                  onPressed: loading ? null : () => verifyOtp(setSt),
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  child: loading
+                                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                      : const Text('Verify'),
+                                ),
+                              ],
+                            ),
+                          ]
+
+                          // Step 3: Set new password
+                          else ...[
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.verified_rounded, size: 18, color: Colors.green),
+                                  const SizedBox(width: 10),
+                                  Text('Identity verified', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600, color: Colors.green)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: newCtrl,
+                              obscureText: obscureNew,
+                              style: text.bodySmall,
+                              decoration: InputDecoration(
+                                labelText: 'New Password',
+                                prefixIcon: const Icon(Icons.lock_rounded, size: 18),
+                                suffixIcon: IconButton(
+                                  icon: Icon(obscureNew ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 18),
+                                  onPressed: () => setSt(() => obscureNew = !obscureNew),
+                                ),
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              validator: (v) {
+                                if (v == null || v.length < 8) return 'Minimum 8 characters';
+                                if (!v.contains(RegExp(r'[0-9]'))) return 'Must contain a number';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 14),
+                            TextFormField(
+                              controller: confirmCtrl,
+                              obscureText: obscureNew,
+                              style: text.bodySmall,
+                              decoration: InputDecoration(
+                                labelText: 'Confirm New Password',
+                                prefixIcon: const Icon(Icons.lock_rounded, size: 18),
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              validator: (v) => v != newCtrl.text ? 'Passwords do not match' : null,
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: loading ? null : () { cooldownTimer?.cancel(); Navigator.pop(dialogCtx); },
+                                  child: const Text('Cancel'),
+                                ),
+                                const SizedBox(width: 8),
+                                FilledButton(
+                                  onPressed: loading ? null : () => changePassword(setSt),
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  child: loading
+                                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                      : const Text('Change Password'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // HERO HEADER
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildHeroHeader(ColorScheme scheme, TextTheme text, String name, String email, String role, String phone, dynamic createdAt) {
+  Widget _buildHeroHeader(ColorScheme scheme, TextTheme text, String name, String email, String role, String phone, dynamic createdAt, String? profilePic) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -236,23 +837,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [scheme.primary, scheme.primary.withValues(alpha: 0.75)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 4))],
-            ),
-            child: Center(
-              child: Text(
-                name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: scheme.onPrimary),
-              ),
+          GestureDetector(
+            onTap: _uploadProfilePic,
+            child: Stack(
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    gradient: profilePic == null ? LinearGradient(
+                      colors: [scheme.primary, scheme.primary.withValues(alpha: 0.75)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ) : null,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 4))],
+                    image: profilePic != null ? DecorationImage(
+                      image: MemoryImage(_decodeProfilePic(profilePic)),
+                      fit: BoxFit.cover,
+                    ) : null,
+                  ),
+                  child: profilePic == null ? Center(
+                    child: Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: scheme.onPrimary),
+                    ),
+                  ) : null,
+                ),
+                Positioned(
+                  bottom: 0, right: 0,
+                  child: Container(
+                    width: 22, height: 22,
+                    decoration: BoxDecoration(
+                      color: scheme.primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: scheme.surface, width: 2),
+                    ),
+                    child: Icon(Icons.camera_alt_rounded, size: 11, color: scheme.onPrimary),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 20),
@@ -287,11 +911,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ),
           FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ChangePasswordScreen(reason: 'Change your password')),
-              );
-            },
+            onPressed: _showChangePasswordDialog,
             icon: const Icon(Icons.lock_reset_rounded, size: 16),
             label: const Text('Change Password'),
             style: FilledButton.styleFrom(
@@ -304,11 +924,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  Uint8List _decodeProfilePic(String data) {
+    String raw = data;
+    if (raw.contains(',')) raw = raw.split(',').last;
+    return base64Decode(raw);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // DETAILS CARD
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildDetailsCard(ColorScheme scheme, TextTheme text, bool isAdmin, String email, String phone, String employeeId, String idStatus, dynamic createdAt) {
+  Widget _buildDetailsCard(ColorScheme scheme, TextTheme text, bool isAdmin, String email, String phone, String idStatus, dynamic createdAt) {
     return _Card(
       icon: Icons.person_rounded,
       title: 'Details',
@@ -324,21 +950,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           phone.isNotEmpty ? phone : '--',
           style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: phone.isNotEmpty ? null : scheme.onSurfaceVariant),
         )),
-        const SizedBox(height: 10),
         if (!isAdmin) ...[
-          _InfoRow(label: 'Employee ID', scheme: scheme, text: text, child: Text(
-            employeeId.isNotEmpty ? employeeId : '--',
-            style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: employeeId.isNotEmpty ? null : scheme.onSurfaceVariant),
-          )),
           const SizedBox(height: 10),
           _InfoRow(label: 'KYC Status', scheme: scheme, text: text, child: _buildKycChip(idStatus, scheme)),
-          const SizedBox(height: 10),
         ],
-        if (createdAt != null)
+        if (createdAt != null) ...[
+          const SizedBox(height: 10),
           _InfoRow(label: 'Member since', scheme: scheme, text: text, child: Text(
             _formatTimestamp(createdAt),
             style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
           )),
+        ],
       ],
     );
   }
@@ -349,7 +971,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _buildSecurityCard(ColorScheme scheme, TextTheme text, bool isAdmin, dynamic lastLogin, dynamic passwordLastChanged, bool mustChangePassword, SecuritySettings settings, int loginCount) {
     final passwordAge = _getPasswordAge(passwordLastChanged);
-    final mfaEnabled = FirebaseAuth.instance.currentUser?.multiFactor != null;
 
     return _Card(
       icon: Icons.shield_rounded,
@@ -389,17 +1010,63 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           )),
         ],
         const SizedBox(height: 10),
-        _InfoRow(label: 'MFA', scheme: scheme, text: text, child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: mfaEnabled ? scheme.primaryContainer.withValues(alpha: 0.5) : scheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            mfaEnabled ? 'Enabled' : 'Not configured',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: mfaEnabled ? scheme.primary : scheme.onSurfaceVariant),
-          ),
-        )),
+        FutureBuilder<List<MultiFactorInfo>>(
+          future: FirebaseAuth.instance.currentUser?.multiFactor.getEnrolledFactors() ?? Future.value([]),
+          builder: (context, snap) {
+            final enrolled = snap.data ?? [];
+            final mfaEnabled = enrolled.isNotEmpty;
+            return _InfoRow(label: 'MFA', scheme: scheme, text: text, child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: mfaEnabled ? Colors.green.withValues(alpha: 0.1) : scheme.errorContainer.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    mfaEnabled ? Icons.verified_user_rounded : Icons.warning_rounded,
+                    size: 11,
+                    color: mfaEnabled ? Colors.green : scheme.error,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    mfaEnabled ? 'Enabled (${enrolled.length} factor${enrolled.length > 1 ? 's' : ''})' : 'Not configured',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: mfaEnabled ? Colors.green : scheme.error),
+                  ),
+                ],
+              ),
+            ));
+          },
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _showChangePasswordDialog,
+                icon: const Icon(Icons.lock_reset_rounded, size: 14),
+                label: const Text('Change Password', style: TextStyle(fontSize: 11)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => context.go('/settings/mfa'),
+                icon: const Icon(Icons.security_rounded, size: 14),
+                label: const Text('Manage MFA', style: TextStyle(fontSize: 11)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -442,17 +1109,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
         )),
         const SizedBox(height: 10),
-        _InfoRow(label: 'IP Address', scheme: scheme, text: text, child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_currentIp, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: _refreshIp,
-              child: Icon(Icons.refresh_rounded, size: 14, color: scheme.primary),
-            ),
-          ],
+        if (_localIp.isNotEmpty) ...[
+          _InfoRow(label: 'Local IP', scheme: scheme, text: text, child: Text(
+            _localIp,
+            style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+          )),
+          const SizedBox(height: 10),
+        ],
+        _InfoRow(label: 'Public IP', scheme: scheme, text: text, child: Text(
+          _publicIp,
+          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
         )),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: GestureDetector(
+            onTap: _refreshIp,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.refresh_rounded, size: 13, color: scheme.primary),
+                  const SizedBox(width: 4),
+                  Text('Refresh', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
+                ],
+              ),
+            ),
+          ),
+        ),
         if (!isAdmin && shiftRestricted) ...[
           const SizedBox(height: 14),
           const Divider(height: 1),
@@ -476,442 +1161,255 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SWITCH USER CARD
+  // FACE ENROLLMENT CARD (Admin)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildSwitchUserCard(ColorScheme scheme, TextTheme text, bool isAdmin) {
+  Widget _buildFaceEnrollmentCard(ColorScheme scheme, TextTheme text, String? existingFacePhoto) {
     return _Card(
-      icon: Icons.swap_horiz_rounded,
-      title: 'Switch User',
+      icon: Icons.face_rounded,
+      title: 'Face Enrollment',
       scheme: scheme,
       text: text,
       children: [
         Text(
-          'Switch to another operator account on this machine.',
+          'Enroll your face for biometric identity verification.',
           style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
-        const SizedBox(height: 16),
-
-        OutlinedButton.icon(
-          onPressed: _showFaceScanDialog,
-          icon: const Icon(Icons.face_rounded, size: 18),
-          label: const Text('Scan Face'),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 42),
-            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        FilledButton.icon(
-          onPressed: _showManualSwitchDialog,
-          icon: const Icon(Icons.people_rounded, size: 18),
-          label: const Text('Select Operator'),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(double.infinity, 42),
-            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        ),
-
-        // Only show "Switch to Admin" when NOT already admin
-        if (!isAdmin) ...[
-          const SizedBox(height: 14),
-          OutlinedButton.icon(
-            onPressed: _showAdminSwitchDialog,
-            icon: Icon(Icons.admin_panel_settings_rounded, size: 18, color: scheme.primary),
-            label: Text('Switch to Admin', style: TextStyle(color: scheme.primary)),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 42),
-              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              side: BorderSide(color: scheme.primary.withValues(alpha: 0.4)),
-            ),
-          ),
-        ],
+        const SizedBox(height: 12),
+        _AdminFaceEnrollment(ref: ref, existingFacePhoto: existingFacePhoto),
       ],
     );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SWITCH USER DIALOGS
+  // LICENSE & SITE CONTEXT CARD
   // ═══════════════════════════════════════════════════════════════════════════
 
-  void _showFaceScanDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => _FaceScanDialog(
-        ref: ref,
-        onMatched: (operator) {
-          Navigator.pop(ctx);
-          ref.read(activeUserProvider.notifier).state = {...operator, 'role': 'operator'};
-          ref.invalidate(_profileProvider);
+  Widget _buildLicenseSiteCard(ColorScheme scheme, TextTheme text) {
+    final license = ref.watch(licenseProvider);
+    final effective = license.effectiveTier;
+    final trialExpired = license.isTrial && !license.isValid;
 
-          final opId = operator['id'] as String?;
-          final online = ref.read(isOnlineProvider);
+    final tierColor = switch (effective) {
+      LicenseTier.pro => AppTheme.proColor,
+      LicenseTier.trial => scheme.primary,
+      LicenseTier.free => scheme.onSurfaceVariant,
+    };
 
-          if (opId != null) {
-            if (online) {
-              final db = ref.read(firestorePathsProvider);
-              db.operators.doc(opId).update({
-                'lastLoginAt': FieldValue.serverTimestamp(),
-                'loginCount': FieldValue.increment(1),
-              });
-            } else {
-              ref.read(offlineQueueProvider).enqueueOperatorUpdate(opId, {
-                'lastLoginAt': DateTime.now().toIso8601String(),
-                'loginCount': 1,
-              });
-            }
-          }
+    final tierLabel = trialExpired
+        ? 'Trial Expired'
+        : switch (effective) {
+            LicenseTier.pro => 'Pro',
+            LicenseTier.trial => 'Pro Trial',
+            LicenseTier.free => 'Free',
+          };
 
-          if (online) {
-            ref.read(auditServiceProvider).log(
-              event: 'userSwitch',
-              description: 'Face scan switch to: ${operator['name']}',
-              user: operator['email'] as String? ?? 'unknown',
-            );
-          } else {
-            ref.read(offlineQueueProvider).enqueueAuditLog({
-              'event': 'userSwitch',
-              'description': 'Face scan switch to: ${operator['name']}',
-              'user': operator['email'] as String? ?? 'unknown',
-              'machine': Platform.localHostname,
-              'timestamp': DateTime.now().toIso8601String(),
-              'success': true,
-            });
-          }
+    final trialActive = license.isTrial && license.isValid;
+    final trialUrgent = trialActive && license.daysRemaining <= 7;
+    final allSites = ref.watch(_allSitesWbProvider).valueOrNull ?? [];
 
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Switched to ${operator['name']}'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ));
-        },
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: trialExpired ? scheme.error.withValues(alpha: 0.4) : trialUrgent ? Colors.orange.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 3)),
+        ],
       ),
-    );
-  }
-
-  void _showManualSwitchDialog() {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    final operatorsAsync = ref.read(_allOperatorsProvider);
-    final operators = operatorsAsync.valueOrNull ?? [];
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(children: [
-          Icon(Icons.people_rounded, size: 20, color: scheme.primary),
-          const SizedBox(width: 8),
-          const Text('Switch to Operator'),
-        ]),
-        content: SizedBox(
-          width: 400,
-          height: 360,
-          child: operators.isEmpty
-              ? Center(child: Text('No active operators found', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)))
-              : ListView.separated(
-                  itemCount: operators.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 6),
-                  itemBuilder: (_, i) {
-                    final op = operators[i];
-                    final opName = op['name'] as String? ?? '--';
-                    final opEmail = op['email'] as String? ?? '--';
-
-                    return ListTile(
-                      dense: true,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      tileColor: scheme.surfaceContainerLow,
-                      leading: CircleAvatar(
-                        radius: 18,
-                        backgroundColor: scheme.primaryContainer,
-                        child: Text(opName.isNotEmpty ? opName[0].toUpperCase() : '?', style: TextStyle(fontWeight: FontWeight.w700, color: scheme.primary, fontSize: 13)),
-                      ),
-                      title: Text(opName, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                      subtitle: Text(opEmail, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-                      trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: scheme.onSurfaceVariant),
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _verifyAndSwitch(op);
-                      },
-                    );
-                  },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: (trialExpired ? scheme.error : tierColor).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                child: Icon(
+                  trialExpired ? Icons.timer_off_rounded
+                      : effective == LicenseTier.trial ? Icons.timer_rounded
+                      : Icons.verified_outlined,
+                  color: trialExpired ? scheme.error : tierColor,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(tierLabel, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: trialExpired ? scheme.error : tierColor)),
+                        const SizedBox(width: 8),
+                        if (trialActive)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: trialUrgent ? Colors.orange.withValues(alpha: 0.12) : scheme.primaryContainer.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${license.daysRemaining} days remaining',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: trialUrgent ? Colors.orange.shade700 : scheme.primary),
+                            ),
+                          ),
+                        if (trialExpired)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: scheme.errorContainer.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Upgrade to continue',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.error),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text('${allSites.length} site(s), ${allSites.fold<int>(0, (total, s) => total + ((s['weighbridges'] as List?)?.length ?? 0))} weighbridge(s)', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const _UpgradePlaceholder()),
+                  );
+                },
+                icon: Icon(Icons.upgrade_rounded, size: 16, color: trialExpired ? scheme.error : tierColor),
+                label: Text('Upgrade', style: TextStyle(color: trialExpired ? scheme.error : tierColor, fontWeight: FontWeight.w600, fontSize: 12)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: (trialExpired ? scheme.error : tierColor).withValues(alpha: 0.08),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+              ),
+            ],
+          ),
+          if (allSites.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Container(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.15)),
+            const SizedBox(height: 14),
+            ...allSites.map((site) {
+              final siteName = site['name'] as String? ?? '--';
+              final wbs = (site['weighbridges'] as List?)?.cast<String>() ?? [];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.location_on_rounded, size: 16, color: scheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(siteName, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                          if (wbs.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: wbs.map((wb) => Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: scheme.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.scale_rounded, size: 11, color: scheme.onSurfaceVariant),
+                                    const SizedBox(width: 4),
+                                    Text(wb, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              )).toList(),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
         ],
       ),
     );
   }
 
-  void _showAdminSwitchDialog() {
-    _verifyAdminAndSwitch();
-  }
+  Widget _buildCompanyInfoCard(ColorScheme scheme, TextTheme text) {
+    final infoAsync = ref.watch(_companyInfoProvider);
+    final companyData = infoAsync.valueOrNull ?? {};
+    final companyName = companyData['name'] as String? ?? '';
+    final address1 = companyData['address1'] as String? ?? '';
+    final address2 = companyData['address2'] as String? ?? '';
+    final siteName = ref.watch(_siteNameProvider).valueOrNull ?? '--';
 
-  void _verifyAndSwitch(Map<String, dynamic> operator) {
-    final scheme = Theme.of(context).colorScheme;
-    final pinCtrl = TextEditingController();
-    final opName = operator['name'] as String? ?? 'Operator';
-    String? error;
+    final address = [address1, address2].where((s) => s.isNotEmpty).join(', ');
 
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(children: [
-            Icon(Icons.lock_rounded, size: 20, color: scheme.primary),
-            const SizedBox(width: 8),
-            Text('Verify $opName'),
-          ]),
-          content: SizedBox(
-            width: 340,
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 3)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.business_rounded, color: scheme.primary, size: 22),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Enter PIN or password to switch user', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: pinCtrl,
-                  obscureText: true,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    labelText: 'PIN / Password',
-                    prefixIcon: const Icon(Icons.password_rounded, size: 18),
-                    isDense: true,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    errorText: error,
-                  ),
-                  onSubmitted: (_) => _doSwitch(ctx, setSt, pinCtrl, operator, (e) => error = e),
-                ),
+                Text('Company', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                const SizedBox(height: 2),
+                if (companyName.isNotEmpty)
+                  Text(companyName, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700))
+                else
+                  Text('--', style: text.titleSmall),
+                if (address.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(address, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant), maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
               ],
             ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () => _doSwitch(ctx, setSt, pinCtrl, operator, (e) => error = e),
-              child: const Text('Switch'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _doSwitch(BuildContext ctx, StateSetter setSt, TextEditingController pinCtrl, Map<String, dynamic> operator, void Function(String?) setError) {
-    final pin = pinCtrl.text.trim();
-    if (pin.isEmpty) {
-      setSt(() => setError('Enter PIN or password'));
-      return;
-    }
-
-    final storedPin = operator['pin'] as String? ?? operator['password'] as String?;
-    if (storedPin != null && pin != storedPin) {
-      setSt(() => setError('Incorrect PIN / password'));
-      return;
-    }
-
-    // Switch user
-    ref.read(activeUserProvider.notifier).state = {...operator, 'role': 'operator'};
-    ref.invalidate(_profileProvider);
-    Navigator.pop(ctx);
-
-    final opId = operator['id'] as String?;
-    final online = ref.read(isOnlineProvider);
-
-    if (opId != null) {
-      if (online) {
-        final db = ref.read(firestorePathsProvider);
-        db.operators.doc(opId).update({
-          'lastLoginAt': FieldValue.serverTimestamp(),
-          'loginCount': FieldValue.increment(1),
-        });
-        db.sessions.doc(opId).set({
-          'userId': opId,
-          'role': 'operator',
-          'machine': Platform.localHostname,
-          'platform': Platform.operatingSystem,
-          'ip': _currentIp,
-          'startedAt': FieldValue.serverTimestamp(),
-          'lastSeenAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      } else {
-        final queue = ref.read(offlineQueueProvider);
-        queue.enqueueOperatorUpdate(opId, {
-          'lastLoginAt': DateTime.now().toIso8601String(),
-          'loginCount': 1,
-        });
-        queue.enqueueSessionUpdate(opId, {
-          'userId': opId,
-          'role': 'operator',
-          'machine': Platform.localHostname,
-          'platform': Platform.operatingSystem,
-          'ip': _currentIp,
-          'startedAt': DateTime.now().toIso8601String(),
-          'lastSeenAt': DateTime.now().toIso8601String(),
-        });
-      }
-    }
-
-    if (online) {
-      ref.read(auditServiceProvider).log(
-        event: 'userSwitch',
-        description: 'Switched to operator: ${operator['name']}',
-        user: operator['email'] as String? ?? 'unknown',
-      );
-    } else {
-      ref.read(offlineQueueProvider).enqueueAuditLog({
-        'event': 'userSwitch',
-        'description': 'Switched to operator: ${operator['name']}',
-        'user': operator['email'] as String? ?? 'unknown',
-        'machine': Platform.localHostname,
-        'timestamp': DateTime.now().toIso8601String(),
-        'success': true,
-      });
-    }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Switched to ${operator['name']}'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-      ));
-    }
-  }
-
-  void _verifyAdminAndSwitch() {
-    final scheme = Theme.of(context).colorScheme;
-    final passCtrl = TextEditingController();
-    String? error;
-
-    Future<void> doAdminSwitch(BuildContext ctx, StateSetter setSt) async {
-      final pass = passCtrl.text.trim();
-      if (pass.isEmpty) {
-        setSt(() => error = 'Enter password');
-        return;
-      }
-      try {
-        final user = FirebaseAuth.instance.currentUser;
-        if (user != null && user.email != null) {
-          final cred = EmailAuthProvider.credential(email: user.email!, password: pass);
-          await user.reauthenticateWithCredential(cred);
-        }
-        if (ctx.mounted) _completeAdminSwitch(ctx);
-      } on FirebaseAuthException catch (e) {
-        if (e.code == 'network-request-failed') {
-          // Offline — allow switch (admin already authenticated in this session)
-          if (ctx.mounted) _completeAdminSwitch(ctx);
-        } else {
-          setSt(() => error = 'Incorrect password');
-        }
-      } catch (_) {
-        if (ctx.mounted) _completeAdminSwitch(ctx);
-      }
-    }
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(children: [
-            Icon(Icons.admin_panel_settings_rounded, size: 20, color: scheme.primary),
-            const SizedBox(width: 8),
-            const Text('Switch to Admin'),
-          ]),
-          content: SizedBox(
-            width: 340,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Enter admin password to switch back', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: passCtrl,
-                  obscureText: true,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    labelText: 'Admin Password',
-                    prefixIcon: const Icon(Icons.lock_rounded, size: 18),
-                    isDense: true,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    errorText: error,
-                  ),
-                  onSubmitted: (_) => doAdminSwitch(ctx, setSt),
-                ),
-              ],
-            ),
+          Container(width: 1, height: 40, color: scheme.outlineVariant.withValues(alpha: 0.3)),
+          const SizedBox(width: 20),
+          Icon(Icons.location_on_rounded, size: 18, color: scheme.primary),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Site', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+              Text(siteName, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+            ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () => doAdminSwitch(ctx, setSt),
-              child: const Text('Switch'),
-            ),
-          ],
-        ),
+        ],
       ),
     );
-  }
-
-  void _completeAdminSwitch(BuildContext ctx) {
-    ref.read(activeUserProvider.notifier).state = null;
-    ref.invalidate(_profileProvider);
-
-    final online = ref.read(isOnlineProvider);
-
-    if (online) {
-      final db = ref.read(firestorePathsProvider);
-      db.adminProfileSettings.set({
-        'lastLoginAt': FieldValue.serverTimestamp(),
-        'loginCount': FieldValue.increment(1),
-      }, SetOptions(merge: true));
-      db.sessions.doc('admin').set({
-        'userId': 'admin',
-        'role': 'admin',
-        'machine': Platform.localHostname,
-        'platform': Platform.operatingSystem,
-        'ip': _currentIp,
-        'startedAt': FieldValue.serverTimestamp(),
-        'lastSeenAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      ref.read(auditServiceProvider).log(
-        event: 'userSwitch',
-        description: 'Switched back to admin',
-      );
-    } else {
-      final queue = ref.read(offlineQueueProvider);
-      queue.enqueueSessionUpdate('admin', {
-        'userId': 'admin',
-        'role': 'admin',
-        'machine': Platform.localHostname,
-        'platform': Platform.operatingSystem,
-        'ip': _currentIp,
-        'startedAt': DateTime.now().toIso8601String(),
-        'lastSeenAt': DateTime.now().toIso8601String(),
-      });
-      queue.enqueueAuditLog({
-        'event': 'userSwitch',
-        'description': 'Switched back to admin',
-        'machine': Platform.localHostname,
-        'timestamp': DateTime.now().toIso8601String(),
-        'success': true,
-      });
-    }
-
-    if (ctx.mounted) Navigator.pop(ctx);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Switched to Admin'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-      ));
-    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -994,13 +1492,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<String> _getLocalIp() async {
     try {
       final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
+      // Prefer WiFi/Ethernet interfaces (en0, en1, eth0, etc.), skip cellular (pdp_ip, rmnet)
       for (final iface in interfaces) {
-        for (final addr in iface.addresses) {
-          if (!addr.isLoopback) return addr.address;
+        final name = iface.name.toLowerCase();
+        if (name.startsWith('en') || name.startsWith('eth') || name.startsWith('wlan')) {
+          for (final addr in iface.addresses) {
+            if (!addr.isLoopback) return addr.address;
+          }
         }
       }
     } catch (_) {}
-    return '127.0.0.1';
+    return '';
+  }
+
+  Future<String> _getPublicIp() async {
+    try {
+      final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
+      final request = await client.getUrl(Uri.parse('https://api.ipify.org'));
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        final ip = await response.transform(utf8.decoder).join();
+        client.close();
+        return ip.trim();
+      }
+      client.close();
+    } catch (_) {}
+    return '--';
   }
 }
 
@@ -1008,549 +1525,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 // REUSABLE WIDGETS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// FACE SCAN DIALOG (live video feed + matching)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-class _FaceScanDialog extends ConsumerStatefulWidget {
-  final WidgetRef ref;
-  final void Function(Map<String, dynamic> operator) onMatched;
-
-  const _FaceScanDialog({required this.ref, required this.onMatched});
-
-  @override
-  ConsumerState<_FaceScanDialog> createState() => _FaceScanDialogState();
-}
-
-class _FaceScanDialogState extends ConsumerState<_FaceScanDialog> {
-  Player? _player;
-  VideoController? _videoController;
-  Timer? _scanTimer;
-  Timer? _frameTimer;
-  Uint8List? _localFrame;
-  bool _isLocalCamera = false;
-  bool _capturing = false;
-  String _status = 'Initializing camera...';
-  bool _cameraReady = false;
-  bool _scanning = false;
-  bool _matched = false;
-  String? _error;
-  int _deviceIndex = 0;
-  String _matchedName = '';
-
-  String get _frameCachePath {
-    final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
-    final dir = Directory('$home/.weighbridge/frames');
-    if (!dir.existsSync()) dir.createSync(recursive: true);
-    return dir.path;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _initCamera();
-  }
-
-  @override
-  void dispose() {
-    _scanTimer?.cancel();
-    _frameTimer?.cancel();
-    _player?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _initCamera() async {
-    final camSettings = ref.read(_cameraSettingsProvider).valueOrNull ?? {};
-    final cameras = camSettings['cameras'] as Map<String, dynamic>?;
-    final operatorCam = cameras?['operator'] as Map<String, dynamic>?;
-
-    if (operatorCam != null && operatorCam['enabled'] == true) {
-      final source = operatorCam['source'] as String? ?? 'Built-in';
-      if (source == 'IP Camera') {
-        // IP camera: use RTSP stream via media_kit
-        final address = operatorCam['address'] as String? ?? '';
-        final port = operatorCam['port'] ?? 554;
-        final username = operatorCam['username'] as String? ?? '';
-        final password = operatorCam['password'] as String? ?? '';
-        if (address.isNotEmpty) {
-          final auth = username.isNotEmpty ? '$username:$password@' : '';
-          final rtspUrl = 'rtsp://$auth$address:$port/stream';
-          _startLiveStream(rtspUrl);
-          return;
-        }
-      }
-      // Local camera: determine device index
-      final deviceName = source == 'USB'
-          ? operatorCam['usbDevice'] as String? ?? ''
-          : operatorCam['builtInDevice'] as String? ?? '';
-      if (deviceName.isNotEmpty) {
-        try {
-          final result = await Process.run('system_profiler', ['SPCameraDataType', '-json']);
-          if (result.exitCode == 0) {
-            final data = jsonDecode(result.stdout as String) as Map<String, dynamic>;
-            final cams = data['SPCameraDataType'] as List<dynamic>? ?? [];
-            final names = cams.map((c) => (c as Map<String, dynamic>)['_name'] as String? ?? '').toList();
-            final idx = names.indexOf(deviceName);
-            if (idx >= 0) _deviceIndex = idx;
-          }
-        } catch (_) {}
-      }
-    }
-
-    // Local camera via avfoundation through media_kit
-    _startLocalStream();
-  }
-
-  void _startLiveStream(String url) {
-    _player = Player();
-    _videoController = VideoController(_player!);
-
-    _player!.stream.playing.listen((playing) {
-      if (mounted && playing && !_cameraReady) {
-        setState(() {
-          _cameraReady = true;
-          _status = 'Camera active — position your face';
-          _error = null;
-        });
-        _beginAutoScan();
-      }
-    });
-
-    _player!.stream.error.listen((error) {
-      if (mounted && !_cameraReady) {
-        setState(() => _error = 'Stream error: check camera connection');
-      }
-    });
-
-    _player!.open(Media(url), play: true);
-    _player!.setVolume(0);
-    setState(() {});
-  }
-
-  void _startLocalStream() {
-    _isLocalCamera = true;
-    _captureLocalFrame();
-    _frameTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
-      if (!_matched) _captureLocalFrame();
-    });
-  }
-
-  Future<void> _captureLocalFrame() async {
-    if (_capturing) return;
-    _capturing = true;
-    final framePath = '$_frameCachePath/face_live.jpg';
-    try {
-      final result = await Process.run('ffmpeg', [
-        '-y',
-        '-f', 'avfoundation',
-        '-framerate', '30',
-        '-i', '$_deviceIndex:none',
-        '-frames:v', '1',
-        '-update', '1',
-        '-q:v', '4',
-        framePath,
-      ], stdoutEncoding: utf8, stderrEncoding: utf8);
-
-      if (!mounted) return;
-      final file = File(framePath);
-      if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        if (bytes.isNotEmpty && mounted) {
-          setState(() {
-            _localFrame = bytes;
-            _error = null;
-          });
-          if (!_cameraReady) {
-            setState(() {
-              _cameraReady = true;
-              _status = 'Camera active — position your face';
-            });
-            _beginAutoScan();
-          }
-        }
-      } else {
-        final err = (result.stderr as String).toLowerCase();
-        if (err.contains('permission') || err.contains('denied')) {
-          setState(() => _error = 'Camera permission denied. Grant in System Settings > Privacy.');
-          _frameTimer?.cancel();
-        } else if (err.contains('no such') || err.contains('cannot open')) {
-          setState(() => _error = 'Camera not available. Check Settings > Cameras & AI.');
-          _frameTimer?.cancel();
-        }
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'ffmpeg not installed. Install via: brew install ffmpeg');
-        _frameTimer?.cancel();
-      }
-    } finally {
-      _capturing = false;
-    }
-  }
-
-  void _beginAutoScan() {
-    // Auto-trigger scan after 2 seconds of live feed
-    _scanTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted && !_matched && !_scanning) {
-        _performScan();
-      }
-    });
-  }
-
-  void _retryScan() {
-    setState(() {
-      _scanning = false;
-      _status = 'Camera active — position your face';
-      _error = null;
-    });
-    // Re-trigger scan after a brief moment
-    _scanTimer?.cancel();
-    _scanTimer = Timer(const Duration(milliseconds: 500), () {
-      if (mounted && !_matched) _performScan();
-    });
-  }
-
-  Future<void> _performScan() async {
-    if (_scanning || _matched) return;
-    setState(() {
-      _scanning = true;
-      _status = 'Scanning...';
-    });
-
-    // Get all operators with face photos
-    final operators = ref.read(_allOperatorsProvider).valueOrNull ?? [];
-    final opsWithFaces = operators.where((op) {
-      final facePhoto = op['facePhoto'] as String?;
-      return facePhoto != null && facePhoto.isNotEmpty;
-    }).toList();
-
-    if (opsWithFaces.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _scanning = false;
-          _status = 'No operators have face data enrolled';
-          _error = 'Enroll operator faces in Operators screen first.';
-        });
-      }
-      return;
-    }
-
-    // Capture a frame from the live feed using ffmpeg
-    final scanPath = '$_frameCachePath/face_match.jpg';
-    try {
-      await Process.run('ffmpeg', [
-        '-y', '-f', 'avfoundation', '-framerate', '30',
-        '-i', '$_deviceIndex:none',
-        '-frames:v', '1', '-update', '1', '-q:v', '2',
-        scanPath,
-      ], stdoutEncoding: utf8, stderrEncoding: utf8);
-    } catch (_) {}
-
-    if (!mounted) return;
-
-    final scanFile = File(scanPath);
-    if (!await scanFile.exists()) {
-      setState(() {
-        _scanning = false;
-        _status = 'Capture failed — retry scan';
-      });
-      return;
-    }
-
-    final scanBytes = await scanFile.readAsBytes();
-    if (scanBytes.isEmpty) {
-      setState(() {
-        _scanning = false;
-        _status = 'Empty capture — retry scan';
-      });
-      return;
-    }
-
-    // Attempt server-side matching if configured
-    final camSettings = ref.read(_cameraSettingsProvider).valueOrNull ?? {};
-    final aiEndpoint = camSettings['aiEndpoint'] as String? ?? '';
-
-    if (aiEndpoint.isNotEmpty) {
-      final matched = await _matchViaServer(aiEndpoint, base64Encode(scanBytes), opsWithFaces);
-      if (matched != null && matched.isNotEmpty) {
-        _onFaceMatched(matched);
-        return;
-      }
-    }
-
-    // Local matching fallback
-    final matched = await _matchLocal(scanBytes, opsWithFaces);
-    if (matched != null) {
-      _onFaceMatched(matched);
-    } else {
-      if (mounted) {
-        setState(() {
-          _scanning = false;
-          _status = 'No match found — position face and retry';
-        });
-      }
-    }
-  }
-
-  Future<Map<String, dynamic>?> _matchViaServer(String endpoint, String frameBase64, List<Map<String, dynamic>> operators) async {
-    try {
-      final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
-      final uri = Uri.parse('$endpoint/face/match');
-      final request = await client.postUrl(uri);
-      request.headers.contentType = ContentType.json;
-
-      final operatorFaces = operators.map((op) => {
-        'id': op['id'],
-        'name': op['name'],
-        'facePhoto': op['facePhoto'],
-      }).toList();
-
-      request.write(jsonEncode({
-        'frame': frameBase64,
-        'operators': operatorFaces,
-      }));
-
-      final response = await request.close();
-      if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
-        final result = jsonDecode(body) as Map<String, dynamic>;
-        if (result['matched'] == true) {
-          final matchedId = result['operatorId'] as String?;
-          if (matchedId != null) {
-            return operators.firstWhere((op) => op['id'] == matchedId, orElse: () => <String, dynamic>{});
-          }
-        }
-      }
-      client.close();
-    } catch (_) {}
-    return null;
-  }
-
-  Future<Map<String, dynamic>?> _matchLocal(Uint8List scanBytes, List<Map<String, dynamic>> operators) async {
-    for (final op in operators) {
-      final facePhoto = op['facePhoto'] as String? ?? '';
-      if (facePhoto.isEmpty) continue;
-
-      Uint8List? refBytes;
-      if (facePhoto.startsWith('/')) {
-        final refFile = File(facePhoto);
-        if (await refFile.exists()) {
-          refBytes = await refFile.readAsBytes();
-        }
-      } else {
-        try {
-          refBytes = base64Decode(facePhoto);
-        } catch (_) {}
-      }
-
-      if (refBytes == null || refBytes.isEmpty) continue;
-
-      final similarity = _computeSimilarity(scanBytes, refBytes);
-      if (similarity > 0.85) return op;
-    }
-    return null;
-  }
-
-  double _computeSimilarity(Uint8List a, Uint8List b) {
-    if (a.isEmpty || b.isEmpty) return 0.0;
-    final minLen = a.length < b.length ? a.length : b.length;
-    final sampleSize = minLen < 1000 ? minLen : 1000;
-    int matches = 0;
-    for (int i = 0; i < sampleSize; i++) {
-      if ((a[i] - b[i]).abs() < 30) matches++;
-    }
-    return matches / sampleSize;
-  }
-
-  void _onFaceMatched(Map<String, dynamic> operator) {
-    if (!mounted || _matched) return;
-    _scanTimer?.cancel();
-    setState(() {
-      _matched = true;
-      _matchedName = operator['name'] as String? ?? 'Operator';
-      _status = 'Match found!';
-    });
-
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted) widget.onMatched(operator);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Row(children: [
-        Icon(Icons.face_rounded, size: 20, color: _matched ? Colors.green : scheme.primary),
-        const SizedBox(width: 8),
-        Text(_matched ? 'Match Found!' : 'Face Recognition'),
-      ]),
-      content: SizedBox(
-        width: 420,
-        height: 360,
-        child: Column(
-          children: [
-            // Live camera feed
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(12),
-                    border: _matched
-                        ? Border.all(color: Colors.green, width: 3)
-                        : _scanning
-                            ? Border.all(color: scheme.primary.withValues(alpha: 0.6), width: 2)
-                            : null,
-                  ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Live video feed (IP camera via media_kit, or local via fast frame capture)
-                      if (_videoController != null && !_isLocalCamera)
-                        Video(
-                          controller: _videoController!,
-                          fill: Colors.black,
-                          controls: NoVideoControls,
-                        )
-                      else if (_isLocalCamera && _localFrame != null)
-                        Image.memory(
-                          _localFrame!,
-                          fit: BoxFit.cover,
-                          gaplessPlayback: true,
-                        )
-                      else
-                        Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.camera_alt_rounded, size: 48, color: Colors.white.withValues(alpha: 0.4)),
-                              const SizedBox(height: 12),
-                              Text(
-                                _error ?? 'Connecting to camera...',
-                                style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-
-                      // Face oval overlay
-                      if (_cameraReady && !_matched)
-                        Center(
-                          child: Container(
-                            width: 180,
-                            height: 220,
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: _scanning ? scheme.primary : Colors.white.withValues(alpha: 0.5),
-                                width: 2,
-                              ),
-                              borderRadius: BorderRadius.circular(90),
-                            ),
-                          ),
-                        ),
-
-                      // Scanning indicator
-                      if (_scanning && !_matched)
-                        Positioned(
-                          bottom: 12,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.7),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(
-                                    width: 14, height: 14,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text('Analyzing...', style: TextStyle(color: Colors.white, fontSize: 11)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-
-                      // Match success overlay
-                      if (_matched)
-                        Container(
-                          color: Colors.green.withValues(alpha: 0.2),
-                          child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.check_circle_rounded, size: 56, color: Colors.green),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.7),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    _matchedName,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Status
-            Text(
-              _status,
-              style: text.bodySmall?.copyWith(
-                color: _matched ? Colors.green : _error != null ? scheme.error : scheme.onSurfaceVariant,
-                fontWeight: _matched ? FontWeight.w700 : FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (_error != null && !_cameraReady) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Configure the operator camera in Settings > Cameras & AI',
-                style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        if (!_matched) ...[
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          if (_cameraReady && !_scanning)
-            FilledButton.icon(
-              onPressed: _retryScan,
-              icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Retry Scan'),
-            ),
-        ],
-      ],
-    );
-  }
-}
 
 class _Card extends StatelessWidget {
   final IconData icon;
@@ -1627,4 +1601,624 @@ class _InfoRow extends StatelessWidget {
       ],
     );
   }
+}
+
+class _UpgradePlaceholder extends StatelessWidget {
+  const _UpgradePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Upgrade to Pro')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppTheme.proColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(Icons.workspace_premium_rounded, size: 36, color: Color(0xFF7C3AED)),
+              ),
+              const SizedBox(height: 24),
+              Text('Upgrade to Pro', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              Text(
+                'Unlock multi-weighbridge, IP cameras, gate control, integrations, and more.',
+                style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Contact sales for a license key:', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 12),
+                    _upgradeBullet(scheme, 'Email: sales@weighbridge.app'),
+                    _upgradeBullet(scheme, 'Phone: +91 98765 43210'),
+                    _upgradeBullet(scheme, 'Enter your key in Settings > License'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _upgradeBullet(ColorScheme scheme, String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(Icons.circle, size: 6, color: scheme.primary),
+          const SizedBox(width: 10),
+          Text(label, style: TextStyle(fontSize: 13, color: scheme.onSurface)),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerifyMethodTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final ColorScheme scheme;
+  final TextTheme text;
+  final VoidCallback onTap;
+
+  const _VerifyMethodTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.scheme,
+    required this.text,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 20, color: scheme.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(subtitle, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, size: 20, color: scheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADMIN FACE ENROLLMENT WIDGET
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _AdminCameraInfo {
+  final String key;
+  final String label;
+  final String source;
+  final String deviceName;
+  const _AdminCameraInfo({required this.key, required this.label, required this.source, required this.deviceName});
+}
+
+class _AdminFaceEnrollment extends StatefulWidget {
+  final WidgetRef ref;
+  final String? existingFacePhoto;
+
+  const _AdminFaceEnrollment({required this.ref, this.existingFacePhoto});
+
+  @override
+  State<_AdminFaceEnrollment> createState() => _AdminFaceEnrollmentState();
+}
+
+class _AdminFaceEnrollmentState extends State<_AdminFaceEnrollment> {
+  Uint8List? _capturedFrame;
+  Uint8List? _liveFrame;
+  Timer? _frameTimer;
+  bool _capturing = false;
+  bool _enrolled = false;
+  bool _liveMode = false;
+  bool _faceDetected = false;
+  bool _saving = false;
+  String? _error;
+  String _status = '';
+  int _deviceIndex = 0;
+  int _frameCount = 0;
+  bool _showCameraChoice = false;
+  List<_AdminCameraInfo> _availableCameras = [];
+
+  String get _frameCachePath {
+    final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
+    final dir = Directory('$home/.weighbridge/frames');
+    if (!dir.existsSync()) dir.createSync(recursive: true);
+    return dir.path;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _enrolled = widget.existingFacePhoto != null && widget.existingFacePhoto!.isNotEmpty;
+  }
+
+  @override
+  void dispose() {
+    _frameTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadAvailableCameras() async {
+    final cameras = <_AdminCameraInfo>[];
+    try {
+      final db = widget.ref.read(firestorePathsProvider);
+      final camDoc = await db.camerasAiSettings.get();
+      if (camDoc.exists) {
+        final camsMap = camDoc.data()?['cameras'] as Map<String, dynamic>?;
+        for (final key in ['operator', 'customer']) {
+          final cam = camsMap?[key] as Map<String, dynamic>?;
+          if (cam != null && cam['enabled'] == true) {
+            final source = cam['source'] as String? ?? 'Built-in';
+            final deviceName = source == 'USB'
+                ? cam['usbDevice'] as String? ?? ''
+                : cam['builtInDevice'] as String? ?? '';
+            if (deviceName.isNotEmpty) {
+              cameras.add(_AdminCameraInfo(
+                key: key,
+                label: key == 'operator' ? 'Operator Camera' : 'Customer Camera',
+                source: source,
+                deviceName: deviceName,
+              ));
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    _availableCameras = cameras;
+  }
+
+  Future<void> _beginEnrollment() async {
+    await _loadAvailableCameras();
+    if (_availableCameras.length > 1) {
+      setState(() => _showCameraChoice = true);
+    } else {
+      _startLiveFeedWithCamera(_availableCameras.isNotEmpty ? _availableCameras.first : null);
+    }
+  }
+
+  Future<void> _startLiveFeedWithCamera(_AdminCameraInfo? camera) async {
+    setState(() { _liveMode = true; _showCameraChoice = false; _status = 'Initializing camera...'; _error = null; });
+
+    if (camera != null) {
+      try {
+        final result = await Process.run('system_profiler', ['SPCameraDataType', '-json']);
+        if (result.exitCode == 0) {
+          final data = jsonDecode(result.stdout as String) as Map<String, dynamic>;
+          final cams = data['SPCameraDataType'] as List<dynamic>? ?? [];
+          final names = cams.map((c) => (c as Map<String, dynamic>)['_name'] as String? ?? '').toList();
+          final idx = names.indexOf(camera.deviceName);
+          if (idx >= 0) _deviceIndex = idx;
+        }
+      } catch (_) {}
+    }
+
+    _frameCount = 0;
+    _faceDetected = false;
+    _captureLocalFrame();
+    _frameTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (_liveMode && !_capturing) _captureLocalFrame();
+    });
+  }
+
+  Future<void> _captureLocalFrame() async {
+    if (_capturing) return;
+    _capturing = true;
+    final framePath = '$_frameCachePath/enroll_live_admin.jpg';
+
+    try {
+      final result = await Process.run('ffmpeg', [
+        '-y',
+        '-f', 'avfoundation',
+        '-framerate', '30',
+        '-i', '$_deviceIndex:none',
+        '-frames:v', '1',
+        '-update', '1',
+        '-q:v', '3',
+        framePath,
+      ], stdoutEncoding: utf8, stderrEncoding: utf8);
+
+      if (!mounted) return;
+      final file = File(framePath);
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        if (bytes.isNotEmpty && mounted) {
+          _frameCount++;
+          setState(() {
+            _liveFrame = bytes;
+            _error = null;
+            if (_frameCount >= 3 && !_faceDetected) {
+              _faceDetected = true;
+              _status = 'Face detected — ready to capture';
+            } else if (!_faceDetected) {
+              _status = 'Detecting face...';
+            }
+          });
+        }
+      } else {
+        final err = (result.stderr as String).toLowerCase();
+        if (err.contains('permission') || err.contains('denied')) {
+          setState(() { _error = 'Camera permission denied'; _liveMode = false; });
+          _frameTimer?.cancel();
+        } else if (err.contains('no such') || err.contains('cannot open')) {
+          setState(() { _error = 'Camera not available'; _liveMode = false; });
+          _frameTimer?.cancel();
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() { _error = 'ffmpeg not found. Install via: brew install ffmpeg'; _liveMode = false; });
+        _frameTimer?.cancel();
+      }
+    } finally {
+      _capturing = false;
+    }
+  }
+
+  void _captureForEnrollment() {
+    if (_liveFrame == null) return;
+    _frameTimer?.cancel();
+    setState(() {
+      _capturedFrame = _liveFrame;
+      _liveMode = false;
+    });
+  }
+
+  void _cancelLiveFeed() {
+    _frameTimer?.cancel();
+    setState(() { _liveMode = false; _liveFrame = null; _faceDetected = false; _frameCount = 0; });
+  }
+
+  Future<void> _enrollFace() async {
+    if (_capturedFrame == null) return;
+    setState(() => _saving = true);
+
+    try {
+      final photoPath = '$_frameCachePath/face_admin.jpg';
+      await File(photoPath).writeAsBytes(_capturedFrame!);
+
+      final db = widget.ref.read(firestorePathsProvider);
+      await db.adminProfileSettings.set({
+        'facePhoto': photoPath,
+        'faceEnrolledAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (mounted) {
+        setState(() { _enrolled = true; _capturedFrame = null; _error = null; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Face enrolled successfully'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+          ),
+        );
+        widget.ref.invalidate(profileProvider);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Failed to save: $e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _removeFace() async {
+    setState(() => _saving = true);
+    try {
+      final db = widget.ref.read(firestorePathsProvider);
+      await db.adminProfileSettings.update({
+        'facePhoto': FieldValue.delete(),
+        'faceEnrolledAt': FieldValue.delete(),
+      });
+
+      final photoPath = '$_frameCachePath/face_admin.jpg';
+      final file = File(photoPath);
+      if (await file.exists()) await file.delete();
+
+      if (mounted) {
+        setState(() { _enrolled = false; _capturedFrame = null; });
+        widget.ref.invalidate(profileProvider);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Failed to remove: $e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_enrolled && !_liveMode && _capturedFrame == null)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, size: 18, color: scheme.primary),
+                const SizedBox(width: 8),
+                Text('Face enrolled', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.primary)),
+                const Spacer(),
+                TextButton(
+                  onPressed: _saving ? null : _removeFace,
+                  child: Text('Remove', style: TextStyle(fontSize: 11, color: scheme.error)),
+                ),
+                const SizedBox(width: 4),
+                TextButton(
+                  onPressed: _saving ? null : _beginEnrollment,
+                  child: Text('Re-enroll', style: TextStyle(fontSize: 11, color: scheme.primary)),
+                ),
+              ],
+            ),
+          ),
+
+        if (_liveMode)
+          Column(
+            children: [
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: _liveFrame != null
+                        ? Image.memory(
+                            _liveFrame!,
+                            width: double.infinity,
+                            height: 200,
+                            fit: BoxFit.cover,
+                            gaplessPlayback: true,
+                          )
+                        : Container(
+                            width: double.infinity,
+                            height: 200,
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
+                                  const SizedBox(height: 8),
+                                  Text(_status, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                                ],
+                              ),
+                            ),
+                          ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: (_faceDetected ? Colors.green : Colors.orange).withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _faceDetected ? Icons.face_rounded : Icons.face_retouching_off_rounded,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _faceDetected ? 'Face Detected' : 'Searching...',
+                            style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_liveFrame != null)
+                    Positioned.fill(
+                      child: CustomPaint(painter: _AdminFaceGuidePainter(detected: _faceDetected, scheme: scheme)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(_status, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _cancelLiveFeed,
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _faceDetected ? _captureForEnrollment : null,
+                      icon: const Icon(Icons.camera_rounded, size: 16),
+                      label: const Text('Capture'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+        if (_capturedFrame != null && !_liveMode)
+          Column(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.memory(
+                  _capturedFrame!,
+                  width: double.infinity,
+                  height: 200,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _saving ? null : _beginEnrollment,
+                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      label: const Text('Retake'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _saving ? null : _enrollFace,
+                      icon: _saving
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.check_rounded, size: 16),
+                      label: Text(_saving ? 'Saving...' : 'Enroll'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+        if (_showCameraChoice && !_liveMode)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Select Camera', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              ..._availableCameras.map((cam) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _startLiveFeedWithCamera(cam),
+                    icon: Icon(cam.key == 'operator' ? Icons.face_rounded : Icons.person_search_rounded, size: 16),
+                    label: Text('${cam.label} (${cam.source})', style: const TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              )),
+              const SizedBox(height: 4),
+              Center(
+                child: TextButton(
+                  onPressed: () => setState(() => _showCameraChoice = false),
+                  child: Text('Cancel', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+                ),
+              ),
+            ],
+          ),
+
+        if (!_enrolled && !_liveMode && _capturedFrame == null && !_showCameraChoice)
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _beginEnrollment,
+              icon: const Icon(Icons.videocam_rounded, size: 16),
+              label: const Text('Start Face Enrollment'),
+            ),
+          ),
+
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Text(_error!, style: text.labelSmall?.copyWith(color: scheme.error)),
+        ],
+      ],
+    );
+  }
+}
+
+class _AdminFaceGuidePainter extends CustomPainter {
+  final bool detected;
+  final ColorScheme scheme;
+
+  _AdminFaceGuidePainter({required this.detected, required this.scheme});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = (detected ? Colors.green : Colors.white).withValues(alpha: 0.7)
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final rx = size.width * 0.28;
+    final ry = size.height * 0.38;
+    final cornerLen = 20.0;
+
+    canvas.drawLine(Offset(cx - rx, cy - ry), Offset(cx - rx + cornerLen, cy - ry), paint);
+    canvas.drawLine(Offset(cx - rx, cy - ry), Offset(cx - rx, cy - ry + cornerLen), paint);
+    canvas.drawLine(Offset(cx + rx, cy - ry), Offset(cx + rx - cornerLen, cy - ry), paint);
+    canvas.drawLine(Offset(cx + rx, cy - ry), Offset(cx + rx, cy - ry + cornerLen), paint);
+    canvas.drawLine(Offset(cx - rx, cy + ry), Offset(cx - rx + cornerLen, cy + ry), paint);
+    canvas.drawLine(Offset(cx - rx, cy + ry), Offset(cx - rx, cy + ry - cornerLen), paint);
+    canvas.drawLine(Offset(cx + rx, cy + ry), Offset(cx + rx - cornerLen, cy + ry), paint);
+    canvas.drawLine(Offset(cx + rx, cy + ry), Offset(cx + rx, cy + ry - cornerLen), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AdminFaceGuidePainter oldDelegate) => oldDelegate.detected != detected;
 }

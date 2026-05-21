@@ -9,7 +9,17 @@ service cloud.firestore {
       allow create: if true;
       allow update, delete: if true;
 
+      // ─── Company-level settings ───────────────────────────────────
+
+      match /settings/{settingId} {
+        allow read, write: if true;
+      }
+
       // ─── Company-wide collections ──────────────────────────────────
+
+      match /operators/{operatorId} {
+        allow read, write: if true;
+      }
 
       match /customers/{customerId} {
         allow read, write: if true;
@@ -42,6 +52,10 @@ service cloud.firestore {
       }
 
       match /training_data/{sampleId} {
+        allow read, write: if true;
+      }
+
+      match /gstin_verifications/{verificationId} {
         allow read, write: if true;
       }
 
@@ -94,6 +108,10 @@ service cloud.firestore {
           }
 
           match /settings/{settingId} {
+            allow read, write: if true;
+          }
+
+          match /materials/{materialId} {
             allow read, write: if true;
           }
 
@@ -174,6 +192,34 @@ service cloud.firestore {
 
     match /gateCommands/{commandId} {
       allow read, write: if true;
+    }
+
+    // ─── Cloud Function collections ─────────────────────────────────
+
+    match /licenses/{licenseId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /verification_otps/{otpId} {
+      allow read, write: if true;
+    }
+
+    match /gstin_lookups/{lookupId} {
+      allow read, write: if true;
+    }
+
+    // ─── GSTIN registry (used by license system) ─────────────────────
+
+    match /gstin_registry/{gstinId} {
+      allow read, write: if true;
+    }
+
+    // ─── Global registry (used by license system) ───────────────────
+
+    match /global/{docPath=**} {
+      allow read: if true;
+      allow write: if true;
     }
   }
 }

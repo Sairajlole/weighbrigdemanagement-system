@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -5,8 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
-import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
+import 'package:weighbridgemanagement/features/profile/presentation/profile_screen.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 
 // ─── Providers ─────────────────────────────────────────────────────────────────
@@ -19,16 +21,6 @@ final _weighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
       .limit(100)
       .snapshots()
       .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
-});
-
-final _operatorProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
-  final user = ref.watch(authStateProvider).valueOrNull;
-  if (user == null) return null;
-  final paths = ref.read(firestorePathsProvider);
-  if (!paths.isConfigured) return null;
-  final snap = await paths.operators.where('uid', isEqualTo: user.uid).limit(1).get();
-  if (snap.docs.isEmpty) return null;
-  return {'id': snap.docs.first.id, ...snap.docs.first.data()};
 });
 
 final _customersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
@@ -86,7 +78,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final weighments = ref.watch(_weighmentsProvider).valueOrNull ?? [];
-    final operator = ref.watch(_operatorProvider).valueOrNull;
+    final profile = ref.watch(profileProvider).valueOrNull;
     final customers = ref.watch(_customersProvider).valueOrNull ?? [];
 
     final now = DateTime.now();
@@ -121,8 +113,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 controller: _entranceController,
                 delay: 0.0,
                 child: _DashboardHeader(
-                  operatorName: operator?['name'] ?? 'Operator',
-                  now: now,
+                  operatorName: profile?['name'] as String? ?? 'User',
                   onNewWeighment: () => context.go('/weighment'),
                 ),
               ),
@@ -179,8 +170,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         suffix: 'kg all-time',
                         icon: Icons.inventory_2_rounded,
                         gradient: [
-                          const Color(0xFF7C3AED),
-                          const Color(0xFF7C3AED).withValues(alpha: 0.7),
+                          AppTheme.proColor,
+                          AppTheme.proColor.withValues(alpha: 0.7),
                         ],
                         sparkData: weeklyData,
                         pulseController: _pulseController,
@@ -340,22 +331,42 @@ class _SlideIn extends StatelessWidget {
 
 // ─── Dashboard Header ────────────────────────────────────────────────────────
 
-class _DashboardHeader extends ConsumerWidget {
+class _DashboardHeader extends ConsumerStatefulWidget {
   final String operatorName;
-  final DateTime now;
   final VoidCallback onNewWeighment;
 
   const _DashboardHeader({
     required this.operatorName,
-    required this.now,
     required this.onNewWeighment,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_DashboardHeader> createState() => _DashboardHeaderState();
+}
+
+class _DashboardHeaderState extends ConsumerState<_DashboardHeader> {
+  late Timer _clockTimer;
+  DateTime _now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _clockTimer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final hour = now.hour;
+    final hour = _now.hour;
     final greeting = hour < 12
         ? 'Good morning'
         : hour < 17
@@ -369,7 +380,7 @@ class _DashboardHeader extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$greeting, $operatorName',
+                '$greeting, ${widget.operatorName}',
                 style: text.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
@@ -403,7 +414,7 @@ class _DashboardHeader extends ConsumerWidget {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    '${DateFormat('EEEE, d MMMM yyyy').format(now)}  •  ${getTimeFormatter(ref.watch(timeFormatProvider)).format(now)}',
+                    '${DateFormat('EEEE, d MMMM yyyy').format(_now)}  •  ${getTimeFormatter(ref.watch(timeFormatProvider)).format(_now)}',
                     style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ],
@@ -412,7 +423,7 @@ class _DashboardHeader extends ConsumerWidget {
           ),
         ),
         _GlowButton(
-          onPressed: onNewWeighment,
+          onPressed: widget.onNewWeighment,
           icon: Icons.add_rounded,
           label: 'New Weighment',
         ),
@@ -947,7 +958,7 @@ class _MaterialBreakdownCard extends StatelessWidget {
   static const _colors = [
     Color(0xFF059669),
     Color(0xFF0EA5E9),
-    Color(0xFF7C3AED),
+    AppTheme.proColor,
     Color(0xFFF59E0B),
     Color(0xFFEF4444),
     Color(0xFF6366F1),
@@ -1482,7 +1493,7 @@ class _TopCustomersCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.people_rounded, size: 18, color: const Color(0xFF7C3AED)),
+              Icon(Icons.people_rounded, size: 18, color: AppTheme.proColor),
               const SizedBox(width: 8),
               Text(
                 'Top Customers',
@@ -1517,7 +1528,7 @@ class _TopCustomersCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
                           color: i == 0
-                              ? const Color(0xFF7C3AED).withValues(alpha: 0.05)
+                              ? AppTheme.proColor.withValues(alpha: 0.05)
                               : Colors.transparent,
                         ),
                         child: Row(
@@ -1592,7 +1603,7 @@ class _TopCustomersCard extends StatelessWidget {
 
   Color _avatarColor(int i) {
     const colors = [
-      Color(0xFF7C3AED),
+      AppTheme.proColor,
       Color(0xFF059669),
       Color(0xFF0EA5E9),
       Color(0xFFF59E0B),

@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:weighbridgemanagement/features/profile/presentation/profile_screen.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 
@@ -17,7 +20,9 @@ class SecurityOverlay extends ConsumerStatefulWidget {
 }
 
 class _SecurityOverlayState extends ConsumerState<SecurityOverlay> with WidgetsBindingObserver {
+  static const _securityChannel = MethodChannel('com.weighbridge/security');
   bool _appInactive = false;
+  bool _contentProtectionActive = false;
   Timer? _watermarkTimer;
   String _watermarkTime = '';
 
@@ -28,13 +33,35 @@ class _SecurityOverlayState extends ConsumerState<SecurityOverlay> with WidgetsB
     _startWatermarkTimer();
     _checkRemoteDesktop();
     _checkUsbDevices();
+    _applyContentProtection();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _watermarkTimer?.cancel();
+    if (_contentProtectionActive && Platform.isWindows) {
+      _securityChannel.invokeMethod('setContentProtection', false);
+    }
     super.dispose();
+  }
+
+  void _applyContentProtection() {
+    final settings = ref.read(securitySettingsProvider).valueOrNull ?? const SecuritySettings();
+    _setContentProtection(settings.preventScreenshots);
+  }
+
+  Future<void> _setContentProtection(bool enabled) async {
+    if (_contentProtectionActive == enabled) return;
+    // Only works on Windows (SetWindowDisplayAffinity) — macOS has no public API for this
+    if (!Platform.isWindows) {
+      _contentProtectionActive = enabled;
+      return;
+    }
+    try {
+      await _securityChannel.invokeMethod('setContentProtection', enabled);
+      _contentProtectionActive = enabled;
+    } catch (_) {}
   }
 
   void _startWatermarkTimer() {
@@ -107,8 +134,11 @@ class _SecurityOverlayState extends ConsumerState<SecurityOverlay> with WidgetsB
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(securitySettingsProvider);
     final settings = settingsAsync.valueOrNull ?? const SecuritySettings();
+    final profile = ref.watch(profileProvider).valueOrNull;
     final user = FirebaseAuth.instance.currentUser;
-    final userName = user?.email ?? user?.displayName ?? 'Unknown';
+    final userName = profile?['name'] as String? ?? user?.email ?? user?.displayName ?? 'Unknown';
+
+    _setContentProtection(settings.preventScreenshots);
 
     final showOverlay = _appInactive && (settings.preventScreenshots || settings.dimOnInactiveWindow);
 

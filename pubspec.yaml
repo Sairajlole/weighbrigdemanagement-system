@@ -15,7 +15,6 @@ dependencies:
   firebase_auth: ^5.5.3
   cloud_firestore: ^5.6.7
   cloud_functions: ^5.2.3
-  firebase_storage: ^12.4.4
 
   # State Management
   flutter_riverpod: ^2.6.1
@@ -37,6 +36,7 @@ dependencies:
   intl: ^0.20.2
   connectivity_plus: ^6.1.4
   http: ^1.4.0
+  http_parser: ^4.1.0
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_macos_video: ^1.1.4
@@ -57,6 +57,9 @@ dependencies:
   window_manager: ^0.5.1
   crypto: ^3.0.7
   encrypt: ^5.0.3
+  package_info_plus: ^8.3.0
+  file_picker: ^8.1.6
+  csv: ^6.0.0
 
 dev_dependencies:
   flutter_test:

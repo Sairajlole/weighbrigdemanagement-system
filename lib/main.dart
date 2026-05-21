@@ -10,7 +10,9 @@ import 'package:window_manager/window_manager.dart';
 import 'package:weighbridgemanagement/firebase_options.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/version_provider.dart';
 import 'package:weighbridgemanagement/shared/routing/app_router.dart';
+import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +24,9 @@ void main() async {
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
+
+  // Clear cached login on every cold start — user must sign in fresh
+  await LocalCacheService.clearCurrentUser();
 
   // On macOS, attempt sign-in (keychain issues may prevent this)
   if (Platform.isMacOS && FirebaseAuth.instance.currentUser == null) {
@@ -72,9 +77,54 @@ class WeighbridgeApp extends ConsumerWidget {
           data: MediaQuery.of(context).copyWith(
             textScaler: TextScaler.linear(appearance.fontScale),
           ),
-          child: child!,
+          child: _VersionGate(child: child!),
         );
       },
     );
+  }
+}
+
+class _VersionGate extends ConsumerStatefulWidget {
+  final Widget child;
+  const _VersionGate({required this.child});
+
+  @override
+  ConsumerState<_VersionGate> createState() => _VersionGateState();
+}
+
+class _VersionGateState extends ConsumerState<_VersionGate> {
+  bool _dialogShown = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final versionAsync = ref.watch(versionProvider);
+
+    versionAsync.whenData((info) {
+      if (info.status == VersionStatus.updateRequired && !_dialogShown) {
+        _dialogShown = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Update Required'),
+              content: Text(
+                'A critical update (v${info.latestVersion}) is required to continue using this application.\n\n'
+                '${info.releaseNotes ?? "Please update to the latest version."}',
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () => exit(0),
+                  child: const Text('Close App'),
+                ),
+              ],
+            ),
+          );
+        });
+      }
+    });
+
+    return widget.child;
   }
 }

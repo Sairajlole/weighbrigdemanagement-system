@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart';
 
 const _accentColors = <Color>[
@@ -96,6 +95,28 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
     }
   }
 
+  Widget _buildContent(ColorScheme scheme, TextTheme text) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildThemeSection(scheme, text),
+          const SizedBox(height: 24),
+          _buildAccentSection(scheme, text),
+          const SizedBox(height: 24),
+          _buildBackgroundSection(scheme, text),
+          const SizedBox(height: 24),
+          _buildFontSection(scheme, text),
+          const SizedBox(height: 24),
+          _buildLanguageSection(scheme, text),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -119,11 +140,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                   children: [
                     IconButton(
                       onPressed: () {
-                        if (ref.read(wizardModeProvider)) {
-                          ref.read(setupWizardProvider.notifier).previousStep();
-                        } else {
-                          context.go('/settings');
-                        }
+                        context.go('/settings');
                       },
                       icon: const Icon(Icons.arrow_back_rounded, size: 20),
                       style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
@@ -199,24 +216,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
 
           // Content
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildThemeSection(scheme, text),
-                  const SizedBox(height: 24),
-                  _buildAccentSection(scheme, text),
-                  const SizedBox(height: 24),
-                  _buildBackgroundSection(scheme, text),
-                  const SizedBox(height: 24),
-                  _buildFontSection(scheme, text),
-                  const SizedBox(height: 24),
-                  _buildLanguageSection(scheme, text),
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
+            child: _buildContent(scheme, text),
           ),
         ],
       ),
@@ -391,7 +391,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
     return _Section(
       icon: Icons.translate_rounded,
       title: 'Language',
-      subtitle: 'Hindi labels with English searchability',
+      subtitle: 'Interface language',
       scheme: scheme,
       text: text,
       children: [
@@ -401,43 +401,12 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
               label: 'English',
               native: 'English',
               code: 'en',
-              selected: _locale == 'en',
-              onTap: () { setState(() => _locale = 'en'); _markDirty(); },
-              scheme: scheme, text: text,
-            ),
-            const SizedBox(width: 12),
-            _LangOption(
-              label: 'Hindi',
-              native: 'हिन्दी',
-              code: 'hi',
-              selected: _locale == 'hi',
-              onTap: () { setState(() => _locale = 'hi'); _markDirty(); },
+              selected: true,
+              onTap: () {},
               scheme: scheme, text: text,
             ),
           ],
         ),
-        if (_locale == 'hi') ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: scheme.primaryContainer.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline_rounded, size: 14, color: scheme.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'UI labels shown in Hindi. Search, vehicle numbers, and data entry remain in English for compatibility.',
-                    style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ],
     );
   }

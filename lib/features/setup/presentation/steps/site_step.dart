@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
-import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import '../../application/setup_wizard_provider.dart';
-import '../../application/setup_wizard_state.dart';
 
 class SiteStep extends ConsumerStatefulWidget {
   const SiteStep({super.key});
@@ -15,77 +13,57 @@ class SiteStep extends ConsumerStatefulWidget {
 }
 
 class _SiteStepState extends ConsumerState<SiteStep> {
-  int _subStep = 0;
+  int _subStep = 0; // 0=site, 1=weighbridge
   String? _selectedCompanyId;
   String? _selectedSiteId;
   String? _selectedWeighbridgeId;
 
-  String _newCompanyName = '';
-  String _newSiteName = '';
-  String _newSiteLocation = '';
-  String _newWeighbridgeName = '';
+  final _newSiteCtrl = TextEditingController();
+  final _newLocationCtrl = TextEditingController();
+  final _newWeighbridgeCtrl = TextEditingController();
   bool _loading = false;
+  String? _error;
 
   FirebaseFirestore get _db => ref.read(firestoreProvider);
 
   @override
   void initState() {
     super.initState();
-    _resolveUserCompany();
+    _resolveCompany();
   }
 
-  Future<void> _resolveUserCompany() async {
-    final wizardState = ref.read(setupWizardProvider);
-    final email = await LocalCacheService.getCachedCurrentUserEmail();
-    if (email == null) return;
+  @override
+  void dispose() {
+    _newSiteCtrl.dispose();
+    _newLocationCtrl.dispose();
+    _newWeighbridgeCtrl.dispose();
+    super.dispose();
+  }
 
-    // Find the operator's record to get their company
-    final opSnap = await _db.collection('operators').where('email', isEqualTo: email).limit(1).get();
-    if (opSnap.docs.isEmpty) return;
-
-    final opData = opSnap.docs.first.data();
-    final role = opData['role'] as String?;
-
-    if (wizardState.role == WizardRole.admin || role == 'companyAdmin') {
-      // Admin — find the company they own
-      final uid = opData['uid'] as String?;
-      if (uid != null) {
-        final companySnap = await _db.collection('companies').where('adminUid', isEqualTo: uid).limit(1).get();
-        if (companySnap.docs.isNotEmpty && mounted) {
-          setState(() {
-            _selectedCompanyId = companySnap.docs.first.id;
-            _subStep = 1; // Skip company selection, go to site
-            });
-          return;
-        }
-      }
-    } else {
-      // Operator — use companyId from their record
-      final companyId = opData['companyId'] as String?;
-      if (companyId != null && companyId.isNotEmpty && mounted) {
-        setState(() {
-          _selectedCompanyId = companyId;
-          _subStep = 1;
-        });
-      }
+  void _resolveCompany() {
+    final companyId = ref.read(wizardCompanyIdProvider);
+    if (companyId != null && companyId.isNotEmpty) {
+      _selectedCompanyId = companyId;
     }
   }
 
-  Future<String?> _createCompany(String name) async {
-    final existing = await _db.collection('companies').where('name', isEqualTo: name).limit(1).get();
-    if (existing.docs.isNotEmpty) {
-      if (mounted) _showError('Company "$name" already exists');
-      return null;
-    }
-    final doc = await _db.collection('companies').add({'name': name, 'createdAt': FieldValue.serverTimestamp()});
-    return doc.id;
-  }
+
+
+  static const _maxSites = 1;
+  static const _maxWeighbridges = 2;
 
   Future<String?> _createSite(String name, String location) async {
     final col = _db.collection('companies/$_selectedCompanyId/sites');
+
+    final allSites = await col.get();
+    if (allSites.docs.length >= _maxSites) {
+      _setError('Maximum $_maxSites site allowed during setup.');
+      return null;
+    }
+
     final existing = await col.where('name', isEqualTo: name).limit(1).get();
     if (existing.docs.isNotEmpty) {
-      if (mounted) _showError('Site "$name" already exists');
+      _setError('Site "$name" already exists');
       return null;
     }
     final doc = await col.add({'name': name, 'location': location, 'createdAt': FieldValue.serverTimestamp()});
@@ -94,22 +72,61 @@ class _SiteStepState extends ConsumerState<SiteStep> {
 
   Future<String?> _createWeighbridge(String name) async {
     final col = _db.collection('companies/$_selectedCompanyId/sites/$_selectedSiteId/weighbridges');
+
+    final allWb = await col.get();
+    if (allWb.docs.length >= _maxWeighbridges) {
+      _setError('Maximum $_maxWeighbridges weighbridges allowed during setup.');
+      return null;
+    }
+
     final existing = await col.where('name', isEqualTo: name).limit(1).get();
     if (existing.docs.isNotEmpty) {
-      if (mounted) _showError('Weighbridge "$name" already exists');
+      _setError('Weighbridge "$name" already exists');
       return null;
     }
     final doc = await col.add({'name': name, 'createdAt': FieldValue.serverTimestamp()});
     return doc.id;
   }
 
-  void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating));
+  Future<void> _deleteSite(String siteId) async {
+    setState(() => _loading = true);
+    try {
+      final wbCol = _db.collection('companies/$_selectedCompanyId/sites/$siteId/weighbridges');
+      final wbSnap = await wbCol.get();
+      for (final wb in wbSnap.docs) {
+        await wb.reference.delete();
+      }
+      await _db.doc('companies/$_selectedCompanyId/sites/$siteId').delete();
+      if (_selectedSiteId == siteId) {
+        _selectedSiteId = null;
+        _selectedWeighbridgeId = null;
+      }
+    } catch (e) {
+      _setError('Failed to delete site: $e');
+    }
+    if (mounted) setState(() => _loading = false);
   }
+
+  Future<void> _deleteWeighbridge(String wbId) async {
+    setState(() => _loading = true);
+    try {
+      await _db.doc('companies/$_selectedCompanyId/sites/$_selectedSiteId/weighbridges/$wbId').delete();
+      if (_selectedWeighbridgeId == wbId) {
+        _selectedWeighbridgeId = null;
+      }
+    } catch (e) {
+      _setError('Failed to delete weighbridge: $e');
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  void _setError(String msg) => setState(() => _error = msg);
+  void _clearError() { if (_error != null) setState(() => _error = null); }
 
   Future<void> _finish() async {
     if (_selectedCompanyId == null || _selectedSiteId == null || _selectedWeighbridgeId == null) return;
     setState(() => _loading = true);
+
     await ref.read(siteContextProvider.notifier).configure(
       companyId: _selectedCompanyId!,
       siteId: _selectedSiteId!,
@@ -120,180 +137,463 @@ class _SiteStepState extends ConsumerState<SiteStep> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
+    if (_selectedCompanyId == null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline_rounded, size: 40, color: scheme.error),
+            const SizedBox(height: 12),
+            Text('No company configured. Go back to the Company step.', style: text.bodyMedium),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: () => ref.read(setupWizardProvider.notifier).previousStep(),
+              icon: const Icon(Icons.arrow_back_rounded, size: 16),
+              label: const Text('Back'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(40),
+      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 40),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Site & Weighbridge', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text(
+                'Configure the physical location and weighbridge for this device.',
+                style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 24),
+
+              // Progress stepper
+              _StepIndicator(currentStep: _subStep, scheme: scheme, text: text),
+              const SizedBox(height: 32),
+
+              // Error
+              if (_error != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: scheme.errorContainer.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_error!, style: TextStyle(fontSize: 12, color: scheme.error))),
+                      IconButton(
+                        icon: Icon(Icons.close, size: 14, color: scheme.error),
+                        onPressed: _clearError,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              if (_loading) ...[
+                const Center(child: CircularProgressIndicator()),
+              ] else ...[
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: KeyedSubtree(
+                    key: ValueKey(_subStep),
+                    child: switch (_subStep) {
+                      0 => _buildSiteSubStep(scheme, text),
+                      _ => _buildWeighbridgeSubStep(scheme, text),
+                    },
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildSiteSubStep(ColorScheme scheme, TextTheme text) {
+    final siteStream = _db.collection('companies/$_selectedCompanyId/sites').snapshots();
+
+    return _SubStepCard(
+      icon: Icons.location_on_rounded,
+      title: 'Site',
+      description: 'A site is a physical location with one or more weighbridges.',
+      scheme: scheme,
+      text: text,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Site Configuration', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          Text(
-            'Set up your company, site, and weighbridge hierarchy.',
-            style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+          _CollectionSelector(
+            stream: siteStream,
+            selected: _selectedSiteId,
+            onSelected: (id) { setState(() => _selectedSiteId = id); _clearError(); },
+            onDelete: (id) => _deleteSite(id),
+            emptyText: 'No sites yet — create one below.',
+            icon: Icons.location_on_outlined,
+            showLocation: true,
+            maxItems: _maxSites,
           ),
-          const SizedBox(height: 12),
-          // Sub-step indicator
-          Row(
-            children: List.generate(3, (i) => Expanded(
-              child: Container(
-                height: 4,
-                margin: EdgeInsets.only(right: i < 2 ? 8 : 0),
-                decoration: BoxDecoration(
-                  color: i <= _subStep ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            )),
-          ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
 
-          if (_subStep == 0) _buildCompanySubStep(scheme, text),
-          if (_subStep == 1) _buildSiteSubStep(scheme, text),
-          if (_subStep == 2) _buildWeighbridgeSubStep(scheme, text),
+          StreamBuilder<QuerySnapshot>(
+            stream: siteStream,
+            builder: (context, snap) {
+              final atLimit = (snap.data?.docs.length ?? 0) >= _maxSites;
+              if (atLimit) {
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
+                      const SizedBox(width: 8),
+                      Text('Maximum $_maxSites site allowed. Remove to add a different one.',
+                          style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                    ],
+                  ),
+                );
+              }
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHigh.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Create new site', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 12),
+                    _StyledTextField(
+                      controller: _newSiteCtrl,
+                      label: 'Site Name',
+                      hint: 'e.g. Main Yard',
+                      icon: Icons.location_on_outlined,
+                      onChanged: (_) { _clearError(); setState(() {}); },
+                    ),
+                    const SizedBox(height: 10),
+                    _StyledTextField(
+                      controller: _newLocationCtrl,
+                      label: 'Location (optional)',
+                      hint: 'e.g. Mumbai, Maharashtra',
+                      icon: Icons.map_outlined,
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.tonalIcon(
+                      onPressed: _newSiteCtrl.text.trim().isNotEmpty && !_loading
+                          ? () async {
+                              _clearError();
+                              setState(() => _loading = true);
+                              final id = await _createSite(_newSiteCtrl.text.trim(), _newLocationCtrl.text.trim());
+                              if (id != null && mounted) {
+                                _newSiteCtrl.clear();
+                                _newLocationCtrl.clear();
+                                setState(() => _selectedSiteId = id);
+                              }
+                              if (mounted) setState(() => _loading = false);
+                            }
+                          : null,
+                      icon: _loading
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.add_rounded, size: 16),
+                      label: const Text('Create Site'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              FilledButton.icon(
+                onPressed: _selectedSiteId != null ? () => setState(() => _subStep = 1) : null,
+                icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                label: const Text('Next'),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildCompanySubStep(ColorScheme scheme, TextTheme text) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Create Company', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        Text(
-          'Your company was not found. Create one to continue.',
-          style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 16),
-        _buildInput('Company Name', (v) => setState(() => _newCompanyName = v)),
-        const SizedBox(height: 24),
-        Align(
-          alignment: Alignment.centerRight,
-          child: FilledButton(
-            onPressed: _newCompanyName.trim().isNotEmpty && !_loading
-                ? () async {
-                    setState(() => _loading = true);
-                    final id = await _createCompany(_newCompanyName.trim());
-                    if (id != null && mounted) {
-                      setState(() { _selectedCompanyId = id; _subStep = 1; });
-                    }
-                    if (mounted) setState(() => _loading = false);
-                  }
-                : null,
-            child: _loading
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Create & Continue'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSiteSubStep(ColorScheme scheme, TextTheme text) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Select Site', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        Text('A site is a physical location with one or more weighbridges.', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-        const SizedBox(height: 16),
-        _CollectionSelector(
-          stream: _db.collection('companies/$_selectedCompanyId/sites').snapshots(),
-          selected: _selectedSiteId,
-          onSelected: (id) => setState(() => _selectedSiteId = id),
-          emptyText: 'No sites yet — create one below.',
-          showLocation: true,
-        ),
-        const SizedBox(height: 16),
-        _CreateNewSection(
-          label: 'Create new site',
-          fields: [
-            _buildInput('Site Name', (v) => setState(() => _newSiteName = v)),
-            const SizedBox(height: 10),
-            _buildInput('Location (optional)', (v) => setState(() => _newSiteLocation = v)),
-          ],
-          canCreate: _newSiteName.trim().isNotEmpty,
-          loading: _loading,
-          onCreate: () async {
-            setState(() => _loading = true);
-            final id = await _createSite(_newSiteName.trim(), _newSiteLocation.trim());
-            setState(() { if (id != null) _selectedSiteId = id; _loading = false; });
-          },
-        ),
-        const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            TextButton(onPressed: () => setState(() => _subStep = 0), child: const Text('Back')),
-            FilledButton(
-              onPressed: _selectedSiteId != null ? () => setState(() => _subStep = 2) : null,
-              child: const Text('Next'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
   Widget _buildWeighbridgeSubStep(ColorScheme scheme, TextTheme text) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Select Weighbridge', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        Text('Choose which weighbridge this device will operate.', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-        const SizedBox(height: 16),
-        _CollectionSelector(
-          stream: _db.collection('companies/$_selectedCompanyId/sites/$_selectedSiteId/weighbridges').snapshots(),
-          selected: _selectedWeighbridgeId,
-          onSelected: (id) => setState(() => _selectedWeighbridgeId = id),
-          emptyText: 'No weighbridges yet — create one below.',
-        ),
-        const SizedBox(height: 16),
-        _CreateNewSection(
-          label: 'Create new weighbridge',
-          fields: [
-            _buildInput('Weighbridge Name', (v) => setState(() => _newWeighbridgeName = v), hint: 'e.g. WB-01'),
-          ],
-          canCreate: _newWeighbridgeName.trim().isNotEmpty,
-          loading: _loading,
-          onCreate: () async {
-            setState(() => _loading = true);
-            final id = await _createWeighbridge(_newWeighbridgeName.trim());
-            setState(() { if (id != null) _selectedWeighbridgeId = id; _loading = false; });
-          },
-        ),
-        const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            TextButton(onPressed: () => setState(() => _subStep = 1), child: const Text('Back')),
-            FilledButton(
-              onPressed: _selectedWeighbridgeId != null ? (_loading ? null : _finish) : null,
-              child: _loading
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Configure'),
-            ),
-          ],
-        ),
-      ],
+    final wbStream = _db.collection('companies/$_selectedCompanyId/sites/$_selectedSiteId/weighbridges').snapshots();
+
+    return _SubStepCard(
+      icon: Icons.scale_rounded,
+      title: 'Weighbridge',
+      description: 'Choose which weighbridge this device will operate.',
+      scheme: scheme,
+      text: text,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _CollectionSelector(
+            stream: wbStream,
+            selected: _selectedWeighbridgeId,
+            onSelected: (id) { setState(() => _selectedWeighbridgeId = id); _clearError(); },
+            onDelete: (id) => _deleteWeighbridge(id),
+            emptyText: 'No weighbridges yet — create one below.',
+            icon: Icons.scale_outlined,
+            maxItems: _maxWeighbridges,
+          ),
+          const SizedBox(height: 20),
+
+          StreamBuilder<QuerySnapshot>(
+            stream: wbStream,
+            builder: (context, snap) {
+              final atLimit = (snap.data?.docs.length ?? 0) >= _maxWeighbridges;
+              if (atLimit) {
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
+                      const SizedBox(width: 8),
+                      Text('Maximum $_maxWeighbridges weighbridges allowed. Remove to add a different one.',
+                          style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                    ],
+                  ),
+                );
+              }
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHigh.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Create new weighbridge', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 12),
+                    _StyledTextField(
+                      controller: _newWeighbridgeCtrl,
+                      label: 'Weighbridge Name',
+                      hint: 'e.g. WB-01',
+                      icon: Icons.scale_outlined,
+                      onChanged: (_) { _clearError(); setState(() {}); },
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.tonalIcon(
+                      onPressed: _newWeighbridgeCtrl.text.trim().isNotEmpty && !_loading
+                          ? () async {
+                              _clearError();
+                              setState(() => _loading = true);
+                              final id = await _createWeighbridge(_newWeighbridgeCtrl.text.trim());
+                              if (id != null && mounted) {
+                                _newWeighbridgeCtrl.clear();
+                                setState(() => _selectedWeighbridgeId = id);
+                              }
+                              if (mounted) setState(() => _loading = false);
+                            }
+                          : null,
+                      icon: _loading
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.add_rounded, size: 16),
+                      label: const Text('Create Weighbridge'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton.icon(
+                onPressed: () => setState(() => _subStep = 0),
+                icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                label: const Text('Back'),
+              ),
+              FilledButton.icon(
+                onPressed: _selectedWeighbridgeId != null ? (_loading ? null : _finish) : null,
+                icon: _loading
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.check_rounded, size: 16),
+                label: const Text('Configure'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
+}
 
-  Widget _buildInput(String label, ValueChanged<String> onChanged, {String? hint}) {
+// ─── Reusable Widgets ────────────────────────────────────────────────────────
+
+class _StepIndicator extends StatelessWidget {
+  final int currentStep;
+  final ColorScheme scheme;
+  final TextTheme text;
+
+  const _StepIndicator({required this.currentStep, required this.scheme, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    const labels = ['Site', 'Weighbridge'];
+    return Row(
+      children: List.generate(2, (i) {
+        final isActive = i <= currentStep;
+        final isCurrent = i == currentStep;
+        return Expanded(
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isActive ? scheme.primary : scheme.surfaceContainerHigh,
+                  border: isCurrent ? Border.all(color: scheme.primary, width: 2) : null,
+                ),
+                child: Center(
+                  child: i < currentStep
+                      ? Icon(Icons.check_rounded, size: 14, color: scheme.onPrimary)
+                      : Text('${i + 1}', style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: isActive ? scheme.onPrimary : scheme.onSurfaceVariant,
+                        )),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(labels[i], style: TextStyle(
+                fontSize: 12,
+                fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                color: isCurrent ? scheme.onSurface : scheme.onSurfaceVariant,
+              )),
+              if (i < 1) Expanded(
+                child: Container(
+                  height: 2,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  color: i < currentStep ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.3),
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _SubStepCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final Widget child;
+  final ColorScheme scheme;
+  final TextTheme text;
+
+  const _SubStepCard({
+    required this.icon, required this.title, required this.description,
+    required this.child, required this.scheme, required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(color: scheme.shadow.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 18, color: scheme.primary),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(description, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _StyledTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final IconData icon;
+  final ValueChanged<String>? onChanged;
+
+  const _StyledTextField({
+    required this.controller, required this.label, required this.hint,
+    required this.icon, this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return TextField(
+      controller: controller,
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
+        prefixIcon: Icon(icon, size: 18),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
       ),
-      onChanged: onChanged,
     );
   }
 }
@@ -302,15 +602,16 @@ class _CollectionSelector extends StatelessWidget {
   final Stream<QuerySnapshot> stream;
   final String? selected;
   final ValueChanged<String> onSelected;
+  final ValueChanged<String>? onDelete;
   final String emptyText;
+  final IconData icon;
   final bool showLocation;
+  final int? maxItems;
 
   const _CollectionSelector({
-    required this.stream,
-    required this.selected,
-    required this.onSelected,
-    required this.emptyText,
-    this.showLocation = false,
+    required this.stream, required this.selected, required this.onSelected,
+    required this.emptyText, required this.icon, this.showLocation = false,
+    this.onDelete, this.maxItems,
   });
 
   @override
@@ -320,65 +621,95 @@ class _CollectionSelector extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: stream,
       builder: (context, snap) {
-        if (!snap.hasData) return const LinearProgressIndicator();
+        if (!snap.hasData) return const Padding(padding: EdgeInsets.all(8), child: LinearProgressIndicator());
         final docs = snap.data!.docs;
-        if (docs.isEmpty) return Text(emptyText, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant));
-        return Column(
-          children: docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            final isSelected = doc.id == selected;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 4),
-              child: ListTile(
-                title: Text(data['name'] ?? doc.id),
-                subtitle: showLocation && data['location'] != null && (data['location'] as String).isNotEmpty
-                    ? Text(data['location'])
-                    : null,
-                leading: Icon(isSelected ? Icons.radio_button_checked : Icons.radio_button_off, color: isSelected ? scheme.primary : null),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                selected: isSelected,
-                selectedTileColor: scheme.primary.withValues(alpha: 0.06),
-                onTap: () => onSelected(doc.id),
-              ),
-            );
-          }).toList(),
+        if (docs.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHigh.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: scheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Text(emptyText, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+              ],
+            ),
+          );
+        }
+        if (docs.length == 1 && selected == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => onSelected(docs.first.id));
+        }
+        return Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            children: [
+              for (int i = 0; i < docs.length; i++) ...[
+                if (i > 0) Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.15)),
+                _buildItem(docs[i], scheme),
+              ],
+            ],
+          ),
         );
       },
     );
   }
-}
 
-class _CreateNewSection extends StatelessWidget {
-  final String label;
-  final List<Widget> fields;
-  final bool canCreate;
-  final bool loading;
-  final VoidCallback onCreate;
+  Widget _buildItem(QueryDocumentSnapshot doc, ColorScheme scheme) {
+    final data = doc.data() as Map<String, dynamic>;
+    final isSelected = doc.id == selected;
+    final name = data['name'] as String? ?? doc.id;
+    final location = showLocation ? data['location'] as String? : null;
 
-  const _CreateNewSection({
-    required this.label,
-    required this.fields,
-    required this.canCreate,
-    required this.loading,
-    required this.onCreate,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ExpansionTile(
-      title: Text(label, style: Theme.of(context).textTheme.labelLarge),
-      tilePadding: EdgeInsets.zero,
-      childrenPadding: const EdgeInsets.only(bottom: 8),
-      children: [
-        ...fields,
-        const SizedBox(height: 12),
-        FilledButton(
-          onPressed: canCreate && !loading ? onCreate : null,
-          child: loading
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Create'),
+    return InkWell(
+      onTap: () => onSelected(doc.id),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? scheme.primary.withValues(alpha: 0.06) : null,
         ),
-      ],
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              size: 18,
+              color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 12),
+            Icon(icon, size: 16, color: isSelected ? scheme.primary : scheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected ? scheme.primary : scheme.onSurface,
+                  )),
+                  if (location != null && location.isNotEmpty)
+                    Text(location, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            if (onDelete != null)
+              IconButton(
+                onPressed: () => onDelete!(doc.id),
+                icon: Icon(Icons.delete_outline_rounded, size: 16, color: scheme.error.withValues(alpha: 0.7)),
+                tooltip: 'Remove',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

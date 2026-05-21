@@ -7,9 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
+import 'package:weighbridgemanagement/features/weighment/application/weighment_providers.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 
@@ -71,6 +72,12 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
   bool _dtrEnable = false;
   bool _rtsEnable = false;
 
+  // Weighment Mode (per weighbridge)
+  String _weighmentEntryMode = 'multiEntry'; // 'singleEntry' or 'multiEntry'
+  bool _allowCrossWeighbridge = false;
+  double _minWeightDiff = 0;
+  bool _lockFieldsOnSecondWeigh = true;
+
   // Advanced mode
   bool _advancedMode = false;
 
@@ -83,6 +90,10 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
   String? _headerMsg;
   bool _headerMsgIsError = false;
   Timer? _headerMsgTimer;
+
+  // Multi-weighbridge context
+  List<({String siteId, String siteName, String wbId, String wbName})> _allWeighbridges = [];
+  bool _wbListLoaded = false;
 
   List<String> _ports = [];
   final _baudRates = ['110', '300', '600', '1200', '2400', '4800', '9600', '14400', '19200', '38400', '57600', '115200', '128000', '256000'];
@@ -116,6 +127,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
     _allowManualEntry = data['allowManualEntry'] ?? false;
     _manualPasswordCtrl.text = data['manualEntryPassword'] ?? '';
     _requireFaceVerification = data['requireFaceVerification'] ?? false;
+    _loadWeighmentMode();
     final savedPort = data['port'] ?? '';
     _port = _ports.contains(savedPort) ? savedPort : (_ports.isNotEmpty ? _ports.first : '');
     _baudRate = data['baudRate'] ?? 9600;
@@ -140,6 +152,36 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
     _weightRegex = data['weightRegex'] ?? r'(\d+\.?\d*)';
     _dtrEnable = data['dtrEnable'] ?? false;
     _rtsEnable = data['rtsEnable'] ?? false;
+  }
+
+  Future<void> _loadWeighmentMode() async {
+    final paths = ref.read(firestorePathsProvider);
+    if (!paths.isConfigured) return;
+    try {
+      final doc = await paths.weighbridgeSetting('weighmentMode').get();
+      if (doc.exists && doc.data() != null && mounted) {
+        setState(() {
+          _weighmentEntryMode = doc.data()!['entryMode'] as String? ?? 'multiEntry';
+          _allowCrossWeighbridge = doc.data()!['allowCrossWeighbridge'] as bool? ?? false;
+          _minWeightDiff = (doc.data()!['minWeightDiff'] as num?)?.toDouble() ?? 0;
+          _lockFieldsOnSecondWeigh = doc.data()!['lockFieldsOnSecondWeigh'] as bool? ?? true;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveWeighmentMode() async {
+    final paths = ref.read(firestorePathsProvider);
+    if (!paths.isConfigured) return;
+    await paths.weighbridgeSetting('weighmentMode').set({
+      'entryMode': _weighmentEntryMode,
+      'allowCrossWeighbridge': _allowCrossWeighbridge,
+      'minWeightDiff': _minWeightDiff,
+      'lockFieldsOnSecondWeigh': _lockFieldsOnSecondWeigh,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    ref.invalidate(weighmentModeConfigProvider);
+    _showHeaderMsg('Weighment mode saved');
   }
 
   String get _autoDetectHint {
@@ -530,6 +572,177 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
     setState(() { _testResult = null; _liveWeight = 0; _liveStable = false; _rawStream = ''; });
   }
 
+  Future<void> _loadWeighbridges() async {
+    if (_wbListLoaded) return;
+    _wbListLoaded = true;
+    final ctx = ref.read(siteContextProvider);
+    if (ctx.companyId.isEmpty) return;
+    final db = FirebaseFirestore.instance;
+    final sitesSnap = await db.collection('companies/${ctx.companyId}/sites').get();
+    final list = <({String siteId, String siteName, String wbId, String wbName})>[];
+    for (final site in sitesSnap.docs) {
+      final siteName = site.data()['name'] as String? ?? 'Unnamed Site';
+      final wbSnap = await db.collection('companies/${ctx.companyId}/sites/${site.id}/weighbridges').get();
+      for (final wb in wbSnap.docs) {
+        list.add((siteId: site.id, siteName: siteName, wbId: wb.id, wbName: wb.data()['name'] as String? ?? 'Unnamed WB'));
+      }
+    }
+    if (mounted) setState(() => _allWeighbridges = list);
+  }
+
+  Future<void> _switchWeighbridge(String siteId, String wbId) async {
+    if (_anyDirty) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Unsaved Changes'),
+          content: const Text('Discard unsaved scale settings before switching?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Discard & Switch')),
+          ],
+        ),
+      );
+      if (discard != true) return;
+    }
+    final ctx = ref.read(siteContextProvider);
+    await ref.read(siteContextProvider.notifier).configure(
+      companyId: ctx.companyId,
+      siteId: siteId,
+      weighbridgeId: wbId,
+    );
+    ref.invalidate(firestorePathsProvider);
+    ref.invalidate(_scaleSettingsProvider);
+    ref.invalidate(scaleConfigProvider);
+    _disconnectTest();
+    setState(() {
+      _loaded = false;
+      _dirtyCards.clear();
+      _wbListLoaded = false;
+      _connectionType = 'serial';
+      _port = '';
+      _baudRate = 9600;
+      _dataBits = 8;
+      _parity = 'None';
+      _stopBits = '1';
+      _flowControl = 'None';
+      _tcpHostCtrl.clear();
+      _tcpPortCtrl.text = '3001';
+      _manualPasswordCtrl.clear();
+      _customDelimiterCtrl.clear();
+      _delimiter = '\\r\\n';
+      _weightRegex = r'(\d+\.?\d*)';
+      _dtrEnable = false;
+      _rtsEnable = false;
+      _autoCaptureWhenStable = true;
+      _allowManualEntry = false;
+      _requireFaceVerification = false;
+      _testResult = null;
+    });
+    _loadWeighbridges();
+    _showHeaderMsg('Switched weighbridge');
+  }
+
+  Widget _buildWeighbridgeContextBar(ColorScheme scheme, TextTheme text) {
+    _loadWeighbridges();
+    final ctx = ref.watch(siteContextProvider);
+    final current = _allWeighbridges.where((w) => w.siteId == ctx.siteId && w.wbId == ctx.weighbridgeId).firstOrNull;
+    final hasMultiple = _allWeighbridges.length > 1;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.08),
+        border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.15))),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.scale_rounded, size: 14, color: scheme.primary),
+          const SizedBox(width: 8),
+          Text('Configuring:', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
+            ),
+            child: Text(
+              current != null ? '${current.siteName} / ${current.wbName}' : 'Current Weighbridge',
+              style: text.bodySmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.primary),
+            ),
+          ),
+          if (hasMultiple) ...[
+            const SizedBox(width: 8),
+            PopupMenuButton<int>(
+              tooltip: 'Switch weighbridge',
+              offset: const Offset(0, 32),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.swap_horiz_rounded, size: 13, color: scheme.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    Text('Switch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              itemBuilder: (_) {
+                final items = <PopupMenuEntry<int>>[];
+                String? lastSite;
+                for (var i = 0; i < _allWeighbridges.length; i++) {
+                  final wb = _allWeighbridges[i];
+                  if (wb.siteName != lastSite) {
+                    if (lastSite != null) items.add(const PopupMenuDivider(height: 4));
+                    items.add(PopupMenuItem<int>(
+                      enabled: false,
+                      height: 28,
+                      child: Text(wb.siteName, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.3)),
+                    ));
+                    lastSite = wb.siteName;
+                  }
+                  final isCurrent = wb.siteId == ctx.siteId && wb.wbId == ctx.weighbridgeId;
+                  items.add(PopupMenuItem<int>(
+                    value: i,
+                    enabled: !isCurrent,
+                    child: Row(
+                      children: [
+                        Icon(Icons.scale_rounded, size: 13, color: isCurrent ? scheme.primary : scheme.onSurfaceVariant),
+                        const SizedBox(width: 8),
+                        Text(wb.wbName, style: TextStyle(fontSize: 12, fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500, color: isCurrent ? scheme.primary : scheme.onSurface)),
+                        if (isCurrent) ...[
+                          const SizedBox(width: 8),
+                          Icon(Icons.check_rounded, size: 13, color: scheme.primary),
+                        ],
+                      ],
+                    ),
+                  ));
+                }
+                return items;
+              },
+              onSelected: (idx) {
+                final wb = _allWeighbridges[idx];
+                _switchWeighbridge(wb.siteId, wb.wbId);
+              },
+            ),
+          ],
+          const Spacer(),
+          if (hasMultiple)
+            Text(
+              '${_allWeighbridges.length} weighbridges across ${_allWeighbridges.map((w) => w.siteId).toSet().length} site${_allWeighbridges.map((w) => w.siteId).toSet().length != 1 ? 's' : ''}',
+              style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -541,12 +754,10 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       canPop: !_anyDirty,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        if (await _onWillPop() && mounted) {
-          if (ref.read(wizardModeProvider)) {
-            ref.read(setupWizardProvider.notifier).previousStep();
-          } else {
-            context.go('/settings');
-          }
+        final router = GoRouter.of(context);
+        final shouldPop = await _onWillPop();
+        if (shouldPop && mounted) {
+          router.go('/settings');
         }
       },
       child: Scaffold(
@@ -554,6 +765,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       body: Column(
         children: [
           _buildHeader(scheme, text),
+          _buildWeighbridgeContextBar(scheme, text),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -580,6 +792,8 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                         ],
                       ),
                     ),
+                    const SizedBox(height: 24),
+                    _buildWeighmentModeCard(scheme, text),
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -604,7 +818,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       decoration: BoxDecoration(color: scheme.surface, border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2)))),
       child: Row(
         children: [
-          IconButton(onPressed: () async { if (await _onWillPop()) { if (ref.read(wizardModeProvider)) { ref.read(setupWizardProvider.notifier).previousStep(); } else { context.go('/settings'); } } }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+          IconButton(onPressed: () async { final ok = await _onWillPop(); if (ok && mounted) { context.go('/settings'); } }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
           const SizedBox(width: 10),
           Icon(Icons.scale_rounded, size: 20, color: scheme.primary),
           const SizedBox(width: 8),
@@ -1412,6 +1626,123 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
     );
   }
 
+  Widget _buildWeighmentModeCard(ColorScheme scheme, TextTheme text) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.route_rounded, size: 18, color: scheme.primary),
+              const SizedBox(width: 8),
+              Text('Weighment Mode', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              const Spacer(),
+              FilledButton.tonal(
+                onPressed: _saveWeighmentMode,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Controls whether both weights must happen in a single session or can be split across entries.',
+            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 20),
+          Text('Entry mode', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'singleEntry', label: Text('Single Entry'), icon: Icon(Icons.looks_one_rounded, size: 16)),
+              ButtonSegment(value: 'multiEntry', label: Text('Multi Entry'), icon: Icon(Icons.looks_two_rounded, size: 16)),
+            ],
+            selected: {_weighmentEntryMode},
+            onSelectionChanged: (s) {
+              setState(() {
+                _weighmentEntryMode = s.first;
+                _dirtyCards.add('weighmentMode');
+              });
+            },
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _weighmentEntryMode == 'singleEntry'
+                ? 'Both gross and tare must be captured in a single session. No "Save & Wait" option.'
+                : 'First weight can be saved and the vehicle returns later for the second weight.',
+            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 20),
+          Opacity(
+            opacity: _weighmentEntryMode == 'multiEntry' ? 1.0 : 0.4,
+            child: _SwitchRow(
+              label: 'Allow cross-weighbridge completion',
+              subtitle: 'Pending weighments from other weighbridges in this site can be completed here.',
+              value: _allowCrossWeighbridge,
+              onChanged: (v) {
+                if (_weighmentEntryMode != 'multiEntry') return;
+                setState(() {
+                  _allowCrossWeighbridge = v;
+                  _dirtyCards.add('weighmentMode');
+                });
+              },
+            ),
+          ),
+          if (_weighmentEntryMode == 'multiEntry') ...[
+            const SizedBox(height: 20),
+            _SwitchRow(
+              label: 'Lock fields on second weighment',
+              subtitle: 'Prevent editing vehicle, customer, and material details when completing a pending weighment.',
+              value: _lockFieldsOnSecondWeigh,
+              onChanged: (v) {
+                setState(() {
+                  _lockFieldsOnSecondWeigh = v;
+                  _dirtyCards.add('weighmentMode');
+                });
+              },
+            ),
+          ],
+          if (_weighmentEntryMode == 'singleEntry') ...[
+            const SizedBox(height: 20),
+            Text('Minimum weight difference (kg)', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text(
+              'Reject second weight if |gross − tare| is below this threshold. Set 0 to disable.',
+              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: 160,
+              child: TextField(
+                controller: TextEditingController(text: _minWeightDiff > 0 ? _minWeightDiff.toStringAsFixed(0) : ''),
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: '0',
+                  suffixText: 'kg',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onChanged: (v) {
+                  _minWeightDiff = double.tryParse(v) ?? 0;
+                  _dirtyCards.add('weighmentMode');
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _Section extends StatelessWidget {

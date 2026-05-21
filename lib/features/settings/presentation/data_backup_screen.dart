@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 
 // ─── Local persistence ───────────────────────────────────────────────────────
@@ -211,6 +212,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
 
     final manifest = <String, dynamic>{
       'timestamp': DateTime.now().toIso8601String(),
+      'scope': 'site',
       'includes': {
         'weighments': _backupWeighments,
         'settings': _backupSettings,
@@ -260,12 +262,429 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     }
 
     await File('${dir.path}/manifest.json').writeAsString(_encodeJson(manifest));
+    ref.read(auditServiceProvider).log(event: 'export', description: 'Site-level backup created');
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Backup saved to ${dir.path}'),
         backgroundColor: Theme.of(context).colorScheme.primary,
       ));
+    }
+  }
+
+  Future<void> _companyBackup() async {
+    final result = await Process.run('osascript', [
+      '-e', 'POSIX path of (choose folder with prompt "Choose export location for company backup")',
+    ]);
+    if (result.exitCode != 0) return;
+    final chosen = (result.stdout as String).trim();
+    if (chosen.isEmpty) return;
+    final basePath = chosen.endsWith('/') ? chosen.substring(0, chosen.length - 1) : chosen;
+
+    final db = ref.read(firestorePathsProvider);
+    final companyId = db.context.companyId;
+    final firestore = db.firestore;
+    final timestamp = DateFormat('yyyy-MM-dd_HHmmss').format(DateTime.now());
+    final dir = Directory('$basePath/company_backup_$timestamp');
+    dir.createSync(recursive: true);
+
+    final progress = ValueNotifier<String>('Starting...');
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => ValueListenableBuilder<String>(
+          valueListenable: progress,
+          builder: (_, msg, __) => AlertDialog(
+            content: Row(
+              children: [
+                const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+                const SizedBox(width: 16),
+                Expanded(child: Text(msg, style: const TextStyle(fontSize: 13))),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    try {
+      // 1. Company document
+      progress.value = 'Exporting company info...';
+      final companyDoc = await firestore.doc('companies/$companyId').get();
+      if (companyDoc.exists) {
+        await File('${dir.path}/company.json').writeAsString(_encodeJson({'id': companyId, ...companyDoc.data()!}));
+      }
+
+      // 2. Company-level collections
+      progress.value = 'Exporting operators...';
+      await _exportCollection(firestore.collection('companies/$companyId/operators'), '${dir.path}/operators.json');
+
+      progress.value = 'Exporting customers...';
+      await _exportCollection(firestore.collection('companies/$companyId/customers'), '${dir.path}/customers.json');
+
+      progress.value = 'Exporting deleted customers...';
+      await _exportCollection(firestore.collection('companies/$companyId/customers_deleted'), '${dir.path}/customers_deleted.json');
+
+      progress.value = 'Exporting customer merges...';
+      await _exportCollection(firestore.collection('companies/$companyId/customer_merges'), '${dir.path}/customer_merges.json');
+
+      progress.value = 'Exporting vehicles...';
+      await _exportCollection(firestore.collection('companies/$companyId/vehicles'), '${dir.path}/vehicles.json');
+
+      progress.value = 'Exporting audit log...';
+      await _exportCollection(firestore.collection('companies/$companyId/auditLog'), '${dir.path}/audit_log.json', limit: 50000);
+
+      progress.value = 'Exporting notifications...';
+      await _exportCollection(firestore.collection('companies/$companyId/notifications'), '${dir.path}/notifications.json');
+
+      // 3. Sites
+      progress.value = 'Exporting sites...';
+      final sitesSnap = await firestore.collection('companies/$companyId/sites').get();
+      final sitesData = <Map<String, dynamic>>[];
+
+      for (final siteDoc in sitesSnap.docs) {
+        final siteId = siteDoc.id;
+        final siteDir = Directory('${dir.path}/sites/$siteId');
+        siteDir.createSync(recursive: true);
+
+        sitesData.add({'id': siteId, ...siteDoc.data()});
+
+        // Site settings
+        progress.value = 'Exporting site settings (${siteDoc.data()['name'] ?? siteId})...';
+        final settingsSnap = await firestore.collection('companies/$companyId/sites/$siteId/settings').get();
+        final settings = <String, dynamic>{};
+        for (final s in settingsSnap.docs) {
+          settings[s.id] = s.data();
+        }
+        await File('${siteDir.path}/settings.json').writeAsString(_encodeJson(settings));
+
+        // Site sessions
+        await _exportCollection(
+          firestore.collection('companies/$companyId/sites/$siteId/sessions'),
+          '${siteDir.path}/sessions.json',
+        );
+
+        // Weighbridges
+        final wbSnap = await firestore.collection('companies/$companyId/sites/$siteId/weighbridges').get();
+        for (final wbDoc in wbSnap.docs) {
+          final wbId = wbDoc.id;
+          final wbDir = Directory('${siteDir.path}/weighbridges/$wbId');
+          wbDir.createSync(recursive: true);
+
+          await File('${wbDir.path}/info.json').writeAsString(_encodeJson({'id': wbId, ...wbDoc.data()}));
+
+          // WB settings
+          final wbSettingsSnap = await firestore.collection('companies/$companyId/sites/$siteId/weighbridges/$wbId/settings').get();
+          final wbSettings = <String, dynamic>{};
+          for (final s in wbSettingsSnap.docs) {
+            wbSettings[s.id] = s.data();
+          }
+          await File('${wbDir.path}/settings.json').writeAsString(_encodeJson(wbSettings));
+
+          // Weighments
+          progress.value = 'Exporting weighments (${wbDoc.data()['name'] ?? wbId})...';
+          await _exportCollection(
+            firestore.collection('companies/$companyId/sites/$siteId/weighbridges/$wbId/weighments'),
+            '${wbDir.path}/weighments.json',
+            limit: 50000,
+          );
+
+          // Materials
+          await _exportCollection(
+            firestore.collection('companies/$companyId/sites/$siteId/weighbridges/$wbId/materials'),
+            '${wbDir.path}/materials.json',
+          );
+
+          // Counters
+          await _exportCollection(
+            firestore.collection('companies/$companyId/sites/$siteId/weighbridges/$wbId/counters'),
+            '${wbDir.path}/counters.json',
+          );
+
+          // Cameras
+          await _exportCollection(
+            firestore.collection('companies/$companyId/sites/$siteId/weighbridges/$wbId/cameras'),
+            '${wbDir.path}/cameras.json',
+          );
+
+          // Print log
+          await _exportCollection(
+            firestore.collection('companies/$companyId/sites/$siteId/weighbridges/$wbId/print_log'),
+            '${wbDir.path}/print_log.json',
+            limit: 10000,
+          );
+        }
+      }
+
+      await File('${dir.path}/sites.json').writeAsString(_encodeJson(sitesData));
+
+      // 4. Manifest
+      final manifest = {
+        'version': '1.0',
+        'scope': 'company',
+        'companyId': companyId,
+        'timestamp': DateTime.now().toIso8601String(),
+        'siteCount': sitesSnap.docs.length,
+        'weighbridgeCount': sitesSnap.docs.fold<int>(0, (total, _) => total),
+      };
+      await File('${dir.path}/manifest.json').writeAsString(_encodeJson(manifest));
+
+      ref.read(auditServiceProvider).log(event: 'export', description: 'Full company backup created');
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Company backup saved to ${dir.path}'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Backup failed: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ));
+      }
+    }
+  }
+
+  Future<void> _exportCollection(
+    CollectionReference<Map<String, dynamic>> collection,
+    String filePath, {
+    int limit = 0,
+  }) async {
+    try {
+      Query<Map<String, dynamic>> query = collection;
+      if (limit > 0) query = query.limit(limit);
+      final snap = await query.get();
+      if (snap.docs.isEmpty) return;
+      final items = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+      await File(filePath).writeAsString(_encodeJson(items));
+    } catch (_) {}
+  }
+
+  Future<void> _companyRestore() async {
+    final result = await Process.run('osascript', [
+      '-e', 'POSIX path of (choose folder with prompt "Select company backup folder (contains manifest.json)")',
+    ]);
+    if (result.exitCode != 0) return;
+    final chosen = (result.stdout as String).trim();
+    if (chosen.isEmpty) return;
+    final backupDir = chosen.endsWith('/') ? chosen.substring(0, chosen.length - 1) : chosen;
+
+    final manifestFile = File('$backupDir/manifest.json');
+    if (!manifestFile.existsSync()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Invalid backup folder — manifest.json not found'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ));
+      }
+      return;
+    }
+
+    final manifest = jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
+    if (!mounted) return;
+    if (manifest['scope'] != 'company') {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Not a company-level backup. Use site backup restore instead.'),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ));
+      return;
+    }
+
+    final scheme = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          Icon(Icons.warning_rounded, color: scheme.error),
+          const SizedBox(width: 8),
+          const Text('Restore Company Backup'),
+        ]),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('This will OVERWRITE existing data with the backup contents.', style: TextStyle(fontWeight: FontWeight.w600, color: scheme.error)),
+              const SizedBox(height: 12),
+              Text('Backup from: ${manifest['timestamp'] ?? 'Unknown'}'),
+              Text('Sites: ${manifest['siteCount'] ?? '?'}'),
+              const SizedBox(height: 12),
+              const Text('Existing records with the same ID will be replaced. New records from the backup will be added.'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: scheme.error),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final db = ref.read(firestorePathsProvider);
+    final companyId = db.context.companyId;
+    final firestore = db.firestore;
+
+    final progress = ValueNotifier<String>('Starting restore...');
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => ValueListenableBuilder<String>(
+          valueListenable: progress,
+          builder: (_, msg, __) => AlertDialog(
+            content: Row(
+              children: [
+                const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+                const SizedBox(width: 16),
+                Expanded(child: Text(msg, style: const TextStyle(fontSize: 13))),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    try {
+      // Restore company doc
+      final companyFile = File('$backupDir/company.json');
+      if (companyFile.existsSync()) {
+        progress.value = 'Restoring company info...';
+        final data = jsonDecode(await companyFile.readAsString()) as Map<String, dynamic>;
+        data.remove('id');
+        await firestore.doc('companies/$companyId').set(data, SetOptions(merge: true));
+      }
+
+      // Restore company-level collections
+      for (final col in ['operators', 'customers', 'customers_deleted', 'customer_merges', 'vehicles', 'notifications']) {
+        final file = File('$backupDir/$col.json');
+        if (file.existsSync()) {
+          progress.value = 'Restoring $col...';
+          await _restoreCollection(firestore.collection('companies/$companyId/$col'), file);
+        }
+      }
+
+      // Restore audit log
+      final auditFile = File('$backupDir/audit_log.json');
+      if (auditFile.existsSync()) {
+        progress.value = 'Restoring audit log...';
+        await _restoreCollection(firestore.collection('companies/$companyId/auditLog'), auditFile);
+      }
+
+      // Restore sites
+      final sitesDir = Directory('$backupDir/sites');
+      if (sitesDir.existsSync()) {
+        final siteFolders = sitesDir.listSync().whereType<Directory>();
+        for (final siteFolder in siteFolders) {
+          final siteId = siteFolder.path.split('/').last;
+          progress.value = 'Restoring site $siteId...';
+
+          // Site settings
+          final settingsFile = File('${siteFolder.path}/settings.json');
+          if (settingsFile.existsSync()) {
+            final settings = jsonDecode(await settingsFile.readAsString()) as Map<String, dynamic>;
+            for (final entry in settings.entries) {
+              await firestore.doc('companies/$companyId/sites/$siteId/settings/${entry.key}').set(
+                Map<String, dynamic>.from(entry.value as Map),
+                SetOptions(merge: true),
+              );
+            }
+          }
+
+          // Sessions
+          final sessionsFile = File('${siteFolder.path}/sessions.json');
+          if (sessionsFile.existsSync()) {
+            await _restoreCollection(firestore.collection('companies/$companyId/sites/$siteId/sessions'), sessionsFile);
+          }
+
+          // Weighbridges
+          final wbDir = Directory('${siteFolder.path}/weighbridges');
+          if (wbDir.existsSync()) {
+            final wbFolders = wbDir.listSync().whereType<Directory>();
+            for (final wbFolder in wbFolders) {
+              final wbId = wbFolder.path.split('/').last;
+              progress.value = 'Restoring weighbridge $wbId...';
+
+              // WB info
+              final infoFile = File('${wbFolder.path}/info.json');
+              if (infoFile.existsSync()) {
+                final data = jsonDecode(await infoFile.readAsString()) as Map<String, dynamic>;
+                data.remove('id');
+                await firestore.doc('companies/$companyId/sites/$siteId/weighbridges/$wbId').set(data, SetOptions(merge: true));
+              }
+
+              // WB settings
+              final wbSettingsFile = File('${wbFolder.path}/settings.json');
+              if (wbSettingsFile.existsSync()) {
+                final settings = jsonDecode(await wbSettingsFile.readAsString()) as Map<String, dynamic>;
+                for (final entry in settings.entries) {
+                  await firestore.doc('companies/$companyId/sites/$siteId/weighbridges/$wbId/settings/${entry.key}').set(
+                    Map<String, dynamic>.from(entry.value as Map),
+                    SetOptions(merge: true),
+                  );
+                }
+              }
+
+              // WB collections
+              final wbBasePath = 'companies/$companyId/sites/$siteId/weighbridges/$wbId';
+              for (final col in ['weighments', 'materials', 'counters', 'cameras', 'print_log']) {
+                final file = File('${wbFolder.path}/$col.json');
+                if (file.existsSync()) {
+                  progress.value = 'Restoring $col for $wbId...';
+                  await _restoreCollection(firestore.collection('$wbBasePath/$col'), file);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      ref.read(auditServiceProvider).log(event: 'settingChange', description: 'Company backup restored from ${manifest['timestamp']}');
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Company backup restored successfully. Restart the app to apply all changes.'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Restore failed: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ));
+      }
+    }
+  }
+
+  Future<void> _restoreCollection(CollectionReference<Map<String, dynamic>> collection, File file) async {
+    final items = (jsonDecode(await file.readAsString()) as List).cast<Map<String, dynamic>>();
+    var batch = FirebaseFirestore.instance.batch();
+    int count = 0;
+    for (final item in items) {
+      final id = item.remove('id') as String?;
+      if (id == null) continue;
+      batch.set(collection.doc(id), item, SetOptions(merge: true));
+      count++;
+      if (count % 450 == 0) {
+        await batch.commit();
+        batch = FirebaseFirestore.instance.batch();
+      }
+    }
+    if (count % 450 != 0) {
+      await batch.commit();
     }
   }
 
@@ -380,12 +799,14 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Encryption failed: ${encResult.stderr}'), backgroundColor: Theme.of(context).colorScheme.error));
           return;
         }
+        ref.read(auditServiceProvider).log(event: 'export', description: 'Settings exported (encrypted)');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Encrypted settings exported to $encPath'), backgroundColor: Theme.of(context).colorScheme.primary));
         }
       } else {
         final path = '${dir.path}/system_settings_${DateFormat('yyyy-MM-dd_HHmmss').format(DateTime.now())}.json';
         await File(path).writeAsString(jsonStr);
+        ref.read(auditServiceProvider).log(event: 'export', description: 'Settings exported (plaintext)');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Settings exported to $path'), backgroundColor: Theme.of(context).colorScheme.primary));
         }
@@ -603,6 +1024,9 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                         ],
                       ),
                     ),
+                    const SizedBox(height: 24),
+                    // ═══ Row 4: Company Backup ═══
+                    _buildCompanyBackupSection(scheme, text),
                   ],
                 ),
               ),
@@ -1025,6 +1449,64 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
             textStyle: const TextStyle(fontSize: 11),
             side: BorderSide(color: scheme.error.withValues(alpha: 0.4)),
           ),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPANY BACKUP SECTION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildCompanyBackupSection(ColorScheme scheme, TextTheme text) {
+    return _SectionCard(
+      icon: Icons.business_rounded,
+      title: 'Company Backup',
+      scheme: scheme,
+      text: text,
+      children: [
+        Text(
+          'Export or restore the entire company — all sites, weighbridges, settings, operators, customers, vehicles, weighments, and audit logs. Use for full disaster recovery or migrating to a new system.',
+          style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Icon(Icons.info_outline_rounded, size: 14, color: scheme.primary),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Company backup includes all data across every site and weighbridge in your organization.',
+                style: text.labelSmall?.copyWith(color: scheme.primary, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.icon(
+              onPressed: _companyBackup,
+              icon: const Icon(Icons.backup_rounded, size: 14),
+              label: const Text('Company Backup'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                textStyle: const TextStyle(fontSize: 11),
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: _companyRestore,
+              icon: Icon(Icons.restore_rounded, size: 14, color: scheme.error),
+              label: Text('Company Restore', style: TextStyle(color: scheme.error)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                textStyle: const TextStyle(fontSize: 11),
+                side: BorderSide(color: scheme.error.withValues(alpha: 0.4)),
+              ),
+            ),
+          ],
         ),
       ],
     );

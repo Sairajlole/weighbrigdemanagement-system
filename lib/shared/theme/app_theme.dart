@@ -5,6 +5,8 @@ class AppTheme {
   static const _seed = Color(0xFF059669);
   static const defaultAccent = Color(0xFF059669);
   static const successColor = Color(0xFF059669);
+  static const proColor = Color(0xFF7C3AED);
+  static const proGradient = [Color(0xFF7C3AED), Color(0xFF4F46E5)];
 
   static ThemeData lightFrom({Color? seed}) {
     return _build(seed ?? _seed, Brightness.light);

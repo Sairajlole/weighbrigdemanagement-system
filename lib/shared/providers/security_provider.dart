@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
+import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 
 // ─── Security Settings Model ─────────────────────────────────────────────────
 
@@ -23,6 +24,10 @@ class SecuritySettings {
   final bool opCanManageCustomers;
   final bool opCanManageMaterials;
   final bool opCanDeleteRecords;
+  final bool opCanAccessPrinting;
+  final bool opCanAccessGateControl;
+  final bool opCanAccessCameras;
+  final bool opCanAccessWeighbridge;
 
   // KYC enforcement
   final bool requireKycForSensitiveOps;
@@ -42,6 +47,9 @@ class SecuritySettings {
   final bool encryptBackups;
 
   // Operator verification
+  final bool faceVerifyOnWeighmentStart;
+  final bool faceVerifyOnSessionStart;
+  final bool faceVerifyOnDayStart;
   final bool shiftBasedLogin;
   final bool forcePasswordChangeFirstLogin;
   final int passwordExpiryDays;
@@ -77,6 +85,10 @@ class SecuritySettings {
     this.opCanManageCustomers = false,
     this.opCanManageMaterials = false,
     this.opCanDeleteRecords = false,
+    this.opCanAccessPrinting = false,
+    this.opCanAccessGateControl = false,
+    this.opCanAccessCameras = false,
+    this.opCanAccessWeighbridge = false,
     this.requireKycForSensitiveOps = false,
     this.auditEnabled = true,
     this.auditLogSettingChanges = true,
@@ -88,6 +100,9 @@ class SecuritySettings {
     this.autoLockMinutes = 5,
     this.maskSensitiveFields = true,
     this.encryptBackups = false,
+    this.faceVerifyOnWeighmentStart = false,
+    this.faceVerifyOnSessionStart = false,
+    this.faceVerifyOnDayStart = false,
     this.shiftBasedLogin = false,
     this.forcePasswordChangeFirstLogin = true,
     this.passwordExpiryDays = 0,
@@ -117,6 +132,10 @@ class SecuritySettings {
       opCanManageCustomers: data['opCanManageCustomers'] as bool? ?? false,
       opCanManageMaterials: data['opCanManageMaterials'] as bool? ?? false,
       opCanDeleteRecords: data['opCanDeleteRecords'] as bool? ?? false,
+      opCanAccessPrinting: data['opCanAccessPrinting'] as bool? ?? false,
+      opCanAccessGateControl: data['opCanAccessGateControl'] as bool? ?? false,
+      opCanAccessCameras: data['opCanAccessCameras'] as bool? ?? false,
+      opCanAccessWeighbridge: data['opCanAccessWeighbridge'] as bool? ?? false,
       requireKycForSensitiveOps: data['requireKycForSensitiveOps'] as bool? ?? false,
       auditEnabled: data['auditEnabled'] as bool? ?? true,
       auditLogSettingChanges: data['auditLogSettingChanges'] as bool? ?? true,
@@ -128,6 +147,9 @@ class SecuritySettings {
       autoLockMinutes: data['autoLockMinutes'] as int? ?? 5,
       maskSensitiveFields: data['maskSensitiveFields'] as bool? ?? true,
       encryptBackups: data['encryptBackups'] as bool? ?? false,
+      faceVerifyOnWeighmentStart: data['faceVerifyOnWeighmentStart'] as bool? ?? data['requireFaceVerification'] as bool? ?? false,
+      faceVerifyOnSessionStart: data['faceVerifyOnSessionStart'] as bool? ?? false,
+      faceVerifyOnDayStart: data['faceVerifyOnDayStart'] as bool? ?? false,
       shiftBasedLogin: data['shiftBasedLogin'] as bool? ?? false,
       forcePasswordChangeFirstLogin: data['forcePasswordChangeFirstLogin'] as bool? ?? true,
       passwordExpiryDays: data['passwordExpiryDays'] as int? ?? 0,
@@ -166,12 +188,14 @@ final securitySettingsProvider = StreamProvider<SecuritySettings>((ref) {
 final currentUserRoleProvider = FutureProvider<String>((ref) async {
   final paths = ref.watch(firestorePathsProvider);
   final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return Platform.isMacOS ? 'admin' : 'operator';
+  final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
+  if (email == null || email.isEmpty) return Platform.isMacOS ? 'admin' : 'operator';
   if (!paths.isConfigured) return 'admin';
   try {
-    final doc = await paths.operators.where('email', isEqualTo: user.email).limit(1).get();
+    final doc = await paths.operators.where('email', isEqualTo: email).limit(1).get();
     if (doc.docs.isNotEmpty) {
-      return doc.docs.first.data()['role'] as String? ?? 'operator';
+      final role = doc.docs.first.data()['role'] as String? ?? 'operator';
+      return (role == 'companyAdmin' || role == 'admin') ? 'admin' : role;
     }
   } catch (_) {}
   return 'admin';
@@ -197,21 +221,105 @@ final currentOperatorKycProvider = FutureProvider<bool>((ref) async {
   return false;
 });
 
+// ─── Operator Active Status ─────────────────────────────────────────────────
+
+final currentOperatorActiveProvider = FutureProvider<bool>((ref) async {
+  final paths = ref.watch(firestorePathsProvider);
+  final user = FirebaseAuth.instance.currentUser;
+  final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
+  if (email == null || email.isEmpty) return true;
+  if (!paths.isConfigured) return true;
+  try {
+    final snap = await paths.operators.where('email', isEqualTo: email).limit(1).get();
+    if (snap.docs.isEmpty) return true;
+    return snap.docs.first.data()['isActive'] as bool? ?? true;
+  } catch (_) {}
+  return true;
+});
+
+// ─── Current Operator Name ──────────────────────────────────────────────────
+
+final currentOperatorNameProvider = Provider<String>((ref) {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return '';
+  // Read from the operator permissions provider which already fetched the doc
+  // We piggyback on the KYC provider's query result pattern
+  return ref.watch(_operatorNameFutureProvider).valueOrNull ?? '';
+});
+
+final _operatorNameFutureProvider = FutureProvider<String>((ref) async {
+  final paths = ref.watch(firestorePathsProvider);
+  final user = FirebaseAuth.instance.currentUser;
+  final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
+  if (email == null || email.isEmpty) return '';
+  if (!paths.isConfigured) return '';
+  try {
+    final snap = await paths.operators.where('email', isEqualTo: email).limit(1).get();
+    if (snap.docs.isNotEmpty) {
+      return snap.docs.first.data()['name'] as String? ?? '';
+    }
+  } catch (_) {}
+  return user?.displayName ?? email;
+});
+
+// ─── Per-Operator Permissions ───────────────────────────────────────────────
+
+class OperatorPermissions {
+  final bool canViewCustomers;
+  final bool canViewWeighments;
+  final bool canViewReports;
+  final bool ownWeighmentsOnly;
+
+  const OperatorPermissions({
+    this.canViewCustomers = true,
+    this.canViewWeighments = true,
+    this.canViewReports = true,
+    this.ownWeighmentsOnly = false,
+  });
+
+  factory OperatorPermissions.fromMap(Map<String, dynamic> data) {
+    return OperatorPermissions(
+      canViewCustomers: data['canViewCustomers'] as bool? ?? true,
+      canViewWeighments: data['canViewWeighments'] as bool? ?? true,
+      canViewReports: data['canViewReports'] as bool? ?? true,
+      ownWeighmentsOnly: data['ownWeighmentsOnly'] as bool? ?? false,
+    );
+  }
+}
+
+final currentOperatorPermissionsProvider = FutureProvider<OperatorPermissions>((ref) async {
+  final paths = ref.watch(firestorePathsProvider);
+  final user = FirebaseAuth.instance.currentUser;
+  final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
+  if (email == null || email.isEmpty) return const OperatorPermissions();
+  if (!paths.isConfigured) return const OperatorPermissions();
+  try {
+    final snap = await paths.operators.where('email', isEqualTo: email).limit(1).get();
+    if (snap.docs.isEmpty) return const OperatorPermissions();
+    return OperatorPermissions.fromMap(snap.docs.first.data());
+  } catch (_) {}
+  return const OperatorPermissions();
+});
+
 // ─── Permission Check Service ────────────────────────────────────────────────
 
 final permissionServiceProvider = Provider<PermissionService>((ref) {
   final settings = ref.watch(securitySettingsProvider).valueOrNull ?? const SecuritySettings();
   final isAdmin = ref.watch(isAdminProvider);
   final kycVerified = ref.watch(currentOperatorKycProvider).valueOrNull ?? true;
-  return PermissionService(settings: settings, isAdmin: isAdmin, kycVerified: kycVerified);
+  final isActive = ref.watch(currentOperatorActiveProvider).valueOrNull ?? true;
+  final opPerms = ref.watch(currentOperatorPermissionsProvider).valueOrNull ?? const OperatorPermissions();
+  return PermissionService(settings: settings, isAdmin: isAdmin, kycVerified: kycVerified, isDeactivated: !isAdmin && !isActive, opPerms: opPerms);
 });
 
 class PermissionService {
   final SecuritySettings settings;
   final bool isAdmin;
   final bool kycVerified;
+  final bool isDeactivated;
+  final OperatorPermissions opPerms;
 
-  const PermissionService({required this.settings, required this.isAdmin, required this.kycVerified});
+  const PermissionService({required this.settings, required this.isAdmin, required this.kycVerified, this.isDeactivated = false, this.opPerms = const OperatorPermissions()});
 
   bool get _kycOk => isAdmin || !settings.requireKycForSensitiveOps || kycVerified;
 
@@ -224,11 +332,19 @@ class PermissionService {
 
   // Not KYC-gated
   bool get canReprint => isAdmin || settings.opCanReprint;
-  bool get canViewReports => isAdmin || settings.opCanViewReports;
+  bool get canViewReports => isAdmin || (settings.opCanViewReports && opPerms.canViewReports);
   bool get canViewCctv => isAdmin || settings.opCanViewCctv;
   bool get canAccessSettings => isAdmin || settings.opCanChangeSettings;
-  bool get canManageCustomers => isAdmin || settings.opCanManageCustomers;
+  bool get canManageCustomers => isAdmin || (settings.opCanManageCustomers && opPerms.canViewCustomers);
   bool get canManageMaterials => isAdmin || settings.opCanManageMaterials;
+  bool get canAccessPrinting => isAdmin || settings.opCanAccessPrinting;
+  bool get canAccessGateControl => isAdmin || settings.opCanAccessGateControl;
+  bool get canAccessCameras => isAdmin || settings.opCanAccessCameras;
+  bool get canAccessWeighbridge => isAdmin || settings.opCanAccessWeighbridge;
+
+  // Per-operator screen visibility
+  bool get canViewWeighments => isAdmin || opPerms.canViewWeighments;
+  bool get ownWeighmentsOnly => !isAdmin && opPerms.ownWeighmentsOnly;
 
   bool get isLockdown => settings.emergencyLockdown && !isAdmin;
   bool get shouldMaskSensitive => !isAdmin && settings.maskSensitiveFields;
@@ -345,54 +461,88 @@ class RemoteDesktopMonitor {
   static const _blockedProcesses = [
     'AnyDesk',
     'anydesk',
+    'AnyDeskHelper',
     'TeamViewer',
+    'TeamViewer_Service',
     'teamviewerd',
+    'TeamViewerDesktop',
     'Chrome Remote Desktop',
     'remoting_host',
+    'chromoting',
     'rustdesk',
     'RustDesk',
     'Splashtop',
     'SplashtopStreamer',
     'VNC',
     'screensharingd',
+    'ScreensharingAgent',
+    'ultraviewer',
+    'UltraViewer',
   ];
 
   Future<bool> isRemoteDesktopRunning() async {
     if (!enabled) return false;
-    try {
-      final result = await Process.run('ps', ['aux']);
-      if (result.exitCode == 0) {
-        final output = result.stdout as String;
-        for (final proc in _blockedProcesses) {
-          if (output.contains(proc)) return true;
-        }
-      }
-    } catch (_) {}
-    return false;
+    final apps = await getRunningRemoteApps();
+    return apps.isNotEmpty;
   }
 
   Future<List<String>> getRunningRemoteApps() async {
     if (!enabled) return [];
-    final found = <String>[];
+    final found = <String>{};
     try {
-      final result = await Process.run('ps', ['aux']);
-      if (result.exitCode == 0) {
-        final output = result.stdout as String;
+      if (Platform.isMacOS) {
+        // Use pgrep for more reliable process detection on macOS
         for (final proc in _blockedProcesses) {
-          if (output.contains(proc)) found.add(proc);
+          final result = await Process.run('pgrep', ['-fi', proc]);
+          if (result.exitCode == 0 && (result.stdout as String).trim().isNotEmpty) {
+            found.add(proc);
+          }
+        }
+      } else if (Platform.isWindows) {
+        final result = await Process.run('tasklist', ['/FO', 'CSV', '/NH']);
+        if (result.exitCode == 0) {
+          final output = (result.stdout as String).toLowerCase();
+          for (final proc in _blockedProcesses) {
+            if (output.contains(proc.toLowerCase())) found.add(proc);
+          }
+        }
+      } else {
+        final result = await Process.run('ps', ['aux']);
+        if (result.exitCode == 0) {
+          final output = result.stdout as String;
+          for (final proc in _blockedProcesses) {
+            if (output.contains(proc)) found.add(proc);
+          }
         }
       }
     } catch (_) {}
-    return found;
+    return found.toList();
   }
 
   Future<void> killRemoteApps() async {
     if (!enabled) return;
-    for (final proc in _blockedProcesses) {
-      try {
-        await Process.run('pkill', ['-f', proc]);
-      } catch (_) {}
-    }
+    try {
+      if (Platform.isMacOS) {
+        for (final proc in _blockedProcesses) {
+          // killall is more reliable on macOS for app bundles
+          await Process.run('killall', [proc]);
+          // Also try pkill for daemon processes
+          await Process.run('pkill', ['-fi', proc]);
+        }
+        // Force-quit known app bundles
+        await Process.run('osascript', ['-e', 'tell application "AnyDesk" to quit']);
+        await Process.run('osascript', ['-e', 'tell application "TeamViewer" to quit']);
+      } else if (Platform.isWindows) {
+        for (final proc in _blockedProcesses) {
+          await Process.run('taskkill', ['/F', '/IM', '$proc.exe']);
+          await Process.run('taskkill', ['/F', '/FI', 'IMAGENAME eq *$proc*']);
+        }
+      } else {
+        for (final proc in _blockedProcesses) {
+          await Process.run('pkill', ['-f', proc]);
+        }
+      }
+    } catch (_) {}
   }
 }
 
@@ -561,8 +711,8 @@ Future<PasswordCheckResult> checkPasswordStatus(FirestorePaths paths, String ema
 
     final data = snap.docs.first.data();
 
-    if (settings.forcePasswordChangeFirstLogin && data['mustChangePassword'] == true) {
-      return const PasswordCheckResult(mustChange: true, reason: 'You must change your password on first login.');
+    if (data['mustChangePassword'] == true) {
+      return const PasswordCheckResult(mustChange: true, reason: 'You must change your password before continuing.');
     }
 
     if (settings.passwordExpiryDays > 0) {
@@ -590,19 +740,117 @@ Future<PasswordCheckResult> checkPasswordStatus(FirestorePaths paths, String ema
 
 // ─── IP Whitelist Check ─────────────────────────────────────────────────────
 
-Future<bool> isIpAllowed(SecuritySettings settings) async {
-  if (!settings.ipWhitelistEnabled || settings.whitelistedIps.isEmpty) return true;
+Future<String?> getPublicIp() async {
+  final services = [
+    'https://api.ipify.org',
+    'https://ifconfig.me/ip',
+    'https://icanhazip.com',
+  ];
+  for (final url in services) {
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 5);
+      final request = await client.getUrl(Uri.parse(url));
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        final ip = await response.transform(utf8.decoder).join();
+        final trimmed = ip.trim();
+        if (trimmed.isNotEmpty && RegExp(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$').hasMatch(trimmed)) {
+          client.close();
+          return trimmed;
+        }
+      }
+      client.close();
+    } catch (_) {}
+  }
+  return null;
+}
+
+Future<List<String>> getLocalIps() async {
+  final ips = <String>[];
   try {
     final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
     for (final iface in interfaces) {
-      for (final addr in iface.addresses) {
-        if (!addr.isLoopback && settings.whitelistedIps.contains(addr.address)) {
-          return true;
+      // Only include real network interfaces (en0/en1 on macOS, eth/wlan on Linux)
+      final name = iface.name.toLowerCase();
+      if (name.startsWith('en') || name.startsWith('eth') || name.startsWith('wlan') || name.startsWith('wi')) {
+        for (final addr in iface.addresses) {
+          if (!addr.isLoopback) ips.add(addr.address);
         }
       }
     }
+    // Fallback: if filtering excluded everything, take the first non-loopback
+    if (ips.isEmpty) {
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          if (!addr.isLoopback) { ips.add(addr.address); return ips; }
+        }
+      }
+    }
+  } catch (_) {}
+  return ips;
+}
+
+bool ipMatchesEntry(String ip, String entry) {
+  // Exact match
+  if (ip == entry) return true;
+
+  // CIDR match (e.g. 192.168.1.0/24)
+  if (entry.contains('/')) {
+    final parts = entry.split('/');
+    if (parts.length != 2) return false;
+    final prefix = parts[0];
+    final bits = int.tryParse(parts[1]);
+    if (bits == null || bits < 0 || bits > 32) return false;
+    final ipInt = _ipToInt(ip);
+    final prefixInt = _ipToInt(prefix);
+    if (ipInt == null || prefixInt == null) return false;
+    final mask = bits == 0 ? 0 : (~0 << (32 - bits)) & 0xFFFFFFFF;
+    return (ipInt & mask) == (prefixInt & mask);
+  }
+
+  // Range match (e.g. 192.168.1.10-192.168.1.50)
+  if (entry.contains('-')) {
+    final parts = entry.split('-');
+    if (parts.length != 2) return false;
+    final startInt = _ipToInt(parts[0].trim());
+    final endInt = _ipToInt(parts[1].trim());
+    final ipInt = _ipToInt(ip);
+    if (startInt == null || endInt == null || ipInt == null) return false;
+    return ipInt >= startInt && ipInt <= endInt;
+  }
+
+  // Wildcard match (e.g. 192.168.1.*)
+  if (entry.contains('*')) {
+    final pattern = entry.replaceAll('.', r'\.').replaceAll('*', r'\d{1,3}');
+    return RegExp('^$pattern\$').hasMatch(ip);
+  }
+
+  return false;
+}
+
+int? _ipToInt(String ip) {
+  final parts = ip.split('.');
+  if (parts.length != 4) return null;
+  int result = 0;
+  for (final p in parts) {
+    final octet = int.tryParse(p);
+    if (octet == null || octet < 0 || octet > 255) return null;
+    result = (result << 8) | octet;
+  }
+  return result;
+}
+
+Future<bool> isIpAllowed(SecuritySettings settings) async {
+  if (!settings.ipWhitelistEnabled || settings.whitelistedIps.isEmpty) return true;
+  try {
+    final localIps = await getLocalIps();
+    for (final ip in localIps) {
+      for (final entry in settings.whitelistedIps) {
+        if (ipMatchesEntry(ip, entry)) return true;
+      }
+    }
   } catch (_) {
-    // Fail closed: deny if we can't check
     return false;
   }
   return false;

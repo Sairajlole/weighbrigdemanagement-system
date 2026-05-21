@@ -8,11 +8,12 @@ import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 
 class PrintService {
-  final FirebaseFirestore _db;
+  final FirestorePaths _paths;
 
-  PrintService(this._db);
+  PrintService(this._paths);
 
   // ─── Snapshot Extraction ────────────────────────────────────────────────────
 
@@ -45,31 +46,30 @@ class PrintService {
   // ─── Data Fetching ─────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> _fetchCompanyInfo() async {
-    final doc = await _db.collection('settings').doc('general').get();
+    final doc = await _paths.generalSettings.get();
     return doc.exists ? doc.data()! : {};
   }
 
   Future<Uint8List?> _fetchCompanyLogo() async {
-    final doc = await _db.collection('settings').doc('general_docs').get();
+    final doc = await _paths.generalDocsSettings.get();
     if (!doc.exists) return null;
     final dataUri = doc.data()?['company_logo'] as String?;
     if (dataUri == null || !dataUri.startsWith('data:')) return null;
-    final b64 = dataUri.split(',').last;
-    return base64Decode(b64);
+    return base64Decode(dataUri.split(',').last);
   }
 
   Future<Map<String, dynamic>> _fetchPrintSettings() async {
-    final doc = await _db.collection('settings').doc('printing').get();
+    final doc = await _paths.printingSettings.get();
     return doc.exists ? doc.data()! : {};
   }
 
   Future<Map<String, dynamic>?> fetchWeighment(String weighmentId) async {
-    final doc = await _db.collection('weighments').doc(weighmentId).get();
+    final doc = await _paths.weighments.doc(weighmentId).get();
     return doc.exists ? {'id': doc.id, ...doc.data()!} : null;
   }
 
   Future<List<Map<String, dynamic>>> _fetchCustomFields() async {
-    final doc = await _db.collection('settings').doc('customFields').get();
+    final doc = await _paths.customFieldsSettings.get();
     if (!doc.exists) return [];
     final fields = doc.data()?['fields'] as List<dynamic>?;
     if (fields == null) return [];
@@ -80,7 +80,7 @@ class PrintService {
   }
 
   Future<String> _fetchScalePort() async {
-    final doc = await _db.collection('settings').doc('scale').get();
+    final doc = await _paths.scaleSettings.get();
     return doc.exists ? (doc.data()?['port'] as String? ?? '') : '';
   }
 
@@ -131,12 +131,23 @@ class PrintService {
     final tare = (weighment['tareWeight'] as num?)?.toDouble() ?? 0;
     final net = weighment['netWeight'] as num? ?? (gross - tare);
 
+    DateTime? parseDt(dynamic ts) {
+      if (ts is Timestamp) return ts.toDate();
+      if (ts is DateTime) return ts;
+      return null;
+    }
+    final grossDt = parseDt(weighment['grossDateTime']);
+    final tareDt = parseDt(weighment['tareDateTime']);
+    final netDt = parseDt(weighment['netDateTime'] ?? weighment['tareDateTime']);
+
     final map = <String, String>{
       '{company_name}': company['companyName'] as String? ?? '',
       '{company_address1}': company['address1'] as String? ?? '',
       '{company_address2}': company['address2'] as String? ?? '',
       '{company_phone}': company['phone'] as String? ?? '',
+      '{company_email}': company['email'] as String? ?? '',
       '{company_gstin}': company['gstin'] as String? ?? '',
+      '{company_pan}': company['pan'] as String? ?? '',
       '{customer_name}': weighment['customerName'] as String? ?? 'Walk-in',
       '{customer_address}': weighment['customerAddress'] as String? ?? '',
       '{customer_phone}': weighment['customerPhone'] as String? ?? '',
@@ -148,12 +159,22 @@ class PrintService {
       '{gross_datetime}': formatTs(weighment['grossDateTime']),
       '{tare_datetime}': formatTs(weighment['tareDateTime']),
       '{net_datetime}': formatTs(weighment['netDateTime'] ?? weighment['tareDateTime']),
+      '{gross_date}': grossDt != null ? df.format(grossDt) : '',
+      '{gross_time}': grossDt != null ? tf.format(grossDt) : '',
+      '{tare_date}': tareDt != null ? df.format(tareDt) : '',
+      '{tare_time}': tareDt != null ? tf.format(tareDt) : '',
+      '{net_date}': netDt != null ? df.format(netDt) : '',
+      '{net_time}': netDt != null ? tf.format(netDt) : '',
       '{rst}': weighment['rstNumber'] as String? ?? '',
       '{operator}': weighment['operatorName'] as String? ?? '',
+      '{status}': weighment['status'] as String? ?? '',
+      '{weigh_type}': weighment['firstWeighType'] as String? ?? 'gross',
       '{date}': df.format(DateTime.now()),
+      '{time}': tf.format(DateTime.now()),
       '{pc_name}': Platform.localHostname,
       '{port_name}': scalePort,
       '{weighbridge_name}': company['weighbridgeName'] as String? ?? '',
+      '{site_name}': company['siteName'] as String? ?? '',
     };
 
     for (final field in customFields) {
@@ -171,7 +192,7 @@ class PrintService {
     final ts = tare.toStringAsFixed(0);
     final ns = net.toStringAsFixed(0);
     final maxLen = [gs.length, ts.length, ns.length].reduce((a, b) => a > b ? a : b);
-    return value.toStringAsFixed(0).padLeft(maxLen);
+    return '${value.toStringAsFixed(0).padLeft(maxLen)} KG';
   }
 
   String _substitutePlaceholders(String template, Map<String, String> values) {
@@ -426,6 +447,7 @@ class PrintService {
   Uint8List _logoToEscPosRaster(Uint8List logoBytes, int maxWidthPx) {
     var decoded = img.decodeImage(logoBytes);
     if (decoded == null) return Uint8List(0);
+    decoded = img.bakeOrientation(decoded);
 
     if (decoded.width > maxWidthPx) {
       decoded = img.copyResize(decoded, width: maxWidthPx);
@@ -613,6 +635,7 @@ class PrintService {
   Uint8List _logoToEscpBitImage(Uint8List logoBytes, int targetWidthPx) {
     var decoded = img.decodeImage(logoBytes);
     if (decoded == null) return Uint8List(0);
+    decoded = img.bakeOrientation(decoded);
 
     // Resize to target width, maintaining aspect ratio
     if (decoded.width != targetWidthPx) {
@@ -1263,32 +1286,6 @@ class PrintService {
 
   // ─── Print Submission ──────────────────────────────────────────────────────
 
-  Future<PrintResult> _sendDmTextToLpr(String content, String printer, int copies, {String tray = ''}) async {
-    try {
-      final tmpFile = File('${Directory.systemTemp.path}/weighbridge_dm_${DateTime.now().millisecondsSinceEpoch}.txt');
-      await tmpFile.writeAsString(content);
-
-      final args = <String>['-#', '$copies'];
-      if (tray.isNotEmpty && tray != 'Auto') {
-        args.addAll(['-o', 'InputSlot=$tray']);
-      }
-      if (printer.isNotEmpty && printer != 'default') {
-        args.addAll(['-P', printer]);
-      }
-      args.add(tmpFile.path);
-
-      final result = await Process.run('lpr', args);
-      await tmpFile.delete().catchError((_) => tmpFile);
-
-      if (result.exitCode != 0) {
-        return PrintResult(success: false, error: 'lpr failed: ${result.stderr}');
-      }
-      return PrintResult(success: true);
-    } catch (e) {
-      return PrintResult(success: false, error: e.toString());
-    }
-  }
-
   Future<PrintResult> _sendPdfToLpr(Uint8List pdfBytes, String printer, int copies, {String tray = ''}) async {
     try {
       final tmpFile = File('${Directory.systemTemp.path}/weighbridge_docket_${DateTime.now().millisecondsSinceEpoch}.pdf');
@@ -1373,13 +1370,13 @@ class PrintService {
     if (!allowed) return false;
 
     final maxReprints = settings['maxReprints'] as int? ?? 3;
-    final logDoc = await _db.collection('print_log').doc(weighmentId).get();
+    final logDoc = await _paths.printLog.doc(weighmentId).get();
     final printCount = logDoc.exists ? (logDoc.data()?['count'] as int? ?? 0) : 0;
     return printCount < maxReprints;
   }
 
   Future<void> logPrint(String weighmentId) async {
-    await _db.collection('print_log').doc(weighmentId).set({
+    await _paths.printLog.doc(weighmentId).set({
       'count': FieldValue.increment(1),
       'lastPrintedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));

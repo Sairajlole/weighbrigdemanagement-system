@@ -6,11 +6,31 @@ import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 
+final _materialsMigrationProvider = FutureProvider<void>((ref) async {
+  final db = ref.watch(firestorePathsProvider);
+  if (!db.isConfigured) return;
+  final wbSnap = await db.materials.limit(1).get();
+  if (wbSnap.docs.isNotEmpty) return;
+  final flatRef = db.firestore.collection('companies/${db.context.companyId}/materials');
+  final flatSnap = await flatRef.get();
+  if (flatSnap.docs.isEmpty) return;
+  if (flatSnap.docs.first.data()['_migratedTo'] != null) return;
+  final batch = db.batch();
+  for (final doc in flatSnap.docs) {
+    final data = Map<String, dynamic>.from(doc.data());
+    data.remove('_migratedTo');
+    batch.set(db.materials.doc(doc.id), {...data, 'migratedFrom': 'company', 'migratedAt': FieldValue.serverTimestamp()});
+  }
+  batch.update(flatSnap.docs.first.reference, {'_migratedTo': db.materials.path});
+  await batch.commit();
+});
+
 final _materialsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  ref.watch(_materialsMigrationProvider);
   final db = ref.watch(firestorePathsProvider);
   return db.materials.orderBy('order').snapshots().map(
       (snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
@@ -214,11 +234,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                   children: [
                     IconButton(
                       onPressed: () {
-                        if (ref.read(wizardModeProvider)) {
-                          ref.read(setupWizardProvider.notifier).previousStep();
-                        } else {
-                          context.go('/settings');
-                        }
+                        context.go('/settings');
                       },
                       icon: const Icon(Icons.arrow_back_rounded, size: 20),
                       style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
@@ -262,7 +278,15 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
               ],
             ),
           ),
-
+          WeighbridgeContextBar(
+            label: 'Materials for',
+            onSwitched: () {
+              setState(() { _settingsLoaded = false; _localMaterials = null; });
+              ref.invalidate(_materialsMigrationProvider);
+              ref.invalidate(_materialsProvider);
+              ref.invalidate(_materialsSettingsProvider);
+            },
+          ),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(28),

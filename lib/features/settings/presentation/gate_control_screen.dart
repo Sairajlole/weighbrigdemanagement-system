@@ -6,11 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/gate_provider.dart';
 import 'package:weighbridgemanagement/shared/services/gate_service.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
+import 'package:weighbridgemanagement/shared/widgets/pro_feature_banner.dart';
+import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
 
 final _gateSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
@@ -148,11 +149,8 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
     final exitIpValid = isValidHostOrIp(_exitIp.text.trim());
     final rfidIpValid = isValidHostOrIp(_rfidIp.text.trim());
 
-    if (_enabled) {
-      if (_entryEnabled && !entryIpValid) errors.add('Entry gate enabled but IP is missing or invalid');
-      if (_exitEnabled && !exitIpValid) errors.add('Exit gate enabled but IP is missing or invalid');
-      if (!_entryEnabled && !_exitEnabled) errors.add('Gate system enabled but no individual gate is active');
-    }
+    if (_entryEnabled && !entryIpValid) errors.add('Entry gate enabled but IP is missing or invalid');
+    if (_exitEnabled && !exitIpValid) errors.add('Exit gate enabled but IP is missing or invalid');
     if (_rfidEnabled && !rfidIpValid) errors.add('RFID enabled but scanner IP is missing or invalid');
 
     final dur1 = int.tryParse(_entryDuration.text) ?? 0;
@@ -172,14 +170,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
     if (!exitIpValid) _exitEnabled = false;
     if (!rfidIpValid) _rfidEnabled = false;
 
-    if (!entryIpValid && !exitIpValid) {
-      _enabled = false;
-      _sensorCheck = false;
-      _emergencyStop = false;
-      _audibleBuzzer = false;
-      _interlockGates = false;
-      _antiTailgating = false;
-    }
+    _enabled = _entryTestResult == 'ok' || _exitTestResult == 'ok';
   }
 
   void _showHeaderMsg(String msg, {bool isError = false}) {
@@ -292,6 +283,42 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
       body: Column(
         children: [
           _buildHeader(scheme, text),
+          WeighbridgeContextBar(
+            label: 'Gate config for',
+            onSwitched: () {
+              ref.invalidate(_gateSettingsProvider);
+              setState(() {
+                _loaded = false;
+                _savedSnapshot = '';
+                _enabled = false;
+                _entryEnabled = true;
+                _entryProtocol = 'HTTP Relay';
+                _entryIp.clear();
+                _entryChannel = 'Channel 01';
+                _entryDuration.text = '30';
+                _entryTrigger = 'Weight Detected';
+                _entryAutoClose = true;
+                _exitEnabled = false;
+                _exitProtocol = 'HTTP Relay';
+                _exitIp.clear();
+                _exitChannel = 'Channel 02';
+                _exitDuration.text = '30';
+                _exitTrigger = 'Weighment Complete';
+                _exitAutoClose = true;
+                _sensorCheck = true;
+                _emergencyStop = true;
+                _audibleBuzzer = false;
+                _interlockGates = true;
+                _antiTailgating = false;
+                _rfidEnabled = false;
+                _rfidProtocol = 'Wiegand 26';
+                _rfidIp.clear();
+                _rfidTimeout.text = '10';
+                _entryTestResult = null;
+                _exitTestResult = null;
+              });
+            },
+          ),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -301,24 +328,21 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildMasterSwitch(scheme, text),
+                    const ProFeatureBanner(feature: 'Gate Control'),
+                    _buildStatusIndicator(scheme, text),
                     const SizedBox(height: 24),
-                    if (_enabled) ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: _buildGateSection('Entry Gate', true, scheme, text)),
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildGateSection('Exit Gate', false, scheme, text)),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      _buildRfidSection(scheme, text),
-                      const SizedBox(height: 24),
-                      _buildSafetySection(scheme, text),
-                    ],
-                    if (!_enabled)
-                      _buildDisabledState(scheme, text),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: _buildGateSection('Entry Gate', true, scheme, text)),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildGateSection('Exit Gate', false, scheme, text)),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    _buildRfidSection(scheme, text),
+                    const SizedBox(height: 24),
+                    _buildSafetySection(scheme, text),
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -339,7 +363,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
         children: [
           Row(
             children: [
-              IconButton(onPressed: () { if (ref.read(wizardModeProvider)) { ref.read(setupWizardProvider.notifier).previousStep(); } else { context.go('/settings'); } }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+              IconButton(onPressed: () { context.go('/settings'); }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
               const SizedBox(width: 12),
               Icon(Icons.sensor_door_rounded, size: 20, color: scheme.primary),
               const SizedBox(width: 10),
@@ -395,52 +419,40 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
     );
   }
 
-  Widget _buildMasterSwitch(ColorScheme scheme, TextTheme text) {
+  Widget _buildStatusIndicator(ColorScheme scheme, TextTheme text) {
+    final isActive = _entryTestResult == 'ok' || _exitTestResult == 'ok' || _enabled;
     return _SectionCard(
       scheme: scheme,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(color: (_enabled ? scheme.primary : scheme.outlineVariant).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-                child: Icon(Icons.sensor_door_rounded, size: 20, color: _enabled ? scheme.primary : scheme.outlineVariant),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Enable Gate Control System', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                    Text('Master switch for all gate automation, RFID, and safety systems', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-              Switch(value: _enabled, onChanged: (v) => setState(() => _enabled = v)),
-            ],
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(color: (isActive ? AppTheme.successColor : scheme.outlineVariant).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+            child: Icon(Icons.sensor_door_rounded, size: 20, color: isActive ? AppTheme.successColor : scheme.outlineVariant),
           ),
-          const SizedBox(height: 10),
-          _buildInfoRow('Controls relay boards, RFID scanners, and safety interlocks. At least one gate must have a valid IP address configured for the system to remain enabled after saving.', scheme, text),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(isActive ? 'Gate Control Active' : 'Gate Control Inactive', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  isActive
+                      ? 'At least one gate has a successful connection test.'
+                      : 'Test a gate connection to activate the system.',
+                  style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 10, height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isActive ? AppTheme.successColor : scheme.outlineVariant,
+            ),
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDisabledState(ColorScheme scheme, TextTheme text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 40),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(Icons.sensor_door_outlined, size: 48, color: scheme.outlineVariant),
-            const SizedBox(height: 16),
-            Text('Gate control system is disabled', style: text.titleSmall?.copyWith(color: scheme.onSurfaceVariant)),
-            const SizedBox(height: 6),
-            Text('Enable the master switch above to configure gates, RFID, and safety settings.', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
-          ],
-        ),
       ),
     );
   }
@@ -467,10 +479,10 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
               Container(
                 width: 32, height: 32,
                 decoration: BoxDecoration(
-                  color: (enabled ? (isEntry ? const Color(0xFF2563EB) : const Color(0xFF7C3AED)) : scheme.outlineVariant).withValues(alpha: 0.12),
+                  color: (enabled ? (isEntry ? const Color(0xFF2563EB) : AppTheme.proColor) : scheme.outlineVariant).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(isEntry ? Icons.login_rounded : Icons.logout_rounded, size: 16, color: enabled ? (isEntry ? const Color(0xFF2563EB) : const Color(0xFF7C3AED)) : scheme.outlineVariant),
+                child: Icon(isEntry ? Icons.login_rounded : Icons.logout_rounded, size: 16, color: enabled ? (isEntry ? const Color(0xFF2563EB) : AppTheme.proColor) : scheme.outlineVariant),
               ),
               const SizedBox(width: 10),
               Expanded(

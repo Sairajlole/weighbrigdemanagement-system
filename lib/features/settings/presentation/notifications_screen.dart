@@ -7,6 +7,8 @@ import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/widgets/pro_feature_banner.dart';
+import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
 
 // ---------------------------------------------------------------------------
 // Local persistence helper
@@ -281,6 +283,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       body: Column(
         children: [
           _buildHeader(scheme, text),
+          WeighbridgeContextBar(
+            label: 'Notifications for',
+            onSwitched: () {
+              ref.invalidate(_notificationsSettingsProvider);
+              ref.invalidate(_operatorsProvider);
+              setState(() => _loaded = false);
+            },
+          ),
           Expanded(
             child: asyncData.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -290,6 +300,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const ProFeatureBanner(feature: 'Notifications & Alerts'),
                     _buildChannelsSection(scheme, text),
                     const SizedBox(height: 24),
                     _buildEventsSection(scheme, text),

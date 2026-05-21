@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:weighbridgemanagement/features/profile/presentation/profile_screen.dart';
 import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
@@ -24,7 +28,12 @@ final _pendingOperatorsCountProvider = StreamProvider<int>((ref) {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return const Stream.empty();
   return paths.operators.where('isVerified', isEqualTo: false).snapshots().map(
-    (snap) => snap.docs.where((d) => d.data()['isArchived'] != true).length,
+    (snap) => snap.docs.where((d) {
+      final data = d.data();
+      if (data['isArchived'] == true) return false;
+      if ((data['uid'] as String? ?? '').isNotEmpty) return false;
+      return true;
+    }).length,
   );
 });
 
@@ -54,9 +63,12 @@ class AppShell extends ConsumerWidget {
 
   List<_NavItem> _filteredNavItems(PermissionService perms, AppStrings strings) {
     return _buildNavItems(strings).where((item) {
+      if (item.path == '/operators' && !perms.isAdmin) return false;
       if (item.path == '/reports' && !perms.canViewReports) return false;
       if (item.path == '/customers' && !perms.canManageCustomers) return false;
+      if (item.path == '/weighments' && !perms.canViewWeighments) return false;
       if (item.path == '/settings' && !perms.canAccessSettings) return false;
+      if (item.path == '/weighment' && perms.isDeactivated) return false;
       return true;
     }).toList();
   }
@@ -69,7 +81,6 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
     final perms = ref.watch(permissionServiceProvider);
     final strings = ref.watch(stringsProvider);
     final navItems = _filteredNavItems(perms, strings);
@@ -78,108 +89,168 @@ class AppShell extends ConsumerWidget {
     return Scaffold(
       body: Row(
         children: [
-          // Navigation Rail
-          Container(
-            width: 76,
-            decoration: BoxDecoration(
-              color: scheme.surface,
-              border: Border(
-                right: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2)),
-              ),
-            ),
+          _Sidebar(
+            navItems: navItems,
+            selectedIndex: selectedIndex,
+            onItemTap: (path) => context.go(path),
+            onProfileTap: () => context.go('/profile'),
+            isProfileSelected: GoRouterState.of(context).matchedLocation == '/profile',
+          ),
+          Expanded(
             child: Column(
               children: [
-                const SizedBox(height: 20),
-                // Logo
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [scheme.primary, scheme.primary.withValues(alpha: 0.8)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: scheme.primary.withValues(alpha: 0.25),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Icon(Icons.scale_rounded, color: scheme.onPrimary, size: 22),
-                ),
-                const SizedBox(height: 32),
-                // Nav items
-                Expanded(
-                  child: Column(
-                    children: navItems.asMap().entries.map((entry) {
-                      final i = entry.key;
-                      final item = entry.value;
-                      final isSelected = i == selectedIndex;
-                      final badge = item.path == '/operators'
-                          ? (ref.watch(_pendingOperatorsCountProvider).valueOrNull ?? 0)
-                          : 0;
-
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: _NavButton(
-                          icon: isSelected ? item.selectedIcon : item.icon,
-                          label: item.label,
-                          isSelected: isSelected,
-                          onTap: () => context.go(item.path),
-                          badge: badge,
+                if (perms.isDeactivated)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    child: Row(
+                      children: [
+                        Icon(Icons.block_rounded, size: 16, color: Theme.of(context).colorScheme.error),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Your account has been deactivated. You cannot perform weighments. Contact your administrator.',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onErrorContainer),
                         ),
-                      );
-                    }).toList(),
+                      ],
+                    ),
                   ),
-                ),
-                // Profile
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: _NavButton(
-                    icon: Icons.account_circle_rounded,
-                    label: 'Profile',
-                    isSelected: GoRouterState.of(context).matchedLocation == '/profile',
-                    onTap: () => context.go('/profile'),
-                  ),
-                ),
-                // Logout
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: _NavButton(
-                    icon: Icons.logout_rounded,
-                    label: 'Logout',
-                    isSelected: false,
-                    isDestructive: true,
-                    onTap: () async {
-                      await ref.read(firebaseAuthProvider).signOut();
-                      await ref.read(siteContextProvider.notifier).clear();
-                      await LocalCacheService.clearCurrentUser();
-                      ref.read(setupWizardProvider.notifier).reset();
-                      if (context.mounted) context.go('/setup');
-                    },
-                  ),
-                ),
-                // Internet indicator
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: _ConnectivityDot(ref: ref),
-                ),
+                Expanded(child: BackgroundArt(child: InactivityWrapper(child: SecurityOverlay(child: child)))),
               ],
             ),
           ),
-          // Content
-          Expanded(child: BackgroundArt(child: InactivityWrapper(child: SecurityOverlay(child: child)))),
         ],
       ),
     );
   }
 }
 
-class _NavButton extends StatefulWidget {
+class _Sidebar extends ConsumerStatefulWidget {
+  final List<_NavItem> navItems;
+  final int selectedIndex;
+  final ValueChanged<String> onItemTap;
+  final VoidCallback onProfileTap;
+  final bool isProfileSelected;
+
+  const _Sidebar({
+    required this.navItems,
+    required this.selectedIndex,
+    required this.onItemTap,
+    required this.onProfileTap,
+    required this.isProfileSelected,
+  });
+
+  @override
+  ConsumerState<_Sidebar> createState() => _SidebarState();
+}
+
+class _SidebarState extends ConsumerState<_Sidebar> {
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final profile = ref.watch(profileProvider).valueOrNull;
+
+    return Container(
+      width: 64,
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border(right: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.15))),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 16),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [scheme.primary, scheme.primary.withValues(alpha: 0.8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 2))],
+            ),
+            child: Icon(Icons.scale_rounded, color: scheme.onPrimary, size: 18),
+          ),
+          const SizedBox(height: 12),
+          Divider(height: 1, indent: 14, endIndent: 14, color: scheme.outlineVariant.withValues(alpha: 0.15)),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              children: [
+                ...widget.navItems.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final item = entry.value;
+                  final isSelected = i == widget.selectedIndex;
+                  final badge = item.path == '/operators'
+                      ? (ref.watch(_pendingOperatorsCountProvider).valueOrNull ?? 0)
+                      : 0;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: _NavTile(
+                      icon: isSelected ? item.selectedIcon : item.icon,
+                      label: item.label,
+                      isSelected: isSelected,
+                      onTap: () => widget.onItemTap(item.path),
+                      badge: badge,
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          Divider(height: 1, indent: 14, endIndent: 14, color: scheme.outlineVariant.withValues(alpha: 0.15)),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: _ProfileTile(
+              isSelected: widget.isProfileSelected,
+              onTap: widget.onProfileTap,
+              profile: profile,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: _NavTile(
+              icon: Icons.logout_rounded,
+              label: 'Logout',
+              isSelected: false,
+              isDestructive: true,
+              onTap: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Sign out?'),
+                    content: const Text('You will need to log in again to access this weighbridge.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign out')),
+                    ],
+                  ),
+                );
+                if (confirmed != true) return;
+                await ref.read(firebaseAuthProvider).signOut();
+                await ref.read(siteContextProvider.notifier).clear();
+                await LocalCacheService.clearCurrentUser();
+                ref.read(setupWizardProvider.notifier).reset();
+                if (context.mounted) context.go('/setup');
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          _ConnectivityDot(ref: ref),
+          const SizedBox(height: 14),
+        ],
+      ),
+    );
+  }
+
+}
+
+class _NavTile extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool isSelected;
@@ -187,7 +258,7 @@ class _NavButton extends StatefulWidget {
   final VoidCallback onTap;
   final int badge;
 
-  const _NavButton({
+  const _NavTile({
     required this.icon,
     required this.label,
     required this.isSelected,
@@ -197,109 +268,133 @@ class _NavButton extends StatefulWidget {
   });
 
   @override
-  State<_NavButton> createState() => _NavButtonState();
+  State<_NavTile> createState() => _NavTileState();
 }
 
-class _NavButtonState extends State<_NavButton> with SingleTickerProviderStateMixin {
+class _NavTileState extends State<_NavTile> {
   bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final activeColor = widget.isDestructive ? scheme.error : scheme.primary;
-    final iconColor = widget.isSelected
-        ? activeColor
-        : _hovered
-            ? scheme.onSurface
-            : scheme.onSurfaceVariant;
+    final accent = widget.isDestructive ? scheme.error : scheme.primary;
+    final iconColor = widget.isSelected ? accent : _hovered ? scheme.onSurface : scheme.onSurfaceVariant;
 
-    return Tooltip(
-      message: widget.label,
-      preferBelow: false,
-      waitDuration: const Duration(milliseconds: 400),
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: widget.isSelected
-                  ? activeColor.withValues(alpha: 0.08)
-                  : _hovered
-                      ? scheme.surfaceContainerHighest.withValues(alpha: 0.6)
-                      : Colors.transparent,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Active indicator bar
-                if (widget.isSelected)
-                  Positioned(
-                    left: 0,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutCubic,
-                      width: 3,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: activeColor,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Icon(widget.icon, size: 22, color: iconColor),
-                        if (widget.badge > 0)
-                          Positioned(
-                            right: -6,
-                            top: -4,
-                            child: Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFEF4444),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Text(
-                                '${widget.badge}',
-                                style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      widget.label,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: iconColor,
-                        letterSpacing: -0.2,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+    final child = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: 42,
+      height: 42,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: widget.isSelected
+            ? accent.withValues(alpha: 0.08)
+            : _hovered
+                ? scheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(widget.icon, size: 20, color: iconColor),
+          if (widget.badge > 0)
+            Positioned(
+              right: -8, top: -6,
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: scheme.error,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: scheme.surface, width: 1.5),
                 ),
-              ],
+                alignment: Alignment.center,
+                child: Text(
+                  widget.badge > 99 ? '99+' : '${widget.badge}',
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: scheme.onError, height: 1),
+                ),
+              ),
             ),
-          ),
-        ),
+        ],
+      ),
+    );
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Tooltip(
+        message: widget.label,
+        preferBelow: false,
+        waitDuration: const Duration(milliseconds: 400),
+        child: GestureDetector(onTap: widget.onTap, child: child),
       ),
     );
   }
 }
 
+class _ProfileTile extends StatefulWidget {
+  final bool isSelected;
+  final VoidCallback onTap;
+  final Map<String, dynamic>? profile;
+
+  const _ProfileTile({required this.isSelected, required this.onTap, this.profile});
+
+  @override
+  State<_ProfileTile> createState() => _ProfileTileState();
+}
+
+class _ProfileTileState extends State<_ProfileTile> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final name = widget.profile?['name'] as String? ?? FirebaseAuth.instance.currentUser?.displayName ?? 'User';
+    final pic = widget.profile?['profilePic'] as String?;
+
+    Widget avatar;
+    if (pic != null && pic.isNotEmpty) {
+      String raw = pic;
+      if (raw.contains(',')) raw = raw.split(',').last;
+      avatar = CircleAvatar(
+        radius: 15,
+        backgroundImage: MemoryImage(Uint8List.fromList(base64Decode(raw))),
+      );
+    } else {
+      avatar = CircleAvatar(
+        radius: 15,
+        backgroundColor: scheme.primary.withValues(alpha: 0.12),
+        child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.primary)),
+      );
+    }
+
+    final tile = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: 42,
+      height: 42,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: widget.isSelected
+            ? scheme.primary.withValues(alpha: 0.08)
+            : _hovered
+                ? scheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: avatar,
+    );
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Tooltip(
+        message: name,
+        preferBelow: false,
+        child: GestureDetector(onTap: widget.onTap, child: tile),
+      ),
+    );
+  }
+}
 
 class _ConnectivityDot extends StatefulWidget {
   final WidgetRef ref;
@@ -397,7 +492,7 @@ class _ConnectivityDotState extends State<_ConnectivityDot> {
         _scheduleHide();
       },
       child: SizedBox(
-        width: 56,
+        width: 32,
         height: 28,
         child: Center(
           child: Stack(
@@ -506,16 +601,10 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                     children: [
                       Container(
                         width: 10, height: 10,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isOnline ? AppTheme.successColor : scheme.error,
-                        ),
+                        decoration: BoxDecoration(shape: BoxShape.circle, color: isOnline ? AppTheme.successColor : scheme.error),
                       ),
                       const SizedBox(width: 10),
-                      Text(
-                        isOnline ? 'Online' : 'Offline',
-                        style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                      ),
+                      Text(isOnline ? 'Online' : 'Offline', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -603,7 +692,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                       ),
                   ],
 
-                  // ── Alerts ──
+                  // Alerts
                   Consumer(
                     builder: (_, ref2, __) {
                       final notifs = ref2.watch(unreadNotificationsProvider);
@@ -667,10 +756,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                           if (items.length > 5)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                '+${items.length - 5} more',
-                                style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-                              ),
+                              child: Text('+${items.length - 5} more', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
                             ),
                         ],
                       );
@@ -693,23 +779,19 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
     return '${diff.inDays}d ago';
   }
 
-  IconData _iconForType(String type) {
-    switch (type) {
-      case 'weighments': return Icons.scale_rounded;
-      case 'audit': return Icons.security_rounded;
-      case 'operator_updates': return Icons.person_rounded;
-      case 'sessions': return Icons.devices_rounded;
-      default: return Icons.data_object_rounded;
-    }
-  }
+  IconData _iconForType(String type) => switch (type) {
+    'weighments' => Icons.scale_rounded,
+    'audit' => Icons.security_rounded,
+    'operator_updates' => Icons.person_rounded,
+    'sessions' => Icons.devices_rounded,
+    _ => Icons.data_object_rounded,
+  };
 
-  String _labelForType(String type) {
-    switch (type) {
-      case 'weighments': return 'Weighments';
-      case 'audit': return 'Audit logs';
-      case 'operator_updates': return 'Operator updates';
-      case 'sessions': return 'Session records';
-      default: return type;
-    }
-  }
+  String _labelForType(String type) => switch (type) {
+    'weighments' => 'Weighments',
+    'audit' => 'Audit logs',
+    'operator_updates' => 'Operator updates',
+    'sessions' => 'Session records',
+    _ => type,
+  };
 }

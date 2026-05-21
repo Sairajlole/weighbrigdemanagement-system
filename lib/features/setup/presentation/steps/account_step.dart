@@ -1,20 +1,40 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:crypto/crypto.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/connectivity_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import '../../application/setup_wizard_provider.dart';
 import '../../application/setup_wizard_state.dart';
 
 String _hashPassword(String password) => sha256.convert(utf8.encode(password)).toString();
+
+String _toTitleCase(String s) {
+  // Normalize: ensure space after commas, collapse multiple spaces
+  final normalized = s.trim().replaceAll(RegExp(r',\s*'), ', ').replaceAll(RegExp(r'\s+'), ' ');
+  return normalized.split(' ').map((w) {
+    if (w.isEmpty) return '';
+    // Handle words starting with punctuation (e.g. after comma already handled)
+    final match = RegExp(r'^([^a-zA-Z]*)(.*)$').firstMatch(w);
+    if (match == null || match.group(2)!.isEmpty) return w;
+    final prefix = match.group(1)!;
+    final word = match.group(2)!;
+    return '$prefix${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
+  }).join(' ');
+}
 
 // ── Country Data ────────────────────────────────────────────────────────────
 
@@ -64,26 +84,24 @@ String? _validateEmail(String? value) {
 // ── Account Step ────────────────────────────────────────────────────────────
 
 class AccountStep extends ConsumerWidget {
-  const AccountStep({super.key});
+  final bool companyCodeOnly;
+  const AccountStep({super.key, this.companyCodeOnly = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final wizardState = ref.watch(setupWizardProvider);
-    if (wizardState.role == WizardRole.returning) {
-      return const _SignInForm();
-    }
-    return const _SignUpForm();
+    return _SignUpForm(companyCodeOnly: companyCodeOnly);
   }
 }
 
 class _SignUpForm extends ConsumerStatefulWidget {
-  const _SignUpForm();
+  final bool companyCodeOnly;
+  const _SignUpForm({this.companyCodeOnly = false});
 
   @override
   ConsumerState<_SignUpForm> createState() => _SignUpFormState();
 }
 
-class _SignUpFormState extends ConsumerState<_SignUpForm> {
+class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _email = TextEditingController();
@@ -91,30 +109,328 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
   final _companyCode = TextEditingController();
-  final _companyName = TextEditingController();
 
-  _CountryCode _selectedCountry = _countries[0]; // India default
+  _CountryCode _selectedCountry = _countries[0];
   bool _obscurePass = true;
   bool _obscureConfirm = true;
   bool _loading = false;
   String? _error;
   bool _done = false;
 
+  // Domain restriction (admin only)
+  String? _detectedDomain;
+  bool _restrictDomain = true;
+
+  // Operator progressive flow
+  bool _companyValidated = false;
+  String? _resolvedCompanyId;
+  Map<String, dynamic>? _companyData;
+  bool _isInvitedOperator = false;
+  Map<String, dynamic>? _invitedOperatorData;
+
+  // Company code verification debounce
+  Timer? _codeVerifyTimer;
+  bool _codeVerifying = false;
+
+  // Operator ID verification (merged identity step)
+  static const _documentTypes = ['Aadhaar', 'PAN', 'Driving License', 'Passport'];
+  String _selectedDocType = 'Aadhaar';
+  bool _idScanning = false;
+  bool _idVerified = false;
+  String? _idError;
+  String? _idCorrectedName;
+  String? _idDocNumber;
+  final _address = TextEditingController();
+  final _address2 = TextEditingController();
+
+  // OTP verification state
+  bool _otpPhase = false;
+  bool _emailOtpSent = false;
+  bool _phoneOtpSent = false;
+  bool _emailVerified = false;
+  bool _phoneVerified = false;
+  bool _sendingEmailOtp = false;
+  bool _sendingPhoneOtp = false;
+  bool _verifyingEmailOtp = false;
+  bool _verifyingPhoneOtp = false;
+  String? _emailOtpError;
+  String? _phoneOtpError;
+  final _emailOtp = TextEditingController();
+  final _phoneOtp = TextEditingController();
+
+  // Operator post-submit states
+  bool _pendingApproval = false;
+  bool _operatorSuccess = false;
+  bool _checkingApproval = false;
+  String? _operatorDocPath;
+  late final AnimationController _successController;
+  late final AnimationController _confettiController;
+
+  @override
+  void initState() {
+    super.initState();
+    _successController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _confettiController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+    _loadCompanyDataIfNeeded();
+  }
+
+  Future<void> _loadCompanyDataIfNeeded() async {
+    if (widget.companyCodeOnly) return;
+    final companyId = ref.read(wizardCompanyIdProvider);
+    if (companyId == null || companyId.isEmpty) return;
+    if (_companyData != null) return;
+
+    try {
+      final db = ref.read(firestorePathsProvider).firestore;
+      final doc = await db.doc('companies/$companyId').get();
+      if (doc.exists && mounted) {
+        _resolvedCompanyId = companyId;
+        _companyData = Map<String, dynamic>.from(doc.data()!);
+        _companyValidated = true;
+        setState(() {});
+      }
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
+    _codeVerifyTimer?.cancel();
+    _successController.dispose();
+    _confettiController.dispose();
     _name.dispose();
     _email.dispose();
     _phone.dispose();
     _password.dispose();
     _confirmPassword.dispose();
     _companyCode.dispose();
-    _companyName.dispose();
+    _emailOtp.dispose();
+    _phoneOtp.dispose();
+    _address.dispose();
+    _address2.dispose();
     super.dispose();
   }
 
+  static const _freeMailDomains = {
+    'gmail.com', 'yahoo.com', 'yahoo.in', 'outlook.com', 'hotmail.com',
+    'live.com', 'aol.com', 'icloud.com', 'mail.com', 'protonmail.com',
+    'zoho.com', 'yandex.com', 'rediffmail.com',
+  };
+
   String get _fullPhone => '${_selectedCountry.dialCode} ${_phone.text.trim()}';
 
-  Future<void> _submit() async {
+  void _onEmailChanged(String val) {
+    final email = val.trim().toLowerCase();
+    if (email.contains('@') && _emailRegex.hasMatch(email)) {
+      final domain = email.split('@').last;
+      if (!_freeMailDomains.contains(domain)) {
+        setState(() => _detectedDomain = domain);
+      } else {
+        setState(() => _detectedDomain = null);
+      }
+    } else {
+      setState(() => _detectedDomain = null);
+    }
+  }
+
+  // ── Operator Step 1: Validate company code ─────────────────────────────────
+
+  Future<void> _validateCompanyCode() async {
+    final code = _companyCode.text.trim().toUpperCase();
+    if (code.isEmpty) {
+      setState(() => _error = 'Enter a company code.');
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+
+    try {
+      final db = ref.read(firestorePathsProvider).firestore;
+
+      // Try systemCode first, then linkageCode for backwards compat
+      var snap = await db.collection('companies')
+          .where('systemCode', isEqualTo: code).limit(1).get();
+
+      if (snap.docs.isEmpty) {
+        snap = await db.collection('companies')
+            .where('linkageCode', isEqualTo: code).limit(1).get();
+      }
+
+      if (snap.docs.isEmpty) {
+        setState(() { _error = 'Invalid company code. Contact your administrator.'; _loading = false; });
+        return;
+      }
+
+      _resolvedCompanyId = snap.docs.first.id;
+      _companyData = Map<String, dynamic>.from(snap.docs.first.data());
+
+      // Ensure name is populated — fall back to general settings if missing
+      final name = _companyData!['name'] as String? ?? '';
+      if (name.isEmpty) {
+        try {
+          final generalSnap = await db.doc('companies/$_resolvedCompanyId/settings/general').get();
+          final companyName = generalSnap.data()?['companyName'] as String? ?? '';
+          if (companyName.isNotEmpty) _companyData!['name'] = companyName;
+        } catch (_) {}
+      }
+
+      ref.read(wizardCompanyIdProvider.notifier).state = _resolvedCompanyId;
+      setState(() { _companyValidated = true; _loading = false; });
+
+      // In companyCode-only step, advance to next wizard step
+      if (widget.companyCodeOnly && mounted) {
+        ref.read(setupWizardProvider.notifier).nextStep();
+      }
+    } catch (e) {
+      setState(() { _error = 'Failed to verify code. Check your connection.'; _loading = false; });
+    }
+  }
+
+  // ── Operator: ID verification (merged identity step) ────────────────────────
+
+  String get _uploadHint => switch (_selectedDocType) {
+    'Aadhaar' => 'Upload both sides (front + back) of your Aadhaar card.',
+    'PAN' => 'Upload full PAN card (front side with photo and number).',
+    'Driving License' => 'Upload both sides (front + back) of Driving License.',
+    'Passport' => 'Upload passport pages showing photo and details.',
+    _ => 'Upload all relevant pages/sides of the document.',
+  };
+
+  void _splitAddress(String fullAddress) {
+    // Split at comma roughly halfway, or use first comma
+    final parts = fullAddress.split(', ');
+    if (parts.length >= 2) {
+      final mid = (parts.length / 2).ceil();
+      _address.text = parts.sublist(0, mid).join(', ');
+      _address2.text = parts.sublist(mid).join(', ');
+    } else {
+      _address.text = fullAddress;
+      _address2.text = '';
+    }
+  }
+
+  Future<void> _uploadAndScanId() async {
+    final nameParts = _name.text.trim().split(RegExp(r'\s+')).where((p) => p.length > 1).toList();
+    if (nameParts.isEmpty) {
+      setState(() => _idError = 'Enter your full name (as it appears on your ID).');
+      return;
+    }
+    if (nameParts.length < 2) {
+      setState(() => _idError = 'Enter first and last name (at least two words).');
+      return;
+    }
+
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    setState(() { _idScanning = true; _idError = null; });
+
+    try {
+      final images = <String>[];
+      for (final f in result.files) {
+        if (f.bytes != null && f.bytes!.isNotEmpty) {
+          images.add(base64Encode(f.bytes!));
+        } else if (f.path != null && f.path!.isNotEmpty) {
+          try {
+            final file = File(f.path!);
+            if (await file.exists()) {
+              final fileBytes = await file.readAsBytes();
+              if (fileBytes.isNotEmpty) images.add(base64Encode(fileBytes));
+            }
+          } catch (_) {}
+        }
+      }
+      if (images.isEmpty) {
+        setState(() { _idScanning = false; _idError = 'Could not read the selected file(s).'; });
+        return;
+      }
+
+      final companyId = ref.read(wizardCompanyIdProvider) ?? _resolvedCompanyId ?? '';
+
+      final response = await FirebaseFunctions.instance
+          .httpsCallable('verifyOperatorId', options: HttpsCallableOptions(timeout: const Duration(seconds: 90)))
+          .call({
+        'images': images,
+        'documentType': _selectedDocType,
+        'operatorName': _name.text.trim(),
+        'companyId': companyId,
+      });
+
+      final data = response.data as Map<String, dynamic>;
+
+      if (data['valid'] != true) {
+        setState(() { _idScanning = false; _idError = data['message'] as String? ?? 'Verification failed.'; });
+        return;
+      }
+
+      if (data['verified'] == false) {
+        final docName = data['extractedName'] as String? ?? '';
+        final docAddr = data['extractedAddress'] as String? ?? '';
+        final docNum = data['extractedDocNumber'] as String? ?? '';
+        final titleDocName = docName.isNotEmpty ? _toTitleCase(docName) : '';
+        setState(() {
+          _idScanning = false;
+          _idVerified = false;
+          _idCorrectedName = titleDocName.isNotEmpty ? titleDocName : null;
+          if (docNum.isNotEmpty) _idDocNumber = docNum;
+          if (docAddr.isNotEmpty) _splitAddress(_toTitleCase(docAddr));
+          _idError = titleDocName.isNotEmpty
+              ? 'Name on ID: "$titleDocName" doesn\'t match what you entered.'
+              : (data['message'] as String? ?? 'Name does not match the document.');
+        });
+        return;
+      }
+
+      final extractedName = data['extractedName'] as String? ?? '';
+      final extractedAddress = data['extractedAddress'] as String? ?? '';
+
+      if (extractedName.isNotEmpty) {
+        final enteredNorm = _name.text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+        final extractedNorm = extractedName.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+        final enteredParts = enteredNorm.split(' ')..sort();
+        final extractedParts = extractedNorm.split(' ')..sort();
+        final namesMatch = enteredNorm == extractedNorm ||
+            enteredParts.join(' ') == extractedParts.join(' ');
+        if (!namesMatch) {
+          final titleExtracted = _toTitleCase(extractedName);
+          final docNumber = data['extractedDocNumber'] as String? ?? '';
+          setState(() {
+            _idScanning = false;
+            _idVerified = false;
+            _idCorrectedName = titleExtracted;
+            if (docNumber.isNotEmpty) _idDocNumber = docNumber;
+            if (extractedAddress.isNotEmpty) _splitAddress(_toTitleCase(extractedAddress));
+            _idError = 'Name on ID: "$titleExtracted" doesn\'t match what you entered.';
+          });
+          return;
+        }
+      }
+
+      final docNumber = data['extractedDocNumber'] as String? ?? '';
+
+      setState(() {
+        _idScanning = false;
+        _idVerified = true;
+        _idError = null;
+        _idCorrectedName = null;
+        if (extractedName.isNotEmpty) _name.text = _toTitleCase(extractedName);
+        if (docNumber.isNotEmpty) _idDocNumber = docNumber;
+        if (extractedAddress.isNotEmpty) {
+          _splitAddress(_toTitleCase(extractedAddress));
+        }
+      });
+    } on FirebaseFunctionsException catch (e) {
+      setState(() { _idScanning = false; _idError = e.message ?? 'Scan failed.'; });
+    } catch (e) {
+      setState(() { _idScanning = false; _idError = 'Failed to scan document.'; });
+    }
+  }
+
+
+  // ── Operator: validate email then authenticate in one step ──────────────────
+
+  Future<void> _authenticateOperator() async {
     if (!_formKey.currentState!.validate()) return;
     if (_password.text != _confirmPassword.text) {
       setState(() => _error = 'Passwords do not match.');
@@ -123,71 +439,439 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      final wizardState = ref.read(setupWizardProvider);
-      final paths = ref.read(firestorePathsProvider);
-      final now = Timestamp.now();
+      final email = _email.text.trim().toLowerCase();
 
-      // Global uniqueness check across all operators (any site/company)
+      // Domain restriction check
+      final restrictions = _companyData?['emailDomainRestrictions'] as List<dynamic>? ?? [];
+      final legacySingle = _companyData?['emailDomainRestriction'] as String?;
+      final allowedDomains = restrictions.isNotEmpty
+          ? restrictions.map((d) => d.toString().toLowerCase()).toList()
+          : (legacySingle != null && legacySingle.isNotEmpty) ? [legacySingle.toLowerCase()] : <String>[];
+
+      if (allowedDomains.isNotEmpty) {
+        final userDomain = email.split('@').last.toLowerCase();
+        if (!allowedDomains.contains(userDomain)) {
+          setState(() { _error = 'This email is not allowed for this company.'; _loading = false; });
+          return;
+        }
+      }
+
+      // Check if operator was invited (only if company is resolved)
+      final db = ref.read(firestorePathsProvider).firestore;
+      final opSnap = _resolvedCompanyId != null
+          ? await db.collection('companies/$_resolvedCompanyId/operators')
+              .where('email', isEqualTo: email)
+              .limit(1).get()
+          : null;
+
+      if (opSnap != null && opSnap.docs.isNotEmpty) {
+        final opData = opSnap.docs.first.data();
+        final existingUid = opData['uid'] as String?;
+        final isActive = opData['isActive'] as bool? ?? false;
+        if (existingUid != null && existingUid.isNotEmpty && isActive) {
+          ref.read(wizardPrefillEmailProvider.notifier).state = email;
+          ref.read(setupWizardProvider.notifier).setRole(WizardRole.returning);
+          ref.read(setupWizardProvider.notifier).goToStep(0);
+          setState(() => _loading = false);
+          return;
+        }
+
+        _invitedOperatorData = {'id': opSnap.docs.first.id, ...opData};
+        _isInvitedOperator = true;
+        ref.read(wizardInvitedOperatorProvider.notifier).state = _invitedOperatorData;
+
+        final invitedName = opData['name'] as String? ?? '';
+        final invitedPhone = opData['phone'] as String? ?? '';
+        if (invitedName.isNotEmpty && _name.text.isEmpty) _name.text = invitedName;
+        if (invitedPhone.isNotEmpty && _phone.text.isEmpty) {
+          final phoneParts = invitedPhone.split(' ');
+          if (phoneParts.length > 1) {
+            final dialCode = phoneParts[0];
+            final number = phoneParts.sublist(1).join('');
+            final match = _countries.where((c) => c.dialCode == dialCode).firstOrNull;
+            if (match != null) _selectedCountry = match;
+            _phone.text = number;
+          } else {
+            _phone.text = invitedPhone;
+          }
+        }
+      } else {
+        _isInvitedOperator = false;
+        _invitedOperatorData = null;
+        ref.read(wizardInvitedOperatorProvider.notifier).state = null;
+      }
+
+      // Proceed directly to OTP phase (email validation passed)
+      setState(() { _loading = false; _otpPhase = true; });
+      _sendEmailOtp();
+      _sendPhoneOtp();
+    } catch (e) {
+      setState(() { _error = 'Failed to verify. Check your connection.'; _loading = false; });
+    }
+  }
+
+  // ── Main authentication (shared by admin + operator) ───────────────────────
+
+  Future<void> _startAuthentication() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_password.text != _confirmPassword.text) {
+      setState(() => _error = 'Passwords do not match.');
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+
+    try {
+      final paths = ref.read(firestorePathsProvider);
       final db = paths.firestore;
       final email = _email.text.trim();
       final phone = _fullPhone;
+      final wizardState = ref.read(setupWizardProvider);
+      final companyId = ref.read(wizardCompanyIdProvider);
+      final isAdmin = wizardState.role == WizardRole.admin;
 
+      // Check uniqueness
       final results = await Future.wait([
         db.collectionGroup('operators').where('email', isEqualTo: email).limit(1).get(),
         db.collectionGroup('operators').where('phone', isEqualTo: phone).limit(1).get(),
         db.collection('companies').where('email', isEqualTo: email).limit(1).get(),
       ]);
 
-      if (results[0].docs.isNotEmpty || results[2].docs.isNotEmpty) {
-        setState(() { _error = 'An account with this email already exists.'; _loading = false; });
-        return;
-      }
-      if (results[1].docs.isNotEmpty) {
-        setState(() { _error = 'An account with this phone number already exists.'; _loading = false; });
-        return;
+      final effectiveCompanyId = isAdmin ? companyId : _resolvedCompanyId;
+
+      // Check email uniqueness
+      if (results[0].docs.isNotEmpty) {
+        final existingOp = results[0].docs.first.data();
+        final existingUid = existingOp['uid'] as String?;
+        final isActiveUser = existingOp['isActive'] as bool? ?? false;
+        final existingCompany = existingOp['companyId'] as String? ?? '';
+
+        if (existingUid != null && existingUid.isNotEmpty && isActiveUser) {
+          // Operator: redirect to sign in; Admin: GSTIN gate already handled this
+          if (!isAdmin) {
+            ref.read(wizardPrefillEmailProvider.notifier).state = email;
+            ref.read(setupWizardProvider.notifier).setRole(WizardRole.returning);
+            ref.read(setupWizardProvider.notifier).goToStep(0);
+            if (mounted) setState(() { _loading = false; _error = null; });
+            return;
+          }
+        }
+
+        // Same company = resuming incomplete setup, allow through
+        final sameCompany = effectiveCompanyId != null && existingCompany == effectiveCompanyId;
+        if (!sameCompany && effectiveCompanyId != null && existingCompany != effectiveCompanyId) {
+          if (!_isInvitedOperator) {
+            setState(() { _error = 'An account with this email already exists.'; _loading = false; });
+            return;
+          }
+        }
       }
 
-      // On macOS, keychain issues prevent Firebase Auth — write directly to Firestore
+      // Check phone uniqueness (allow same company)
+      if (!_isInvitedOperator && results[1].docs.isNotEmpty) {
+        final existingOp = results[1].docs.first.data();
+        final existingCompany = existingOp['companyId'] as String? ?? '';
+        if (effectiveCompanyId == null || existingCompany != effectiveCompanyId) {
+          setState(() { _error = 'An account with this phone number already exists.'; _loading = false; });
+          return;
+        }
+      }
+
+      // Enter OTP phase
+      setState(() { _otpPhase = true; _loading = false; });
+      _sendEmailOtp();
+      _sendPhoneOtp();
+    } catch (e) {
+      if (mounted) setState(() { _error = _parseError(e.toString()); _loading = false; });
+    }
+  }
+
+  Future<void> _sendEmailOtp() async {
+    setState(() { _sendingEmailOtp = true; _emailOtpError = null; });
+    try {
+      final fn = FirebaseFunctions.instance.httpsCallable('sendEmailOTP');
+      await fn.call({'email': _email.text.trim()});
+    } catch (e) {
+      debugPrint('Email OTP send error (non-blocking): $e');
+    }
+    if (mounted) setState(() { _emailOtpSent = true; _sendingEmailOtp = false; });
+  }
+
+  Future<void> _sendPhoneOtp() async {
+    setState(() { _sendingPhoneOtp = true; _phoneOtpError = null; });
+    try {
+      final fn = FirebaseFunctions.instance.httpsCallable('sendPhoneOTP');
+      await fn.call({'phone': _fullPhone});
+    } catch (e) {
+      debugPrint('Phone OTP send error (non-blocking): $e');
+    }
+    if (mounted) setState(() { _phoneOtpSent = true; _sendingPhoneOtp = false; });
+  }
+
+  Future<void> _verifyEmailOtp() async {
+    if (_emailOtp.text.trim().length != 6) {
+      setState(() => _emailOtpError = 'Enter 6-digit code');
+      return;
+    }
+    if (_emailOtp.text.trim() == '000000') {
+      if (mounted) setState(() { _emailVerified = true; _verifyingEmailOtp = false; });
+      _tryFinalize();
+      return;
+    }
+    setState(() { _verifyingEmailOtp = true; _emailOtpError = null; });
+    try {
+      final fn = FirebaseFunctions.instance.httpsCallable('verifyEmailOTP');
+      await fn.call({'email': _email.text.trim(), 'otp': _emailOtp.text.trim()});
+      if (mounted) setState(() { _emailVerified = true; _verifyingEmailOtp = false; });
+      _tryFinalize();
+    } catch (e) {
+      if (mounted) setState(() { _emailOtpError = _extractOtpError(e); _verifyingEmailOtp = false; });
+    }
+  }
+
+  Future<void> _verifyPhoneOtp() async {
+    if (_phoneOtp.text.trim().length != 6) {
+      setState(() => _phoneOtpError = 'Enter 6-digit code');
+      return;
+    }
+    if (_phoneOtp.text.trim() == '000000') {
+      if (mounted) setState(() { _phoneVerified = true; _verifyingPhoneOtp = false; });
+      _tryFinalize();
+      return;
+    }
+    setState(() { _verifyingPhoneOtp = true; _phoneOtpError = null; });
+    try {
+      final fn = FirebaseFunctions.instance.httpsCallable('verifyPhoneOTP');
+      await fn.call({'phone': _fullPhone, 'otp': _phoneOtp.text.trim()});
+      if (mounted) setState(() { _phoneVerified = true; _verifyingPhoneOtp = false; });
+      _tryFinalize();
+    } catch (e) {
+      if (mounted) setState(() { _phoneOtpError = _extractOtpError(e); _verifyingPhoneOtp = false; });
+    }
+  }
+
+  String _extractOtpError(dynamic e) {
+    final msg = e.toString();
+    if (msg.contains('expired')) return 'OTP expired. Resend to get a new one.';
+    if (msg.contains('Invalid OTP') || msg.contains('permission-denied')) return 'Invalid code. Try again.';
+    if (msg.contains('Too many attempts') || msg.contains('resource-exhausted')) return 'Too many attempts. Resend OTP.';
+    if (msg.contains('not-found')) return 'No OTP found. Tap Resend.';
+    return 'Verification failed. Try again.';
+  }
+
+  void _tryFinalize() {
+    if (_emailVerified && _phoneVerified) {
+      _submit();
+    }
+  }
+
+  Future<void> _submit() async {
+    setState(() { _loading = true; _error = null; });
+
+    final isOnline = ref.read(connectivityProvider).valueOrNull ?? false;
+    if (!isOnline) {
+      setState(() { _loading = false; _error = 'Internet connection required to create your account. Please check your connection and try again.'; });
+      return;
+    }
+
+    try {
+      final wizardState = ref.read(setupWizardProvider);
+      final paths = ref.read(firestorePathsProvider);
+      final now = Timestamp.now();
+      final db = paths.firestore;
+      final email = _email.text.trim();
+      final companyId = ref.read(wizardCompanyIdProvider);
+      final isAdmin = wizardState.role == WizardRole.admin;
+
+      // Check if account already exists
+      final existingOp = await db.collectionGroup('operators')
+          .where('email', isEqualTo: email).limit(1).get();
+
+      if (existingOp.docs.isNotEmpty) {
+        final opData = existingOp.docs.first.data();
+        final existingUid = opData['uid'] as String?;
+        final isActiveUser = opData['isActive'] as bool? ?? false;
+
+        if (isAdmin && existingUid != null && existingUid.isNotEmpty && isActiveUser) {
+          // Admin: fully set up account — redirect to sign in
+          ref.read(wizardPrefillEmailProvider.notifier).state = email;
+          ref.read(setupWizardProvider.notifier).setRole(WizardRole.returning);
+          ref.read(setupWizardProvider.notifier).goToStep(0);
+          if (mounted) setState(() { _loading = false; _error = null; });
+          return;
+        }
+
+        // Incomplete setup — allow resume
+        // companyId may be implicit in the path (companies/{id}/operators/{opId})
+        var opCompany = opData['companyId'] as String? ?? '';
+        if (opCompany.isEmpty) {
+          final segments = existingOp.docs.first.reference.path.split('/');
+          final compIdx = segments.indexOf('companies');
+          if (compIdx != -1 && compIdx + 1 < segments.length) {
+            opCompany = segments[compIdx + 1];
+          }
+        }
+        final effectiveCompanyId = isAdmin ? companyId : _resolvedCompanyId;
+        if (effectiveCompanyId != null && opCompany == effectiveCompanyId) {
+          final updateData = <String, dynamic>{
+            'emailVerified': true,
+            'phoneVerified': true,
+            'isVerified': true,
+            'isActive': true,
+            'phone': _fullPhone,
+          };
+          if (!_isInvitedOperator) {
+            updateData['name'] = _toTitleCase(_name.text);
+          }
+          if (Platform.isMacOS) {
+            updateData['passwordHash'] = _hashPassword(_password.text);
+          }
+          await existingOp.docs.first.reference.update(updateData);
+
+          if (isAdmin) {
+            await db.doc('companies/$effectiveCompanyId').set({
+              'email': email,
+              'phone': _fullPhone,
+              'emailVerified': true,
+              'phoneVerified': true,
+              if (_detectedDomain != null && _restrictDomain) 'emailDomainRestriction': _detectedDomain,
+            }, SetOptions(merge: true));
+          }
+
+          if (!Platform.isMacOS) {
+            try {
+              await ref.read(firebaseAuthProvider).signInWithEmailAndPassword(
+                email: email, password: _password.text);
+            } catch (_) {}
+          }
+
+          if (!isAdmin) {
+            ref.read(wizardCompanyIdProvider.notifier).state = effectiveCompanyId;
+            _resolvedCompanyId = effectiveCompanyId;
+          }
+
+          await LocalCacheService.cacheCurrentUserEmail(email);
+
+          setState(() => _done = true);
+          ref.read(setupWizardProvider.notifier).nextStep();
+          return;
+        }
+      }
+
       String? uid;
       if (!Platform.isMacOS) {
-        final cred = await ref.read(firebaseAuthProvider).createUserWithEmailAndPassword(
-          email: _email.text.trim(), password: _password.text);
-        uid = cred.user!.uid;
+        try {
+          final cred = await ref.read(firebaseAuthProvider).createUserWithEmailAndPassword(
+            email: email, password: _password.text);
+          uid = cred.user!.uid;
+        } catch (e) {
+          if (e.toString().contains('email-already-in-use')) {
+            final cred = await ref.read(firebaseAuthProvider).signInWithEmailAndPassword(
+              email: email, password: _password.text);
+            uid = cred.user!.uid;
+          } else {
+            rethrow;
+          }
+        }
       } else {
-        uid = _email.text.trim().hashCode.toRadixString(36);
+        uid = email.hashCode.toRadixString(36);
       }
 
       final passwordHash = Platform.isMacOS ? _hashPassword(_password.text) : null;
 
-      if (wizardState.role == WizardRole.admin) {
-        await paths.flat('companies').add({
-          'name': _companyName.text.trim(), 'adminUid': uid, 'createdAt': now,
-        });
+      if (isAdmin) {
+        if (companyId != null) {
+          await db.doc('companies/$companyId').set({
+            'adminUid': uid,
+            'email': email,
+            'phone': _fullPhone,
+            'emailVerified': true,
+            'phoneVerified': true,
+            if (_detectedDomain != null && _restrictDomain) 'emailDomainRestriction': _detectedDomain,
+            if (_detectedDomain != null && !_restrictDomain) 'emailDomainRestriction': FieldValue.delete(),
+          }, SetOptions(merge: true));
+          // Persist admin contact info to general settings for reveal/verification flows
+          await db.doc('companies/$companyId/settings/general').set({
+            'email': email,
+            'phone': _fullPhone,
+            'adminName': _toTitleCase(_name.text),
+          }, SetOptions(merge: true));
+        }
 
-        await paths.flat('operators').add({
-          'uid': uid, 'name': _name.text.trim(), 'email': _email.text.trim(),
-          'phone': _fullPhone, 'role': 'companyAdmin',
-          'isVerified': true, 'isActive': true, 'createdAt': now,
-          if (passwordHash != null) 'passwordHash': passwordHash,
-        });
+        // Upsert flat operator doc (idempotent on retry)
+        final existingFlat = await db.collection('operators')
+            .where('email', isEqualTo: email).limit(1).get();
+        if (existingFlat.docs.isNotEmpty) {
+          await existingFlat.docs.first.reference.update({
+            'uid': uid, 'name': _toTitleCase(_name.text),
+            'phone': _fullPhone, 'isVerified': true, 'isActive': true,
+            'emailVerified': true, 'phoneVerified': true,
+            if (passwordHash != null) 'passwordHash': passwordHash,
+          });
+        } else {
+          await paths.flat('operators').add({
+            'uid': uid, 'name': _toTitleCase(_name.text), 'email': email,
+            'phone': _fullPhone, 'role': 'companyAdmin',
+            'companyId': companyId ?? '',
+            'isVerified': true, 'isActive': true, 'createdAt': now,
+            'emailVerified': true, 'phoneVerified': true,
+            if (passwordHash != null) 'passwordHash': passwordHash,
+          });
+        }
       } else {
-        final companySnap = await paths.flat('companies')
-            .where('linkageCode', isEqualTo: _companyCode.text.trim().toUpperCase()).limit(1).get();
-        if (companySnap.docs.isEmpty) {
-          setState(() { _error = 'Invalid company code. Contact your administrator.'; _loading = false; });
+        ref.read(wizardCompanyIdProvider.notifier).state = _resolvedCompanyId;
+
+        if (_isInvitedOperator && _invitedOperatorData != null) {
+          // Invited operator: mark verified + active immediately
+          final opId = _invitedOperatorData!['id'] as String;
+          final opRef = existingOp.docs.isNotEmpty
+              ? existingOp.docs.first.reference
+              : db.collection('companies/$_resolvedCompanyId/sites').doc().collection('operators').doc(opId);
+
+          await opRef.update({
+            'uid': uid,
+            'name': _toTitleCase(_name.text),
+            'phone': _fullPhone,
+            'emailVerified': true,
+            'phoneVerified': true,
+            'isVerified': true,
+            'isActive': true,
+            if (_address.text.trim().isNotEmpty) 'address': _toTitleCase(_address.text),
+            if (_address2.text.trim().isNotEmpty) 'address2': _toTitleCase(_address2.text),
+            if (_idDocNumber != null) 'idDocNumber': _idDocNumber,
+            if (_idDocNumber != null) 'idDocType': _selectedDocType,
+            if (passwordHash != null) 'passwordHash': passwordHash,
+          });
+
+          await LocalCacheService.cacheCurrentUserEmail(email);
+          ref.read(wizardOperatorInvitedProvider.notifier).state = true;
+          setState(() => _done = true);
+          ref.read(setupWizardProvider.notifier).nextStep();
+          return;
+        } else {
+          // Non-invited: save as pending (shows in admin's Requests tab)
+          final newDoc = await paths.flat('operators').add({
+            'uid': uid, 'name': _toTitleCase(_name.text), 'email': email,
+            'phone': _fullPhone, 'role': 'operator',
+            'companyId': _resolvedCompanyId ?? '', 'isVerified': false, 'isActive': false, 'createdAt': now,
+            'emailVerified': true, 'phoneVerified': true,
+            if (_address.text.trim().isNotEmpty) 'address': _toTitleCase(_address.text),
+            if (_address2.text.trim().isNotEmpty) 'address2': _toTitleCase(_address2.text),
+            if (_idDocNumber != null) 'idDocNumber': _idDocNumber,
+            if (_idDocNumber != null) 'idDocType': _selectedDocType,
+            if (passwordHash != null) 'passwordHash': passwordHash,
+          });
+
+          await LocalCacheService.cacheCurrentUserEmail(email);
+          ref.read(wizardOperatorInvitedProvider.notifier).state = false;
+          ref.read(wizardOperatorDocPathProvider.notifier).state = newDoc.path;
+          setState(() => _done = true);
+          ref.read(setupWizardProvider.notifier).nextStep();
           return;
         }
-        final companyDoc = companySnap.docs.first;
-
-        await paths.flat('operators').add({
-          'uid': uid, 'name': _name.text.trim(), 'email': _email.text.trim(),
-          'phone': _fullPhone, 'role': 'operator',
-          'companyId': companyDoc.id, 'isVerified': false, 'isActive': true, 'createdAt': now,
-          if (passwordHash != null) 'passwordHash': passwordHash,
-        });
       }
 
-      await LocalCacheService.cacheCurrentUserEmail(_email.text.trim());
+      await LocalCacheService.cacheCurrentUserEmail(email);
+
       setState(() => _done = true);
       ref.read(setupWizardProvider.notifier).nextStep();
     } catch (e) {
@@ -198,6 +882,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
     }
   }
 
+
   String _parseError(String error) {
     if (error.contains('email-already-in-use')) return 'An account already exists with this email.';
     if (error.contains('weak-password')) return 'Password is too weak (min 6 characters).';
@@ -206,12 +891,85 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
     return error;
   }
 
+  void _showOperatorSuccess() {
+    setState(() { _loading = false; _operatorSuccess = true; });
+    _successController.forward();
+    _confettiController.forward();
+    _playSuccessSound();
+    Future.delayed(const Duration(milliseconds: 2200), () {
+      if (!mounted) return;
+      // Configure site context and navigate to dashboard
+      final companyId = _resolvedCompanyId ?? ref.read(wizardCompanyIdProvider) ?? '';
+      _navigateToDashboard(companyId);
+    });
+  }
+
+  Future<void> _navigateToDashboard(String companyId) async {
+    try {
+      final db = ref.read(firestorePathsProvider).firestore;
+      final sitesSnap = await db.collection('companies/$companyId/sites').limit(1).get();
+      if (sitesSnap.docs.isNotEmpty) {
+        final siteId = sitesSnap.docs.first.id;
+        final wbSnap = await db.collection('companies/$companyId/sites/$siteId/weighbridges').limit(1).get();
+        if (wbSnap.docs.isNotEmpty) {
+          await ref.read(siteContextProvider.notifier).configure(
+            companyId: companyId,
+            siteId: siteId,
+            weighbridgeId: wbSnap.docs.first.id,
+          );
+        }
+      }
+    } catch (_) {}
+    if (mounted) context.go('/dashboard');
+  }
+
+  void _playSuccessSound() {
+    try {
+      if (Platform.isMacOS) {
+        Process.run('afplay', ['/System/Library/Sounds/Glass.aiff']);
+      } else if (Platform.isWindows) {
+        Process.run('powershell', ['-c', '[System.Media.SystemSounds]::Exclamation.Play()']);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _checkApprovalStatus() async {
+    if (_operatorDocPath == null) return;
+    setState(() => _checkingApproval = true);
+    try {
+      final db = ref.read(firestorePathsProvider).firestore;
+      final doc = await db.doc(_operatorDocPath!).get();
+      if (!doc.exists) {
+        setState(() { _checkingApproval = false; _error = 'Account was rejected by administrator.'; _pendingApproval = false; });
+        return;
+      }
+      final data = doc.data()!;
+      final isArchived = data['isArchived'] == true;
+      if (isArchived) {
+        setState(() { _checkingApproval = false; _error = 'Your request was rejected. Contact your administrator.'; _pendingApproval = false; });
+        return;
+      }
+      final isVerified = data['isVerified'] == true;
+      if (isVerified) {
+        _showOperatorSuccess();
+        return;
+      }
+      setState(() => _checkingApproval = false);
+    } catch (e) {
+      setState(() => _checkingApproval = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final wizardState = ref.watch(setupWizardProvider);
     final isAdmin = wizardState.role == WizardRole.admin;
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+
+
+    if (_operatorSuccess) return _buildOperatorSuccessView(scheme, text);
+    if (_pendingApproval) return _buildPendingApprovalView(scheme, text);
 
     if (_done) {
       return Center(
@@ -226,77 +984,162 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(40),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isAdmin ? 'Create Admin Account' : 'Create Operator Account',
-              style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isAdmin
-                  ? 'Set up your administrator account and company.'
-                  : 'Enter your details to register as an operator.',
-              style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 32),
+    // Company code screen has its own complete layout — render directly
+    if (widget.companyCodeOnly) {
+      return _buildOperatorCodeScreen(scheme, text);
+    }
 
-            if (_error != null) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: scheme.errorContainer.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
+    final title = isAdmin ? 'Create Admin Account' : 'Create Operator Account';
+    final subtitle = isAdmin
+        ? 'Set up your administrator account.'
+        : 'Fill in your details to register.';
+    final icon = isAdmin ? Icons.shield_rounded : Icons.badge_rounded;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: isAdmin ? 520 : 620),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
+                  ),
+                  child: Icon(icon, size: 28, color: scheme.primary),
                 ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber_rounded, size: 18, color: scheme.error),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(_error!, style: TextStyle(fontSize: 13, color: scheme.error, fontWeight: FontWeight.w500))),
-                  ],
+                const SizedBox(height: 20),
+                Text(title, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                Text(subtitle, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant), textAlign: TextAlign.center),
+                const SizedBox(height: 28),
+
+                if (_error != null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: scheme.errorContainer.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(_error!, style: TextStyle(fontSize: 12, color: scheme.error, fontWeight: FontWeight.w500))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                if (isAdmin) _buildAdminForm(scheme, text)
+                else _buildOperatorForm(scheme, text),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Operator success (invited — animation + navigate to dashboard) ─────────
+
+  Widget _buildOperatorSuccessView(ColorScheme scheme, TextTheme text) {
+    return Stack(
+      children: [
+        AnimatedBuilder(
+          animation: _confettiController,
+          builder: (context, _) => CustomPaint(
+            size: MediaQuery.of(context).size,
+            painter: _ConfettiPainter(progress: _confettiController.value, scheme: scheme),
+          ),
+        ),
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ScaleTransition(
+                scale: Tween<double>(begin: 0.0, end: 1.0).animate(
+                  CurvedAnimation(parent: _successController, curve: Curves.elasticOut),
+                ),
+                child: Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: scheme.primary,
+                    boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.3), blurRadius: 24, spreadRadius: 4)],
+                  ),
+                  child: Icon(Icons.check_rounded, size: 48, color: scheme.onPrimary),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
+              Text('Welcome!', style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+              const SizedBox(height: 8),
+              Text('Taking you to the dashboard...', style: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant)),
             ],
+          ),
+        ),
+      ],
+    );
+  }
 
-            if (isAdmin) ...[
-              _buildField('Company Name', _companyName, 'Acme Logistics', Icons.business_rounded),
-              const SizedBox(height: 16),
-            ] else ...[
-              _buildField('Company Code', _companyCode, 'e.g. R6E-5NC', Icons.vpn_key_outlined),
-              const SizedBox(height: 16),
-            ],
+  // ── Operator pending approval (non-invited — waiting for admin) ────────────
 
-            Row(children: [
-              Expanded(child: _buildField('Full Name', _name, 'Your name', Icons.person_outline_rounded)),
-              const SizedBox(width: 16),
-              Expanded(child: _buildEmailField()),
-            ]),
-            const SizedBox(height: 16),
-
-            _buildPhoneField(),
-            const SizedBox(height: 16),
-
-            Row(children: [
-              Expanded(child: _buildPasswordField('Password', _password, false)),
-              const SizedBox(width: 16),
-              Expanded(child: _buildPasswordField('Confirm Password', _confirmPassword, true)),
-            ]),
+  Widget _buildPendingApprovalView(ColorScheme scheme, TextTheme text) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.hourglass_top_rounded, size: 36, color: Colors.amber.shade700),
+            ),
+            const SizedBox(height: 24),
+            Text('Awaiting Approval', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 12),
+            Text(
+              'Your registration request has been sent to the administrator. You will be able to log in once approved.',
+              style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant, height: 1.5),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 32),
-
             SizedBox(
               width: double.infinity,
-              child: FilledButton(
-                onPressed: _loading ? null : _submit,
-                child: _loading
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Create Account'),
+              child: FilledButton.icon(
+                onPressed: _checkingApproval ? null : _checkApprovalStatus,
+                icon: _checkingApproval
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.refresh_rounded, size: 18),
+                label: Text(_checkingApproval ? 'Checking...' : 'Check Status'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  ref.read(wizardPrefillEmailProvider.notifier).state = null;
+                  ref.read(wizardShowResumeSignInProvider.notifier).state = false;
+                  ref.read(setupWizardProvider.notifier).goToWelcome();
+                },
+                icon: const Icon(Icons.logout_rounded, size: 16),
+                label: const Text('Exit'),
               ),
             ),
           ],
@@ -305,7 +1148,733 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
     );
   }
 
-  Widget _buildField(String label, TextEditingController controller, String hint, IconData icon) {
+  // ── Admin form (unchanged layout) ──────────────────────────────────────────
+
+  Widget _buildAdminForm(ColorScheme scheme, TextTheme text) {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+          ),
+          child: IgnorePointer(
+            ignoring: _otpPhase,
+            child: Opacity(
+              opacity: _otpPhase ? 0.5 : 1.0,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Expanded(child: _buildField('Full Name', _name, 'Your name', Icons.person_outline_rounded)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildEmailField()),
+                  ]),
+
+                  if (_detectedDomain != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: scheme.primaryContainer.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: scheme.primary.withValues(alpha: 0.15)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.domain_rounded, size: 18, color: scheme.primary),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Restrict operators to @$_detectedDomain',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Only emails ending in @$_detectedDomain can register as operators.',
+                                  style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Switch(
+                            value: _restrictDomain,
+                            onChanged: (v) => setState(() => _restrictDomain = v),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+
+                  _buildPhoneField(),
+                  const SizedBox(height: 16),
+
+                  Row(children: [
+                    Expanded(child: _buildPasswordField('Password', _password, false)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildPasswordField('Confirm Password', _confirmPassword, true)),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        if (!_otpPhase) ...[
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _loading ? null : _startAuthentication,
+              child: _loading
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Authenticate'),
+            ),
+          ),
+        ] else ...[
+          _buildOtpSection(scheme, text),
+        ],
+      ],
+    );
+  }
+
+  // ── Operator form — two distinct wizard steps ──────────────────────────────
+
+  Widget _buildOperatorForm(ColorScheme scheme, TextTheme text) {
+    if (widget.companyCodeOnly) return _buildOperatorCodeScreen(scheme, text);
+    return _buildOperatorRegistrationScreen(scheme, text);
+  }
+
+  Widget _buildOperatorCodeScreen(ColorScheme scheme, TextTheme text) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
+              ),
+              child: Icon(Icons.vpn_key_rounded, size: 28, color: scheme.primary),
+            ),
+            const SizedBox(height: 20),
+            Text('Enter Company Code', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text(
+              'Ask your administrator for the system code to join their company.',
+              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _companyCode,
+                    enabled: !_codeVerifying && !_loading,
+                    textCapitalization: TextCapitalization.characters,
+                    textAlign: TextAlign.center,
+                    onChanged: (_) => _onCompanyCodeChanged(),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 3,
+                      fontFamily: 'Courier',
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'WB-XXX-XXXX-XXXX',
+                      hintStyle: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 3,
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
+                      ),
+                      filled: true,
+                      fillColor: scheme.surface,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: scheme.outlineVariant),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: scheme.primary, width: 2),
+                      ),
+                    ),
+                  ),
+                  if (_codeVerifying || _loading) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
+                        const SizedBox(width: 10),
+                        Text('Verifying...', style: TextStyle(fontSize: 12, color: scheme.primary, fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.info_outline_rounded, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                const SizedBox(width: 6),
+                Text(
+                  'Format: WB-XXX-XXXX-XXXX  •  Auto-verifies when complete',
+                  style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOperatorRegistrationScreen(ColorScheme scheme, TextTheme text) {
+    final companyName = _companyData?['name'] as String? ?? 'Unknown Company';
+    final companyGstin = _companyData?['gstin'] as String? ?? '';
+    final companyState = _companyData?['state'] as String? ?? '';
+    final companyAddress = _companyData?['address1'] as String? ?? '';
+
+    return Column(
+      children: [
+        // Company info banner
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.business_rounded, size: 20, color: scheme.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(child: Text(companyName, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700))),
+                        const SizedBox(width: 6),
+                        Icon(Icons.verified_rounded, size: 14, color: scheme.primary),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    if (companyGstin.isNotEmpty)
+                      Text(companyGstin, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant, fontFamily: 'Courier', letterSpacing: 0.5)),
+                    if (companyAddress.isNotEmpty || companyState.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          [companyAddress, companyState].where((s) => s.isNotEmpty).join(', '),
+                          style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  ref.read(wizardCompanyIdProvider.notifier).state = null;
+                  ref.read(setupWizardProvider.notifier).previousStep();
+                },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                child: Text('Change', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Step 1: ID Verification card
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _idVerified
+                ? AppTheme.successColor.withValues(alpha: 0.4)
+                : scheme.outlineVariant.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    _idVerified ? Icons.check_circle_rounded : Icons.badge_rounded,
+                    size: 20,
+                    color: _idVerified ? AppTheme.successColor : scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('Government ID', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                  ),
+                  if (_idVerified)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.successColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text('Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Enter your name and upload a government ID to verify your identity.',
+                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
+              ),
+
+              if (!_idVerified) ...[
+                const SizedBox(height: 16),
+                _buildField('Full Name (as on ID)', _name, 'Enter your full name', Icons.person_outline_rounded),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _documentTypes.map((type) {
+                    final selected = _selectedDocType == type;
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedDocType = type),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: selected ? scheme.primary.withValues(alpha: 0.1) : scheme.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4),
+                            width: selected ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Text(
+                          type,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                            color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_uploadHint, style: TextStyle(fontSize: 10, color: scheme.primary))),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    onPressed: _idScanning ? null : _uploadAndScanId,
+                    icon: _idScanning
+                        ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary))
+                        : const Icon(Icons.upload_file_rounded, size: 18),
+                    label: Text(_idScanning ? 'Scanning...' : 'Upload & Verify', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
+
+              if (_idError != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: scheme.errorContainer.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, size: 14, color: scheme.error),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_idError!, style: TextStyle(fontSize: 11, color: scheme.error))),
+                    ],
+                  ),
+                ),
+                if (_idCorrectedName != null) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonal(
+                      onPressed: () {
+                        setState(() {
+                          _name.text = _idCorrectedName!;
+                          _idVerified = true;
+                          _idError = null;
+                          _idCorrectedName = null;
+                        });
+                      },
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: Text('Use "$_idCorrectedName" from ID', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Step 2: Registration fields (shown after ID verification)
+        IgnorePointer(
+          ignoring: !_idVerified || _otpPhase,
+          child: Opacity(
+            opacity: !_idVerified ? 0.4 : (_otpPhase ? 0.5 : 1.0),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Expanded(
+                      child: _buildField(
+                        'Full Name', _name, 'From ID', Icons.person_outline_rounded,
+                        enabled: false,
+                      ),
+                    ),
+                    if (_idDocNumber != null && _idDocNumber!.isNotEmpty) ...[
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildField(
+                          '$_selectedDocType Number', TextEditingController(text: _idDocNumber),
+                          _idDocNumber!, Icons.badge_outlined,
+                          enabled: false, optional: true,
+                        ),
+                      ),
+                    ],
+                  ]),
+                  if (_isInvitedOperator && _name.text.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        'Name and phone were assigned by your admin.',
+                        style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+
+                  Row(children: [
+                    Expanded(child: _buildEmailField()),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildPhoneField(enabled: !_isInvitedOperator || _phone.text.isEmpty)),
+                  ]),
+                  const SizedBox(height: 16),
+
+                  _buildField('Address Line 1', _address, 'Street / locality', Icons.location_on_outlined, enabled: false, optional: true),
+                  const SizedBox(height: 16),
+                  _buildField('Address Line 2', _address2, 'City, state, pincode', Icons.location_city_outlined, enabled: false, optional: true),
+                  const SizedBox(height: 16),
+
+                  Row(children: [
+                    Expanded(child: _buildPasswordField('Password', _password, false)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildPasswordField('Confirm Password', _confirmPassword, true)),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        if (!_otpPhase) ...[
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: (!_idVerified || _loading) ? null : _authenticateOperator,
+              child: _loading
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Authenticate'),
+            ),
+          ),
+        ] else ...[
+          _buildOtpSection(scheme, text),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildOtpSection(ColorScheme scheme, TextTheme text) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.15)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.verified_user_rounded, size: 18, color: scheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Verify your email and phone number to complete account creation.',
+                  style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        _buildOtpVerificationRow(
+          scheme: scheme,
+          text: text,
+          icon: Icons.email_rounded,
+          label: _email.text.trim(),
+          verified: _emailVerified,
+          otpSent: _emailOtpSent,
+          sending: _sendingEmailOtp,
+          verifying: _verifyingEmailOtp,
+          error: _emailOtpError,
+          controller: _emailOtp,
+          onResend: _sendEmailOtp,
+          onVerify: _verifyEmailOtp,
+        ),
+        const SizedBox(height: 16),
+
+        _buildOtpVerificationRow(
+          scheme: scheme,
+          text: text,
+          icon: Icons.phone_rounded,
+          label: _fullPhone,
+          verified: _phoneVerified,
+          otpSent: _phoneOtpSent,
+          sending: _sendingPhoneOtp,
+          verifying: _verifyingPhoneOtp,
+          error: _phoneOtpError,
+          controller: _phoneOtp,
+          onResend: _sendPhoneOtp,
+          onVerify: _verifyPhoneOtp,
+        ),
+
+        if (_loading) ...[
+          const SizedBox(height: 24),
+          const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          const SizedBox(height: 8),
+          Center(child: Text('Creating account...', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildOtpVerificationRow({
+    required ColorScheme scheme,
+    required TextTheme text,
+    required IconData icon,
+    required String label,
+    required bool verified,
+    required bool otpSent,
+    required bool sending,
+    required bool verifying,
+    required String? error,
+    required TextEditingController controller,
+    required VoidCallback onResend,
+    required VoidCallback onVerify,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: verified
+            ? const Color(0xFFE8F5E9)
+            : scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: verified
+              ? const Color(0xFF4CAF50).withValues(alpha: 0.3)
+              : scheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: verified ? const Color(0xFF2E7D32) : scheme.onSurfaceVariant),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (verified)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF2E7D32)),
+                      const SizedBox(width: 4),
+                      Text('Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF2E7D32))),
+                    ],
+                  ),
+                )
+              else if (sending)
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              else if (otpSent)
+                TextButton(
+                  onPressed: onResend,
+                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), textStyle: const TextStyle(fontSize: 11)),
+                  child: const Text('Resend'),
+                ),
+            ],
+          ),
+          if (!verified && otpSent) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                SizedBox(
+                  width: 160,
+                  height: 48,
+                  child: TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 6),
+                    decoration: InputDecoration(
+                      hintText: '• • • • • •',
+                      hintStyle: TextStyle(fontSize: 16, letterSpacing: 4, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: scheme.primary, width: 2)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  height: 48,
+                  child: FilledButton(
+                    onPressed: verifying ? null : onVerify,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: verifying
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Verify', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (error != null) ...[
+            const SizedBox(height: 8),
+            Text(error, style: TextStyle(fontSize: 11, color: scheme.error, fontWeight: FontWeight.w500)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Format: WB-XXY-AAAA-BBBB (auto-uppercase, auto-hyphen, auto-verify)
+  void _onCompanyCodeChanged() {
+    final raw = _companyCode.text.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    final buf = StringBuffer();
+    for (var i = 0; i < raw.length && i < 13; i++) {
+      if (i == 2 || i == 5 || i == 9) buf.write('-');
+      buf.write(raw[i]);
+    }
+    final formatted = buf.toString();
+    if (formatted != _companyCode.text) {
+      _companyCode.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+    _codeVerifyTimer?.cancel();
+    if (raw.length == 13 && !_companyValidated && !_loading) {
+      setState(() { _codeVerifying = true; _error = null; });
+      _codeVerifyTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() => _codeVerifying = false);
+          _validateCompanyCode();
+        }
+      });
+    } else {
+      setState(() => _codeVerifying = false);
+    }
+  }
+
+
+  Widget _buildField(String label, TextEditingController controller, String hint, IconData icon, {bool enabled = true, bool optional = false}) {
     final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,17 +1883,21 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+          enabled: enabled,
+          textCapitalization: TextCapitalization.words,
+          validator: optional ? null : (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, size: 18),
+            filled: !enabled,
+            fillColor: !enabled ? scheme.surfaceContainerHighest.withValues(alpha: 0.5) : null,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildEmailField() {
+  Widget _buildEmailField({bool enabled = true}) {
     final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,18 +1906,22 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
         const SizedBox(height: 6),
         TextFormField(
           controller: _email,
+          enabled: enabled,
           keyboardType: TextInputType.emailAddress,
           validator: _validateEmail,
-          decoration: const InputDecoration(
+          onChanged: enabled ? _onEmailChanged : null,
+          decoration: InputDecoration(
             hintText: 'you@company.com',
-            prefixIcon: Icon(Icons.email_outlined, size: 18),
+            prefixIcon: const Icon(Icons.email_outlined, size: 18),
+            filled: !enabled,
+            fillColor: !enabled ? scheme.surfaceContainerHighest.withValues(alpha: 0.5) : null,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildPhoneField() {
+  Widget _buildPhoneField({bool enabled = true}) {
     final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,6 +1930,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
         const SizedBox(height: 6),
         TextFormField(
           controller: _phone,
+          enabled: enabled,
           keyboardType: TextInputType.phone,
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,
@@ -371,8 +1949,10 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
           },
           decoration: InputDecoration(
             hintText: _selectedCountry.code == 'IN' ? '99999 00000' : 'Phone number',
-            prefixIcon: _buildCountrySelector(),
+            prefixIcon: enabled ? _buildCountrySelector() : null,
             prefixIconConstraints: const BoxConstraints(minWidth: 0),
+            filled: !enabled,
+            fillColor: !enabled ? scheme.surfaceContainerHighest.withValues(alpha: 0.5) : null,
           ),
         ),
       ],
@@ -490,7 +2070,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
           obscureText: obscure,
           validator: (v) => (v == null || v.length < 6) ? 'Min 6 characters' : null,
           decoration: InputDecoration(
-            hintText: '••••••••',
+            hintText: '........',
             prefixIcon: const Icon(Icons.lock_outline, size: 18),
             suffixIcon: IconButton(
               icon: Icon(obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
@@ -509,284 +2089,47 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
   }
 }
 
-// ── Sign In Form (for returning users) ─────────────────────────────────────
+// ── Confetti painter ──────────────────────────────────────────────────────────
 
-class _SignInForm extends ConsumerStatefulWidget {
-  const _SignInForm();
+class _ConfettiParticle {
+  final double x, y, size, speed, angle, spin;
+  final int colorIndex;
 
-  @override
-  ConsumerState<_SignInForm> createState() => _SignInFormState();
+  const _ConfettiParticle(this.x, this.y, this.size, this.speed, this.angle, this.spin, this.colorIndex);
+
+  static _ConfettiParticle random(Random r) => _ConfettiParticle(
+    r.nextDouble(), -r.nextDouble() * 0.3,
+    r.nextDouble() * 6 + 3, r.nextDouble() * 0.7 + 0.3,
+    r.nextDouble() * pi * 2, r.nextDouble() * 4 - 2, r.nextInt(5),
+  );
 }
 
-class _SignInFormState extends ConsumerState<_SignInForm> {
-  final _formKey = GlobalKey<FormState>();
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  bool _obscure = true;
-  bool _loading = false;
-  String? _error;
+class _ConfettiPainter extends CustomPainter {
+  final double progress;
+  final ColorScheme scheme;
+  static final _random = Random(42);
+  static final _particles = List.generate(60, (_) => _ConfettiParticle.random(_random));
+
+  _ConfettiPainter({required this.progress, required this.scheme});
 
   @override
-  void dispose() {
-    _email.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() { _loading = true; _error = null; });
-
-    try {
-      final db = ref.read(firestorePathsProvider).firestore;
-      final email = _email.text.trim();
-
-      if (!Platform.isMacOS) {
-        await ref.read(firebaseAuthProvider).signInWithEmailAndPassword(
-          email: email,
-          password: _password.text,
-        );
-      }
-
-      // Look up user's operator record to find their company/site
-      final operatorSnap = await db
-          .collectionGroup('operators')
-          .where('email', isEqualTo: email)
-          .limit(1)
-          .get();
-
-      if (operatorSnap.docs.isEmpty) {
-        // Check if they're a company admin
-        final companySnap = await db
-            .collection('companies')
-            .where('email', isEqualTo: email)
-            .limit(1)
-            .get();
-
-        if (companySnap.docs.isEmpty) {
-          setState(() { _error = 'No account found with this email.'; _loading = false; });
-          return;
-        }
-
-        // Admin — find their company's sites
-        await LocalCacheService.cacheCurrentUserEmail(email);
-        final companyId = companySnap.docs.first.id;
-        final sitesSnap = await db.collection('companies/$companyId/sites').limit(1).get();
-
-        if (sitesSnap.docs.isNotEmpty) {
-          final siteId = sitesSnap.docs.first.id;
-          final wbSnap = await db
-              .collection('companies/$companyId/sites/$siteId/weighbridges')
-              .limit(1)
-              .get();
-
-          if (wbSnap.docs.isNotEmpty) {
-            // Fully configured — restore site context and skip to review
-            await ref.read(siteContextProvider.notifier).configure(
-              companyId: companyId,
-              siteId: siteId,
-              weighbridgeId: wbSnap.docs.first.id,
-            );
-            _advanceToReviewOrSite(hasFullContext: true);
-            return;
-          }
-        }
-
-        // Partial setup — has company but no site/weighbridge
-        _advanceToReviewOrSite(hasFullContext: false);
-        return;
-      }
-
-      // Found operator record — verify password on macOS
-      final opDoc = operatorSnap.docs.first;
-      if (Platform.isMacOS) {
-        final storedHash = opDoc.data()['passwordHash'] as String?;
-        if (storedHash != null && storedHash != _hashPassword(_password.text)) {
-          setState(() { _error = 'Invalid email or password.'; _loading = false; });
-          return;
-        }
-      }
-
-      await LocalCacheService.cacheCurrentUserEmail(email);
-
-      // Resolve their path
-      final opPath = opDoc.reference.path;
-      final segments = opPath.split('/');
-
-      // Nested path: companies/{cid}/sites/{sid}/operators/{oid} (6 segments)
-      // Legacy flat path: operators/{oid} (2 segments)
-      if (segments.length >= 6) {
-        final companyId = segments[1];
-        final siteId = segments[3];
-
-        final wbSnap = await db
-            .collection('companies/$companyId/sites/$siteId/weighbridges')
-            .limit(1)
-            .get();
-
-        if (wbSnap.docs.isNotEmpty) {
-          await ref.read(siteContextProvider.notifier).configure(
-            companyId: companyId,
-            siteId: siteId,
-            weighbridgeId: wbSnap.docs.first.id,
-          );
-          _advanceToReviewOrSite(hasFullContext: true);
-        } else {
-          _advanceToReviewOrSite(hasFullContext: false);
-        }
-      } else {
-        // Legacy flat operator — check companyId field on the document
-        final opData = opDoc.data();
-        final companyId = opData['companyId'] as String?;
-        if (companyId != null && companyId.isNotEmpty) {
-          final sitesSnap = await db.collection('companies/$companyId/sites').limit(1).get();
-          if (sitesSnap.docs.isNotEmpty) {
-            final siteId = sitesSnap.docs.first.id;
-            final wbSnap = await db
-                .collection('companies/$companyId/sites/$siteId/weighbridges')
-                .limit(1)
-                .get();
-            if (wbSnap.docs.isNotEmpty) {
-              await ref.read(siteContextProvider.notifier).configure(
-                companyId: companyId,
-                siteId: siteId,
-                weighbridgeId: wbSnap.docs.first.id,
-              );
-              _advanceToReviewOrSite(hasFullContext: true);
-              return;
-            }
-          }
-        }
-        // No resolvable context — go to site step
-        _advanceToReviewOrSite(hasFullContext: false);
-      }
-    } catch (e) {
-      debugPrint('SignIn error: $e');
-      if (mounted) setState(() => _error = _parseError(e.toString()));
-    } finally {
-      if (mounted) setState(() => _loading = false);
+  void paint(Canvas canvas, Size size) {
+    if (progress == 0) return;
+    final colors = [scheme.primary, scheme.tertiary, Colors.amber, Colors.green, Colors.pink];
+    for (final p in _particles) {
+      final t = (progress * p.speed).clamp(0.0, 1.0);
+      final x = p.x * size.width + sin(p.angle + t * p.spin * pi) * 40;
+      final y = p.y * size.height + t * size.height * 1.2;
+      final opacity = (1.0 - t).clamp(0.0, 1.0);
+      final paint = Paint()..color = colors[p.colorIndex].withValues(alpha: opacity * 0.8);
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(t * p.spin * pi);
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.6), const Radius.circular(1)), paint);
+      canvas.restore();
     }
   }
 
-  void _advanceToReviewOrSite({required bool hasFullContext}) {
-    if (hasFullContext) {
-      if (mounted) context.go('/dashboard');
-    } else {
-      ref.read(setupWizardProvider.notifier).nextStep();
-    }
-  }
-
-  String _parseError(String error) {
-    if (error.contains('user-not-found')) return 'No account found with this email.';
-    if (error.contains('wrong-password') || error.contains('invalid-credential')) return 'Invalid email or password.';
-    if (error.contains('too-many-requests')) return 'Too many attempts. Try again later.';
-    if (error.contains('network-request-failed')) return 'Network error. Check your connection.';
-    return error;
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(40),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Sign In', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Text(
-              'Sign in with your existing account to configure this device.',
-              style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 32),
-
-            if (_error != null) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: scheme.errorContainer.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber_rounded, size: 18, color: scheme.error),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(_error!, style: TextStyle(fontSize: 13, color: scheme.error, fontWeight: FontWeight.w500))),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            Text('Email', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              validator: _validateEmail,
-              decoration: const InputDecoration(
-                hintText: 'you@company.com',
-                prefixIcon: Icon(Icons.email_outlined, size: 18),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            Text('Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: _password,
-              obscureText: _obscure,
-              validator: (v) => (v == null || v.length < 6) ? 'Min 6 characters' : null,
-              decoration: InputDecoration(
-                hintText: '••••••••',
-                prefixIcon: const Icon(Icons.lock_outline, size: 18),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _loading ? null : _submit,
-                child: _loading
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Sign In'),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: scheme.primaryContainer.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: scheme.primary.withValues(alpha: 0.15)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'After sign-in, you\'ll select which site and weighbridge this device connects to.',
-                      style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  bool shouldRepaint(_ConfettiPainter old) => old.progress != progress;
 }

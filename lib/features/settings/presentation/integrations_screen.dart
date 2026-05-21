@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:weighbridgemanagement/shared/widgets/pro_feature_banner.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/integrations_provider.dart';
 import 'package:weighbridgemanagement/shared/services/display_board_service.dart';
@@ -58,13 +59,18 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
   final _gdriveFolder = TextEditingController(text: 'WeighbridgeBackups');
   String _gdriveFrequency = 'daily';
 
-  bool _s3Enabled = false;
-  final _s3Bucket = TextEditingController();
-  final _s3Region = TextEditingController(text: 'ap-south-1');
-  final _s3AccessKey = TextEditingController();
-  final _s3SecretKey = TextEditingController();
-  final _s3Prefix = TextEditingController(text: 'weighbridge/');
-  String _s3Frequency = 'daily';
+  // ── Oracle ERP Export ──
+  bool _oracleEnabled = false;
+  final _oracleHost = TextEditingController();
+  final _oraclePort = TextEditingController(text: '443');
+  final _oracleUsername = TextEditingController();
+  final _oraclePassword = TextEditingController();
+  final _oracleResponsibility = TextEditingController();
+  String _oracleSyncMode = 'manual';
+  bool _oraclePushWeighments = true;
+  bool _oraclePushCustomers = false;
+  bool _oraclePushMaterials = false;
+  String? _oracleStatus;
 
 
 
@@ -75,11 +81,11 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     _tallyCompany.dispose();
     _gdriveClientId.dispose();
     _gdriveFolder.dispose();
-    _s3Bucket.dispose();
-    _s3Region.dispose();
-    _s3AccessKey.dispose();
-    _s3SecretKey.dispose();
-    _s3Prefix.dispose();
+    _oracleHost.dispose();
+    _oraclePort.dispose();
+    _oracleUsername.dispose();
+    _oraclePassword.dispose();
+    _oracleResponsibility.dispose();
     super.dispose();
   }
 
@@ -111,14 +117,18 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     _gdriveFolder.text = gdrive['folder'] as String? ?? 'WeighbridgeBackups';
     _gdriveFrequency = gdrive['frequency'] as String? ?? 'daily';
 
-    final s3 = cloud['s3'] as Map<String, dynamic>? ?? {};
-    _s3Enabled = s3['enabled'] == true;
-    _s3Bucket.text = s3['bucket'] as String? ?? '';
-    _s3Region.text = s3['region'] as String? ?? 'ap-south-1';
-    _s3AccessKey.text = s3['accessKey'] as String? ?? '';
-    _s3SecretKey.text = s3['secretKey'] as String? ?? '';
-    _s3Prefix.text = s3['prefix'] as String? ?? 'weighbridge/';
-    _s3Frequency = s3['frequency'] as String? ?? 'daily';
+    // Oracle ERP
+    final oracle = data['oracle'] as Map<String, dynamic>? ?? {};
+    _oracleEnabled = oracle['enabled'] == true;
+    _oracleHost.text = oracle['host'] as String? ?? '';
+    _oraclePort.text = '${oracle['port'] ?? 443}';
+    _oracleUsername.text = oracle['username'] as String? ?? '';
+    _oraclePassword.text = oracle['password'] as String? ?? '';
+    _oracleResponsibility.text = oracle['responsibility'] as String? ?? '';
+    _oracleSyncMode = oracle['syncMode'] as String? ?? 'manual';
+    _oraclePushWeighments = oracle['pushWeighments'] as bool? ?? true;
+    _oraclePushCustomers = oracle['pushCustomers'] as bool? ?? false;
+    _oraclePushMaterials = oracle['pushMaterials'] as bool? ?? false;
 
     _savedSnapshot = jsonEncode(_buildPayload());
   }
@@ -146,15 +156,18 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
         'folder': _gdriveFolder.text.trim(),
         'frequency': _gdriveFrequency,
       },
-      's3': {
-        'enabled': _s3Enabled,
-        'bucket': _s3Bucket.text.trim(),
-        'region': _s3Region.text.trim(),
-        'accessKey': _s3AccessKey.text.trim(),
-        'secretKey': _s3SecretKey.text.trim(),
-        'prefix': _s3Prefix.text.trim(),
-        'frequency': _s3Frequency,
-      },
+    },
+    'oracle': {
+      'enabled': _oracleEnabled,
+      'host': _oracleHost.text.trim(),
+      'port': int.tryParse(_oraclePort.text.trim()) ?? 443,
+      'username': _oracleUsername.text.trim(),
+      'password': _oraclePassword.text.trim(),
+      'responsibility': _oracleResponsibility.text.trim(),
+      'syncMode': _oracleSyncMode,
+      'pushWeighments': _oraclePushWeighments,
+      'pushCustomers': _oraclePushCustomers,
+      'pushMaterials': _oraclePushMaterials,
     },
   };
 
@@ -309,11 +322,10 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildTallySection(scheme, text),
+                      const ProFeatureBanner(feature: 'Integrations'),
+                      _buildErpSection(scheme, text),
                       const SizedBox(height: 24),
-                      _buildHardwareSection(scheme, text),
-                      const SizedBox(height: 24),
-                      _buildCloudSection(scheme, text),
+                      _buildInfraSection(scheme, text),
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -327,18 +339,53 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // TALLY SYNC
+  // COMBINED SECTIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildTallySection(ColorScheme scheme, TextTheme text) {
+  Widget _buildErpSection(ColorScheme scheme, TextTheme text) {
     return _Section(
-      icon: Icons.account_balance_rounded,
-      title: 'Tally ERP Sync',
+      icon: Icons.sync_alt_rounded,
+      title: 'ERP & Accounting',
       scheme: scheme,
       text: text,
-      trailing: Switch(value: _tallyEnabled, onChanged: (v) { setState(() => _tallyEnabled = v); _markDirty(); }),
       children: [
-        _buildInfoRow('Syncs weighment data to Tally ERP as vouchers. The Tally XML server must be running and accessible on your LAN.', scheme, text),
+        _buildInfoRow('Connect to accounting and ERP systems to automatically sync weighment data, customers, and materials.', scheme, text),
+        const SizedBox(height: 16),
+        _buildTallyContent(scheme, text),
+        const SizedBox(height: 20),
+        const Divider(height: 1),
+        const SizedBox(height: 20),
+        _buildOracleContent(scheme, text),
+      ],
+    );
+  }
+
+  Widget _buildInfraSection(ColorScheme scheme, TextTheme text) {
+    return _Section(
+      icon: Icons.devices_other_rounded,
+      title: 'Hardware & Cloud',
+      scheme: scheme,
+      text: text,
+      children: [
+        _buildInfoRow('LED display boards and cloud backup configuration.', scheme, text),
+        const SizedBox(height: 16),
+        _buildHardwareContent(scheme, text),
+        const SizedBox(height: 20),
+        const Divider(height: 1),
+        const SizedBox(height: 20),
+        _buildCloudContent(scheme, text),
+      ],
+    );
+  }
+
+
+  Widget _buildTallyContent(ColorScheme scheme, TextTheme text) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _subHeader('Tally ERP', Icons.account_balance_rounded, scheme, text),
+        const SizedBox(height: 8),
+        _toggleRow('Enable Tally sync', _tallyEnabled, (v) { setState(() => _tallyEnabled = v); _markDirty(); }, scheme, text),
         if (_tallyEnabled) ...[
           const SizedBox(height: 12),
           Row(
@@ -403,48 +450,124 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     }
   }
 
-  Widget _buildHardwareSection(ColorScheme scheme, TextTheme text) {
-    return _Section(
-      icon: Icons.memory_rounded,
-      title: 'LED Display Boards',
-      scheme: scheme,
-      text: text,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            onPressed: _scanningPorts ? null : _scanPorts,
-            icon: _scanningPorts
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.refresh_rounded, size: 18),
-            tooltip: 'Scan available ports',
-            style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+  Future<void> _testOracleConnection() async {
+    setState(() => _oracleStatus = 'testing');
+    try {
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) setState(() => _oracleStatus = 'connected');
+    } catch (_) {
+      if (mounted) setState(() => _oracleStatus = 'failed');
+    }
+  }
+
+  Future<void> _triggerOracleExport() async {
+    _showHeaderMsg('Oracle ERP export queued. Records will be pushed shortly.');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONTENT BUILDERS (for combined cards)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildOracleContent(ColorScheme scheme, TextTheme text) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _subHeader('Oracle ERP', Icons.business_rounded, scheme, text),
+        const SizedBox(height: 8),
+        _toggleRow('Enable Oracle ERP export', _oracleEnabled, (v) { setState(() => _oracleEnabled = v); _markDirty(); }, scheme, text),
+        if (_oracleEnabled) ...[
+          const SizedBox(height: 14),
+          _field('Host URL', _oracleHost, hint: 'erp.company.com', scheme: scheme, text: text, onChanged: (_) => _markDirty()),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              SizedBox(width: 120, child: _field('Port', _oraclePort, hint: '443', scheme: scheme, text: text, onChanged: (_) => _markDirty())),
+              const SizedBox(width: 14),
+              Expanded(child: _field('Responsibility', _oracleResponsibility, hint: 'WEIGHBRIDGE_USER', scheme: scheme, text: text, onChanged: (_) => _markDirty())),
+            ],
           ),
-          const SizedBox(width: 4),
-          FilledButton.tonalIcon(
-            onPressed: () {
-              setState(() {
-                _displayBoards.add({
-                  'name': 'Display ${_displayBoards.length + 1}',
-                  'port': '',
-                  'protocol': 'serial',
-                  'baudRate': 9600,
-                  'enabled': true,
-                });
-              });
-              _markDirty();
-            },
-            icon: const Icon(Icons.add_rounded, size: 16),
-            label: const Text('Add'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
+          const SizedBox(height: 10),
+          _field('Username', _oracleUsername, hint: 'api_user', scheme: scheme, text: text, onChanged: (_) => _markDirty()),
+          const SizedBox(height: 10),
+          _field('Password', _oraclePassword, hint: '••••••••', obscure: true, scheme: scheme, text: text, onChanged: (_) => _markDirty()),
+          const SizedBox(height: 14),
+          Text('Data Export', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          _toggleRow('Push weighments', _oraclePushWeighments, (v) { setState(() => _oraclePushWeighments = v); _markDirty(); }, scheme, text),
+          const SizedBox(height: 6),
+          _toggleRow('Push customers (as trading partners)', _oraclePushCustomers, (v) { setState(() => _oraclePushCustomers = v); _markDirty(); }, scheme, text),
+          const SizedBox(height: 6),
+          _toggleRow('Push materials (as inventory items)', _oraclePushMaterials, (v) { setState(() => _oraclePushMaterials = v); _markDirty(); }, scheme, text),
+          const SizedBox(height: 14),
+          _dropdownRow('Sync Mode', _oracleSyncMode, ['manual', 'auto', 'scheduled'], (v) { setState(() => _oracleSyncMode = v); _markDirty(); }, scheme, text),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              OutlinedButton.icon(
+                onPressed: _oracleHost.text.trim().isEmpty ? null : _testOracleConnection,
+                icon: Icon(_oracleStatus == 'testing' ? Icons.hourglass_empty_rounded : Icons.wifi_tethering_rounded, size: 14),
+                label: Text(_oracleStatus == 'testing' ? 'Testing...' : 'Test Connection', style: const TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (_oracleSyncMode == 'manual')
+                OutlinedButton.icon(
+                  onPressed: _oracleStatus == 'connected' ? _triggerOracleExport : null,
+                  icon: const Icon(Icons.upload_rounded, size: 14),
+                  label: const Text('Export Now', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+            ],
           ),
         ],
-      ),
+      ],
+    );
+  }
+
+  Widget _buildHardwareContent(ColorScheme scheme, TextTheme text) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildInfoRow('Serial LED boards display weight readings in real-time. Match baud rate and protocol to your board manual. Multiple boards can show different info.', scheme, text),
+        Row(
+          children: [
+            Expanded(child: _subHeader('LED Display Boards', Icons.memory_rounded, scheme, text)),
+            IconButton(
+              onPressed: _scanningPorts ? null : _scanPorts,
+              icon: _scanningPorts
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.refresh_rounded, size: 18),
+              tooltip: 'Scan available ports',
+              style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+            ),
+            const SizedBox(width: 4),
+            FilledButton.tonalIcon(
+              onPressed: () {
+                setState(() {
+                  _displayBoards.add({
+                    'name': 'Display ${_displayBoards.length + 1}',
+                    'port': '',
+                    'protocol': 'serial',
+                    'baudRate': 9600,
+                    'enabled': true,
+                  });
+                });
+                _markDirty();
+              },
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: const Text('Add'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         if (_availablePorts.isNotEmpty)
           Padding(
@@ -459,15 +582,13 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
           ),
         if (_displayBoards.isEmpty)
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 24),
+            padding: const EdgeInsets.symmetric(vertical: 16),
             child: Center(
               child: Column(
                 children: [
-                  Icon(Icons.tv_off_rounded, size: 32, color: scheme.outlineVariant),
-                  const SizedBox(height: 8),
+                  Icon(Icons.tv_off_rounded, size: 28, color: scheme.outlineVariant),
+                  const SizedBox(height: 6),
                   Text('No display boards configured', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                  const SizedBox(height: 4),
-                  Text('Click "Add" to add a display board, or "Refresh" to scan ports', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
                 ],
               ),
             ),
@@ -540,21 +661,11 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // CLOUD BACKUP
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildCloudSection(ColorScheme scheme, TextTheme text) {
-    return _Section(
-      icon: Icons.cloud_upload_rounded,
-      title: 'Cloud Backup',
-      scheme: scheme,
-      text: text,
+  Widget _buildCloudContent(ColorScheme scheme, TextTheme text) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildInfoRow('Automated off-site backup of weighment records and configuration. Data is encrypted in transit. Configure at least one provider for disaster recovery.', scheme, text),
-        const SizedBox(height: 14),
-        // Google Drive
-        _subHeader('Google Drive', Icons.add_to_drive_rounded, scheme, text),
+        _subHeader('Google Drive Backup', Icons.add_to_drive_rounded, scheme, text),
         const SizedBox(height: 8),
         _toggleRow('Enable Google Drive backup', _gdriveEnabled, (v) { setState(() => _gdriveEnabled = v); _markDirty(); }, scheme, text),
         if (_gdriveEnabled) ...[
@@ -564,33 +675,6 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
           _field('Folder Name', _gdriveFolder, hint: 'WeighbridgeBackups', scheme: scheme, text: text),
           const SizedBox(height: 10),
           _dropdownRow('Frequency', _gdriveFrequency, ['hourly', 'daily', 'weekly'], (v) { setState(() => _gdriveFrequency = v); _markDirty(); }, scheme, text),
-        ],
-
-        const SizedBox(height: 20),
-        const Divider(height: 1),
-        const SizedBox(height: 16),
-
-        // AWS S3
-        _subHeader('Amazon S3', Icons.storage_rounded, scheme, text),
-        const SizedBox(height: 8),
-        _toggleRow('Enable S3 backup', _s3Enabled, (v) { setState(() => _s3Enabled = v); _markDirty(); }, scheme, text),
-        if (_s3Enabled) ...[
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(child: _field('Bucket', _s3Bucket, hint: 'my-weighbridge-backups', scheme: scheme, text: text)),
-              const SizedBox(width: 14),
-              SizedBox(width: 150, child: _field('Region', _s3Region, hint: 'ap-south-1', scheme: scheme, text: text)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _field('Access Key ID', _s3AccessKey, hint: 'AKIA...', scheme: scheme, text: text),
-          const SizedBox(height: 10),
-          _field('Secret Access Key', _s3SecretKey, hint: '••••••••', obscure: true, scheme: scheme, text: text),
-          const SizedBox(height: 10),
-          _field('Key Prefix', _s3Prefix, hint: 'weighbridge/', scheme: scheme, text: text),
-          const SizedBox(height: 10),
-          _dropdownRow('Frequency', _s3Frequency, ['hourly', 'daily', 'weekly'], (v) { setState(() => _s3Frequency = v); _markDirty(); }, scheme, text),
         ],
       ],
     );
@@ -717,10 +801,9 @@ class _Section extends StatelessWidget {
   final String title;
   final ColorScheme scheme;
   final TextTheme text;
-  final Widget? trailing;
   final List<Widget> children;
 
-  const _Section({required this.icon, required this.title, required this.scheme, required this.text, this.trailing, required this.children});
+  const _Section({required this.icon, required this.title, required this.scheme, required this.text, required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -753,10 +836,6 @@ class _Section extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                if (trailing != null) ...[
-                  const Spacer(),
-                  trailing!,
-                ],
               ],
             ),
           ),

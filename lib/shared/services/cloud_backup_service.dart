@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
 
 enum BackupStatus { idle, running, success, failed }
@@ -94,7 +95,7 @@ class S3Config {
 class CloudBackupService {
   GDriveConfig _gdriveConfig;
   S3Config _s3Config;
-  final FirebaseFirestore _db;
+  final FirestorePaths _paths;
 
   final _statusController = StreamController<BackupStatus>.broadcast();
   final _logController = StreamController<BackupResult>.broadcast();
@@ -102,7 +103,7 @@ class CloudBackupService {
   Timer? _scheduleTimer;
   DateTime? _lastBackupTime;
 
-  CloudBackupService(this._gdriveConfig, this._s3Config, this._db) {
+  CloudBackupService(this._gdriveConfig, this._s3Config, this._paths) {
     _scheduleNextBackup();
   }
 
@@ -147,7 +148,7 @@ class CloudBackupService {
       final allSuccess = results.every((r) => r.success);
       _lastBackupTime = DateTime.now();
 
-      await _db.collection('settings').doc('integrations').set({
+      await _paths.integrationsSettings.set({
         'cloud': {'lastBackup': FieldValue.serverTimestamp()},
       }, SetOptions(merge: true));
 
@@ -194,14 +195,22 @@ class CloudBackupService {
   Future<Map<String, dynamic>> _exportFirestoreData() async {
     final export = <String, dynamic>{};
 
-    final collections = ['weighments', 'customers', 'operators', 'settings', 'materials'];
-    for (final col in collections) {
-      final snap = await _db.collection(col).get();
-      export[col] = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+    final namedCollections = <String, CollectionReference<Map<String, dynamic>>>{
+      'weighments': _paths.weighments,
+      'customers': _paths.customers,
+      'operators': _paths.operators,
+      'materials': _paths.materials,
+      'vehicles': _paths.vehicles,
+      'auditLog': _paths.auditLog,
+    };
+
+    for (final entry in namedCollections.entries) {
+      final snap = await entry.value.get();
+      export[entry.key] = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
     }
 
     export['exportedAt'] = DateTime.now().toIso8601String();
-    export['version'] = 1;
+    export['version'] = 2;
     return export;
   }
 
@@ -238,7 +247,7 @@ class CloudBackupService {
     }
 
     try {
-      final tokenDoc = await _db.collection('settings').doc('integrations').get();
+      final tokenDoc = await _paths.integrationsSettings.get();
       final gdriveToken = tokenDoc.data()?['gdrive']?['accessToken'] as String?;
       final refreshToken = tokenDoc.data()?['gdrive']?['refreshToken'] as String?;
 
@@ -262,7 +271,7 @@ class CloudBackupService {
         final newToken = await _refreshGDriveToken(CryptoService.decrypt(refreshToken));
         if (newToken != null) {
           accessToken = newToken;
-          await _db.collection('settings').doc('integrations').set({
+          await _paths.integrationsSettings.set({
             'gdrive': {'accessToken': CryptoService.encrypt(newToken)},
           }, SetOptions(merge: true));
           response = await _gdriveUpload(accessToken, filename, content);

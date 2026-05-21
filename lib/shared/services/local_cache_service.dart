@@ -63,6 +63,23 @@ class LocalCacheService {
     return (data as Map)['value'] as int? ?? 0;
   }
 
+  static Future<void> cacheLicense(Map<String, dynamic> license) async {
+    await _write('license.json', license);
+  }
+
+  static Future<Map<String, dynamic>?> getCachedLicense() async {
+    final data = await _read('license.json');
+    if (data == null) return null;
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  static Future<void> clearLicense() async {
+    try {
+      final file = File('$_basePath/license.json');
+      if (file.existsSync()) await file.delete();
+    } catch (_) {}
+  }
+
   static Future<void> _write(String filename, dynamic data) async {
     try {
       final dir = Directory(_basePath);

@@ -8,7 +8,7 @@ import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
+import 'package:weighbridgemanagement/shared/widgets/pro_feature_banner.dart';
 import 'package:intl/intl.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
@@ -85,6 +85,10 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   bool _opCanManageCustomers = false;
   bool _opCanManageMaterials = false;
   bool _opCanDeleteRecords = false;
+  bool _opCanAccessPrinting = false;
+  bool _opCanAccessGateControl = false;
+  bool _opCanAccessCameras = false;
+  bool _opCanAccessWeighbridge = false;
 
   // ── Audit Trail ──
   bool _auditEnabled = true;
@@ -102,13 +106,20 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   bool _maskSensitiveFields = true;
 
   // ── Operator Verification ──
-  bool _requireFaceVerification = false;
+  bool _faceVerifyOnWeighmentStart = false;
+  bool _faceVerifyOnSessionStart = false;
+  bool _faceVerifyOnDayStart = false;
   bool _shiftBasedLogin = false;
   bool _forcePasswordChangeFirstLogin = true;
   int _passwordExpiryDays = 0; // 0 = never
 
   // ── Privacy / Archival ──
   bool _anonymizeVehicleOnArchive = false;
+
+  // ── Email Domain Restriction ──
+  bool _domainRestrictionEnabled = false;
+  final _domainController = TextEditingController();
+  List<String> _allowedDomains = [];
 
   // ── Screen Protection ──
   bool _preventScreenshots = false;
@@ -143,6 +154,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     super.initState();
     _loadMfa();
     _loadSessionLogs();
+    _loadDomainRestriction();
   }
 
   Future<void> _loadSessionLogs() async {
@@ -164,6 +176,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   @override
   void dispose() {
     _otpController.dispose();
+    _domainController.dispose();
     super.dispose();
   }
 
@@ -173,6 +186,64 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       _mfaFactors = await mfa.getEnrolledFactors();
     } catch (_) {}
     if (mounted) setState(() => _mfaLoading = false);
+  }
+
+  Future<void> _loadDomainRestriction() async {
+    try {
+      final paths = ref.read(firestorePathsProvider);
+      final companyDoc = await paths.firestore.doc('companies/${paths.context.companyId}').get();
+      if (companyDoc.exists && mounted) {
+        final data = companyDoc.data()!;
+        // Support both old single-string and new array format
+        final domainsRaw = data['emailDomainRestrictions'] as List<dynamic>?;
+        final legacySingle = data['emailDomainRestriction'] as String?;
+        setState(() {
+          if (domainsRaw != null && domainsRaw.isNotEmpty) {
+            _allowedDomains = domainsRaw.cast<String>();
+            _domainRestrictionEnabled = true;
+          } else if (legacySingle != null && legacySingle.isNotEmpty) {
+            _allowedDomains = [legacySingle];
+            _domainRestrictionEnabled = true;
+          } else {
+            _allowedDomains = [];
+            _domainRestrictionEnabled = false;
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _addDomain() {
+    final domain = _domainController.text.trim().toLowerCase();
+    if (domain.isEmpty || _allowedDomains.contains(domain)) return;
+    setState(() {
+      _allowedDomains.add(domain);
+      _domainController.clear();
+    });
+    _saveDomainRestriction();
+  }
+
+  void _removeDomain(String domain) {
+    setState(() => _allowedDomains.remove(domain));
+    _saveDomainRestriction();
+  }
+
+  Future<void> _saveDomainRestriction() async {
+    try {
+      final paths = ref.read(firestorePathsProvider);
+      final domains = _domainRestrictionEnabled ? _allowedDomains : <String>[];
+      await paths.firestore.doc('companies/${paths.context.companyId}').set(
+        {
+          'emailDomainRestrictions': domains,
+          'emailDomainRestriction': domains.isNotEmpty ? domains.first : null,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      if (mounted) _showHeaderMsg('Domain restriction updated');
+    } catch (e) {
+      if (mounted) _showHeaderMsg('Failed to update: $e', isError: true);
+    }
   }
 
   void _loadData(Map<String, dynamic> data) {
@@ -191,6 +262,10 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     _opCanManageCustomers = data['opCanManageCustomers'] as bool? ?? false;
     _opCanManageMaterials = data['opCanManageMaterials'] as bool? ?? false;
     _opCanDeleteRecords = data['opCanDeleteRecords'] as bool? ?? false;
+    _opCanAccessPrinting = data['opCanAccessPrinting'] as bool? ?? false;
+    _opCanAccessGateControl = data['opCanAccessGateControl'] as bool? ?? false;
+    _opCanAccessCameras = data['opCanAccessCameras'] as bool? ?? false;
+    _opCanAccessWeighbridge = data['opCanAccessWeighbridge'] as bool? ?? false;
 
     _auditEnabled = data['auditEnabled'] as bool? ?? true;
     _auditRetentionDays = data['auditRetentionDays'] as int? ?? 365;
@@ -205,7 +280,9 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     _encryptBackups = data['encryptBackups'] as bool? ?? false;
     _maskSensitiveFields = data['maskSensitiveFields'] as bool? ?? true;
 
-    _requireFaceVerification = data['requireFaceVerification'] as bool? ?? false;
+    _faceVerifyOnWeighmentStart = data['faceVerifyOnWeighmentStart'] as bool? ?? data['requireFaceVerification'] as bool? ?? false;
+    _faceVerifyOnSessionStart = data['faceVerifyOnSessionStart'] as bool? ?? false;
+    _faceVerifyOnDayStart = data['faceVerifyOnDayStart'] as bool? ?? false;
     _shiftBasedLogin = data['shiftBasedLogin'] as bool? ?? false;
     _forcePasswordChangeFirstLogin = data['forcePasswordChangeFirstLogin'] as bool? ?? true;
     _passwordExpiryDays = data['passwordExpiryDays'] as int? ?? 0;
@@ -238,6 +315,23 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
 
   Future<void> _save() async {
     setState(() => _saving = true);
+
+    // Auto-add current IP if enabling whitelist without including this machine
+    if (_ipWhitelistEnabled) {
+      final localIps = await getLocalIps();
+      final currentIp = localIps.isNotEmpty ? localIps.first : null;
+      if (currentIp != null) {
+        bool currentIncluded = false;
+        for (final entry in _whitelistedIps) {
+          if (ipMatchesEntry(currentIp, entry)) { currentIncluded = true; break; }
+        }
+        if (!currentIncluded) {
+          setState(() => _whitelistedIps.add(currentIp));
+          if (mounted) _showHeaderMsg('Auto-added your IP ($currentIp) to prevent lockout');
+        }
+      }
+    }
+
     final data = {
       'requireKycForSensitiveOps': _requireKycForSensitiveOps,
       'opCanVoidWeighment': _opCanVoidWeighment,
@@ -251,6 +345,10 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       'opCanManageCustomers': _opCanManageCustomers,
       'opCanManageMaterials': _opCanManageMaterials,
       'opCanDeleteRecords': _opCanDeleteRecords,
+      'opCanAccessPrinting': _opCanAccessPrinting,
+      'opCanAccessGateControl': _opCanAccessGateControl,
+      'opCanAccessCameras': _opCanAccessCameras,
+      'opCanAccessWeighbridge': _opCanAccessWeighbridge,
       'auditEnabled': _auditEnabled,
       'auditRetentionDays': _auditRetentionDays,
       'auditLogSettingChanges': _auditLogSettingChanges,
@@ -262,7 +360,9 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       'autoLockMinutes': _autoLockMinutes,
       'encryptBackups': _encryptBackups,
       'maskSensitiveFields': _maskSensitiveFields,
-      'requireFaceVerification': _requireFaceVerification,
+      'faceVerifyOnWeighmentStart': _faceVerifyOnWeighmentStart,
+      'faceVerifyOnSessionStart': _faceVerifyOnSessionStart,
+      'faceVerifyOnDayStart': _faceVerifyOnDayStart,
       'shiftBasedLogin': _shiftBasedLogin,
       'forcePasswordChangeFirstLogin': _forcePasswordChangeFirstLogin,
       'passwordExpiryDays': _passwordExpiryDays,
@@ -282,6 +382,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       final db = ref.read(firestorePathsProvider);
       await db.securitySettings.set(data, SetOptions(merge: true));
       await _saveLocally(data);
+      ref.read(auditServiceProvider).log(event: 'settingChange', description: 'Security settings updated');
       if (mounted) _showHeaderMsg('Security settings saved');
     } catch (e) {
       await _saveLocally(data);
@@ -319,11 +420,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                     IconButton(
                       icon: const Icon(Icons.arrow_back_rounded, size: 20),
                       onPressed: () {
-                        if (ref.read(wizardModeProvider)) {
-                          ref.read(setupWizardProvider.notifier).previousStep();
-                        } else {
-                          context.go('/settings');
-                        }
+                        context.go('/settings');
                       },
                       style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                     ),
@@ -390,6 +487,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const ProFeatureBanner(feature: 'Advanced Security'),
                     // Row 1: RBAC + Audit Trail
                     IntrinsicHeight(
                       child: Row(
@@ -502,6 +600,13 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
         _PermissionToggle(label: 'Manage customers', value: _opCanManageCustomers, onChanged: (v) { setState(() => _opCanManageCustomers = v); _markDirty(); }),
         _PermissionToggle(label: 'Manage materials', value: _opCanManageMaterials, onChanged: (v) { setState(() => _opCanManageMaterials = v); _markDirty(); }),
         _PermissionToggle(label: 'Delete records', value: _opCanDeleteRecords, onChanged: (v) { setState(() => _opCanDeleteRecords = v); _markDirty(); }, danger: true),
+        const SizedBox(height: 12),
+        Text('Settings Access', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+        const SizedBox(height: 8),
+        _PermissionToggle(label: 'Printing settings', value: _opCanAccessPrinting, onChanged: (v) { setState(() => _opCanAccessPrinting = v); _markDirty(); }),
+        _PermissionToggle(label: 'Gate control settings', value: _opCanAccessGateControl, onChanged: (v) { setState(() => _opCanAccessGateControl = v); _markDirty(); }),
+        _PermissionToggle(label: 'Cameras & AI settings', value: _opCanAccessCameras, onChanged: (v) { setState(() => _opCanAccessCameras = v); _markDirty(); }),
+        _PermissionToggle(label: 'Weighbridge settings', value: _opCanAccessWeighbridge, onChanged: (v) { setState(() => _opCanAccessWeighbridge = v); _markDirty(); }),
       ],
     );
   }
@@ -628,7 +733,11 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       scheme: scheme,
       text: text,
       children: [
-        _PermissionToggle(label: 'Require face verification before weighment', value: _requireFaceVerification, onChanged: (v) { setState(() => _requireFaceVerification = v); _markDirty(); }),
+        _PermissionToggle(label: 'Face verify on each weighment start', value: _faceVerifyOnWeighmentStart, onChanged: (v) { setState(() => _faceVerifyOnWeighmentStart = v); _markDirty(); }),
+        const SizedBox(height: 4),
+        _PermissionToggle(label: 'Face verify on session start (once per login)', value: _faceVerifyOnSessionStart, onChanged: (v) { setState(() => _faceVerifyOnSessionStart = v); _markDirty(); }),
+        const SizedBox(height: 4),
+        _PermissionToggle(label: 'Face verify on day start (once per calendar day)', value: _faceVerifyOnDayStart, onChanged: (v) { setState(() => _faceVerifyOnDayStart = v); _markDirty(); }),
         const SizedBox(height: 4),
         _PermissionToggle(label: 'Shift-based login only', value: _shiftBasedLogin, onChanged: (v) { setState(() => _shiftBasedLogin = v); _markDirty(); }),
         const SizedBox(height: 4),
@@ -645,6 +754,91 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 18),
+        Divider(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+        const SizedBox(height: 14),
+        Text('Email Domain Restriction', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            SizedBox(
+              height: 20, width: 36,
+              child: FittedBox(child: Switch(
+                value: _domainRestrictionEnabled,
+                onChanged: (v) {
+                  setState(() => _domainRestrictionEnabled = v);
+                  if (!v) {
+                    _allowedDomains.clear();
+                    _saveDomainRestriction();
+                  }
+                },
+              )),
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Restrict operators to allowed email domains', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600))),
+          ],
+        ),
+        if (_domainRestrictionEnabled) ...[
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.only(left: 44),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_allowedDomains.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: _allowedDomains.map((domain) => Chip(
+                      label: Text('@$domain', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                      deleteIcon: Icon(Icons.close_rounded, size: 14, color: scheme.error),
+                      onDeleted: () => _removeDomain(domain),
+                      backgroundColor: scheme.primaryContainer.withValues(alpha: 0.3),
+                      side: BorderSide(color: scheme.primary.withValues(alpha: 0.2)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    )).toList(),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                Row(
+                  children: [
+                    Text('@', style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w700, color: scheme.primary)),
+                    const SizedBox(width: 6),
+                    SizedBox(
+                      width: 180,
+                      child: TextField(
+                        controller: _domainController,
+                        decoration: InputDecoration(
+                          hintText: 'company.com',
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                        onSubmitted: (_) => _addDomain(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _addDomain,
+                      icon: const Icon(Icons.add_rounded, size: 14),
+                      label: const Text('Add'),
+                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), textStyle: const TextStyle(fontSize: 11)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'New operators must use one of the allowed domains. Existing operators are not affected.',
+                  style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -856,6 +1050,52 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
         ),
         if (_ipWhitelistEnabled) ...[
           const SizedBox(height: 12),
+          FutureBuilder<Map<String, List<String>>>(
+            future: _detectCurrentIps(),
+            builder: (ctx, snap) {
+              if (!snap.hasData) {
+                return Row(children: [
+                  SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: scheme.primary)),
+                  const SizedBox(width: 8),
+                  Text('Detecting IP...', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                ]);
+              }
+              final publicIp = snap.data!['public']?.firstOrNull;
+              final localIps = snap.data!['local'] ?? [];
+              return Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Your current IPs:', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.primary)),
+                    const SizedBox(height: 4),
+                    if (publicIp != null)
+                      Row(children: [
+                        Icon(Icons.public_rounded, size: 12, color: scheme.primary),
+                        const SizedBox(width: 6),
+                        Text('Public: ', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                        Text(publicIp, style: text.bodySmall?.copyWith(fontFamily: 'Courier', fontWeight: FontWeight.w700)),
+                      ]),
+                    if (localIps.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Row(children: [
+                        Icon(Icons.wifi_rounded, size: 12, color: scheme.onSurfaceVariant),
+                        const SizedBox(width: 6),
+                        Text('Local: ', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                        Text(localIps.join(', '), style: text.bodySmall?.copyWith(fontFamily: 'Courier')),
+                      ]),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
           ..._whitelistedIps.asMap().entries.map((e) => Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(
@@ -871,41 +1111,71 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
             ),
           )),
           const SizedBox(height: 6),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               OutlinedButton.icon(
                 onPressed: () => _addIpDialog(scheme, text),
                 icon: const Icon(Icons.add_rounded, size: 14),
-                label: const Text('Add IP'),
+                label: const Text('Add IP / Subnet'),
                 style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), textStyle: const TextStyle(fontSize: 11)),
               ),
-              const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: _addCurrentIp,
                 icon: const Icon(Icons.my_location_rounded, size: 14),
-                label: const Text('Add Current IP'),
+                label: const Text('Add This PC'),
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), textStyle: const TextStyle(fontSize: 11)),
+              ),
+              OutlinedButton.icon(
+                onPressed: _addCurrentSubnet,
+                icon: const Icon(Icons.hub_rounded, size: 14),
+                label: const Text('Add LAN Subnet'),
                 style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), textStyle: const TextStyle(fontSize: 11)),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Supports: exact IP, CIDR (192.168.1.0/24), range (192.168.1.10-192.168.1.50), wildcard (192.168.1.*)',
+            style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic),
           ),
         ],
       ],
     );
   }
 
+  Future<Map<String, List<String>>> _detectCurrentIps() async {
+    final localIps = await getLocalIps();
+    final publicIp = await getPublicIp();
+    return {
+      'local': localIps,
+      if (publicIp != null) 'public': [publicIp],
+    };
+  }
+
   Future<void> _addCurrentIp() async {
     try {
-      final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
-      final ips = <String>[];
-      for (final iface in interfaces) {
-        for (final addr in iface.addresses) {
-          if (!addr.isLoopback) ips.add(addr.address);
-        }
-      }
-      if (ips.isEmpty) return;
-      final ip = ips.first;
+      final localIps = await getLocalIps();
+      if (localIps.isEmpty) return;
+      final ip = localIps.first;
       if (!_whitelistedIps.contains(ip)) {
         setState(() => _whitelistedIps.add(ip));
+        _markDirty();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _addCurrentSubnet() async {
+    try {
+      final localIps = await getLocalIps();
+      if (localIps.isEmpty) return;
+      final ip = localIps.first;
+      final parts = ip.split('.');
+      if (parts.length != 4) return;
+      final subnet = '${parts[0]}.${parts[1]}.${parts[2]}.0/24';
+      if (!_whitelistedIps.contains(subnet)) {
+        setState(() => _whitelistedIps.add(subnet));
         _markDirty();
       }
     } catch (_) {}
@@ -916,17 +1186,33 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Add IP Address'),
-        content: TextField(
-          controller: ctrl,
-          decoration: const InputDecoration(hintText: '192.168.1.100', isDense: true),
-          autofocus: true,
+        title: const Text('Add IP / Subnet'),
+        content: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: ctrl,
+                decoration: const InputDecoration(hintText: '192.168.1.0/24', isDense: true),
+                autofocus: true,
+              ),
+              const SizedBox(height: 10),
+              Text('Examples:', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
+              const SizedBox(height: 4),
+              Text('192.168.1.100  — single PC', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontFamily: 'Courier')),
+              Text('192.168.1.0/24  — entire LAN', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontFamily: 'Courier')),
+              Text('192.168.1.10-192.168.1.50  — range', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontFamily: 'Courier')),
+              Text('192.168.1.*  — wildcard', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontFamily: 'Courier')),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(onPressed: () {
             final ip = ctrl.text.trim();
-            if (ip.isNotEmpty) {
+            if (ip.isNotEmpty && !_whitelistedIps.contains(ip)) {
               setState(() => _whitelistedIps.add(ip));
               _markDirty();
             }
@@ -948,12 +1234,14 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       scheme: scheme,
       text: text,
       children: [
-        _PermissionToggle(
-          label: 'Prevent screenshots (blank screen on capture)',
-          value: _preventScreenshots,
-          onChanged: (v) { setState(() => _preventScreenshots = v); _markDirty(); },
-        ),
-        const SizedBox(height: 4),
+        if (Platform.isWindows) ...[
+          _PermissionToggle(
+            label: 'Prevent screenshots (blank screen on capture)',
+            value: _preventScreenshots,
+            onChanged: (v) { setState(() => _preventScreenshots = v); _markDirty(); },
+          ),
+          const SizedBox(height: 4),
+        ],
         _PermissionToggle(
           label: 'Dim content when window is inactive',
           value: _dimOnInactiveWindow,
@@ -977,8 +1265,10 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
             children: [
               Text('How it works:', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
               const SizedBox(height: 6),
-              _infoRow(Icons.screenshot_rounded, 'Screenshots: Window content blanks during system screenshot capture', text, scheme),
-              const SizedBox(height: 4),
+              if (Platform.isWindows) ...[
+                _infoRow(Icons.screenshot_rounded, 'Screenshots: Window appears black in all screen captures & recordings', text, scheme),
+                const SizedBox(height: 4),
+              ],
               _infoRow(Icons.visibility_off_rounded, 'Inactive dimming: Obscures data when app loses focus, deters shoulder-surfing', text, scheme),
               const SizedBox(height: 4),
               _infoRow(Icons.water_drop_rounded, 'Watermark: Visible operator identity overlay makes photos traceable', text, scheme),
@@ -1113,7 +1403,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   void _toggleLockdown(ColorScheme scheme) {
     if (_emergencyLockdown) {
       setState(() => _emergencyLockdown = false);
-      _markDirty();
+      _saveLockdownImmediate(false);
     } else {
       showDialog(
         context: context,
@@ -1126,7 +1416,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               onPressed: () {
                 Navigator.pop(ctx);
                 setState(() => _emergencyLockdown = true);
-                _markDirty();
+                _saveLockdownImmediate(true);
               },
               style: FilledButton.styleFrom(backgroundColor: scheme.error),
               child: const Text('Activate Lockdown'),
@@ -1134,6 +1424,18 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
           ],
         ),
       );
+    }
+  }
+
+  Future<void> _saveLockdownImmediate(bool active) async {
+    try {
+      final db = ref.read(firestorePathsProvider);
+      await db.securitySettings.set({'emergencyLockdown': active}, SetOptions(merge: true));
+      ref.read(securitySettingsOverrideProvider.notifier).state = null;
+      ref.invalidate(_securitySettingsProvider);
+      if (mounted) _showHeaderMsg(active ? 'Emergency lockdown ACTIVATED' : 'Lockdown deactivated');
+    } catch (e) {
+      if (mounted) _showHeaderMsg('Failed to update lockdown: $e', isError: true);
     }
   }
 

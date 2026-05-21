@@ -8,6 +8,10 @@ import UIKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
+
+    let controller = window?.rootViewController as! FlutterViewController
+    WebcamPlugin.register(with: controller.registrar(forPlugin: "WebcamPlugin")!)
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 }

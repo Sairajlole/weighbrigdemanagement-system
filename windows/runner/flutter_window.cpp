@@ -2,7 +2,10 @@
 
 #include <optional>
 
+#include <flutter/method_channel.h>
+#include <flutter/standard_method_codec.h>
 #include "flutter/generated_plugin_registrant.h"
+#include "webcam_plugin.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -25,7 +28,28 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  WebcamPlugin::Register(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+
+  // Security method channel for screenshot prevention
+  auto security_channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+      flutter_controller_->engine()->messenger(),
+      "com.weighbridge/security",
+      &flutter::StandardMethodCodec::GetInstance());
+
+  security_channel->SetMethodCallHandler(
+      [hwnd](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name() == "setContentProtection") {
+          const auto* args = std::get_if<bool>(call.arguments());
+          bool enabled = args ? *args : false;
+          DWORD affinity = enabled ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE;
+          SetWindowDisplayAffinity(hwnd, affinity);
+          result->Success();
+        } else {
+          result->NotImplemented();
+        }
+      });
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();

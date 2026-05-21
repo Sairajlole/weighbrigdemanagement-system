@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 
 class AppearanceSettings {
   final ThemeMode themeMode;
@@ -90,43 +88,15 @@ void _saveLocal(AppearanceSettings settings) {
 
 final appearanceProvider = StateNotifierProvider<AppearanceNotifier, AppearanceSettings>((ref) {
   final initial = _loadLocal();
-  return AppearanceNotifier(ref, initial);
+  return AppearanceNotifier(initial);
 });
 
 class AppearanceNotifier extends StateNotifier<AppearanceSettings> {
-  final Ref _ref;
-  bool _firestoreLoaded = false;
-
-  AppearanceNotifier(this._ref, AppearanceSettings initial) : super(initial) {
-    _loadFromFirestore();
-  }
-
-  Future<void> _loadFromFirestore() async {
-    if (_firestoreLoaded) return;
-    try {
-      final paths = _ref.read(firestorePathsProvider);
-      if (!paths.isConfigured) return;
-      final doc = await paths.appearanceSettings.get();
-      if (doc.exists) {
-        final settings = AppearanceSettings.fromMap(doc.data()!);
-        state = settings;
-        _saveLocal(settings);
-      }
-      _firestoreLoaded = true;
-    } catch (_) {}
-  }
+  AppearanceNotifier(AppearanceSettings initial) : super(initial);
 
   Future<void> update(AppearanceSettings settings) async {
     state = settings;
     _saveLocal(settings);
-    try {
-      final paths = _ref.read(firestorePathsProvider);
-      if (!paths.isConfigured) return;
-      await paths.appearanceSettings.set({
-        ...settings.toMap(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    } catch (_) {}
   }
 
   void setThemeMode(ThemeMode mode) => update(state.copyWith(themeMode: mode));

@@ -11,7 +11,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/print_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
+import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
 
 void showWeighmentDetailDialog(BuildContext context, WidgetRef ref, Map<String, dynamic> w) {
   final state = context.findAncestorStateOfType<_WeighmentsScreenState>();
@@ -31,6 +34,34 @@ final _weighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   return paths.weighments.orderBy('createdAt', descending: true).snapshots().map(
     (snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList(),
   );
+});
+
+final _allWbWeighmentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return [];
+  final db = paths.firestore;
+  final ctx = paths.context;
+  final sitesSnap = await db.collection('companies/${ctx.companyId}/sites').get();
+  final all = <Map<String, dynamic>>[];
+  for (final site in sitesSnap.docs) {
+    final wbSnap = await db.collection('companies/${ctx.companyId}/sites/${site.id}/weighbridges').get();
+    for (final wb in wbSnap.docs) {
+      final wbName = wb.data()['name'] as String? ?? 'Unnamed WB';
+      final wmSnap = await db.collection('companies/${ctx.companyId}/sites/${site.id}/weighbridges/${wb.id}/weighments')
+          .orderBy('createdAt', descending: true)
+          .get();
+      for (final d in wmSnap.docs) {
+        all.add({'id': d.id, 'weighbridgeId': wb.id, 'weighbridgeName': wbName, ...d.data()});
+      }
+    }
+  }
+  all.sort((a, b) {
+    final ta = a['createdAt'];
+    final tb = b['createdAt'];
+    if (ta is Timestamp && tb is Timestamp) return tb.compareTo(ta);
+    return 0;
+  });
+  return all;
 });
 
 final _customerAddressMapProvider = StreamProvider<Map<String, String>>((ref) {
@@ -70,6 +101,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
   static _StatusFilter _persistedStatusFilter = _StatusFilter.all;
   static Set<String> _persistedMaterials = {};
   static DateTimeRange? _persistedCustomRange;
+  bool _viewAllWbs = false;
 
   late _DateRange _dateRange = _persistedDateRange;
   late _StatusFilter _statusFilter = _persistedStatusFilter;
@@ -168,8 +200,19 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
   }
 
   List<Map<String, dynamic>> _applyFilters(List<Map<String, dynamic>> all) {
+    final perms = ref.read(permissionServiceProvider);
+    var source = all;
+    if (perms.ownWeighmentsOnly) {
+      final currentName = ref.read(currentOperatorNameProvider);
+      if (currentName.isNotEmpty) {
+        source = all.where((w) =>
+          (w['operatorName'] as String? ?? '').toLowerCase() == currentName.toLowerCase()
+        ).toList();
+      }
+    }
+
     final range = _getDateRange();
-    var filtered = all.where((w) {
+    var filtered = source.where((w) {
       final ts = w['createdAt'];
       if (ts is! Timestamp) return false;
       final dt = ts.toDate();
@@ -254,7 +297,9 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final weighmentsAsync = ref.watch(_weighmentsProvider);
+    final weighmentsAsync = _viewAllWbs
+        ? ref.watch(_allWbWeighmentsProvider).whenData((d) => d)
+        : ref.watch(_weighmentsProvider);
     final materials = ref.watch(_materialsProvider);
     final addressMap = ref.watch(_customerAddressMapProvider).valueOrNull ?? {};
 
@@ -263,7 +308,66 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Weighments', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+          Row(
+            children: [
+              Text('Weighments', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+              const Spacer(),
+              if (!_viewAllWbs) ...[
+                _WbSwitchButton(onSwitched: () {
+                  ref.invalidate(_weighmentsProvider);
+                  ref.invalidate(_allWbWeighmentsProvider);
+                }),
+                const SizedBox(width: 8),
+              ],
+              Container(
+                height: 34,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.all(3),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: () => setState(() { _viewAllWbs = false; }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        height: 28,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: !_viewAllWbs ? scheme.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.scale_rounded, size: 12, color: !_viewAllWbs ? scheme.onPrimary : scheme.onSurfaceVariant),
+                            const SizedBox(width: 5),
+                            _WbNameLabel(active: !_viewAllWbs, scheme: scheme),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    GestureDetector(
+                      onTap: () => setState(() { _viewAllWbs = true; }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        height: 28,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: _viewAllWbs ? scheme.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('All Weighbridges', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _viewAllWbs ? scheme.onPrimary : scheme.onSurfaceVariant)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 20),
           weighmentsAsync.when(
             loading: () => const SizedBox.shrink(),
@@ -613,12 +717,12 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-            color: selected ? scheme.tertiary : scheme.surfaceContainerHigh,
+            color: selected ? scheme.primary : scheme.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
             label,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? scheme.onTertiary : scheme.onSurfaceVariant),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? scheme.onPrimary : scheme.onSurfaceVariant),
           ),
         ),
       );
@@ -806,7 +910,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       case _Col.net: return 'Net';
       case _Col.grossDateTime: return 'Gross Time';
       case _Col.tareDateTime: return 'Tare Time';
-      case _Col.operator: return 'Operator';
+      case _Col.operator: return 'Weighed By';
     }
   }
 
@@ -1139,7 +1243,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
     final scalePort = ref.read(scaleSettingsProvider).valueOrNull?['port'] as String? ?? '';
     final customerName = w['customerName'] as String? ?? '';
     final snapData = _extractSnapshots(w);
-    const excludeLabels = ['Operator', 'Customer'];
+    const excludeLabels = ['Weighed By', 'Customer'];
     int countEvidence(List<String> labels) => labels.where((l) => !excludeLabels.contains(l)).length;
     final int grossEvidence = countEvidence(snapData.grossLabels);
     final int tareEvidence = countEvidence(snapData.tareLabels);
@@ -1286,7 +1390,6 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                         final hasGstin = (company['gstin'] as String?)?.isNotEmpty == true;
                         final hasPan = (company['pan'] as String?)?.isNotEmpty == true;
                         final hasPhone = (company['phone'] as String?)?.isNotEmpty == true;
-                        final hasWb = (company['weighbridgeName'] as String?)?.isNotEmpty == true;
                         final hasPort = scalePort.isNotEmpty;
                         final overflowToSecondLine = hasGstin || hasPan;
 
@@ -1311,7 +1414,27 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                                   if (!overflowToSecondLine && hasGstin) ...[const SizedBox(width: 14), Text('GSTIN: ${company['gstin']}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant))],
                                   if (!overflowToSecondLine && hasPan) ...[const SizedBox(width: 14), Text('PAN: ${company['pan']}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant))],
                                   if (hasPort) ...[const SizedBox(width: 14), Text('Port: $scalePort', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant))],
-                                  if (hasWb) ...[const SizedBox(width: 14), Text('WB: ${company['weighbridgeName']}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant))],
+                                  ...[
+                                    const SizedBox(width: 14),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: scheme.primary.withValues(alpha: 0.08),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.scale_rounded, size: 10, color: scheme.primary),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            w['weighbridgeName'] as String? ?? company['weighbridgeName'] as String? ?? '--',
+                                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                               if (overflowToSecondLine) ...[
@@ -1412,7 +1535,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
     final bool hasTare = w['status'] == 'completed';
 
     // Exclude operator and customer from evidence grid (up to 5 weighbridge + customer = 6 max)
-    const excludeKeys = ['Operator', 'Customer'];
+    const excludeKeys = ['Weighed By', 'Customer'];
     final grossTiles = <_TileData>[];
     for (var i = 0; i < grossPaths.length; i++) {
       final label = i < grossLabels.length ? grossLabels[i] : 'Cam ${i + 1}';
@@ -1986,6 +2109,10 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                                       'customerName': targetName,
                                       'customerPhone': selectedCustomerPhone ?? '',
                                     });
+                                    ref.read(auditServiceProvider).log(
+                                      event: 'weighmentEdit',
+                                      description: 'Transferred weighment $weighmentId to customer $targetName',
+                                    );
                                     if (!ctx.mounted) return;
                                     Navigator.pop(ctx);
                                     ScaffoldMessenger.of(ctx).showSnackBar(
@@ -2435,6 +2562,185 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
   }
 }
 
+class _WbNameLabel extends ConsumerWidget {
+  final bool active;
+  final ColorScheme scheme;
+
+  const _WbNameLabel({required this.active, required this.scheme});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ctx = ref.watch(siteContextProvider);
+    final db = ref.watch(firestorePathsProvider);
+    return FutureBuilder<String>(
+      future: db.firestore
+          .doc('companies/${ctx.companyId}/sites/${ctx.siteId}/weighbridges/${ctx.weighbridgeId}')
+          .get()
+          .then((d) => d.data()?['name'] as String? ?? 'Current WB'),
+      builder: (_, snap) => Text(
+        snap.data ?? 'Current WB',
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: active ? scheme.onPrimary : scheme.onSurfaceVariant),
+      ),
+    );
+  }
+}
+
+class _WbSwitchButton extends ConsumerStatefulWidget {
+  final VoidCallback onSwitched;
+
+  const _WbSwitchButton({required this.onSwitched});
+
+  @override
+  ConsumerState<_WbSwitchButton> createState() => _WbSwitchButtonState();
+}
+
+class _WbSwitchButtonState extends ConsumerState<_WbSwitchButton> {
+  final _overlayController = OverlayPortalController();
+  final _link = LayerLink();
+  bool _open = false;
+
+  void _toggle() {
+    setState(() => _open = !_open);
+    if (_open) _overlayController.show(); else _overlayController.hide();
+  }
+
+  void _close() {
+    if (!_open) return;
+    setState(() => _open = false);
+    _overlayController.hide();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return CompositedTransformTarget(
+      link: _link,
+      child: OverlayPortal(
+        controller: _overlayController,
+        overlayChildBuilder: (_) => _buildOverlay(scheme),
+        child: GestureDetector(
+          onTap: _toggle,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Container(
+              height: 28,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: _open ? scheme.primary.withValues(alpha: 0.12) : scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: _open ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.swap_horiz_rounded, size: 14, color: scheme.primary),
+                  const SizedBox(width: 4),
+                  Text('Switch', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOverlay(ColorScheme scheme) {
+    final ctx = ref.watch(siteContextProvider);
+    final db = ref.watch(firestorePathsProvider);
+
+    return Stack(
+      children: [
+        Positioned.fill(child: GestureDetector(onTap: _close, behavior: HitTestBehavior.opaque)),
+        CompositedTransformFollower(
+          link: _link,
+          targetAnchor: Alignment.bottomLeft,
+          followerAnchor: Alignment.topLeft,
+          offset: const Offset(0, 6),
+          child: Material(
+            elevation: 8,
+            shadowColor: Colors.black.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+            color: scheme.surface,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 220, maxHeight: 250),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+              ),
+              child: FutureBuilder<List<WbEntry>>(
+                future: _loadWbs(db.firestore, ctx.companyId),
+                builder: (_, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const Padding(padding: EdgeInsets.all(20), child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))));
+                  }
+                  final wbs = snap.data ?? [];
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: wbs.map((wb) {
+                        final isCurrent = wb.siteId == ctx.siteId && wb.wbId == ctx.weighbridgeId;
+                        return InkWell(
+                          onTap: isCurrent ? null : () async {
+                            _close();
+                            await ref.read(siteContextProvider.notifier).configure(
+                              companyId: ctx.companyId,
+                              siteId: wb.siteId,
+                              weighbridgeId: wb.wbId,
+                            );
+                            ref.invalidate(firestorePathsProvider);
+                            widget.onSwitched();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                            color: isCurrent ? scheme.primaryContainer.withValues(alpha: 0.15) : null,
+                            child: Row(
+                              children: [
+                                Icon(Icons.scale_rounded, size: 13, color: isCurrent ? scheme.primary : scheme.onSurfaceVariant),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(wb.wbName, style: TextStyle(fontSize: 11, fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500, color: isCurrent ? scheme.primary : scheme.onSurface)),
+                                      Text(wb.siteName, style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant)),
+                                    ],
+                                  ),
+                                ),
+                                if (isCurrent)
+                                  Icon(Icons.check_circle_rounded, size: 14, color: scheme.primary),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<List<WbEntry>> _loadWbs(FirebaseFirestore db, String companyId) async {
+    final sitesSnap = await db.collection('companies/$companyId/sites').get();
+    final list = <WbEntry>[];
+    for (final site in sitesSnap.docs) {
+      final siteName = site.data()['name'] as String? ?? 'Unnamed Site';
+      final wbSnap = await db.collection('companies/$companyId/sites/${site.id}/weighbridges').get();
+      for (final wb in wbSnap.docs) {
+        list.add(WbEntry(siteId: site.id, siteName: siteName, wbId: wb.id, wbName: wb.data()['name'] as String? ?? 'Unnamed WB'));
+      }
+    }
+    return list;
+  }
+}
+
 class _TileData {
   final String label;
   final Widget child;
@@ -2506,6 +2812,9 @@ class _QuickPrintButton extends ConsumerWidget {
   void _doPrint(BuildContext context, WidgetRef ref) async {
     final printService = ref.read(printServiceProvider);
     final result = await printService.printWeighment(weighmentId: weighmentId);
+    if (result.success) {
+      ref.read(auditServiceProvider).log(event: 'reprint', description: 'Printed weighment $weighmentId');
+    }
     if (context.mounted) {
       if (result.success) {
         final msg = result.warning != null
@@ -2684,6 +2993,9 @@ class _PrintToButton extends ConsumerWidget {
       printerType: option.type,
       printerName: option.printerName,
     );
+    if (result.success) {
+      ref.read(auditServiceProvider).log(event: 'reprint', description: 'Printed weighment $weighmentId to ${option.label}');
+    }
     if (context.mounted) {
       if (result.success) {
         final msg = result.warning != null
@@ -2735,7 +3047,7 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
 
     final customerName = w['customerName'] as String? ?? '';
     final snapData = _extractSnapshots(w);
-    const excludeLabels = ['Operator', 'Customer'];
+    const excludeLabels = ['Weighed By', 'Customer'];
     int countEvidence(List<String> labels) => labels.where((l) => !excludeLabels.contains(l)).length;
     final int grossEvidence = countEvidence(snapData.grossLabels);
     final int tareEvidence = countEvidence(snapData.tareLabels);
@@ -3163,7 +3475,7 @@ class _StandaloneCameraGridState extends State<_StandaloneCameraGrid> {
   @override
   Widget build(BuildContext context) {
     final scheme = widget.scheme;
-    const excludeKeys = ['Operator', 'Customer'];
+    const excludeKeys = ['Weighed By', 'Customer'];
 
     final grossTiles = <MapEntry<String, String>>[];
     for (var i = 0; i < widget.snapData.grossPaths.length; i++) {
