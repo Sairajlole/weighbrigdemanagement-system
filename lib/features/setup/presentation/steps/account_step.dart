@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -10,11 +9,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/connectivity_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
-import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import '../../application/setup_wizard_provider.dart';
@@ -101,7 +98,7 @@ class _SignUpForm extends ConsumerStatefulWidget {
   ConsumerState<_SignUpForm> createState() => _SignUpFormState();
 }
 
-class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderStateMixin {
+class _SignUpFormState extends ConsumerState<_SignUpForm> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _email = TextEditingController();
@@ -140,6 +137,11 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
   String? _idError;
   String? _idCorrectedName;
   String? _idDocNumber;
+  // Existing operator redirect
+  bool _existingOperatorFound = false;
+  bool _existingOperatorApproved = false;
+  String? _existingOperatorMessage;
+  int _redirectCountdown = 5;
   final _address = TextEditingController();
   final _address2 = TextEditingController();
 
@@ -158,19 +160,10 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
   final _emailOtp = TextEditingController();
   final _phoneOtp = TextEditingController();
 
-  // Operator post-submit states
-  bool _pendingApproval = false;
-  bool _operatorSuccess = false;
-  bool _checkingApproval = false;
-  String? _operatorDocPath;
-  late final AnimationController _successController;
-  late final AnimationController _confettiController;
 
   @override
   void initState() {
     super.initState();
-    _successController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _confettiController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
     _loadCompanyDataIfNeeded();
   }
 
@@ -195,8 +188,6 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
   @override
   void dispose() {
     _codeVerifyTimer?.cancel();
-    _successController.dispose();
-    _confettiController.dispose();
     _name.dispose();
     _email.dispose();
     _phone.dispose();
@@ -346,6 +337,9 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
         return;
       }
 
+      // Store uploaded doc images for admin review
+      ref.read(wizardIdDocImagesProvider.notifier).state = images;
+
       final companyId = ref.read(wizardCompanyIdProvider) ?? _resolvedCompanyId ?? '';
 
       final response = await FirebaseFunctions.instance
@@ -358,6 +352,13 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
       });
 
       final data = response.data as Map<String, dynamic>;
+
+      // Always store cropped face if returned (regardless of name match)
+      final croppedFace = data['idCroppedFaceBase64'] as String?;
+      debugPrint('[ID Verify] idCroppedFaceBase64 present: ${croppedFace != null}, length: ${croppedFace?.length ?? 0}');
+      if (croppedFace != null && croppedFace.isNotEmpty) {
+        ref.read(wizardIdFacePhotoProvider.notifier).state = base64Decode(croppedFace);
+      }
 
       if (data['valid'] != true) {
         setState(() { _idScanning = false; _idError = data['message'] as String? ?? 'Verification failed.'; });
@@ -409,6 +410,17 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
 
       final docNumber = data['extractedDocNumber'] as String? ?? '';
 
+      // Check: Name + address combo in existing operators (pending or approved)
+      final verifiedName = extractedName.isNotEmpty ? _toTitleCase(extractedName) : _toTitleCase(_name.text);
+      final verifiedAddress = extractedAddress.isNotEmpty ? extractedAddress : '${_address.text.trim()} ${_address2.text.trim()}'.trim();
+
+      if (verifiedName.isNotEmpty && verifiedAddress.isNotEmpty) {
+        _idDocNumber = docNumber.isNotEmpty ? docNumber : _idDocNumber;
+        final matched = await _checkExistingOperator(verifiedName, verifiedAddress);
+        if (matched) return;
+      }
+
+      ref.read(wizardSubmittedDocTypeProvider.notifier).state = _selectedDocType;
       setState(() {
         _idScanning = false;
         _idVerified = true;
@@ -427,6 +439,109 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
     }
   }
 
+
+  void _handleExistingOperator({required bool approved, required String email, required String reason}) {
+    setState(() {
+      _idScanning = false;
+      _existingOperatorFound = true;
+      _existingOperatorApproved = approved;
+      _existingOperatorMessage = approved
+          ? '$reason Your account is approved — redirecting to sign in...'
+          : '$reason Your registration is pending approval — redirecting to sign in...';
+      _redirectCountdown = 5;
+    });
+
+    // Countdown then auto-redirect to clean welcome page
+    Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      if (_redirectCountdown <= 1) {
+        timer.cancel();
+        ref.read(wizardShowResumeSignInProvider.notifier).state = false;
+        ref.read(setupWizardProvider.notifier).reset();
+      } else {
+        setState(() => _redirectCountdown--);
+      }
+    });
+  }
+
+  Future<void> _acceptCorrectedName(String correctedName) async {
+    setState(() {
+      _name.text = correctedName;
+      _idVerified = true;
+      _idError = null;
+      _idCorrectedName = null;
+    });
+
+    final verifiedName = _toTitleCase(correctedName);
+    final verifiedAddress = '${_address.text.trim()} ${_address2.text.trim()}'.trim();
+    if (verifiedName.isEmpty || verifiedAddress.isEmpty) return;
+
+    await _checkExistingOperator(verifiedName, verifiedAddress);
+  }
+
+  Future<bool> _checkExistingOperator(String name, String address) async {
+    try {
+      final db = ref.read(firestorePathsProvider).firestore;
+      final nameSnap = await db.collection('operators')
+          .where('name', isEqualTo: name)
+          .limit(5).get();
+
+      for (final doc in nameSnap.docs) {
+        final opData = doc.data();
+        final opAddress = '${opData['address'] ?? ''} ${opData['address2'] ?? ''}'.trim();
+        final opEmail = opData['email'] as String? ?? '';
+        final opActive = opData['isActive'] as bool? ?? false;
+        final opVerified = opData['isVerified'] as bool? ?? false;
+        if (opAddress.isNotEmpty && _addressesMatch(opAddress, address)) {
+          final existingDocType = opData['idDocType'] as String? ?? '';
+          final docNumber = _idDocNumber ?? '';
+          if (docNumber.isNotEmpty && _selectedDocType != existingDocType) {
+            try {
+              final additionalIds = Map<String, dynamic>.from(opData['additionalIds'] as Map? ?? {});
+              additionalIds[_selectedDocType] = docNumber;
+              await doc.reference.update({'additionalIds': additionalIds});
+            } catch (_) {}
+          }
+          _handleExistingOperator(
+            approved: opActive && opVerified,
+            email: opEmail,
+            reason: 'An account with this name and address already exists.',
+          );
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  bool _addressesMatch(String a, String b) {
+    final normA = a.toLowerCase().replaceAll(RegExp(r'[,.\-/]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final normB = b.toLowerCase().replaceAll(RegExp(r'[,.\-/]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    // Exact or contains match
+    if (normA == normB || normA.contains(normB) || normB.contains(normA)) return true;
+
+    // Pincode match (Indian 6-digit)
+    final pincodeA = RegExp(r'\b\d{6}\b').firstMatch(normA)?.group(0);
+    final pincodeB = RegExp(r'\b\d{6}\b').firstMatch(normB)?.group(0);
+    final pincodeMatch = pincodeA != null && pincodeB != null && pincodeA == pincodeB;
+
+    // Token overlap — ignore common filler words
+    final stopWords = {'of', 'the', 'and', 'near', 'at', 'to', 'in', 'no', 'po', 'dist', 'pin', 'state'};
+    final tokensA = normA.split(' ').where((t) => t.length > 1 && !stopWords.contains(t)).toSet();
+    final tokensB = normB.split(' ').where((t) => t.length > 1 && !stopWords.contains(t)).toSet();
+    if (tokensA.isEmpty || tokensB.isEmpty) return false;
+
+    final common = tokensA.intersection(tokensB).length;
+    final smaller = tokensA.length < tokensB.length ? tokensA.length : tokensB.length;
+    final overlap = common / smaller;
+
+    // Same pincode + 40%+ token overlap, OR 60%+ token overlap without pincode
+    if (pincodeMatch && overlap >= 0.4) return true;
+    if (overlap >= 0.6) return true;
+
+    return false;
+  }
 
   // ── Operator: validate email then authenticate in one step ──────────────────
 
@@ -456,8 +571,55 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
         }
       }
 
-      // Check if operator was invited (only if company is resolved)
       final db = ref.read(firestorePathsProvider).firestore;
+      final phone = _fullPhone;
+
+      // Check if email is already used as an admin
+      final adminSnap = await db.collection('companies')
+          .where('email', isEqualTo: email)
+          .limit(1).get();
+      if (adminSnap.docs.isNotEmpty) {
+        setState(() { _error = 'This email is registered as an administrator. Sign in as admin instead.'; _loading = false; });
+        return;
+      }
+
+      // Check if email/phone already exists in global operators (cross-company)
+      final existingByEmail = await db.collection('operators')
+          .where('email', isEqualTo: email)
+          .limit(1).get();
+      if (existingByEmail.docs.isNotEmpty) {
+        final data = existingByEmail.docs.first.data();
+        final uid = data['uid'] as String? ?? '';
+        final isActive = data['isActive'] as bool? ?? false;
+        final existingCompany = data['companyId'] as String? ?? '';
+
+        if (uid.isNotEmpty && isActive) {
+          if (existingCompany == _resolvedCompanyId) {
+            setState(() { _error = 'This email already has an active account. Please sign in instead.'; _loading = false; });
+            return;
+          }
+          setState(() { _error = 'This email is already registered with another company.'; _loading = false; });
+          return;
+        }
+      }
+
+      // Check if phone already exists (cross-company)
+      final existingByPhone = await db.collection('operators')
+          .where('phone', isEqualTo: phone)
+          .limit(1).get();
+      if (existingByPhone.docs.isNotEmpty) {
+        final data = existingByPhone.docs.first.data();
+        final uid = data['uid'] as String? ?? '';
+        final isActive = data['isActive'] as bool? ?? false;
+        final existingCompany = data['companyId'] as String? ?? '';
+
+        if (uid.isNotEmpty && isActive && existingCompany != _resolvedCompanyId) {
+          setState(() { _error = 'This phone number is already registered with another account.'; _loading = false; });
+          return;
+        }
+      }
+
+      // Check if operator was invited in this company
       final opSnap = _resolvedCompanyId != null
           ? await db.collection('companies/$_resolvedCompanyId/operators')
               .where('email', isEqualTo: email)
@@ -469,10 +631,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
         final existingUid = opData['uid'] as String?;
         final isActive = opData['isActive'] as bool? ?? false;
         if (existingUid != null && existingUid.isNotEmpty && isActive) {
-          ref.read(wizardPrefillEmailProvider.notifier).state = email;
-          ref.read(setupWizardProvider.notifier).setRole(WizardRole.returning);
-          ref.read(setupWizardProvider.notifier).goToStep(0);
-          setState(() => _loading = false);
+          setState(() { _error = 'This email already has an active account. Please sign in instead.'; _loading = false; });
           return;
         }
 
@@ -501,7 +660,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
         ref.read(wizardInvitedOperatorProvider.notifier).state = null;
       }
 
-      // Proceed directly to OTP phase (email validation passed)
+      // Proceed to OTP phase
       setState(() { _loading = false; _otpPhase = true; });
       _sendEmailOtp();
       _sendPhoneOtp();
@@ -546,12 +705,9 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
         final existingCompany = existingOp['companyId'] as String? ?? '';
 
         if (existingUid != null && existingUid.isNotEmpty && isActiveUser) {
-          // Operator: redirect to sign in; Admin: GSTIN gate already handled this
+          // Operator: show error; Admin: GSTIN gate already handled this
           if (!isAdmin) {
-            ref.read(wizardPrefillEmailProvider.notifier).state = email;
-            ref.read(setupWizardProvider.notifier).setRole(WizardRole.returning);
-            ref.read(setupWizardProvider.notifier).goToStep(0);
-            if (mounted) setState(() { _loading = false; _error = null; });
+            if (mounted) setState(() { _error = 'This email already has an active account. Please sign in instead.'; _loading = false; });
             return;
           }
         }
@@ -722,9 +878,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
           if (!_isInvitedOperator) {
             updateData['name'] = _toTitleCase(_name.text);
           }
-          if (Platform.isMacOS) {
-            updateData['passwordHash'] = _hashPassword(_password.text);
-          }
+          updateData['passwordHash'] = _hashPassword(_password.text);
           await existingOp.docs.first.reference.update(updateData);
 
           if (isAdmin) {
@@ -776,7 +930,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
         uid = email.hashCode.toRadixString(36);
       }
 
-      final passwordHash = Platform.isMacOS ? _hashPassword(_password.text) : null;
+      final passwordHash = _hashPassword(_password.text);
 
       if (isAdmin) {
         if (companyId != null) {
@@ -805,7 +959,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
             'uid': uid, 'name': _toTitleCase(_name.text),
             'phone': _fullPhone, 'isVerified': true, 'isActive': true,
             'emailVerified': true, 'phoneVerified': true,
-            if (passwordHash != null) 'passwordHash': passwordHash,
+            'passwordHash': passwordHash,
           });
         } else {
           await paths.flat('operators').add({
@@ -814,7 +968,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
             'companyId': companyId ?? '',
             'isVerified': true, 'isActive': true, 'createdAt': now,
             'emailVerified': true, 'phoneVerified': true,
-            if (passwordHash != null) 'passwordHash': passwordHash,
+            'passwordHash': passwordHash,
           });
         }
       } else {
@@ -827,6 +981,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
               ? existingOp.docs.first.reference
               : db.collection('companies/$_resolvedCompanyId/sites').doc().collection('operators').doc(opId);
 
+          final idDocImages = ref.read(wizardIdDocImagesProvider);
           await opRef.update({
             'uid': uid,
             'name': _toTitleCase(_name.text),
@@ -839,7 +994,8 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
             if (_address2.text.trim().isNotEmpty) 'address2': _toTitleCase(_address2.text),
             if (_idDocNumber != null) 'idDocNumber': _idDocNumber,
             if (_idDocNumber != null) 'idDocType': _selectedDocType,
-            if (passwordHash != null) 'passwordHash': passwordHash,
+            if (idDocImages != null && idDocImages.isNotEmpty) 'idDocImages': idDocImages,
+            'passwordHash': passwordHash,
           });
 
           await LocalCacheService.cacheCurrentUserEmail(email);
@@ -848,22 +1004,28 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
           ref.read(setupWizardProvider.notifier).nextStep();
           return;
         } else {
-          // Non-invited: save as pending (shows in admin's Requests tab)
-          final newDoc = await paths.flat('operators').add({
-            'uid': uid, 'name': _toTitleCase(_name.text), 'email': email,
-            'phone': _fullPhone, 'role': 'operator',
-            'companyId': _resolvedCompanyId ?? '', 'isVerified': false, 'isActive': false, 'createdAt': now,
-            'emailVerified': true, 'phoneVerified': true,
+          // Non-invited: defer Firestore write to review step
+          final idDocImages = ref.read(wizardIdDocImagesProvider);
+          ref.read(wizardOperatorFormDataProvider.notifier).state = {
+            'uid': uid,
+            'name': _toTitleCase(_name.text),
+            'email': email,
+            'phone': _fullPhone,
+            'role': 'operator',
+            'companyId': _resolvedCompanyId ?? '',
+            'isVerified': false,
+            'isActive': false,
+            'emailVerified': true,
+            'phoneVerified': true,
             if (_address.text.trim().isNotEmpty) 'address': _toTitleCase(_address.text),
             if (_address2.text.trim().isNotEmpty) 'address2': _toTitleCase(_address2.text),
             if (_idDocNumber != null) 'idDocNumber': _idDocNumber,
             if (_idDocNumber != null) 'idDocType': _selectedDocType,
-            if (passwordHash != null) 'passwordHash': passwordHash,
-          });
+            if (idDocImages != null && idDocImages.isNotEmpty) 'idDocImages': idDocImages,
+            'passwordHash': passwordHash,
+          };
 
-          await LocalCacheService.cacheCurrentUserEmail(email);
           ref.read(wizardOperatorInvitedProvider.notifier).state = false;
-          ref.read(wizardOperatorDocPathProvider.notifier).state = newDoc.path;
           setState(() => _done = true);
           ref.read(setupWizardProvider.notifier).nextStep();
           return;
@@ -891,74 +1053,6 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
     return error;
   }
 
-  void _showOperatorSuccess() {
-    setState(() { _loading = false; _operatorSuccess = true; });
-    _successController.forward();
-    _confettiController.forward();
-    _playSuccessSound();
-    Future.delayed(const Duration(milliseconds: 2200), () {
-      if (!mounted) return;
-      // Configure site context and navigate to dashboard
-      final companyId = _resolvedCompanyId ?? ref.read(wizardCompanyIdProvider) ?? '';
-      _navigateToDashboard(companyId);
-    });
-  }
-
-  Future<void> _navigateToDashboard(String companyId) async {
-    try {
-      final db = ref.read(firestorePathsProvider).firestore;
-      final sitesSnap = await db.collection('companies/$companyId/sites').limit(1).get();
-      if (sitesSnap.docs.isNotEmpty) {
-        final siteId = sitesSnap.docs.first.id;
-        final wbSnap = await db.collection('companies/$companyId/sites/$siteId/weighbridges').limit(1).get();
-        if (wbSnap.docs.isNotEmpty) {
-          await ref.read(siteContextProvider.notifier).configure(
-            companyId: companyId,
-            siteId: siteId,
-            weighbridgeId: wbSnap.docs.first.id,
-          );
-        }
-      }
-    } catch (_) {}
-    if (mounted) context.go('/dashboard');
-  }
-
-  void _playSuccessSound() {
-    try {
-      if (Platform.isMacOS) {
-        Process.run('afplay', ['/System/Library/Sounds/Glass.aiff']);
-      } else if (Platform.isWindows) {
-        Process.run('powershell', ['-c', '[System.Media.SystemSounds]::Exclamation.Play()']);
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _checkApprovalStatus() async {
-    if (_operatorDocPath == null) return;
-    setState(() => _checkingApproval = true);
-    try {
-      final db = ref.read(firestorePathsProvider).firestore;
-      final doc = await db.doc(_operatorDocPath!).get();
-      if (!doc.exists) {
-        setState(() { _checkingApproval = false; _error = 'Account was rejected by administrator.'; _pendingApproval = false; });
-        return;
-      }
-      final data = doc.data()!;
-      final isArchived = data['isArchived'] == true;
-      if (isArchived) {
-        setState(() { _checkingApproval = false; _error = 'Your request was rejected. Contact your administrator.'; _pendingApproval = false; });
-        return;
-      }
-      final isVerified = data['isVerified'] == true;
-      if (isVerified) {
-        _showOperatorSuccess();
-        return;
-      }
-      setState(() => _checkingApproval = false);
-    } catch (e) {
-      setState(() => _checkingApproval = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -968,20 +1062,8 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
     final text = Theme.of(context).textTheme;
 
 
-    if (_operatorSuccess) return _buildOperatorSuccessView(scheme, text);
-    if (_pendingApproval) return _buildPendingApprovalView(scheme, text);
-
     if (_done) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle_rounded, size: 48, color: scheme.primary),
-            const SizedBox(height: 16),
-            Text('Account created successfully', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-          ],
-        ),
-      );
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
 
     // Company code screen has its own complete layout — render directly
@@ -1052,101 +1134,6 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
 
   // ── Operator success (invited — animation + navigate to dashboard) ─────────
 
-  Widget _buildOperatorSuccessView(ColorScheme scheme, TextTheme text) {
-    return Stack(
-      children: [
-        AnimatedBuilder(
-          animation: _confettiController,
-          builder: (context, _) => CustomPaint(
-            size: MediaQuery.of(context).size,
-            painter: _ConfettiPainter(progress: _confettiController.value, scheme: scheme),
-          ),
-        ),
-        Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ScaleTransition(
-                scale: Tween<double>(begin: 0.0, end: 1.0).animate(
-                  CurvedAnimation(parent: _successController, curve: Curves.elasticOut),
-                ),
-                child: Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: scheme.primary,
-                    boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.3), blurRadius: 24, spreadRadius: 4)],
-                  ),
-                  child: Icon(Icons.check_rounded, size: 48, color: scheme.onPrimary),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text('Welcome!', style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-              const SizedBox(height: 8),
-              Text('Taking you to the dashboard...', style: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── Operator pending approval (non-invited — waiting for admin) ────────────
-
-  Widget _buildPendingApprovalView(ColorScheme scheme, TextTheme text) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.hourglass_top_rounded, size: 36, color: Colors.amber.shade700),
-            ),
-            const SizedBox(height: 24),
-            Text('Awaiting Approval', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 12),
-            Text(
-              'Your registration request has been sent to the administrator. You will be able to log in once approved.',
-              style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant, height: 1.5),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _checkingApproval ? null : _checkApprovalStatus,
-                icon: _checkingApproval
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.refresh_rounded, size: 18),
-                label: Text(_checkingApproval ? 'Checking...' : 'Check Status'),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  ref.read(wizardPrefillEmailProvider.notifier).state = null;
-                  ref.read(wizardShowResumeSignInProvider.notifier).state = false;
-                  ref.read(setupWizardProvider.notifier).goToWelcome();
-                },
-                icon: const Icon(Icons.logout_rounded, size: 16),
-                label: const Text('Exit'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   // ── Admin form (unchanged layout) ──────────────────────────────────────────
 
@@ -1452,7 +1439,17 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
                   Expanded(
                     child: Text('Government ID', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                   ),
-                  if (_idVerified)
+                  if (_idVerified) ...[
+                    TextButton(
+                      onPressed: () => setState(() { _idVerified = false; _idError = null; _idCorrectedName = null; }),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text('Change', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
+                    ),
+                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -1461,6 +1458,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
                       ),
                       child: Text('Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
                     ),
+                  ],
                 ],
               ),
               const SizedBox(height: 4),
@@ -1555,14 +1553,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.tonal(
-                      onPressed: () {
-                        setState(() {
-                          _name.text = _idCorrectedName!;
-                          _idVerified = true;
-                          _idError = null;
-                          _idCorrectedName = null;
-                        });
-                      },
+                      onPressed: () => _acceptCorrectedName(_idCorrectedName!),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1571,6 +1562,65 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
                     ),
                   ),
                 ],
+              ],
+
+              if (_existingOperatorFound) ...[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _existingOperatorApproved
+                        ? AppTheme.successColor.withValues(alpha: 0.08)
+                        : Colors.orange.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _existingOperatorApproved
+                          ? AppTheme.successColor.withValues(alpha: 0.3)
+                          : Colors.orange.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            _existingOperatorApproved ? Icons.check_circle_rounded : Icons.hourglass_top_rounded,
+                            size: 20,
+                            color: _existingOperatorApproved ? AppTheme.successColor : Colors.orange.shade700,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _existingOperatorApproved ? 'Account Already Exists' : 'Registration Already Submitted',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: _existingOperatorApproved ? AppTheme.successColor : Colors.orange.shade800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _existingOperatorMessage ?? '',
+                        style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Icon(Icons.arrow_forward_rounded, size: 14, color: scheme.primary),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Redirecting to sign in in $_redirectCountdown seconds...',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ],
           ),
@@ -1662,6 +1712,28 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
     );
   }
 
+  void _cancelOtp() {
+    final savedAddress = _address.text;
+    final savedAddress2 = _address2.text;
+    setState(() {
+      _otpPhase = false;
+      _emailOtpSent = false;
+      _phoneOtpSent = false;
+      _emailVerified = false;
+      _phoneVerified = false;
+      _sendingEmailOtp = false;
+      _sendingPhoneOtp = false;
+      _verifyingEmailOtp = false;
+      _verifyingPhoneOtp = false;
+      _emailOtpError = null;
+      _phoneOtpError = null;
+      _emailOtp.clear();
+      _phoneOtp.clear();
+    });
+    _address.text = savedAddress;
+    _address2.text = savedAddress2;
+  }
+
   Widget _buildOtpSection(ColorScheme scheme, TextTheme text) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1725,6 +1797,17 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
           const SizedBox(height: 8),
           Center(child: Text('Creating account...', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
         ],
+
+        if (!_loading) ...[
+          const SizedBox(height: 20),
+          Center(
+            child: TextButton.icon(
+              onPressed: _cancelOtp,
+              icon: Icon(Icons.arrow_back_rounded, size: 16, color: scheme.onSurfaceVariant),
+              label: Text('Change email or phone', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1747,12 +1830,12 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: verified
-            ? const Color(0xFFE8F5E9)
+            ? AppTheme.successColor.withValues(alpha: 0.08)
             : scheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: verified
-              ? const Color(0xFF4CAF50).withValues(alpha: 0.3)
+              ? AppTheme.successColor.withValues(alpha: 0.3)
               : scheme.outlineVariant.withValues(alpha: 0.3),
         ),
       ),
@@ -1761,7 +1844,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: verified ? const Color(0xFF2E7D32) : scheme.onSurfaceVariant),
+              Icon(icon, size: 18, color: verified ? AppTheme.successColor : scheme.onSurfaceVariant),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -1774,15 +1857,15 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
+                    color: AppTheme.successColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF2E7D32)),
+                      Icon(Icons.check_circle_rounded, size: 12, color: AppTheme.successColor),
                       const SizedBox(width: 4),
-                      Text('Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF2E7D32))),
+                      Text('Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
                     ],
                   ),
                 )
@@ -2089,47 +2172,3 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> with TickerProviderSta
   }
 }
 
-// ── Confetti painter ──────────────────────────────────────────────────────────
-
-class _ConfettiParticle {
-  final double x, y, size, speed, angle, spin;
-  final int colorIndex;
-
-  const _ConfettiParticle(this.x, this.y, this.size, this.speed, this.angle, this.spin, this.colorIndex);
-
-  static _ConfettiParticle random(Random r) => _ConfettiParticle(
-    r.nextDouble(), -r.nextDouble() * 0.3,
-    r.nextDouble() * 6 + 3, r.nextDouble() * 0.7 + 0.3,
-    r.nextDouble() * pi * 2, r.nextDouble() * 4 - 2, r.nextInt(5),
-  );
-}
-
-class _ConfettiPainter extends CustomPainter {
-  final double progress;
-  final ColorScheme scheme;
-  static final _random = Random(42);
-  static final _particles = List.generate(60, (_) => _ConfettiParticle.random(_random));
-
-  _ConfettiPainter({required this.progress, required this.scheme});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (progress == 0) return;
-    final colors = [scheme.primary, scheme.tertiary, Colors.amber, Colors.green, Colors.pink];
-    for (final p in _particles) {
-      final t = (progress * p.speed).clamp(0.0, 1.0);
-      final x = p.x * size.width + sin(p.angle + t * p.spin * pi) * 40;
-      final y = p.y * size.height + t * size.height * 1.2;
-      final opacity = (1.0 - t).clamp(0.0, 1.0);
-      final paint = Paint()..color = colors[p.colorIndex].withValues(alpha: opacity * 0.8);
-      canvas.save();
-      canvas.translate(x, y);
-      canvas.rotate(t * p.spin * pi);
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.6), const Radius.circular(1)), paint);
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(_ConfettiPainter old) => old.progress != progress;
-}

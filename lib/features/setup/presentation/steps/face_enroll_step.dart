@@ -1,15 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
-import 'dart:math';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
-import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import '../../application/setup_wizard_provider.dart';
 
@@ -20,7 +15,7 @@ class FaceEnrollStep extends ConsumerStatefulWidget {
   ConsumerState<FaceEnrollStep> createState() => _FaceEnrollStepState();
 }
 
-class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> with TickerProviderStateMixin {
+class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
   static const _channel = MethodChannel('com.weighbridge/webcam');
 
   bool _cameraReady = false;
@@ -29,43 +24,65 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> with TickerProv
   Uint8List? _currentFrame;
   Timer? _frameTimer;
 
+  // Pre-capture question
+  bool? _wearsSpecs;
+
   // Enrollment state
   final List<Uint8List> _capturedFrames = [];
   static const _requiredFrames = 5;
   bool _capturing = false;
+  bool _autoCapturing = false;
+  Timer? _autoCaptureTimer;
+  int _autoCountdown = 3;
   bool _enrolling = false;
   bool _enrolled = false;
   String? _enrollError;
-  double _matchConfidence = 0;
+  int _facesDetected = 0;
 
-  // Post-enrollment routing state
-  bool _operatorSuccess = false;
-  bool _pendingApproval = false;
-  bool _checkingApproval = false;
-  String? _approvalError;
-  late final AnimationController _successController;
-  late final AnimationController _confettiController;
+  // Dual-phase capture (only if _wearsSpecs == true)
+  bool _specsPhase = true;
+  bool _specsPhaseComplete = false;
+  bool _transitionAcknowledged = false;
+  final List<Uint8List> _specsFrames = [];
+  final List<Uint8List> _noSpecsFrames = [];
+
+  // Camera selection
+  List<Map<String, String>> _cameras = [];
+  String? _selectedCameraId;
 
   @override
   void initState() {
     super.initState();
-    _successController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _confettiController = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000));
-    _initCamera();
   }
 
   @override
   void dispose() {
     _frameTimer?.cancel();
+    _autoCaptureTimer?.cancel();
     _stopCamera();
-    _successController.dispose();
-    _confettiController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCameras() async {
+    try {
+      final result = await _channel.invokeMethod<List<dynamic>>('listCameras');
+      if (result != null && result.isNotEmpty) {
+        final list = result.map((e) {
+          final m = Map<String, dynamic>.from(e as Map);
+          return {'id': m['id'] as String, 'name': m['name'] as String};
+        }).toList();
+        setState(() {
+          _cameras = list;
+          _selectedCameraId ??= list.first['id'];
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _initCamera() async {
     try {
-      final result = await _channel.invokeMethod<bool>('startCamera');
+      final args = _selectedCameraId != null ? {'deviceId': _selectedCameraId} : null;
+      final result = await _channel.invokeMethod<bool>('startCamera', args);
       if (result == true) {
         setState(() => _cameraReady = true);
         _startFrameCapture();
@@ -95,171 +112,188 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> with TickerProv
     } catch (_) {}
   }
 
-  Future<void> _captureSnapshot() async {
-    if (_currentFrame == null || _capturedFrames.length >= _requiredFrames) return;
-    setState(() => _capturing = true);
+  void _answerSpecs(bool wears) async {
+    setState(() => _wearsSpecs = wears);
+    await _loadCameras();
+    _initCamera();
+  }
 
-    // Small delay for visual feedback
-    await Future.delayed(const Duration(milliseconds: 200));
+  void _startAutoCapture() {
+    if (_autoCapturing) return;
+    setState(() { _autoCapturing = true; _autoCountdown = 3; });
 
-    setState(() {
-      _capturedFrames.add(_currentFrame!);
-      _capturing = false;
+    // 3-second countdown before first capture
+    _autoCaptureTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+
+      if (_autoCountdown > 1) {
+        setState(() => _autoCountdown--);
+      } else {
+        timer.cancel();
+        _beginSequentialCapture();
+      }
     });
+  }
 
-    if (_capturedFrames.length >= _requiredFrames) {
-      _enrollFace();
+  void _beginSequentialCapture() {
+    setState(() => _autoCountdown = 0);
+    int captured = 0;
+
+    // Capture 1 frame per second for _requiredFrames seconds
+    _autoCaptureTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      if (_currentFrame == null) return;
+
+      setState(() {
+        _capturing = true;
+        _capturedFrames.add(_currentFrame!);
+        captured++;
+      });
+
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) setState(() => _capturing = false);
+      });
+
+      if (captured >= _requiredFrames) {
+        timer.cancel();
+        setState(() => _autoCapturing = false);
+        _onPhaseComplete();
+      }
+    });
+  }
+
+  void _onPhaseComplete() {
+    if (_wearsSpecs == true && _specsPhase && !_specsPhaseComplete) {
+      _specsFrames.addAll(_capturedFrames);
+      _validatePhase(_specsFrames, onSuccess: () {
+        setState(() {
+          _specsPhaseComplete = true;
+          _capturedFrames.clear();
+          _specsPhase = false;
+        });
+      });
+    } else if (_wearsSpecs == true && !_specsPhase) {
+      _noSpecsFrames.addAll(_capturedFrames);
+      _validatePhase(_noSpecsFrames, referenceFrames: _specsFrames, onSuccess: () {
+        _enrollFace();
+      });
+    } else {
+      _validatePhase(_capturedFrames, onSuccess: () {
+        _enrollFace();
+      });
     }
   }
 
-  Future<void> _enrollFace() async {
+  Future<void> _validatePhase(List<Uint8List> frames, {List<Uint8List>? referenceFrames, required VoidCallback onSuccess}) async {
+    final phaseLabel = _wearsSpecs == true
+        ? (_specsPhase ? 'WITH-SPECS' : 'WITHOUT-SPECS')
+        : 'SINGLE';
     setState(() { _enrolling = true; _enrollError = null; });
-
+    debugPrint('[FaceEnroll] Validating phase: $phaseLabel (${frames.length} frames)');
     try {
-      final companyId = ref.read(wizardCompanyIdProvider) ?? '';
-      final email = await _getOperatorEmail();
-
-      final images = _capturedFrames.map((f) => base64Encode(f)).toList();
-
+      final images = frames.map((f) => base64Encode(f)).toList();
+      final payload = <String, dynamic>{'images': images};
+      if (referenceFrames != null && referenceFrames.isNotEmpty) {
+        payload['referenceImages'] = referenceFrames.map((f) => base64Encode(f)).toList();
+        debugPrint('[FaceEnroll] Including ${referenceFrames.length} reference frames for cross-phase check');
+      }
       final response = await FirebaseFunctions.instance
-          .httpsCallable('enrollOperatorFace', options: HttpsCallableOptions(timeout: const Duration(seconds: 120)))
-          .call({
-        'images': images,
-        'companyId': companyId,
-        'operatorEmail': email,
-      });
+          .httpsCallable('validateFaceConsistency', options: HttpsCallableOptions(timeout: const Duration(seconds: 120)))
+          .call(payload);
 
-      final data = response.data as Map<String, dynamic>;
+      final data = Map<String, dynamic>.from(response.data as Map);
+      final facesDetected = data['facesDetected'] ?? 0;
+      final avgConf = data['avgConfidence'] ?? 0;
+      final avgSim = data['avgSimilarity'] ?? 0;
+      final outliers = data['outliers'] ?? 0;
+      final liveness = data['liveness'] ?? false;
+      final livenessMetrics = data['livenessMetrics'] != null ? Map<String, dynamic>.from(data['livenessMetrics'] as Map) : <String, dynamic>{};
+      debugPrint('[FaceEnroll] [$phaseLabel] Result: success=${data['success']}, faces=$facesDetected, avgConfidence=$avgConf, avgSimilarity=$avgSim, outliers=$outliers');
+      debugPrint('[FaceEnroll] [$phaseLabel] Liveness: pass=$liveness, metrics=$livenessMetrics');
 
       if (data['success'] == true) {
-        final confidence = (data['matchConfidence'] as num?)?.toDouble() ?? 0;
-        setState(() {
-          _enrolling = false;
-          _enrolled = true;
-          _matchConfidence = confidence;
-        });
+        setState(() => _enrolling = false);
+        onSuccess();
       } else {
         setState(() {
           _enrolling = false;
-          _enrollError = data['message'] as String? ?? 'Face enrollment failed.';
+          _enrollError = data['message'] as String? ?? 'Consistency check failed. Please retake.';
           _capturedFrames.clear();
+          if (_wearsSpecs == true && !_specsPhase) {
+            _noSpecsFrames.clear();
+          } else if (_wearsSpecs == true && _specsPhase) {
+            _specsFrames.clear();
+          }
         });
       }
     } on FirebaseFunctionsException catch (e) {
+      debugPrint('[FaceEnroll] FirebaseFunctionsException: code=${e.code}, message=${e.message}, details=${e.details}');
       setState(() {
         _enrolling = false;
-        _enrollError = e.message ?? 'Enrollment failed.';
+        _enrollError = e.message?.isNotEmpty == true ? e.message! : 'Validation failed (${e.code}). Please try again.';
         _capturedFrames.clear();
+        if (_wearsSpecs == true && !_specsPhase) {
+          _noSpecsFrames.clear();
+        }
       });
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[FaceEnroll] Unexpected error: $e\n$stack');
       setState(() {
         _enrolling = false;
-        _enrollError = 'Failed to enroll face. Try again.';
+        _enrollError = 'Failed to validate faces. Try again.';
         _capturedFrames.clear();
+        if (_wearsSpecs == true && !_specsPhase) {
+          _noSpecsFrames.clear();
+        }
       });
     }
   }
 
-  Future<String> _getOperatorEmail() async {
-    try {
-      final paths = ref.read(firestorePathsProvider);
-      final db = paths.firestore;
-      final companyId = ref.read(wizardCompanyIdProvider) ?? '';
-      final opsSnap = await db.collection('operators')
-          .where('companyId', isEqualTo: companyId)
-          .orderBy('createdAt', descending: true)
-          .limit(1).get();
-      if (opsSnap.docs.isNotEmpty) {
-        return opsSnap.docs.first.data()['email'] as String? ?? '';
+  void _resetCapture({bool fullReset = true}) {
+    _autoCaptureTimer?.cancel();
+    setState(() {
+      _enrollError = null;
+      _capturedFrames.clear();
+      _autoCapturing = false;
+      _autoCountdown = 3;
+      if (fullReset) {
+        _specsFrames.clear();
+        _noSpecsFrames.clear();
+        _specsPhaseComplete = false;
+        _transitionAcknowledged = false;
+        _specsPhase = true;
+      } else {
+        _noSpecsFrames.clear();
       }
-    } catch (_) {}
-    return '';
-  }
-
-  void _proceed() {
-    final isInvited = ref.read(wizardOperatorInvitedProvider);
-    if (isInvited) {
-      _showOperatorSuccess();
-    } else {
-      setState(() => _pendingApproval = true);
-    }
-  }
-
-  void _showOperatorSuccess() {
-    setState(() => _operatorSuccess = true);
-    _successController.forward();
-    _confettiController.forward();
-    _playSuccessSound();
-    Future.delayed(const Duration(milliseconds: 2200), () {
-      if (!mounted) return;
-      final companyId = ref.read(wizardCompanyIdProvider) ?? '';
-      _navigateToDashboard(companyId);
     });
   }
 
-  Future<void> _navigateToDashboard(String companyId) async {
-    try {
-      final db = ref.read(firestorePathsProvider).firestore;
-      final sitesSnap = await db.collection('companies/$companyId/sites').limit(1).get();
-      if (sitesSnap.docs.isNotEmpty) {
-        final siteId = sitesSnap.docs.first.id;
-        final wbSnap = await db.collection('companies/$companyId/sites/$siteId/weighbridges').limit(1).get();
-        if (wbSnap.docs.isNotEmpty) {
-          await ref.read(siteContextProvider.notifier).configure(
-            companyId: companyId,
-            siteId: siteId,
-            weighbridgeId: wbSnap.docs.first.id,
-          );
-        }
-      }
-    } catch (_) {}
-    if (mounted) context.go('/dashboard');
-  }
-
-  void _playSuccessSound() {
-    try {
-      if (Platform.isMacOS) {
-        Process.run('afplay', ['/System/Library/Sounds/Glass.aiff']);
-      } else if (Platform.isWindows) {
-        Process.run('powershell', ['-c', '[System.Media.SystemSounds]::Exclamation.Play()']);
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _checkApprovalStatus() async {
-    final docPath = ref.read(wizardOperatorDocPathProvider);
-    if (docPath == null) return;
-    setState(() { _checkingApproval = true; _approvalError = null; });
-
-    try {
-      final db = ref.read(firestorePathsProvider).firestore;
-      final snap = await db.doc(docPath).get();
-      final data = snap.data();
-      if (data == null) {
-        setState(() { _checkingApproval = false; _approvalError = 'Account not found.'; });
-        return;
-      }
-      final isActive = data['isActive'] == true;
-      final isVerified = data['isVerified'] == true;
-      if (isActive && isVerified) {
-        _showOperatorSuccess();
-      } else if (data['rejected'] == true) {
-        setState(() { _checkingApproval = false; _approvalError = 'Your request was rejected. Contact your administrator.'; _pendingApproval = false; });
-      } else {
-        setState(() { _checkingApproval = false; _approvalError = 'Still awaiting approval...'; });
-      }
-    } catch (e) {
-      setState(() { _checkingApproval = false; _approvalError = 'Could not check status. Try again.'; });
+  void _enrollFace() {
+    final List<Uint8List> allFrames;
+    if (_wearsSpecs == true) {
+      allFrames = [..._specsFrames, ..._noSpecsFrames];
+    } else {
+      allFrames = List.from(_capturedFrames);
     }
+    final images = allFrames.map((f) => base64Encode(f)).toList();
+
+    ref.read(wizardFaceFramesProvider.notifier).state = images;
+    ref.read(wizardFaceEnrolledProvider.notifier).state = true;
+
+    setState(() {
+      _enrolled = true;
+      _facesDetected = allFrames.length;
+    });
+  }
+
+  void _proceed() {
+    ref.read(setupWizardProvider.notifier).nextStep();
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-
-    if (_operatorSuccess) return _buildOperatorSuccessView(scheme, text);
-    if (_pendingApproval) return _buildPendingApprovalView(scheme, text);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
@@ -268,27 +302,30 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> with TickerProv
           constraints: const BoxConstraints(maxWidth: 520),
           child: Column(
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
+              if (!_enrolled && !ref.watch(wizardFaceEnrolledProvider)) ...[
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
+                  ),
+                  child: Icon(Icons.face_rounded, size: 28, color: scheme.primary),
                 ),
-                child: Icon(Icons.face_rounded, size: 28, color: scheme.primary),
-              ),
-              const SizedBox(height: 20),
-              Text('Face Enrollment', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              Text(
-                'Capture your face for future identity verification when logging in.',
-                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 28),
+                const SizedBox(height: 20),
+                Text('Face Enrollment', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                Text(
+                  'Capture face snapshots for identity verification when logging in.',
+                  style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 28),
+              ],
 
-              if (_enrolled) _buildEnrollSuccessView(scheme, text)
+              if (_enrolled || ref.watch(wizardFaceEnrolledProvider)) _buildEnrollSuccessView(scheme, text)
+              else if (_wearsSpecs == null) _buildSpecsQuestion(scheme, text)
               else if (_cameraError) _buildErrorView(scheme, text)
               else _buildCameraView(scheme, text),
             ],
@@ -298,9 +335,197 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> with TickerProv
     );
   }
 
-  Widget _buildCameraView(ColorScheme scheme, TextTheme text) {
+  Widget _buildSpecsQuestion(ColorScheme scheme, TextTheme text) {
     return Column(
       children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+            boxShadow: [BoxShadow(color: scheme.shadow.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+          ),
+          child: Column(
+            children: [
+              Icon(Icons.visibility_rounded, size: 40, color: scheme.primary),
+              const SizedBox(height: 16),
+              Text('Do you wear spectacles / glasses?', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text(
+                'If yes, we\'ll capture your face both with and without glasses for better recognition accuracy.',
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _answerSpecs(false),
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      label: const Text('No'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => _answerSpecs(true),
+                      icon: const Icon(Icons.check_rounded, size: 18),
+                      label: const Text('Yes'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextButton(
+          onPressed: _proceed,
+          child: Text('Skip Face Enrollment', style: TextStyle(color: scheme.onSurfaceVariant)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCameraView(ColorScheme scheme, TextTheme text) {
+    final isDualPhase = _wearsSpecs == true;
+
+    // Show transition screen between phases
+    if (isDualPhase && _specsPhaseComplete && !_transitionAcknowledged && _capturedFrames.isEmpty && !_enrolling) {
+      return _buildPhaseTransition(scheme, text);
+    }
+
+    final String phaseLabel;
+    final String phaseInstruction;
+    final IconData phaseIcon;
+
+    if (isDualPhase) {
+      if (_specsPhase) {
+        phaseLabel = 'Phase 1 of 2 — WITH Spectacles';
+        phaseInstruction = 'Keep your glasses on. Look straight at the camera.';
+        phaseIcon = Icons.visibility_rounded;
+      } else {
+        phaseLabel = 'Phase 2 of 2 — WITHOUT Spectacles';
+        phaseInstruction = 'Remove your glasses. Look straight at the camera.';
+        phaseIcon = Icons.visibility_off_rounded;
+      }
+    } else {
+      phaseLabel = 'Face capture';
+      phaseInstruction = 'Look straight at the camera.';
+      phaseIcon = Icons.face_rounded;
+    }
+
+    return Column(
+      children: [
+        // Phase indicator
+        if (isDualPhase)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: _specsPhase
+                  ? scheme.primaryContainer.withValues(alpha: 0.2)
+                  : scheme.tertiaryContainer.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _specsPhase
+                    ? scheme.primary.withValues(alpha: 0.3)
+                    : scheme.tertiary.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: (_specsPhase ? scheme.primary : scheme.tertiary).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(phaseIcon, size: 20, color: _specsPhase ? scheme.primary : scheme.tertiary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        phaseLabel,
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _specsPhase ? scheme.primary : scheme.tertiary),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        phaseInstruction,
+                        style: TextStyle(fontSize: 11, color: scheme.onSurface),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_specsPhaseComplete)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.successColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle_rounded, size: 12, color: AppTheme.successColor),
+                        const SizedBox(width: 4),
+                        Text('Phase 1 done', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+        // Camera selector
+        if (_cameras.length > 1 && !_autoCapturing)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Icon(Icons.videocam_rounded, size: 16, color: scheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _selectedCameraId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    items: _cameras.map((cam) => DropdownMenuItem(
+                      value: cam['id'],
+                      child: Text(cam['name']!, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                    )).toList(),
+                    onChanged: (id) {
+                      if (id == null || id == _selectedCameraId) return;
+                      setState(() { _selectedCameraId = id; _cameraReady = false; _currentFrame = null; });
+                      _frameTimer?.cancel();
+                      _stopCamera().then((_) => _initCamera());
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
         // Camera preview
         Container(
           width: 320,
@@ -309,20 +534,14 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> with TickerProv
             color: Colors.black,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: _capturing
-                  ? scheme.primary
-                  : scheme.outlineVariant.withValues(alpha: 0.3),
+              color: _capturing ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.3),
               width: _capturing ? 3 : 1,
             ),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(15),
             child: _currentFrame != null
-                ? Image.memory(
-                    _currentFrame!,
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                  )
+                ? Image.memory(_currentFrame!, fit: BoxFit.cover, gaplessPlayback: true)
                 : Center(
                     child: _cameraReady
                         ? const CircularProgressIndicator(strokeWidth: 2)
@@ -339,22 +558,33 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> with TickerProv
         ),
         const SizedBox(height: 16),
 
-        // Face guide overlay hint
+        // Tips
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: scheme.primaryContainer.withValues(alpha: 0.12),
+            color: Colors.orange.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.orange.withValues(alpha: 0.15)),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline_rounded, size: 14, color: scheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                'Position your face in the center. Look straight at the camera.',
-                style: TextStyle(fontSize: 11, color: scheme.primary),
+              Row(
+                children: [
+                  Icon(Icons.tips_and_updates_rounded, size: 14, color: Colors.orange),
+                  const SizedBox(width: 6),
+                  Text('Tips', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.orange.shade700)),
+                ],
               ),
+              const SizedBox(height: 6),
+              _tipRow(Icons.light_mode_rounded, 'Ensure bright, even lighting on your face'),
+              _tipRow(Icons.crop_portrait_rounded, 'Position face centered in the frame'),
+              _tipRow(Icons.visibility_rounded, 'Look directly at the camera'),
+              if (isDualPhase && _specsPhase)
+                _tipRow(Icons.visibility_rounded, 'Keep your spectacles ON for this phase')
+              else if (isDualPhase && !_specsPhase)
+                _tipRow(Icons.visibility_off_rounded, 'Remove spectacles for this phase'),
             ],
           ),
         ),
@@ -400,7 +630,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> with TickerProv
         if (_enrolling) ...[
           const CircularProgressIndicator(strokeWidth: 2),
           const SizedBox(height: 12),
-          Text('Verifying face match...', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+          Text('Verifying & enrolling face...', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
         ] else if (_enrollError != null) ...[
           Container(
             width: double.infinity,
@@ -421,28 +651,167 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> with TickerProv
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => setState(() => _enrollError = null),
+              onPressed: () => _resetCapture(fullReset: !(_wearsSpecs == true && _specsPhaseComplete)),
               icon: const Icon(Icons.refresh_rounded, size: 16),
               label: const Text('Try Again'),
+            ),
+          ),
+        ] else if (_autoCapturing && _autoCountdown > 0) ...[
+          SizedBox(
+            width: double.infinity,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Starting in $_autoCountdown...',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: scheme.primary),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ] else if (_autoCapturing) ...[
+          SizedBox(
+            width: double.infinity,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: AppTheme.successColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.fiber_manual_record_rounded, size: 14, color: AppTheme.successColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Capturing... look at the camera naturally',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.successColor),
+                  ),
+                ],
+              ),
             ),
           ),
         ] else ...[
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: (!_cameraReady || _capturedFrames.length >= _requiredFrames) ? null : _captureSnapshot,
-              icon: _capturing
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.camera_alt_rounded, size: 18),
+              onPressed: !_cameraReady ? null : _startAutoCapture,
+              icon: const Icon(Icons.play_arrow_rounded, size: 20),
               label: Text(
-                _capturedFrames.isEmpty
-                    ? 'Capture Face ($_requiredFrames shots needed)'
-                    : 'Capture (${_requiredFrames - _capturedFrames.length} remaining)',
+                isDualPhase
+                    ? 'Start capture ${_specsPhase ? "with glasses" : "without glasses"}'
+                    : 'Start face capture',
+              ),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ),
+          const SizedBox(height: 6),
+          Text(
+            '5 photos will be taken automatically (1 per second)',
+            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: _proceed,
+            child: Text('Skip', style: TextStyle(color: scheme.onSurfaceVariant)),
+          ),
         ],
       ],
+    );
+  }
+
+  Widget _buildPhaseTransition(ColorScheme scheme, TextTheme text) {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: scheme.tertiaryContainer.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: scheme.tertiary.withValues(alpha: 0.25)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: scheme.tertiary.withValues(alpha: 0.1),
+                ),
+                child: Icon(Icons.visibility_off_rounded, size: 32, color: scheme.tertiary),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppTheme.successColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Phase 1 complete',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.successColor),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Now remove your spectacles',
+                style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Take off your glasses before continuing. This helps the system recognise you regardless of whether you\'re wearing them.',
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => setState(() => _transitionAcknowledged = true),
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                  label: const Text('I\'ve removed my glasses — Continue'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _tipRow(IconData icon, String tip) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 5),
+      child: Row(
+        children: [
+          Icon(icon, size: 13, color: Colors.orange),
+          const SizedBox(width: 8),
+          Expanded(child: Text(tip, style: const TextStyle(fontSize: 11))),
+        ],
+      ),
     );
   }
 
@@ -450,155 +819,153 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> with TickerProv
     return Column(
       children: [
         Container(
-          width: 80,
-          height: 80,
+          width: 88,
+          height: 88,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppTheme.successColor.withValues(alpha: 0.1),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppTheme.successColor.withValues(alpha: 0.15),
+                AppTheme.successColor.withValues(alpha: 0.05),
+              ],
+            ),
+            border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.3), width: 2),
           ),
-          child: Icon(Icons.check_circle_rounded, size: 48, color: AppTheme.successColor),
+          child: Icon(Icons.verified_user_rounded, size: 42, color: AppTheme.successColor),
         ),
         const SizedBox(height: 20),
-        Text('Face Enrolled', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        Text('Face Enrolled Successfully', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
         Text(
-          'Your face has been registered for identity verification.',
+          'Your identity has been securely registered.',
           style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
-        if (_matchConfidence > 0) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.successColor.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              'ID match confidence: ${(_matchConfidence * 100).toStringAsFixed(0)}%',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.successColor),
-            ),
+        const SizedBox(height: 24),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+            boxShadow: [BoxShadow(color: scheme.shadow.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
           ),
-        ],
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppTheme.successColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.face_retouching_natural_rounded, size: 22, color: AppTheme.successColor),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${_facesDetected > 0 ? _facesDetected : (ref.read(wizardFaceFramesProvider)?.length ?? 0)} snapshots captured',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: scheme.onSurface),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _wearsSpecs == true
+                              ? 'With & without spectacles'
+                              : 'Face verification ready',
+                          style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.successColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle_rounded, size: 12, color: AppTheme.successColor),
+                        const SizedBox(width: 4),
+                        Text('Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.shield_rounded, size: 16, color: scheme.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Your face will be verified each time you log in for secure access.',
+                        style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 28),
         SizedBox(
           width: double.infinity,
-          child: FilledButton(
+          child: FilledButton.icon(
             onPressed: _proceed,
-            child: const Text('Continue'),
+            icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+            label: const Text('Continue'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
           ),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: () {
+            ref.read(wizardFaceEnrolledProvider.notifier).state = false;
+            setState(() {
+              _enrolled = false;
+              _wearsSpecs = null;
+              _facesDetected = 0;
+              _capturedFrames.clear();
+              _specsFrames.clear();
+              _noSpecsFrames.clear();
+              _specsPhaseComplete = false;
+              _transitionAcknowledged = false;
+              _specsPhase = true;
+              _cameraReady = false;
+              _currentFrame = null;
+            });
+            _frameTimer?.cancel();
+            _stopCamera();
+          },
+          icon: Icon(Icons.refresh_rounded, size: 16, color: scheme.onSurfaceVariant),
+          label: Text('Re-enroll', style: TextStyle(color: scheme.onSurfaceVariant)),
         ),
       ],
     );
   }
 
-  Widget _buildOperatorSuccessView(ColorScheme scheme, TextTheme text) {
-    return Center(
-      child: CustomPaint(
-        painter: _ConfettiPainter(_confettiController),
-        child: ScaleTransition(
-          scale: CurvedAnimation(parent: _successController, curve: Curves.elasticOut),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 80),
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.successColor.withValues(alpha: 0.1),
-                ),
-                child: Icon(Icons.check_circle_rounded, size: 64, color: AppTheme.successColor),
-              ),
-              const SizedBox(height: 24),
-              Text('Welcome Aboard!', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 8),
-              Text(
-                'Your account is ready. Redirecting to dashboard...',
-                style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPendingApprovalView(ColorScheme scheme, TextTheme text) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: Column(
-            children: [
-              const SizedBox(height: 40),
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: scheme.tertiaryContainer.withValues(alpha: 0.3),
-                ),
-                child: Icon(Icons.hourglass_top_rounded, size: 40, color: scheme.tertiary),
-              ),
-              const SizedBox(height: 24),
-              Text('Awaiting Approval', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
-              Text(
-                'Your request has been sent to the administrator. You will be able to log in once approved.',
-                style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              if (_approvalError != null) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: _approvalError!.contains('rejected')
-                        ? scheme.errorContainer.withValues(alpha: 0.2)
-                        : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    _approvalError!,
-                    style: TextStyle(fontSize: 13, color: _approvalError!.contains('rejected') ? scheme.error : scheme.onSurfaceVariant),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _checkingApproval ? null : _checkApprovalStatus,
-                  icon: _checkingApproval
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.refresh_rounded, size: 18),
-                  label: Text(_checkingApproval ? 'Checking...' : 'Check Status'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextButton.icon(
-                onPressed: () {
-                  ref.read(wizardPrefillEmailProvider.notifier).state = null;
-                  ref.read(wizardShowResumeSignInProvider.notifier).state = false;
-                  ref.read(wizardOperatorInvitedProvider.notifier).state = false;
-                  ref.read(wizardOperatorDocPathProvider.notifier).state = null;
-                  ref.read(setupWizardProvider.notifier).goToWelcome();
-                },
-                icon: Icon(Icons.logout_rounded, size: 14, color: scheme.onSurfaceVariant),
-                label: Text('Exit', style: TextStyle(color: scheme.onSurfaceVariant)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildErrorView(ColorScheme scheme, TextTheme text) {
     return Column(
@@ -647,39 +1014,3 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> with TickerProv
   }
 }
 
-class _ConfettiPainter extends CustomPainter {
-  final Animation<double> animation;
-  final List<_ConfettiParticle> _particles;
-
-  _ConfettiPainter(this.animation)
-      : _particles = List.generate(40, (_) => _ConfettiParticle()),
-        super(repaint: animation);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (animation.value == 0) return;
-    final paint = Paint();
-    for (final p in _particles) {
-      final progress = animation.value;
-      final x = size.width * p.x + p.dx * progress * 100;
-      final y = size.height * 0.3 + p.dy * progress * size.height * 0.7;
-      paint.color = p.color.withValues(alpha: (1 - progress).clamp(0, 1));
-      canvas.drawCircle(Offset(x, y), p.size, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-class _ConfettiParticle {
-  static final _rng = Random();
-  final double x = _rng.nextDouble();
-  final double dx = _rng.nextDouble() * 2 - 1;
-  final double dy = _rng.nextDouble() * 0.5 + 0.5;
-  final double size = _rng.nextDouble() * 3 + 2;
-  final Color color = [
-    Colors.red, Colors.blue, Colors.green, Colors.amber,
-    Colors.purple, Colors.orange, Colors.teal,
-  ][_rng.nextInt(7)];
-}

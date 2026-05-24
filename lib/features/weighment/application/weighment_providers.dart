@@ -2,6 +2,38 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 
+// ─── ANPR Detection Overlay ─────────────────────────────────────────────────
+
+class AnprOverlay {
+  final String cameraKey;
+  final List<double> bbox;
+  final String plateText;
+  final double confidence;
+  final String plateType;
+  final bool srApplied;
+  final String plateCropB64;
+  final String plateBgColor;
+
+  const AnprOverlay({
+    required this.cameraKey,
+    required this.bbox,
+    required this.plateText,
+    required this.confidence,
+    this.plateType = 'unknown',
+    this.srApplied = false,
+    this.plateCropB64 = '',
+    this.plateBgColor = '#FFFFFF',
+  });
+
+  bool get hasDetection => plateText.isNotEmpty && confidence > 0.3;
+  bool get hasLiveBbox => bbox.length == 4 && (bbox[2] - bbox[0]) > 0.02 && (bbox[3] - bbox[1]) > 0.01;
+  bool get hasCrop => plateCropB64.isNotEmpty;
+}
+
+final anprDetectionOverlayProvider = StateProvider<Map<String, AnprOverlay>>((ref) => {});
+final anprScanningProvider = StateProvider<bool>((ref) => false);
+final anprRescanTriggerProvider = StateProvider<int>((ref) => 0);
+
 final pendingWeighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return const Stream.empty();
@@ -40,6 +72,22 @@ final materialsListProvider = StreamProvider<List<String>>((ref) {
         .where((n) => n.isNotEmpty)
         .toList(),
   );
+});
+
+final materialDirectionMapProvider = StreamProvider<Map<String, String>>((ref) {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  return paths.materials.snapshots().map((snap) {
+    final map = <String, String>{};
+    for (final doc in snap.docs) {
+      final name = doc.data()['name'] as String? ?? '';
+      final dir = doc.data()['defaultDirection'] as String?;
+      if (name.isNotEmpty && dir != null && dir.isNotEmpty) {
+        map[name] = dir;
+      }
+    }
+    return map;
+  });
 });
 
 final customFieldsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {

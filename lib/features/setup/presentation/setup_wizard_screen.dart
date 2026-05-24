@@ -27,6 +27,7 @@ class SetupWizardScreen extends ConsumerWidget {
     final state = ref.watch(setupWizardProvider);
     final scheme = Theme.of(context).colorScheme;
     final isWelcome = state.currentStep.id == WizardStepId.welcome;
+    final isFullscreen = ref.watch(wizardFullscreenModeProvider) || isWelcome;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -82,11 +83,11 @@ class SetupWizardScreen extends ConsumerWidget {
           // Foreground content
           Row(
             children: [
-              if (!isWelcome) const WizardSidebar(),
+              if (!isFullscreen) const WizardSidebar(),
               Expanded(
                 child: Column(
                   children: [
-                    if (!isWelcome)
+                    if (!isFullscreen)
                       Container(
                         height: 4,
                         color: scheme.surfaceContainerLowest.withValues(alpha: 0.5),

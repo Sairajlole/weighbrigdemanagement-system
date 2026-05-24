@@ -48,6 +48,7 @@ class WeighmentSession {
   // AI predictions (for training data)
   final String? anprPrediction;
   final double? anprConfidence;
+  final String? plateCropB64;
   final String? materialPrediction;
   final double? materialConfidence;
   final String? driverFaceEmbedding;
@@ -87,6 +88,7 @@ class WeighmentSession {
     this.cameraLabels = const {},
     this.anprPrediction,
     this.anprConfidence,
+    this.plateCropB64,
     this.materialPrediction,
     this.materialConfidence,
     this.driverFaceEmbedding,
@@ -123,6 +125,7 @@ class WeighmentSession {
     Map<String, String>? cameraLabels,
     String? anprPrediction,
     double? anprConfidence,
+    String? plateCropB64,
     String? materialPrediction,
     double? materialConfidence,
     String? driverFaceEmbedding,
@@ -158,6 +161,7 @@ class WeighmentSession {
       cameraLabels: cameraLabels ?? this.cameraLabels,
       anprPrediction: anprPrediction ?? this.anprPrediction,
       anprConfidence: anprConfidence ?? this.anprConfidence,
+      plateCropB64: plateCropB64 ?? this.plateCropB64,
       materialPrediction: materialPrediction ?? this.materialPrediction,
       materialConfidence: materialConfidence ?? this.materialConfidence,
       driverFaceEmbedding: driverFaceEmbedding ?? this.driverFaceEmbedding,

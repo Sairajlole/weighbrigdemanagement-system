@@ -233,6 +233,11 @@ class DisplayBoardService {
     return _connections[index]?.status ?? DisplayBoardStatus.disconnected;
   }
 
+  bool get hasConnectedBoards =>
+      _connections.values.any((c) => c.status == DisplayBoardStatus.connected);
+
+  bool get hasEnabledBoards => _configs.any((c) => c.enabled && c.port.isNotEmpty);
+
   void disconnectAll() {
     for (final conn in _connections.values) {
       conn.disconnect();

@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/features/profile/presentation/profile_screen.dart';
 import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
@@ -81,6 +82,10 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Auto-start sidecar if not running, then sync embeddings
+    ref.watch(sidecarAutoStartProvider);
+    ref.watch(sidecarEmbeddingSyncProvider);
+
     final perms = ref.watch(permissionServiceProvider);
     final strings = ref.watch(stringsProvider);
     final navItems = _filteredNavItems(perms, strings);

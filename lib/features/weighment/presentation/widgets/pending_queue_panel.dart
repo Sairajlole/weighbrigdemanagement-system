@@ -15,7 +15,6 @@ class PendingQueuePanel extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Container(
-      width: 240,
       decoration: BoxDecoration(
         color: scheme.surface,
         border: Border(right: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),

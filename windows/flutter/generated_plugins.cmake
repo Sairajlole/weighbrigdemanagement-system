@@ -9,6 +9,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_core
   flutter_libserialport
   media_kit_video
+  pdfx
   printing
   screen_retriever_windows
   window_manager

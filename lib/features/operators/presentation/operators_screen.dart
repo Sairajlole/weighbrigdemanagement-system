@@ -5,14 +5,17 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:pdfx/pdfx.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 
 
@@ -37,6 +40,14 @@ final _allOperatorsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return const Stream.empty();
   return paths.operators.snapshots().map(
+        (snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList(),
+      );
+});
+
+final _rejectionsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  return paths.rejections.orderBy('rejectedAt', descending: true).snapshots().map(
         (snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList(),
       );
 });
@@ -263,8 +274,8 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
 
                   _applySorting(filtered);
 
-                  final pending = filtered.where((o) => o['isVerified'] == false && (o['uid'] as String? ?? '').isEmpty).toList();
-                  final verified = filtered.where((o) => o['isVerified'] != false || (o['uid'] as String? ?? '').isNotEmpty).toList();
+                  final pending = filtered.where((o) => o['isVerified'] == false).toList();
+                  final verified = filtered.where((o) => o['isVerified'] != false).toList();
 
                   if (_tabIndex == 1) {
                     return _buildRequestsTab(pending, scheme, text);
@@ -313,8 +324,8 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
   Widget _buildNormalHeader(ColorScheme scheme, TextTheme text, AsyncValue<List<Map<String, dynamic>>> operatorsAsync) {
     final operators = operatorsAsync.valueOrNull ?? [];
     final total = operators.length;
-    final active = operators.where((o) => o['isActive'] == true && (o['isVerified'] != false || (o['uid'] as String? ?? '').isNotEmpty)).length;
-    final pending = operators.where((o) => o['isVerified'] == false && (o['uid'] as String? ?? '').isEmpty).length;
+    final active = operators.where((o) => o['isVerified'] != false && o['isActive'] == true).length;
+    final pending = operators.where((o) => o['isVerified'] == false).length;
     final shiftRestricted = operators.where((o) => o['shiftRestricted'] == true).length;
     final siteCtx = ref.watch(siteContextProvider);
 
@@ -687,7 +698,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
 
   Widget _buildTabBar(ColorScheme scheme, TextTheme text, AsyncValue<List<Map<String, dynamic>>> operatorsAsync) {
     final all = operatorsAsync.valueOrNull ?? [];
-    final pendingCount = all.where((o) => o['isVerified'] == false && (o['uid'] as String? ?? '').isEmpty && o['isArchived'] != true).length;
+    final pendingCount = all.where((o) => o['isVerified'] == false && o['isArchived'] != true).length;
     final archivedCount = all.where((o) => o['isArchived'] == true).length;
 
     return Container(
@@ -740,7 +751,9 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
   }
 
   Widget _buildRequestsTab(List<Map<String, dynamic>> pending, ColorScheme scheme, TextTheme text) {
-    if (pending.isEmpty) {
+    final rejections = ref.watch(_rejectionsProvider).valueOrNull ?? [];
+
+    if (pending.isEmpty && rejections.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -756,9 +769,14 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
     }
 
     return ListView.separated(
-      itemCount: pending.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      padding: const EdgeInsets.all(16),
+      itemCount: pending.length + (rejections.isNotEmpty ? 1 : 0),
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (_, i) {
+        // Rejected subsection at the end
+        if (i >= pending.length) {
+          return _buildRejectedSection(rejections, scheme, text);
+        }
         final op = pending[i];
         final createdAt = op['createdAt'];
         final invitedAt = op['invitedAt'];
@@ -766,118 +784,867 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
         final timeStr = (isInvited ? invitedAt : createdAt) is Timestamp
             ? _formatTimestamp((isInvited ? invitedAt : createdAt) as Timestamp, ref.read(timeFormatProvider))
             : 'Unknown';
+        final phone = op['phone'] as String? ?? '';
+        final address = op['address'] as String? ?? '';
+        final address2 = op['address2'] as String? ?? '';
+        final fullAddress = [address, address2].where((s) => s.isNotEmpty).join(', ');
+        final idDocType = op['idDocType'] as String? ?? '';
+        final idDocNumber = op['idDocNumber'] as String? ?? '';
+        final faceEnrollment = op['faceEnrollment'] as Map<String, dynamic>?;
+        final faceEnrolled = faceEnrollment?['enrolled'] == true;
+        final faceCount = faceEnrollment?['validFrameCount'] as int? ?? faceEnrollment?['faceCount'] as int? ?? 0;
+        final emailVerified = op['emailVerified'] == true;
+        final phoneVerified = op['phoneVerified'] == true;
+        final opEmail = (op['email'] as String? ?? '').toLowerCase();
+        final priorRejections = rejections.where((r) => (r['email'] as String? ?? '').toLowerCase() == opEmail).toList();
 
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: isInvited ? scheme.primary.withValues(alpha: 0.3) : Colors.amber.withValues(alpha: 0.3)),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: isInvited ? scheme.primaryContainer.withValues(alpha: 0.3) : Colors.amber.withValues(alpha: 0.12),
-                child: Icon(
-                  isInvited ? Icons.send_rounded : Icons.person_outline_rounded,
-                  size: 16,
-                  color: isInvited ? scheme.primary : Colors.amber.shade700,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(op['name'] ?? 'Unknown', style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isInvited ? scheme.primary.withValues(alpha: 0.08) : Colors.amber.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            isInvited ? 'Invited' : 'Self-registered',
-                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: isInvited ? scheme.primary : Colors.amber.shade700),
-                          ),
-                        ),
-                      ],
+              // Header row: avatar, name, badge, actions
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: isInvited ? scheme.primaryContainer.withValues(alpha: 0.3) : Colors.amber.withValues(alpha: 0.12),
+                    child: Icon(
+                      isInvited ? Icons.send_rounded : Icons.person_outline_rounded,
+                      size: 18,
+                      color: isInvited ? scheme.primary : Colors.amber.shade700,
                     ),
-                    const SizedBox(height: 2),
-                    Text(op['email'] ?? '', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-                    const SizedBox(height: 4),
-                    Row(
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          isInvited ? Icons.hourglass_bottom_rounded : Icons.access_time_rounded,
-                          size: 11,
-                          color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                        Row(
+                          children: [
+                            Flexible(child: Text(op['name'] ?? 'Unknown', style: text.bodyLarge?.copyWith(fontWeight: FontWeight.w700))),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isInvited ? scheme.primary.withValues(alpha: 0.08) : Colors.amber.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Text(
+                                isInvited ? 'Invited' : 'Self-registered',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: isInvited ? scheme.primary : Colors.amber.shade700),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          isInvited ? 'Awaiting login confirmation · Invited $timeStr' : 'Requested $timeStr',
-                          style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(Icons.access_time_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                            const SizedBox(width: 4),
+                            Text(
+                              isInvited ? 'Invited $timeStr' : 'Requested $timeStr',
+                              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              if (!isInvited)
-                GestureDetector(
-                  onTap: () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({'isVerified': true, 'isActive': true}),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.check_rounded, size: 14, color: Colors.green.shade700),
-                        const SizedBox(width: 4),
-                        Text('Approve', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
                       ],
                     ),
                   ),
-                ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({
-                  'isArchived': true,
-                  'isActive': false,
-                  'isVerified': false,
-                  'permissionsRevoked': true,
-                  'archivedAt': FieldValue.serverTimestamp(),
-                }),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  const SizedBox(width: 12),
+                  if (!isInvited)
+                    GestureDetector(
+                      onTap: () => _approveOperator(op),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_rounded, size: 14, color: Colors.green.shade700),
+                            const SizedBox(width: 4),
+                            Text('Approve', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _showRejectDialog(op),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: scheme.error.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.close_rounded, size: 14, color: scheme.error),
+                          const SizedBox(width: 4),
+                          Text('Reject', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.error)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
+              const SizedBox(height: 14),
+              // Details grid
+              Wrap(
+                spacing: 24,
+                runSpacing: 10,
+                children: [
+                  _requestInfoChip(Icons.email_rounded, op['email'] ?? '--', scheme, verified: emailVerified),
+                  if (phone.isNotEmpty) _requestInfoChip(Icons.phone_rounded, phone, scheme, verified: phoneVerified),
+                  if (idDocType.isNotEmpty) _requestInfoChip(Icons.badge_rounded, '$idDocType${idDocNumber.isNotEmpty ? ' · ${idDocNumber.length > 8 ? '${idDocNumber.substring(0, 4)}••••${idDocNumber.substring(idDocNumber.length - 4)}' : idDocNumber}' : ''}', scheme),
+                  if (fullAddress.isNotEmpty) _requestInfoChip(Icons.location_on_rounded, fullAddress, scheme, maxWidth: 600),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // Verification status chips
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  _verificationBadge(Icons.face_rounded, faceEnrolled ? 'Face enrolled ($faceCount valid)' : 'No face enrolled', faceEnrolled, scheme),
+                  _verificationBadge(Icons.email_rounded, emailVerified ? 'Email verified' : 'Email unverified', emailVerified, scheme),
+                  _verificationBadge(Icons.phone_rounded, phoneVerified ? 'Phone verified' : 'Phone unverified', phoneVerified, scheme),
+                  if (idDocType.isNotEmpty || idDocNumber.isNotEmpty)
+                    GestureDetector(
+                      onTap: () => _showViewIdDialog(op),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: scheme.primary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.badge_rounded, size: 12, color: scheme.primary),
+                            const SizedBox(width: 5),
+                            Text('View ID', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              // Rejection history
+              if (priorRejections.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: scheme.error.withValues(alpha: 0.08),
+                    color: scheme.error.withValues(alpha: 0.04),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
+                    border: Border.all(color: scheme.error.withValues(alpha: 0.15)),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.close_rounded, size: 14, color: scheme.error),
-                      const SizedBox(width: 4),
-                      Text('Reject', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.error)),
+                      Row(
+                        children: [
+                          Icon(Icons.history_rounded, size: 14, color: scheme.error),
+                          const SizedBox(width: 6),
+                          Text('Previously rejected (${priorRejections.length}×)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.error)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ...priorRejections.map((r) {
+                        final rejAt = r['rejectedAt'];
+                        final rejTime = rejAt is Timestamp ? _formatTimestamp(rejAt, ref.read(timeFormatProvider)) : '';
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('• ', style: TextStyle(fontSize: 11, color: scheme.error.withValues(alpha: 0.6))),
+                              Expanded(
+                                child: Text(
+                                  '${r['reason'] ?? 'No reason'}${rejTime.isNotEmpty ? ' ($rejTime)' : ''}',
+                                  style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _requestInfoChip(IconData icon, String label, ColorScheme scheme, {bool verified = false, double? maxWidth}) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth ?? 220),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+          const SizedBox(width: 6),
+          Flexible(child: Text(label, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis)),
+          if (verified) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.verified_rounded, size: 12, color: Colors.green.shade600),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _verificationBadge(IconData icon, String label, bool verified, ColorScheme scheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: verified ? Colors.green.withValues(alpha: 0.08) : scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: verified ? Colors.green.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: verified ? Colors.green.shade600 : scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+          const SizedBox(width: 5),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: verified ? Colors.green.shade700 : scheme.onSurfaceVariant.withValues(alpha: 0.7))),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _approveOperator(Map<String, dynamic> op) async {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final paths = ref.read(firestorePathsProvider);
+    final companyId = paths.context.companyId;
+
+    // Fetch sites
+    List<Map<String, String>> allSites = [];
+    try {
+      final snap = await paths.firestore.collection('companies/$companyId/sites').get();
+      allSites = snap.docs.map((d) => {'id': d.id, 'name': d.data()['name'] as String? ?? 'Unnamed Site'}).toList();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    final Set<String> selectedSites = {paths.context.siteId};
+    bool selectAll = allSites.length <= 1;
+    bool saving = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.check_circle_rounded, size: 20, color: Colors.green.shade700),
+                      const SizedBox(width: 10),
+                      Text('Approve Operator', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                      const Spacer(),
+                      IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded, size: 18)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text('Approving "${op['name'] ?? 'Unknown'}"', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                  const SizedBox(height: 18),
+                  Text('Assign to sites:', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 10),
+                  // Select All toggle
+                  InkWell(
+                    onTap: () => setSt(() {
+                      selectAll = !selectAll;
+                      if (selectAll) {
+                        selectedSites.clear();
+                        for (final s in allSites) {
+                          selectedSites.add(s['id']!);
+                        }
+                      }
+                    }),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        color: selectAll ? scheme.primary.withValues(alpha: 0.08) : null,
+                        border: Border.all(color: selectAll ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            selectAll ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                            size: 18,
+                            color: selectAll ? scheme.primary : scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 10),
+                          Text('All Sites', style: TextStyle(fontSize: 12, fontWeight: selectAll ? FontWeight.w700 : FontWeight.w500, color: selectAll ? scheme.primary : scheme.onSurface)),
+                          const Spacer(),
+                          Icon(Icons.public_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (!selectAll && allSites.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      constraints: const BoxConstraints(maxHeight: 180),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+                      ),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: allSites.map((site) {
+                            final selected = selectedSites.contains(site['id']);
+                            return GestureDetector(
+                              onTap: () => setSt(() {
+                                if (selected) {
+                                  selectedSites.remove(site['id']);
+                                } else {
+                                  selectedSites.add(site['id']!);
+                                }
+                              }),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                margin: const EdgeInsets.only(bottom: 4),
+                                decoration: BoxDecoration(
+                                  color: selected ? scheme.primary.withValues(alpha: 0.08) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: selected ? Border.all(color: scheme.primary.withValues(alpha: 0.3)) : null,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      selected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                                      size: 16,
+                                      color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        site['name']!,
+                                        style: TextStyle(fontSize: 12, fontWeight: selected ? FontWeight.w600 : FontWeight.w400, color: scheme.onSurface),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (!selectAll && selectedSites.isEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text('Select at least one site', style: TextStyle(fontSize: 11, color: scheme.error)),
+                  ],
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: (!selectAll && selectedSites.isEmpty) || saving
+                            ? null
+                            : () async {
+                                setSt(() => saving = true);
+                                final siteScope = selectAll ? 'all' : 'specific';
+                                final sites = selectAll ? <String>[] : selectedSites.toList();
+                                final email = op['email'] as String? ?? '';
+
+                                await paths.operators.doc(op['id']).update({
+                                  'isVerified': true,
+                                  'isActive': true,
+                                  'siteScope': siteScope,
+                                  'allowedSites': sites,
+                                });
+
+                                // Clear rejection history if any
+                                if (email.isNotEmpty) {
+                                  final rejSnap = await paths.rejections.where('email', isEqualTo: email).get();
+                                  for (final doc in rejSnap.docs) {
+                                    await doc.reference.delete();
+                                  }
+                                }
+
+                                if (ctx.mounted) Navigator.pop(ctx);
+                              },
+                        style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
+                        child: saving
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Text('Approve'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showViewIdDialog(Map<String, dynamic> op) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final idDocType = op['idDocType'] as String? ?? '';
+    final idDocNumber = op['idDocNumber'] as String? ?? '';
+    var idDocImages = op['idDocImages'] as List<dynamic>? ?? [];
+    // Fallback: old field written by cloud function before idDocImages was added
+    if (idDocImages.isEmpty) {
+      final legacy = op['idImageBase64'] as String?;
+      if (legacy != null && legacy.isNotEmpty) idDocImages = [legacy];
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520, maxHeight: 750),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.badge_rounded, size: 20, color: scheme.primary),
+                    const SizedBox(width: 10),
+                    Text('Submitted ID Document', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded, size: 18)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text('ID details for "${op['name'] ?? 'Unknown'}"', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.article_rounded, size: 16, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                          const SizedBox(width: 8),
+                          Text('Document Type', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 24),
+                        child: Text(
+                          idDocType.isNotEmpty ? idDocType : 'Not provided',
+                          style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Icon(Icons.numbers_rounded, size: 16, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                          const SizedBox(width: 8),
+                          Text('Document Number', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 24),
+                        child: Text(
+                          idDocNumber.isNotEmpty ? idDocNumber : 'Not provided',
+                          style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (idDocImages.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text('Document Image${idDocImages.length > 1 ? 's (${idDocImages.length})' : ''}', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: idDocImages.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) {
+                        final raw = idDocImages[i] as String;
+                        return _IdDocImageView(base64Data: raw, scheme: scheme);
+                      },
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHigh.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.image_not_supported_rounded, size: 16, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                        const SizedBox(width: 8),
+                        Text('No document image submitted', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRejectDialog(Map<String, dynamic> op) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    String? selectedReason;
+    final customCtrl = TextEditingController();
+
+    final faceEnrollment = op['faceEnrollment'] as Map<String, dynamic>?;
+    final faceEnrolled = faceEnrollment?['enrolled'] == true;
+
+    final reasons = [
+      if (!faceEnrolled) 'Face enrollment is required',
+      'Invalid ID document',
+      'Duplicate registration',
+      'Not authorized to operate at this company',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.block_rounded, size: 20, color: scheme.error),
+                      const SizedBox(width: 10),
+                      Text('Reject Operator', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                      const Spacer(),
+                      IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded, size: 18)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text('Rejecting "${op['name'] ?? 'Unknown'}"', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                  const SizedBox(height: 18),
+                  Text('Select reason:', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 10),
+                  ...reasons.map((r) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: InkWell(
+                      onTap: () => setSt(() { selectedReason = r; }),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: selectedReason == r ? scheme.error.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
+                          color: selectedReason == r ? scheme.error.withValues(alpha: 0.06) : null,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              selectedReason == r ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                              size: 16,
+                              color: selectedReason == r ? scheme.error : scheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(child: Text(r, style: text.bodySmall?.copyWith(fontWeight: selectedReason == r ? FontWeight.w600 : FontWeight.w400))),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )),
+                  // Custom reason option
+                  InkWell(
+                    onTap: () => setSt(() { selectedReason = '__custom__'; }),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: selectedReason == '__custom__' ? scheme.error.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
+                        color: selectedReason == '__custom__' ? scheme.error.withValues(alpha: 0.06) : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            selectedReason == '__custom__' ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                            size: 16,
+                            color: selectedReason == '__custom__' ? scheme.error : scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text('Other (custom reason)', style: text.bodySmall?.copyWith(fontWeight: selectedReason == '__custom__' ? FontWeight.w600 : FontWeight.w400))),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (selectedReason == '__custom__') ...[
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: customCtrl,
+                      maxLines: 2,
+                      style: text.bodySmall,
+                      decoration: InputDecoration(
+                        hintText: 'Enter rejection reason...',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.all(12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: selectedReason == null || (selectedReason == '__custom__' && customCtrl.text.trim().isEmpty)
+                            ? null
+                            : () {
+                                final reason = selectedReason == '__custom__' ? customCtrl.text.trim() : selectedReason!;
+                                Navigator.pop(ctx);
+                                _rejectOperator(op, reason);
+                              },
+                        style: FilledButton.styleFrom(backgroundColor: scheme.error),
+                        child: const Text('Reject'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _rejectOperator(Map<String, dynamic> op, String reason) async {
+    final paths = ref.read(firestorePathsProvider);
+    final email = op['email'] as String? ?? '';
+
+    // Add to rejections collection
+    await paths.rejections.add({
+      'operatorId': op['id'],
+      'name': op['name'] ?? '',
+      'email': email,
+      'phone': op['phone'] ?? '',
+      'address': op['address'] ?? '',
+      'address2': op['address2'] ?? '',
+      'idDocType': op['idDocType'] ?? '',
+      'idDocNumber': op['idDocNumber'] ?? '',
+      'faceEnrolled': (op['faceEnrollment'] is Map) && (op['faceEnrollment'] as Map)['enrolled'] == true,
+      'reason': reason,
+      'rejectedAt': FieldValue.serverTimestamp(),
+    });
+
+    // Remove the operator doc
+    await paths.operators.doc(op['id']).delete();
+  }
+
+  Widget _buildRejectedSection(List<Map<String, dynamic>> rejections, ColorScheme scheme, TextTheme text) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        Divider(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Icon(Icons.person_off_rounded, size: 16, color: scheme.error.withValues(alpha: 0.7)),
+            const SizedBox(width: 8),
+            Text('Previously Rejected', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w700, color: scheme.error.withValues(alpha: 0.8))),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: scheme.error.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(4)),
+              child: Text('${rejections.length}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.error)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...rejections.map((rej) {
+          final rejectedAt = rej['rejectedAt'];
+          final timeStr = rejectedAt is Timestamp ? _formatTimestamp(rejectedAt, ref.read(timeFormatProvider)) : 'Unknown';
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: scheme.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: scheme.error.withValues(alpha: 0.12)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: scheme.error.withValues(alpha: 0.08),
+                        child: Icon(Icons.person_off_rounded, size: 14, color: scheme.error),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(rej['name'] ?? 'Unknown', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                            Text(rej['email'] ?? '', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+                          ],
+                        ),
+                      ),
+                      Text(timeStr, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: () => ref.read(firestorePathsProvider).rejections.doc(rej['id']).delete(),
+                        icon: Icon(Icons.close_rounded, size: 16, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                        tooltip: 'Remove',
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: scheme.error.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.format_quote_rounded, size: 12, color: scheme.error.withValues(alpha: 0.5)),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(rej['reason'] ?? '--', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 6,
+                    children: [
+                      if ((rej['phone'] as String? ?? '').isNotEmpty)
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.phone_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                          const SizedBox(width: 4),
+                          Text(rej['phone'], style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.8))),
+                        ]),
+                      if ((rej['idDocType'] as String? ?? '').isNotEmpty)
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.badge_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${rej['idDocType']}${(rej['idDocNumber'] as String? ?? '').isNotEmpty ? ' • ${rej['idDocNumber']}' : ''}',
+                            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.8)),
+                          ),
+                        ]),
+                      if (rej['faceEnrolled'] == true)
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.face_rounded, size: 11, color: Colors.green.withValues(alpha: 0.7)),
+                          const SizedBox(width: 4),
+                          Text('Face enrolled', style: TextStyle(fontSize: 10, color: Colors.green.withValues(alpha: 0.8))),
+                        ])
+                      else
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.face_rounded, size: 11, color: scheme.error.withValues(alpha: 0.5)),
+                          const SizedBox(width: 4),
+                          Text('No face', style: TextStyle(fontSize: 10, color: scheme.error.withValues(alpha: 0.7))),
+                        ]),
+                    ],
+                  ),
+                  if ((rej['address'] as String? ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.location_on_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.4)),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            '${rej['address']}${(rej['address2'] as String? ?? '').isNotEmpty ? ', ${rej['address2']}' : ''}',
+                            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
     );
   }
 
@@ -904,7 +1671,22 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
       ),
     );
     if (confirmed != true) return;
-    await ref.read(firestorePathsProvider).operators.doc(id).delete();
+    final paths = ref.read(firestorePathsProvider);
+    final doc = await paths.operators.doc(id).get();
+    final email = doc.data()?['email'] as String? ?? '';
+
+    // Delete from company subcollection
+    await paths.operators.doc(id).delete();
+
+    // Delete from global operators collection
+    if (email.isNotEmpty) {
+      final globalSnap = await paths.flat('operators')
+          .where('email', isEqualTo: email)
+          .limit(1).get();
+      for (final d in globalSnap.docs) {
+        await d.reference.delete();
+      }
+    }
   }
 
   Widget _buildArchivedTab(List<Map<String, dynamic>> archived, ColorScheme scheme, TextTheme text) {
@@ -1084,133 +1866,153 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(color: scheme.shadow.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
       ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            ),
-            child: Row(
-              children: [
-                SizedBox(width: 30, child: Text('#', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant))),
-                const Expanded(flex: 3, child: Text('Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-                const Expanded(flex: 3, child: Text('Email', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-                const SizedBox(width: 90, child: Text('Phone', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-                const Expanded(flex: 2, child: Text('Shift', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-                const SizedBox(width: 90, child: Text('ID Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-                const SizedBox(width: 150, child: Text('Last Active', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-                const SizedBox(width: 60, child: Text('Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-                const Expanded(flex: 2, child: Center(child: Text('Actions', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)))),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: ListView.separated(
-              itemCount: operators.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1,
-                thickness: 1,
-                color: scheme.outlineVariant.withValues(alpha: 0.2),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
+                border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
               ),
-              itemBuilder: (_, i) {
-                final op = operators[i];
-                final isActive = op['isActive'] == true;
-                final idStatus = op['idStatus'] as String? ?? 'not_submitted';
-                final phone = op['phone'] as String? ?? '';
+              child: Row(
+                children: [
+                  const SizedBox(width: 28, child: Text('#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.3))),
+                  const Expanded(flex: 3, child: Text('Operator', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.3))),
+                  const Expanded(flex: 3, child: Text('Contact', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.3))),
+                  const Expanded(flex: 2, child: Text('Shift', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.3))),
+                  const Expanded(flex: 2, child: Text('ID Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.3))),
+                  const Expanded(flex: 2, child: Text('Last Active', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.3))),
+                  const SizedBox(width: 64, child: Text('Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.3))),
+                  const SizedBox(width: 100),
+                ],
+              ),
+            ),
+            // Body
+            Expanded(
+              child: ListView.builder(
+                itemCount: operators.length,
+                itemBuilder: (_, i) {
+                  final op = operators[i];
+                  final isActive = op['isActive'] == true;
+                  final idStatus = op['idStatus'] as String? ?? 'not_submitted';
+                  final phone = op['phone'] as String? ?? '';
+                  final email = op['email'] as String? ?? '';
 
-                return InkWell(
-                  onTap: () => _showEditOperatorDialog(context, op),
-                  hoverColor: scheme.primaryContainer.withValues(alpha: 0.1),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: i.isEven ? scheme.surface : scheme.surfaceContainerLow.withValues(alpha: 0.5),
-                      border: Border(left: BorderSide(
-                        width: 3,
-                        color: isActive ? scheme.primary.withValues(alpha: i.isEven ? 0.15 : 0.35) : scheme.error.withValues(alpha: 0.3),
-                      )),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
+                  return Material(
+                    color: i.isEven ? Colors.transparent : scheme.surfaceContainerLow.withValues(alpha: 0.4),
+                    child: InkWell(
+                      onTap: () => _showEditOperatorDialog(context, op),
+                      hoverColor: scheme.primary.withValues(alpha: 0.04),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        child: Row(
                       children: [
-                        SizedBox(width: 30, child: Text('${i + 1}', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant))),
+                        SizedBox(width: 28, child: Text('${i + 1}', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)))),
                         Expanded(
                           flex: 3,
                           child: Row(
                             children: [
-                              _operatorAvatar(op, scheme, 14),
-                              const SizedBox(width: 8),
+                              _operatorAvatar(op, scheme, 15),
+                              const SizedBox(width: 10),
                               Expanded(
-                                child: Text(op['name'] ?? '--', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis, maxLines: 1),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(op['name'] ?? '--', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis, maxLines: 1),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
                         ),
                         Expanded(
                           flex: 3,
-                          child: Text(op['email'] ?? '--', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis, maxLines: 1),
-                        ),
-                        SizedBox(
-                          width: 90,
-                          child: Text(phone.isNotEmpty ? phone : '--', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis, maxLines: 1),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(email.isNotEmpty ? email : '--', style: TextStyle(fontSize: 11, color: scheme.onSurface), overflow: TextOverflow.ellipsis, maxLines: 1),
+                              if (phone.isNotEmpty)
+                                Text(phone, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)), overflow: TextOverflow.ellipsis, maxLines: 1),
+                            ],
+                          ),
                         ),
                         Expanded(
                           flex: 2,
-                          child: Text(_formatShift(op), style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis, maxLines: 1),
+                          child: Text(_formatShift(op), style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis, maxLines: 1),
                         ),
-                        SizedBox(width: 90, child: Align(alignment: Alignment.centerLeft, child: _buildIdStatusChip(idStatus, scheme))),
-                        SizedBox(
-                          width: 150,
+                        Expanded(flex: 2, child: Align(alignment: Alignment.centerLeft, child: _buildIdStatusChip(idStatus, scheme))),
+                        Expanded(
+                          flex: 2,
                           child: Text(
                             _formatTimestamp(op['lastLoginAt'], ref.read(timeFormatProvider)),
-                            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
                           ),
                         ),
                         SizedBox(
-                          width: 60,
+                          width: 64,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: isActive ? Colors.green.withValues(alpha: 0.1) : scheme.errorContainer,
-                              borderRadius: BorderRadius.circular(4),
+                              color: isActive ? Colors.green.withValues(alpha: 0.08) : scheme.error.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
                               isActive ? 'Active' : 'Inactive',
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isActive ? Colors.green.shade700 : scheme.onErrorContainer),
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isActive ? Colors.green.shade700 : scheme.error),
                             ),
                           ),
                         ),
-                        Expanded(
-                          flex: 2,
+                        SizedBox(
+                          width: 100,
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              _actionChip(icon: Icons.edit_outlined, label: 'Edit', color: scheme.primary, onTap: () => _showEditOperatorDialog(context, op)),
-                              const SizedBox(width: 4),
-                              _actionChip(
-                                icon: isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
-                                label: isActive ? 'Deactivate' : 'Activate',
-                                color: isActive ? scheme.error : Colors.green.shade700,
-                                onTap: () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({'isActive': !isActive}),
+                              _iconAction(Icons.edit_outlined, 'Edit', scheme.primary, () => _showEditOperatorDialog(context, op)),
+                              _iconAction(
+                                isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
+                                isActive ? 'Deactivate' : 'Activate',
+                                isActive ? scheme.error : Colors.green.shade700,
+                                () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({'isActive': !isActive}),
                               ),
-                              const SizedBox(width: 4),
-                              _actionChip(icon: Icons.archive_outlined, label: 'Archive', color: scheme.error, onTap: () => _confirmArchive(context, op)),
+                              _iconAction(Icons.archive_outlined, 'Archive', scheme.error, () => _confirmArchive(context, op)),
                             ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                );
-              },
+                ),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _iconAction(IconData icon, String tooltip, Color color, VoidCallback onTap) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 15, color: color.withValues(alpha: 0.7)),
+        ),
       ),
     );
   }
@@ -1222,10 +2024,10 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
   Widget _buildGridContent(List<Map<String, dynamic>> operators, ColorScheme scheme, TextTheme text) {
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 300,
-        childAspectRatio: 1.3,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 14,
+        maxCrossAxisExtent: 320,
+        childAspectRatio: 0.92,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
       ),
       itemCount: operators.length,
       itemBuilder: (_, i) => _buildOperatorCard(operators[i], scheme, text),
@@ -1234,85 +2036,156 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
 
   Widget _buildOperatorCard(Map<String, dynamic> op, ColorScheme scheme, TextTheme text) {
     final isActive = op['isActive'] == true;
+    final idStatus = op['idStatus'] as String? ?? 'not_submitted';
+    final phone = op['phone'] as String? ?? '';
+    final email = op['email'] as String? ?? '';
 
-    return GestureDetector(
-      onTap: () => _showEditOperatorDialog(context, op),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: 0.25),
+    return Material(
+      color: scheme.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () => _showEditOperatorDialog(context, op),
+        borderRadius: BorderRadius.circular(12),
+        hoverColor: scheme.primary.withValues(alpha: 0.03),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+            boxShadow: [
+              BoxShadow(color: scheme.shadow.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2)),
+            ],
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _operatorAvatar(op, scheme, 24),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(op['name'] ?? '--', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis),
-                      Text(op['email'] ?? '--', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis),
-                    ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: avatar + name + status dot
+              Row(
+                children: [
+                  _operatorAvatar(op, scheme, 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(op['name'] ?? '--', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis, maxLines: 1),
+                        const SizedBox(height: 1),
+                        Text(
+                          isActive ? 'Active' : 'Inactive',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: isActive ? Colors.green.shade700 : scheme.error),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                Container(
-                    width: 8, height: 8,
+                  Container(
+                    width: 9, height: 9,
                     decoration: BoxDecoration(
                       color: isActive ? Colors.green : scheme.error,
                       shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: (isActive ? Colors.green : scheme.error).withValues(alpha: 0.3), blurRadius: 4)],
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Contact info
+              _cardDetailRow(Icons.email_outlined, email.isNotEmpty ? email : '--', scheme),
+              if (phone.isNotEmpty) ...[
+                const SizedBox(height: 5),
+                _cardDetailRow(Icons.phone_outlined, phone, scheme),
               ],
-            ),
-            const Spacer(),
-            if ((op['phone'] as String? ?? '').isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
+              const SizedBox(height: 5),
+              _cardDetailRow(Icons.schedule_outlined, _formatShift(op), scheme),
+              const Spacer(),
+              // Bottom row: ID status + last active
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLow.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: Row(
                   children: [
-                    Icon(Icons.phone_rounded, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                    _buildIdStatusChip(idStatus, scheme),
+                    const Spacer(),
+                    Icon(Icons.access_time_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
                     const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        op['phone'] as String,
-                        style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Text(
+                      _formatTimestamp(op['lastLoginAt'], ref.read(timeFormatProvider)),
+                      style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
                     ),
                   ],
                 ),
               ),
-            Row(
-              children: [
-                Icon(Icons.schedule_rounded, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    _formatShift(op),
-                    style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
-                    overflow: TextOverflow.ellipsis,
+              const SizedBox(height: 10),
+              // Actions
+              Row(
+                children: [
+                  Expanded(
+                    child: _cardAction(
+                      Icons.edit_outlined,
+                      'Edit',
+                      scheme.primary,
+                      () => _showEditOperatorDialog(context, op),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.access_time_rounded, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                const SizedBox(width: 4),
-                Text(
-                  _formatTimestamp(op['lastLoginAt'], ref.read(timeFormatProvider)),
-                  style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _cardAction(
+                      isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
+                      isActive ? 'Deactivate' : 'Activate',
+                      isActive ? scheme.error : Colors.green.shade700,
+                      () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({'isActive': !isActive}),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _cardAction(
+                      Icons.archive_outlined,
+                      'Archive',
+                      scheme.error,
+                      () => _confirmArchive(context, op),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _cardDetailRow(IconData icon, String value, ColorScheme scheme) {
+    return Row(
+      children: [
+        Icon(icon, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(value, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
+      ],
+    );
+  }
+
+  Widget _cardAction(IconData icon, String label, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: 0.15)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: color.withValues(alpha: 0.8)),
+            const SizedBox(width: 3),
+            Flexible(child: Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: color.withValues(alpha: 0.8)), overflow: TextOverflow.ellipsis)),
           ],
         ),
       ),
@@ -1333,7 +2206,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
             (o['name'] as String? ?? '').toLowerCase().contains(_search) ||
             (o['email'] as String? ?? '').toLowerCase().contains(_search)).toList();
 
-    final active = filtered.where((o) => o['isActive'] == true && (o['isVerified'] != false || (o['uid'] as String? ?? '').isNotEmpty)).length;
+    final active = filtered.where((o) => o['isActive'] == true).length;
     final inactive = filtered.where((o) => o['isActive'] != true).length;
     final withFace = filtered.where((o) => (o['facePhoto'] as String? ?? '').isNotEmpty).length;
     final kycVerified = filtered.where((o) => o['idStatus'] == 'verified').length;
@@ -1429,30 +2302,6 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
     );
   }
 
-  Widget _actionChip({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: color.withValues(alpha: 0.25)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 12, color: color),
-              const SizedBox(width: 4),
-              Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildIdStatusChip(String status, ColorScheme scheme) {
     Color bgColor;
@@ -2000,7 +2849,12 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
   late String _idStatus;
   late String _idDocumentType;
 
+  Map<String, dynamic>? _faceEnrollment;
+
   late bool _mustChangePassword;
+  bool _hasPinSet = false;
+  final bool _settingPin = false;
+  String? _pinError;
 
   // Screen visibility permissions
   late bool _canViewCustomers;
@@ -2024,6 +2878,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
   late bool _wasAlreadyVerified;
   bool _showAddId = false;
   String? _kycSuccessMessage;
+  List<String> _kycScannedImages = [];
 
   // Email/phone change via OTP
   late String _currentEmail;
@@ -2055,6 +2910,10 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     _shiftEnd = _parseTime(op['shiftEnd'] as String?) ?? const TimeOfDay(hour: 14, minute: 0);
     _shiftDays = (op['shiftDays'] as List<dynamic>?)?.cast<String>() ?? List.from(_allDays.sublist(0, 5));
 
+    _faceEnrollment = op['faceEnrollment'] is Map
+        ? Map<String, dynamic>.from(op['faceEnrollment'] as Map)
+        : null;
+
     _idStatus = op['idStatus'] as String? ?? 'not_submitted';
     _idDocumentType = op['idDocumentType'] as String? ?? 'Aadhaar';
     if (!_documentTypes.contains(_idDocumentType)) {
@@ -2081,7 +2940,8 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     }
     _wasAlreadyVerified = _idStatus == 'verified';
 
-    _mustChangePassword = op['mustChangePassword'] == true;
+    _mustChangePassword = false;
+    _hasPinSet = (op['pinHash'] as String?)?.isNotEmpty == true;
 
     _canViewCustomers = op['canViewCustomers'] as bool? ?? true;
     _canViewWeighments = op['canViewWeighments'] as bool? ?? true;
@@ -2144,6 +3004,21 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
   }
 
   String get _otpValue => _otpControllers.map((c) => c.text).join();
+
+  Future<void> _refreshFaceEnrollment() async {
+    try {
+      final paths = widget.ref.read(firestorePathsProvider);
+      final doc = await paths.operators.doc(widget.operator['id']).get();
+      final data = doc.data();
+      if (data != null && mounted) {
+        setState(() {
+          _faceEnrollment = data['faceEnrollment'] is Map
+              ? Map<String, dynamic>.from(data['faceEnrollment'] as Map)
+              : null;
+        });
+      }
+    } catch (_) {}
+  }
 
   Future<void> _startChangeField(String field) async {
     final email = await _getAdminEmail();
@@ -2546,10 +3421,238 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     );
   }
 
-  Widget _buildKycSection(ColorScheme scheme, TextTheme text, Map<String, dynamic> op) {
+  Widget _buildAddressSection(ColorScheme scheme, TextTheme text, Map<String, dynamic> op) {
+    final currentAddress = [
+      op['address'] as String? ?? '',
+      if ((op['address2'] as String? ?? '').isNotEmpty) op['address2'] as String,
+    ].where((s) => s.isNotEmpty).join(', ');
+    final regAddress = op['registrationAddress'] as String? ?? '';
+
+    // Collect all distinct addresses from verified IDs
+    final idAddresses = <String, String>{};
+    for (final id in _verifiedIds) {
+      final addr = id['address'] as String? ?? '';
+      if (addr.isNotEmpty && addr != currentAddress) {
+        idAddresses[id['type'] as String? ?? ''] = addr;
+      }
+    }
+    // Also if registrationAddress exists and differs
+    if (regAddress.isNotEmpty && regAddress != currentAddress) {
+      idAddresses['Registration'] = regAddress;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(currentAddress.isNotEmpty ? currentAddress : 'No address', style: text.bodySmall?.copyWith(color: scheme.onSurface)),
+        if (idAddresses.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text('Other addresses on file:', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
+          const SizedBox(height: 6),
+          ...idAddresses.entries.map((entry) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(entry.key, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant.withValues(alpha: 0.5))),
+                      Text(entry.value, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () {
+                    final oldAddress = currentAddress;
+                    _saveField({'address': entry.value, 'address2': '', 'registrationAddress': oldAddress.isNotEmpty ? oldAddress : regAddress});
+                    setState(() {});
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text('Use this', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildKycSection(ColorScheme scheme, TextTheme text, Map<String, dynamic> op) {
+    final fe = _faceEnrollment;
+    final faceEnrolled = fe?['enrolled'] == true;
+    final faceValidCount = fe?['validFrameCount'] as int? ?? fe?['faceCount'] as int? ?? 0;
+    final faceConfidence = fe?['averageConfidence'] as double? ?? 0.0;
+    final faceEnrolledAt = fe?['enrolledAt'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Face enrollment status
+        Row(
+          children: [
+            Icon(Icons.face_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+            const SizedBox(width: 8),
+            Text('Face Enrollment', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: faceEnrolled ? Colors.green.withValues(alpha: 0.05) : scheme.errorContainer.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: faceEnrolled ? Colors.green.withValues(alpha: 0.2) : scheme.error.withValues(alpha: 0.2)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(faceEnrolled ? Icons.check_circle_rounded : Icons.cancel_rounded, size: 13, color: faceEnrolled ? Colors.green : scheme.error),
+                  const SizedBox(width: 6),
+                  Text(faceEnrolled ? 'Enrolled' : 'Not enrolled', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: faceEnrolled ? Colors.green.shade700 : scheme.error)),
+                  if (faceEnrolled) ...[
+                    const SizedBox(width: 12),
+                    Text('$faceValidCount valid · ${(faceConfidence * 100).toStringAsFixed(0)}% conf', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+                  ],
+                ],
+              ),
+              if (faceEnrolled && faceEnrolledAt != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(Icons.event_rounded, size: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                    const SizedBox(width: 4),
+                    Text('First: ${_formatTimestamp(faceEnrolledAt, widget.ref.read(timeFormatProvider))}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
+                  ],
+                ),
+                if (fe?['lastTrainedAt'] != null) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Icon(Icons.update_rounded, size: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                      const SizedBox(width: 4),
+                      Text('Last: ${_formatTimestamp(fe!['lastTrainedAt'], widget.ref.read(timeFormatProvider))}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
+                      if (fe['trainingSessions'] != null) ...[
+                        const SizedBox(width: 8),
+                        Text('(${fe['trainingSessions']} training sessions)', style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.5))),
+                      ],
+                    ],
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        _FaceEnrollmentWidget(
+          ref: widget.ref,
+          operatorId: widget.operator['id'] as String,
+          existingFacePhoto: widget.operator['facePhoto'] as String?,
+          existingFaceEnrollment: _faceEnrollment,
+          onEnrollmentComplete: _refreshFaceEnrollment,
+        ),
+
+        // Operator's submitted ID (from registration)
+        if ((op['idDocType'] as String? ?? '').isNotEmpty || (op['idDocNumber'] as String? ?? '').isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Icon(Icons.badge_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+              const SizedBox(width: 8),
+              Text('Submitted at Registration', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green.withValues(alpha: 0.25)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.verified_rounded, size: 15, color: Colors.green),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if ((op['idDocType'] as String? ?? '').isNotEmpty)
+                            Text(op['idDocType'] as String, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: Colors.green.shade700)),
+                          if ((op['idDocNumber'] as String? ?? '').isNotEmpty)
+                            Text(op['idDocNumber'] as String, style: text.bodySmall?.copyWith(color: scheme.onSurface, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    if (_hasIdDocImages(op))
+                      GestureDetector(
+                        onTap: () => _showViewIdFromEdit(op, scheme),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: scheme.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.visibility_rounded, size: 12, color: scheme.primary),
+                              const SizedBox(width: 4),
+                              Text('View', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (!_verifiedIds.any((id) => id['type'] == (op['idDocType'] as String? ?? '') && id['number'] == (op['idDocNumber'] as String? ?? ''))) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _mergeRegistrationId(op),
+                      icon: const Icon(Icons.merge_rounded, size: 14),
+                      label: const Text('Merge to Verified IDs', style: TextStyle(fontSize: 11)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.green.shade700,
+                        side: BorderSide(color: Colors.green.withValues(alpha: 0.4)),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Icon(Icons.verified_user_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+            const SizedBox(width: 8),
+            Text('Admin-Verified IDs', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+          ],
+        ),
+        const SizedBox(height: 8),
+
         // Success message
         if (_kycSuccessMessage != null) ...[
           Container(
@@ -2598,6 +3701,40 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                       ],
                     ),
                   ),
+                  if ((id['localImageDir'] as String? ?? '').isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: GestureDetector(
+                        onTap: () => _showVerifiedIdImages(id, scheme),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: scheme.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.visibility_rounded, size: 12, color: scheme.primary),
+                              const SizedBox(width: 4),
+                              Text('View', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (_verifiedIds.length > 1)
+                    GestureDetector(
+                      onTap: () => _removeVerifiedId(idx),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: scheme.errorContainer.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(Icons.close_rounded, size: 12, color: scheme.error),
+                      ),
+                    ),
                 ],
               ),
             );
@@ -2613,20 +3750,26 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
           // Document type dropdown
           _fieldLabel('Document Type', text),
           const SizedBox(height: 6),
-          DropdownButtonFormField<String>(
-            initialValue: _idDocumentType,
-            items: _documentTypes
-                .where((e) => !_verifiedIds.any((id) => id['type'] == e))
-                .map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall))).toList(),
-            onChanged: (v) { if (v != null) setState(() => _idDocumentType = v); },
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant)),
-            ),
-            style: text.bodySmall,
-            icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: scheme.onSurfaceVariant),
-          ),
+          Builder(builder: (_) {
+            final available = _documentTypes.where((e) => !_verifiedIds.any((id) => id['type'] == e)).toList();
+            if (available.isEmpty) return const SizedBox.shrink();
+            final selected = available.contains(_idDocumentType) ? _idDocumentType : available.first;
+            if (selected != _idDocumentType) {
+              _idDocumentType = selected;
+            }
+            return DropdownButtonFormField<String>(
+              initialValue: selected,
+              items: available.map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall))).toList(),
+              onChanged: (v) { if (v != null) setState(() => _idDocumentType = v); },
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant)),
+              ),
+              style: text.bodySmall,
+              icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: scheme.onSurfaceVariant),
+            );
+          }),
           const SizedBox(height: 12),
 
           // Document number (read-only, extracted from scan)
@@ -2903,7 +4046,159 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
             ),
           ),
         ],
+
       ],
+    );
+  }
+
+  bool _hasIdDocImages(Map<String, dynamic> op) {
+    final images = op['idDocImages'] as List<dynamic>? ?? [];
+    if (images.isNotEmpty) return true;
+    final legacy = op['idImageBase64'] as String?;
+    return legacy != null && legacy.isNotEmpty;
+  }
+
+  void _showVerifiedIdImages(Map<String, dynamic> id, ColorScheme scheme) {
+    final text = Theme.of(context).textTheme;
+    final type = id['type'] as String? ?? '';
+    final number = id['number'] as String? ?? '';
+    final localDir = id['localImageDir'] as String? ?? '';
+
+    List<File> imageFiles = [];
+    if (localDir.isNotEmpty) {
+      final dir = Directory(localDir);
+      if (dir.existsSync()) {
+        imageFiles = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.png') || f.path.endsWith('.jpg')).toList()
+          ..sort((a, b) => a.path.compareTo(b.path));
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520, maxHeight: 750),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.verified_user_rounded, size: 20, color: scheme.primary),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text('$type — $number', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700))),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      style: IconButton.styleFrom(backgroundColor: scheme.surfaceContainerHigh),
+                    ),
+                  ],
+                ),
+                if (id['verifiedBy'] != null) ...[
+                  const SizedBox(height: 8),
+                  Text('Verified by ${id['verifiedBy']}', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 11)),
+                ],
+                const SizedBox(height: 16),
+                if (imageFiles.isNotEmpty) ...[
+                  Text('Document Image${imageFiles.length > 1 ? 's (${imageFiles.length})' : ''}', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 10),
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: imageFiles.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (_, i) {
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(imageFiles[i], fit: BoxFit.contain),
+                        );
+                      },
+                    ),
+                  ),
+                ] else
+                  Text('No document images available.', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showViewIdFromEdit(Map<String, dynamic> op, ColorScheme scheme) {
+    final text = Theme.of(context).textTheme;
+    final idDocType = op['idDocType'] as String? ?? op['idDocumentType'] as String? ?? '';
+    final idDocNumber = op['idDocNumber'] as String? ?? op['idDocumentNumber'] as String? ?? '';
+    var idDocImages = op['idDocImages'] as List<dynamic>? ?? [];
+    if (idDocImages.isEmpty) {
+      final legacy = op['idImageBase64'] as String?;
+      if (legacy != null && legacy.isNotEmpty) idDocImages = [legacy];
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520, maxHeight: 750),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.badge_rounded, size: 20, color: scheme.primary),
+                    const SizedBox(width: 10),
+                    Text('Submitted ID Document', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded, size: 18)),
+                  ],
+                ),
+                if (idDocType.isNotEmpty || idDocNumber.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      if (idDocType.isNotEmpty) ...[
+                        Icon(Icons.article_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                        const SizedBox(width: 6),
+                        Text(idDocType, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                      ],
+                      if (idDocNumber.isNotEmpty) ...[
+                        const SizedBox(width: 16),
+                        Icon(Icons.numbers_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                        const SizedBox(width: 6),
+                        Text(idDocNumber, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                      ],
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: idDocImages.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final raw = idDocImages[i] as String;
+                      return _IdDocImageView(base64Data: raw, scheme: scheme);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -2921,6 +4216,108 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     }
   }
 
+
+  Future<void> _showSetPinDialog(BuildContext ctx, Map<String, dynamic> op, ColorScheme scheme) async {
+    final pinCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    String? dlgError;
+
+    final result = await showDialog<bool>(
+      context: ctx,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (dialogCtx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.pin_rounded, color: scheme.primary, size: 20),
+              const SizedBox(width: 10),
+              Text(_hasPinSet ? 'Reset PIN' : 'Set Verification PIN', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          content: SizedBox(
+            width: 300,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Enter a 4-6 digit PIN for identity verification fallback.', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: pinCtrl,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  maxLength: 6,
+                  decoration: InputDecoration(
+                    labelText: 'New PIN',
+                    counterText: '',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmCtrl,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  maxLength: 6,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm PIN',
+                    counterText: '',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
+                  ),
+                ),
+                if (dlgError != null) ...[
+                  const SizedBox(height: 10),
+                  Text(dlgError!, style: TextStyle(fontSize: 11, color: scheme.error)),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(dialogCtx).pop(false), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () async {
+                final pin = pinCtrl.text.trim();
+                final confirm = confirmCtrl.text.trim();
+                if (pin.length < 4) {
+                  setDlgState(() => dlgError = 'PIN must be at least 4 digits.');
+                  return;
+                }
+                if (pin != confirm) {
+                  setDlgState(() => dlgError = 'PINs do not match.');
+                  return;
+                }
+                if (!RegExp(r'^\d{4,6}$').hasMatch(pin)) {
+                  setDlgState(() => dlgError = 'PIN must be 4-6 digits only.');
+                  return;
+                }
+                setDlgState(() => dlgError = null);
+
+                try {
+                  final paths = widget.ref.read(firestorePathsProvider);
+                  final companyId = paths.context.companyId;
+                  final email = op['email'] as String? ?? '';
+
+                  await FirebaseFunctions.instance
+                      .httpsCallable('setOperatorPin')
+                      .call({'pin': pin, 'companyId': companyId, 'operatorEmail': email});
+
+                  if (dialogCtx.mounted) Navigator.of(dialogCtx).pop(true);
+                } catch (e) {
+                  setDlgState(() => dlgError = 'Failed to set PIN: $e');
+                }
+              },
+              child: const Text('Save PIN'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true && mounted) {
+      setState(() { _hasPinSet = true; _pinError = null; });
+    }
+  }
 
   Future<void> _rejectId() async {
     final db = widget.ref.read(firestorePathsProvider);
@@ -2968,6 +4365,28 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
         setState(() { _kycScanning = false; _kycError = 'Could not read the selected file(s). Try a PDF instead.'; });
         return;
       }
+      // Convert PDFs to PNG for viewable storage
+      final viewableImages = <String>[];
+      for (final img in images) {
+        final bytes = base64Decode(img);
+        if (bytes.length > 4 && String.fromCharCodes(bytes.sublist(0, 4)) == '%PDF') {
+          try {
+            final doc = await PdfDocument.openData(bytes);
+            for (int p = 1; p <= doc.pagesCount && p <= 4; p++) {
+              final page = await doc.getPage(p);
+              final pageImage = await page.render(width: page.width * 2, height: page.height * 2, format: PdfPageImageFormat.png);
+              if (pageImage != null) viewableImages.add(base64Encode(pageImage.bytes));
+              await page.close();
+            }
+            await doc.close();
+          } catch (_) {
+            viewableImages.add(img);
+          }
+        } else {
+          viewableImages.add(img);
+        }
+      }
+      _kycScannedImages = viewableImages;
       final operatorName = widget.operator['name'] as String? ?? '';
 
       final paths = widget.ref.read(firestorePathsProvider);
@@ -3010,9 +4429,9 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
         if (mounted) await _applyKycVerification(null);
       }
     } on FirebaseFunctionsException catch (e) {
-      setState(() => _kycError = e.message ?? 'Scan failed.');
+      if (mounted) setState(() => _kycError = e.message ?? 'Scan failed.');
     } catch (e) {
-      setState(() => _kycError = 'Failed to scan document.');
+      if (mounted) setState(() => _kycError = 'Failed to scan document.');
     } finally {
       if (mounted) setState(() => _kycScanning = false);
     }
@@ -3023,7 +4442,6 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     final adminEmail = await _getAdminEmail() ?? 'admin';
     final docNumber = _idDocNumberCtrl.text.trim();
 
-    // Add to verified IDs list
     final newIdEntry = <String, dynamic>{
       'type': _idDocumentType,
       'number': docNumber,
@@ -3031,31 +4449,112 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
       'verifiedAt': DateTime.now().toIso8601String(),
       if (_kycExtractedAddress != null) 'address': _kycExtractedAddress,
     };
-    _verifiedIds.add(newIdEntry);
 
+    // Save ID images to local disk (too large for Firestore)
+    if (_kycScannedImages.isNotEmpty) {
+      try {
+        final operatorId = widget.operator['id'] as String;
+        final dir = Directory('${Directory.systemTemp.path}/weigh_id_docs/$operatorId');
+        if (!dir.existsSync()) dir.createSync(recursive: true);
+        for (int i = 0; i < _kycScannedImages.length; i++) {
+          final file = File('${dir.path}/${_idDocumentType.toLowerCase()}_$i.png');
+          await file.writeAsBytes(base64Decode(_kycScannedImages[i]));
+        }
+        newIdEntry['localImageDir'] = dir.path;
+      } catch (_) {}
+    }
+
+    final updatedIds = [..._verifiedIds, newIdEntry];
     final updateData = <String, dynamic>{
       'idStatus': 'verified',
       'idVerifiedAt': FieldValue.serverTimestamp(),
       'idVerifiedBy': adminEmail,
       'idDocumentType': _idDocumentType,
       'idDocumentNumber': docNumber,
-      'verifiedIds': _verifiedIds,
+      'verifiedIds': updatedIds,
     };
     if (newName != null && newName.isNotEmpty) {
       updateData['name'] = newName;
     }
     if (_kycExtractedAddress != null && _kycExtractedAddress!.isNotEmpty) {
+      final currentAddress = widget.operator['address'] as String? ?? '';
+      if (currentAddress.isNotEmpty && widget.operator['registrationAddress'] == null) {
+        updateData['registrationAddress'] = currentAddress;
+      }
       updateData['address'] = _kycExtractedAddress;
     }
-    await db.operators.doc(widget.operator['id']).update(updateData);
+
+    try {
+      await db.operators.doc(widget.operator['id']).update(updateData);
+      _verifiedIds = updatedIds;
+      if (mounted) {
+        setState(() {
+          _idStatus = 'verified';
+          _kycNameMatch = null;
+          _kycExtractedName = null;
+          _kycExtractedAddress = null;
+          _kycDuplicateWarning = null;
+          _kycError = null;
+          _showAddId = false;
+          _idDocNumberCtrl.clear();
+          _kycScannedImages = [];
+          _kycSuccessMessage = newName != null ? 'ID verified, name updated to "$newName".' : 'ID verified successfully.';
+        });
+        Future.delayed(const Duration(seconds: 4), () {
+          if (mounted) setState(() => _kycSuccessMessage = null);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _kycError = 'Failed to save verification: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _removeVerifiedId(int idx) async {
+    if (_verifiedIds.length <= 1) return;
+    final removed = _verifiedIds.removeAt(idx);
+    final db = widget.ref.read(firestorePathsProvider);
+    await db.operators.doc(widget.operator['id']).update({
+      'verifiedIds': _verifiedIds,
+    });
+    setState(() {
+      _kycSuccessMessage = '${removed['type'] ?? 'ID'} removed.';
+    });
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _kycSuccessMessage = null);
+    });
+  }
+
+  Future<void> _mergeRegistrationId(Map<String, dynamic> op) async {
+    final docType = op['idDocType'] as String? ?? '';
+    final docNumber = op['idDocNumber'] as String? ?? '';
+    if (docType.isEmpty && docNumber.isEmpty) return;
+
+    final db = widget.ref.read(firestorePathsProvider);
+    final adminEmail = await _getAdminEmail() ?? 'admin';
+
+    final newIdEntry = <String, dynamic>{
+      'type': docType,
+      'number': docNumber,
+      'verifiedBy': adminEmail,
+      'verifiedAt': DateTime.now().toIso8601String(),
+      'source': 'registration',
+    };
+    _verifiedIds.add(newIdEntry);
+
+    await db.operators.doc(widget.operator['id']).update({
+      'idStatus': 'verified',
+      'idVerifiedAt': FieldValue.serverTimestamp(),
+      'idVerifiedBy': adminEmail,
+      'verifiedIds': _verifiedIds,
+    });
+
     setState(() {
       _idStatus = 'verified';
-      _kycNameMatch = null;
-      _kycExtractedName = null;
-      _kycExtractedAddress = null;
-      _showAddId = false;
-      _idDocNumberCtrl.clear();
-      _kycSuccessMessage = newName != null ? 'ID verified, name updated to "$newName".' : 'ID verified successfully.';
+      _kycSuccessMessage = 'Registration ID merged to verified list.';
     });
     Future.delayed(const Duration(seconds: 4), () {
       if (mounted) setState(() => _kycSuccessMessage = null);
@@ -3074,7 +4573,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 60, vertical: 32),
       child: SizedBox(
-        width: 920,
+        width: 1000,
         height: MediaQuery.of(context).size.height * 0.88,
         child: Column(
           children: [
@@ -3163,7 +4662,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Left column
+                    // Left column — profile info & identity
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3175,17 +4674,225 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                             text: text,
                             child: _buildContactSection(scheme, text),
                           ),
-                          if ((op['address'] as String? ?? '').isNotEmpty) ...[
-                            const SizedBox(height: 16),
+                          if ((op['address'] as String? ?? '').isNotEmpty || (op['registrationAddress'] as String? ?? '').isNotEmpty || _verifiedIds.any((id) => (id['address'] as String? ?? '').isNotEmpty)) ...[
+                            const SizedBox(height: 14),
                             _sectionCard(
                               title: 'Address',
                               icon: Icons.location_on_rounded,
                               scheme: scheme,
                               text: text,
-                              child: Text(op['address'] as String, style: text.bodySmall?.copyWith(color: scheme.onSurface)),
+                              child: _buildAddressSection(scheme, text, op),
                             ),
                           ],
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 14),
+                          _sectionCard(
+                            title: 'Identity & Verification',
+                            icon: Icons.verified_user_rounded,
+                            scheme: scheme,
+                            text: text,
+                            child: _buildKycSection(scheme, text, op),
+                          ),
+                          const SizedBox(height: 14),
+                          _sectionCard(
+                            title: 'Activity',
+                            icon: Icons.insights_rounded,
+                            scheme: scheme,
+                            text: text,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _metaRow(Icons.access_time_rounded, 'Last login', _formatTimestamp(op['lastLoginAt'], widget.ref.read(timeFormatProvider)), scheme, text),
+                                const SizedBox(height: 6),
+                                _metaRow(Icons.numbers_rounded, 'Total logins', '${op['loginCount'] ?? 0}', scheme, text),
+                                const SizedBox(height: 6),
+                                _metaRow(Icons.calendar_today_rounded, 'Created', _formatTimestamp(op['createdAt'], widget.ref.read(timeFormatProvider)), scheme, text),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 24),
+
+                    // Right column — access, security & scheduling
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _sectionCard(
+                            title: 'Security',
+                            icon: Icons.lock_rounded,
+                            scheme: scheme,
+                            text: text,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(child: Text('Force password change on next login', style: text.bodySmall)),
+                                    Switch(value: _mustChangePassword, onChanged: (v) { setState(() => _mustChangePassword = v); _saveField({'mustChangePassword': v}); }),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                _metaRow(Icons.key_rounded, 'Password changed', _formatTimestamp(op['passwordLastChanged'], widget.ref.read(timeFormatProvider)), scheme, text),
+                                const SizedBox(height: 6),
+                                _metaRow(Icons.login_rounded, 'First login', (op['loginCount'] != null && (op['loginCount'] as int) > 0) ? 'Completed' : 'Not yet', scheme, text),
+                                const SizedBox(height: 14),
+                                Divider(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.pin_rounded, size: 14, color: scheme.onSurfaceVariant),
+                                          const SizedBox(width: 8),
+                                          Text('Verification PIN', style: text.bodySmall),
+                                        ],
+                                      ),
+                                    ),
+                                    if (_hasPinSet)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text('Set', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
+                                      )
+                                    else
+                                      Text('Not set', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    onPressed: _settingPin ? null : () => _showSetPinDialog(context, op, scheme),
+                                    icon: Icon(_hasPinSet ? Icons.refresh_rounded : Icons.add_rounded, size: 14),
+                                    label: Text(_hasPinSet ? 'Reset PIN' : 'Set PIN', style: const TextStyle(fontSize: 11)),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                  ),
+                                ),
+                                if (_pinError != null) ...[
+                                  const SizedBox(height: 6),
+                                  Text(_pinError!, style: TextStyle(fontSize: 10, color: scheme.error)),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          _sectionCard(
+                            title: 'Screen Access',
+                            icon: Icons.visibility_rounded,
+                            scheme: scheme,
+                            text: text,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(child: Text('Customers', style: text.bodySmall)),
+                                    Switch(value: _canViewCustomers, onChanged: (v) { setState(() => _canViewCustomers = v); _saveField({'canViewCustomers': v}); }),
+                                  ],
+                                ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(child: Text('Weighments', style: text.bodySmall)),
+                                    Switch(value: _canViewWeighments, onChanged: (v) { setState(() => _canViewWeighments = v); _saveField({'canViewWeighments': v}); }),
+                                  ],
+                                ),
+                                if (_canViewWeighments) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 16),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(child: Text('Only own weighments', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
+                                        Switch(value: _ownWeighmentsOnly, onChanged: (v) { setState(() => _ownWeighmentsOnly = v); _saveField({'ownWeighmentsOnly': v}); }),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(child: Text('Reports', style: text.bodySmall)),
+                                    Switch(value: _canViewReports, onChanged: (v) { setState(() => _canViewReports = v); _saveField({'canViewReports': v}); }),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          _sectionCard(
+                            title: 'Site Access',
+                            icon: Icons.location_on_rounded,
+                            scheme: scheme,
+                            text: text,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    _editScopeChip('all', 'All Sites', Icons.public_rounded, scheme),
+                                    const SizedBox(width: 8),
+                                    _editScopeChip('specific', 'Specific Sites', Icons.location_on_rounded, scheme),
+                                  ],
+                                ),
+                                if (_siteScope == 'specific' && _allSites.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  Container(
+                                    constraints: const BoxConstraints(maxHeight: 100),
+                                    child: SingleChildScrollView(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: _allSites.map((site) {
+                                          final selected = _selectedSites.contains(site['id']);
+                                          return GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                if (selected) {
+                                                  if (_selectedSites.length <= 1) return;
+                                                  _selectedSites.remove(site['id']);
+                                                } else {
+                                                  _selectedSites.add(site['id']!);
+                                                }
+                                              });
+                                              _saveField({'allowedSites': _selectedSites.toList()});
+                                            },
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(vertical: 4),
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    selected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                                                    size: 16,
+                                                    color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(site['name']!, style: TextStyle(fontSize: 12, color: scheme.onSurface)),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
                           _sectionCard(
                             title: 'Shift Schedule',
                             icon: Icons.schedule_rounded,
@@ -3249,181 +4956,6 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                                   ),
                                 ],
                               ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _sectionCard(
-                            title: 'ID Verification (KYC)',
-                            icon: Icons.verified_user_rounded,
-                            scheme: scheme,
-                            text: text,
-                            child: _buildKycSection(scheme, text, op),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(width: 28),
-
-                    // Right column
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _sectionCard(
-                            title: 'Security',
-                            icon: Icons.lock_rounded,
-                            scheme: scheme,
-                            text: text,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(child: Text('Force password change on next login', style: text.bodySmall)),
-                                    Switch(value: _mustChangePassword, onChanged: (v) { setState(() => _mustChangePassword = v); _saveField({'mustChangePassword': v}); }),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                _metaRow(Icons.key_rounded, 'Password changed', _formatTimestamp(op['passwordLastChanged'], widget.ref.read(timeFormatProvider)), scheme, text),
-                                const SizedBox(height: 6),
-                                _metaRow(Icons.login_rounded, 'First login', (op['loginCount'] != null && (op['loginCount'] as int) > 0) ? 'Completed' : 'Not yet', scheme, text),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _sectionCard(
-                            title: 'Screen Access',
-                            icon: Icons.visibility_rounded,
-                            scheme: scheme,
-                            text: text,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(child: Text('Customers', style: text.bodySmall)),
-                                    Switch(value: _canViewCustomers, onChanged: (v) { setState(() => _canViewCustomers = v); _saveField({'canViewCustomers': v}); }),
-                                  ],
-                                ),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(child: Text('Weighments', style: text.bodySmall)),
-                                    Switch(value: _canViewWeighments, onChanged: (v) { setState(() => _canViewWeighments = v); _saveField({'canViewWeighments': v}); }),
-                                  ],
-                                ),
-                                if (_canViewWeighments) ...[
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 16),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(child: Text('Only own weighments', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
-                                        Switch(value: _ownWeighmentsOnly, onChanged: (v) { setState(() => _ownWeighmentsOnly = v); _saveField({'ownWeighmentsOnly': v}); }),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(child: Text('Reports', style: text.bodySmall)),
-                                    Switch(value: _canViewReports, onChanged: (v) { setState(() => _canViewReports = v); _saveField({'canViewReports': v}); }),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _sectionCard(
-                            title: 'Activity',
-                            icon: Icons.insights_rounded,
-                            scheme: scheme,
-                            text: text,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _metaRow(Icons.access_time_rounded, 'Last login', _formatTimestamp(op['lastLoginAt'], widget.ref.read(timeFormatProvider)), scheme, text),
-                                const SizedBox(height: 6),
-                                _metaRow(Icons.numbers_rounded, 'Total logins', '${op['loginCount'] ?? 0}', scheme, text),
-                                const SizedBox(height: 6),
-                                _metaRow(Icons.calendar_today_rounded, 'Created', _formatTimestamp(op['createdAt'], widget.ref.read(timeFormatProvider)), scheme, text),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _sectionCard(
-                            title: 'Site Access',
-                            icon: Icons.location_on_rounded,
-                            scheme: scheme,
-                            text: text,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    _editScopeChip('all', 'All Sites', Icons.public_rounded, scheme),
-                                    const SizedBox(width: 8),
-                                    _editScopeChip('specific', 'Specific Sites', Icons.location_on_rounded, scheme),
-                                  ],
-                                ),
-                                if (_siteScope == 'specific' && _allSites.isNotEmpty) ...[
-                                  const SizedBox(height: 10),
-                                  Container(
-                                    constraints: const BoxConstraints(maxHeight: 100),
-                                    child: SingleChildScrollView(
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: _allSites.map((site) {
-                                          final selected = _selectedSites.contains(site['id']);
-                                          return GestureDetector(
-                                            onTap: () {
-                                              setState(() {
-                                                if (selected) {
-                                                  if (_selectedSites.length <= 1) return;
-                                                  _selectedSites.remove(site['id']);
-                                                } else {
-                                                  _selectedSites.add(site['id']!);
-                                                }
-                                              });
-                                              _saveField({'allowedSites': _selectedSites.toList()});
-                                            },
-                                            child: Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 4),
-                                              child: Row(
-                                                children: [
-                                                  Icon(
-                                                    selected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                                                    size: 16,
-                                                    color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Text(site['name']!, style: TextStyle(fontSize: 12, color: scheme.onSurface)),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        }).toList(),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _sectionCard(
-                            title: 'Face Enrollment',
-                            icon: Icons.face_rounded,
-                            scheme: scheme,
-                            text: text,
-                            child: _FaceEnrollmentWidget(
-                              ref: widget.ref,
-                              operatorId: widget.operator['id'] as String,
-                              existingFacePhoto: widget.operator['facePhoto'] as String?,
                             ),
                           ),
                         ],
@@ -3626,247 +5158,519 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
 
 // ─── Face Enrollment Widget ─────────────────────────────────────────────────
 
-class _IdentityCamera {
-  final String key;
-  final String label;
-  final String source;
-  final String deviceName;
-  const _IdentityCamera({required this.key, required this.label, required this.source, required this.deviceName});
-}
-
 class _FaceEnrollmentWidget extends StatefulWidget {
   final WidgetRef ref;
   final String operatorId;
   final String? existingFacePhoto;
+  final Map<String, dynamic>? existingFaceEnrollment;
+  final VoidCallback? onEnrollmentComplete;
 
   const _FaceEnrollmentWidget({
     required this.ref,
     required this.operatorId,
     this.existingFacePhoto,
+    this.existingFaceEnrollment,
+    this.onEnrollmentComplete,
   });
 
   @override
   State<_FaceEnrollmentWidget> createState() => _FaceEnrollmentWidgetState();
 }
 
+enum _ReEnrollMode { none, training, fullReset }
+enum _OtpStage { notStarted, operatorSent, adminSent, adminVerified }
+
 class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
-  Uint8List? _capturedFrame;
-  Uint8List? _liveFrame;
+  static const _channel = MethodChannel('com.weighbridge/webcam');
+  static const _requiredFrames = 5;
+
+  bool _cameraReady = false;
+  bool _cameraError = false;
+  String? _errorMessage;
+  Uint8List? _currentFrame;
   Timer? _frameTimer;
+
+  // Pre-capture question
+  bool? _wearsSpecs;
+  bool _started = false;
+
+  // Enrollment state
+  final List<Uint8List> _capturedFrames = [];
   bool _capturing = false;
+  bool _autoCapturing = false;
+  Timer? _autoCaptureTimer;
+  int _autoCountdown = 3;
+  bool _enrolling = false;
   bool _enrolled = false;
-  bool _liveMode = false;
-  bool _faceDetected = false;
+  String? _enrollError;
   bool _saving = false;
-  String? _error;
-  String _status = '';
-  int _deviceIndex = 0;
-  int _frameCount = 0;
+
+  // Dual-phase capture
+  bool _specsPhase = true;
+  bool _specsPhaseComplete = false;
+  bool _transitionAcknowledged = false;
+  final List<Uint8List> _specsFrames = [];
+  final List<Uint8List> _noSpecsFrames = [];
 
   // Camera selection
-  bool _showCameraChoice = false;
-  List<_IdentityCamera> _availableCameras = [];
+  List<Map<String, String>> _cameras = [];
+  String? _selectedCameraId;
 
-  String get _frameCachePath {
-    final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
-    final dir = Directory('$home/.weighbridge/frames');
-    if (!dir.existsSync()) dir.createSync(recursive: true);
-    return dir.path;
-  }
+  // Re-enrollment flow
+  _ReEnrollMode _reEnrollMode = _ReEnrollMode.none;
+  _OtpStage _otpStage = _OtpStage.notStarted;
+  bool _otpSending = false;
+  bool _otpVerifying = false;
+  String? _otpError;
+  final _otpControllers = List.generate(6, (_) => TextEditingController());
+  final _otpFocusNodes = List.generate(6, (_) => FocusNode());
+  bool _warningAccepted = false;
+
+  bool get _hasExistingEnrollment =>
+      widget.existingFaceEnrollment != null &&
+      widget.existingFaceEnrollment!['enrolled'] == true;
+
+  String get _otpValue => _otpControllers.map((c) => c.text).join();
 
   @override
   void initState() {
     super.initState();
-    _enrolled = widget.existingFacePhoto != null && widget.existingFacePhoto!.isNotEmpty;
+    _enrolled = _hasExistingEnrollment ||
+        (widget.existingFacePhoto != null && widget.existingFacePhoto!.isNotEmpty);
   }
 
   @override
   void dispose() {
     _frameTimer?.cancel();
+    _autoCaptureTimer?.cancel();
+    for (final c in _otpControllers) { c.dispose(); }
+    for (final f in _otpFocusNodes) { f.dispose(); }
+    _stopCamera();
     super.dispose();
   }
 
-  Future<void> _loadAvailableCameras() async {
-    final cameras = <_IdentityCamera>[];
+  Future<void> _loadCameras() async {
     try {
-      final db = widget.ref.read(firestorePathsProvider);
-      final camDoc = await db.camerasAiSettings.get();
-      if (camDoc.exists) {
-        final camsMap = camDoc.data()?['cameras'] as Map<String, dynamic>?;
-        for (final key in ['operator', 'customer']) {
-          final cam = camsMap?[key] as Map<String, dynamic>?;
-          if (cam != null && cam['enabled'] == true) {
-            final source = cam['source'] as String? ?? 'Built-in';
-            final deviceName = source == 'USB'
-                ? cam['usbDevice'] as String? ?? ''
-                : cam['builtInDevice'] as String? ?? '';
-            if (deviceName.isNotEmpty) {
-              cameras.add(_IdentityCamera(
-                key: key,
-                label: key == 'operator' ? 'Operator Camera' : 'Customer Camera',
-                source: source,
-                deviceName: deviceName,
-              ));
-            }
-          }
-        }
+      final result = await _channel.invokeMethod<List<dynamic>>('listCameras');
+      if (result != null && result.isNotEmpty) {
+        final list = result.map((e) {
+          final m = Map<String, dynamic>.from(e as Map);
+          return {'id': m['id'] as String, 'name': m['name'] as String};
+        }).toList();
+        setState(() {
+          _cameras = list;
+          _selectedCameraId ??= list.first['id'];
+        });
       }
     } catch (_) {}
-    _availableCameras = cameras;
   }
 
-  Future<void> _beginEnrollment() async {
-    await _loadAvailableCameras();
-    if (_availableCameras.length > 1) {
-      setState(() => _showCameraChoice = true);
-    } else {
-      _startLiveFeedWithCamera(_availableCameras.isNotEmpty ? _availableCameras.first : null);
+  Future<void> _initCamera() async {
+    try {
+      final args = _selectedCameraId != null ? {'deviceId': _selectedCameraId} : null;
+      final result = await _channel.invokeMethod<bool>('startCamera', args);
+      if (result == true) {
+        setState(() => _cameraReady = true);
+        _startFrameCapture();
+      } else {
+        setState(() { _cameraError = true; _errorMessage = 'Could not start camera.'; });
+      }
+    } on PlatformException catch (e) {
+      setState(() { _cameraError = true; _errorMessage = e.message ?? 'Camera not available.'; });
     }
   }
 
-  Future<void> _startLiveFeedWithCamera(_IdentityCamera? camera) async {
-    setState(() { _liveMode = true; _showCameraChoice = false; _status = 'Initializing camera...'; _error = null; });
-
-    if (camera != null) {
+  void _startFrameCapture() {
+    _frameTimer = Timer.periodic(const Duration(milliseconds: 100), (_) async {
+      if (!_cameraReady || !mounted) return;
       try {
-        final result = await Process.run('system_profiler', ['SPCameraDataType', '-json']);
-        if (result.exitCode == 0) {
-          final data = jsonDecode(result.stdout as String) as Map<String, dynamic>;
-          final cams = data['SPCameraDataType'] as List<dynamic>? ?? [];
-          final names = cams.map((c) => (c as Map<String, dynamic>)['_name'] as String? ?? '').toList();
-          final idx = names.indexOf(camera.deviceName);
-          if (idx >= 0) _deviceIndex = idx;
+        final frame = await _channel.invokeMethod<Uint8List>('captureFrame');
+        if (frame != null && mounted) {
+          setState(() => _currentFrame = frame);
         }
       } catch (_) {}
-    }
-
-    _frameCount = 0;
-    _faceDetected = false;
-    _captureLocalFrame();
-    _frameTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
-      if (_liveMode && !_capturing) _captureLocalFrame();
     });
   }
 
-  Future<void> _captureLocalFrame() async {
-    if (_capturing) return;
-    _capturing = true;
-    final framePath = '$_frameCachePath/enroll_live_${widget.operatorId}.jpg';
-
+  Future<void> _stopCamera() async {
     try {
-      final result = await Process.run('ffmpeg', [
-        '-y',
-        '-f', 'avfoundation',
-        '-framerate', '30',
-        '-i', '$_deviceIndex:none',
-        '-frames:v', '1',
-        '-update', '1',
-        '-q:v', '3',
-        framePath,
-      ], stdoutEncoding: utf8, stderrEncoding: utf8);
-
-      if (!mounted) return;
-      final file = File(framePath);
-      if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        if (bytes.isNotEmpty && mounted) {
-          _frameCount++;
-          setState(() {
-            _liveFrame = bytes;
-            _error = null;
-            if (_frameCount >= 3 && !_faceDetected) {
-              _faceDetected = true;
-              _status = 'Face detected — ready to capture';
-            } else if (!_faceDetected) {
-              _status = 'Detecting face...';
-            }
-          });
-        }
-      } else {
-        final err = (result.stderr as String).toLowerCase();
-        if (err.contains('permission') || err.contains('denied')) {
-          setState(() { _error = 'Camera permission denied'; _liveMode = false; });
-          _frameTimer?.cancel();
-        } else if (err.contains('no such') || err.contains('cannot open')) {
-          setState(() { _error = 'Camera not available'; _liveMode = false; });
-          _frameTimer?.cancel();
-        }
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() { _error = 'ffmpeg not found. Install via: brew install ffmpeg'; _liveMode = false; });
-        _frameTimer?.cancel();
-      }
-    } finally {
-      _capturing = false;
-    }
+      await _channel.invokeMethod('stopCamera');
+    } catch (_) {}
   }
 
-  void _captureForEnrollment() {
-    if (_liveFrame == null) return;
-    _frameTimer?.cancel();
-    setState(() {
-      _capturedFrame = _liveFrame;
-      _liveMode = false;
+  void _answerSpecs(bool wears) async {
+    setState(() { _wearsSpecs = wears; _started = true; });
+    await _loadCameras();
+    _initCamera();
+  }
+
+  void _startAutoCapture() {
+    if (_autoCapturing) return;
+    setState(() { _autoCapturing = true; _autoCountdown = 3; });
+
+    _autoCaptureTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      if (_autoCountdown > 1) {
+        setState(() => _autoCountdown--);
+      } else {
+        timer.cancel();
+        _beginSequentialCapture();
+      }
     });
   }
 
-  void _cancelLiveFeed() {
-    _frameTimer?.cancel();
-    setState(() { _liveMode = false; _liveFrame = null; _faceDetected = false; _frameCount = 0; });
+  void _beginSequentialCapture() {
+    setState(() => _autoCountdown = 0);
+    int captured = 0;
+
+    _autoCaptureTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      if (_currentFrame == null) return;
+
+      setState(() {
+        _capturing = true;
+        _capturedFrames.add(_currentFrame!);
+        captured++;
+      });
+
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) setState(() => _capturing = false);
+      });
+
+      if (captured >= _requiredFrames) {
+        timer.cancel();
+        setState(() => _autoCapturing = false);
+        _onPhaseComplete();
+      }
+    });
+  }
+
+  void _onPhaseComplete() {
+    if (_wearsSpecs == true && _specsPhase && !_specsPhaseComplete) {
+      _specsFrames.addAll(_capturedFrames);
+      _validatePhase(_specsFrames, onSuccess: () {
+        setState(() {
+          _specsPhaseComplete = true;
+          _capturedFrames.clear();
+          _specsPhase = false;
+        });
+      });
+    } else if (_wearsSpecs == true && !_specsPhase) {
+      _noSpecsFrames.addAll(_capturedFrames);
+      _validatePhase(_noSpecsFrames, referenceFrames: _specsFrames, onSuccess: () {
+        _enrollFace();
+      });
+    } else {
+      _validatePhase(_capturedFrames, onSuccess: () {
+        _enrollFace();
+      });
+    }
+  }
+
+  Future<void> _validatePhase(List<Uint8List> frames, {List<Uint8List>? referenceFrames, required VoidCallback onSuccess}) async {
+    setState(() { _enrolling = true; _enrollError = null; });
+    try {
+      final images = frames.map((f) => base64Encode(f)).toList();
+      final payload = <String, dynamic>{'images': images};
+      if (referenceFrames != null && referenceFrames.isNotEmpty) {
+        payload['referenceImages'] = referenceFrames.map((f) => base64Encode(f)).toList();
+      }
+      final response = await FirebaseFunctions.instance
+          .httpsCallable('validateFaceConsistency', options: HttpsCallableOptions(timeout: const Duration(seconds: 120)))
+          .call(payload);
+
+      final data = Map<String, dynamic>.from(response.data as Map);
+      if (data['success'] == true) {
+        setState(() => _enrolling = false);
+        onSuccess();
+      } else {
+        setState(() {
+          _enrolling = false;
+          _enrollError = data['message'] as String? ?? 'Consistency check failed. Please retake.';
+          _capturedFrames.clear();
+          if (_wearsSpecs == true && !_specsPhase) {
+            _noSpecsFrames.clear();
+          } else if (_wearsSpecs == true && _specsPhase) {
+            _specsFrames.clear();
+          }
+        });
+      }
+    } on FirebaseFunctionsException catch (e) {
+      setState(() {
+        _enrolling = false;
+        _enrollError = e.message?.isNotEmpty == true ? e.message! : 'Validation failed (${e.code}). Please try again.';
+        _capturedFrames.clear();
+        if (_wearsSpecs == true && !_specsPhase) {
+          _noSpecsFrames.clear();
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _enrolling = false;
+        _enrollError = 'Failed to validate faces. Try again.';
+        _capturedFrames.clear();
+        if (_wearsSpecs == true && !_specsPhase) {
+          _noSpecsFrames.clear();
+        }
+      });
+    }
+  }
+
+  void _resetCapture({bool fullReset = true}) {
+    _autoCaptureTimer?.cancel();
+    setState(() {
+      _enrollError = null;
+      _capturedFrames.clear();
+      _autoCapturing = false;
+      _autoCountdown = 3;
+      if (fullReset) {
+        _specsFrames.clear();
+        _noSpecsFrames.clear();
+        _specsPhaseComplete = false;
+        _transitionAcknowledged = false;
+        _specsPhase = true;
+      } else {
+        _noSpecsFrames.clear();
+      }
+    });
+  }
+
+  Future<String?> _getAdminEmail() async {
+    final authEmail = FirebaseAuth.instance.currentUser?.email;
+    if (authEmail != null && authEmail.isNotEmpty) return authEmail;
+    return await LocalCacheService.getCachedCurrentUserEmail();
+  }
+
+  Future<String?> _getOperatorEmail() async {
+    final paths = widget.ref.read(firestorePathsProvider);
+    final opDoc = await paths.operators.doc(widget.operatorId).get();
+    return opDoc.data()?['email'] as String?;
+  }
+
+  Future<void> _sendOtp(String email) async {
+    setState(() { _otpSending = true; _otpError = null; });
+    try {
+      await FirebaseFunctions.instance.httpsCallable('sendEmailOTP').call({'email': email});
+      setState(() => _otpSending = false);
+    } catch (e) {
+      setState(() { _otpSending = false; _otpError = 'Failed to send OTP.'; });
+    }
+  }
+
+  Future<bool> _verifyOtp(String email) async {
+    final otp = _otpValue;
+    if (otp.length != 6) {
+      setState(() => _otpError = 'Enter all 6 digits.');
+      return false;
+    }
+    setState(() { _otpVerifying = true; _otpError = null; });
+    try {
+      await FirebaseFunctions.instance.httpsCallable('verifyEmailOTP').call({'email': email, 'otp': otp});
+      setState(() => _otpVerifying = false);
+      return true;
+    } on FirebaseFunctionsException catch (e) {
+      setState(() { _otpVerifying = false; _otpError = e.message ?? 'Invalid OTP.'; });
+      return false;
+    } catch (e) {
+      setState(() { _otpVerifying = false; _otpError = 'Verification failed.'; });
+      return false;
+    }
+  }
+
+  void _clearOtpFields() {
+    for (final c in _otpControllers) { c.clear(); }
+  }
+
+  Future<void> _startTrainingOtp() async {
+    final adminEmail = await _getAdminEmail();
+    if (adminEmail == null || adminEmail.isEmpty) {
+      setState(() => _otpError = 'Admin email not available.');
+      return;
+    }
+    await _sendOtp(adminEmail);
+    if (_otpError == null) {
+      setState(() => _otpStage = _OtpStage.adminSent);
+    }
+  }
+
+  Future<void> _verifyTrainingAdminOtp() async {
+    final adminEmail = await _getAdminEmail();
+    if (adminEmail == null) return;
+    final verified = await _verifyOtp(adminEmail);
+    if (verified) {
+      _clearOtpFields();
+      setState(() { _otpStage = _OtpStage.adminVerified; _started = true; });
+    }
+  }
+
+  Future<void> _startFullResetOtp() async {
+    final opEmail = await _getOperatorEmail();
+    if (opEmail == null || opEmail.isEmpty) {
+      setState(() => _otpError = 'Operator email not available.');
+      return;
+    }
+    await _sendOtp(opEmail);
+    if (_otpError == null) {
+      setState(() => _otpStage = _OtpStage.operatorSent);
+    }
+  }
+
+  Future<void> _verifyOperatorOtp() async {
+    final opEmail = await _getOperatorEmail();
+    if (opEmail == null) return;
+    final verified = await _verifyOtp(opEmail);
+    if (verified) {
+      _clearOtpFields();
+      final adminEmail = await _getAdminEmail();
+      if (adminEmail == null || adminEmail.isEmpty) {
+        setState(() => _otpError = 'Admin email not available.');
+        return;
+      }
+      await _sendOtp(adminEmail);
+      if (_otpError == null) {
+        setState(() => _otpStage = _OtpStage.adminSent);
+      }
+    }
+  }
+
+  Future<void> _verifyFullResetAdminOtp() async {
+    final adminEmail = await _getAdminEmail();
+    if (adminEmail == null) return;
+    final verified = await _verifyOtp(adminEmail);
+    if (verified) {
+      _clearOtpFields();
+      setState(() => _otpStage = _OtpStage.adminVerified);
+    }
   }
 
   Future<void> _enrollFace() async {
-    if (_capturedFrame == null) return;
+    final List<Uint8List> allFrames;
+    if (_wearsSpecs == true) {
+      allFrames = [..._specsFrames, ..._noSpecsFrames];
+    } else {
+      allFrames = List.from(_capturedFrames);
+    }
+    final images = allFrames.map((f) => base64Encode(f)).toList();
+
     setState(() => _saving = true);
-
     try {
-      final photoPath = '$_frameCachePath/face_${widget.operatorId}.jpg';
-      await File(photoPath).writeAsBytes(_capturedFrame!);
+      final paths = widget.ref.read(firestorePathsProvider);
+      final companyId = paths.context.companyId;
+      final opDoc = await paths.operators.doc(widget.operatorId).get();
+      final operatorEmail = opDoc.data()?['email'] as String? ?? '';
 
-      final db = widget.ref.read(firestorePathsProvider);
-      await db.operators.doc(widget.operatorId).update({
-        'facePhoto': photoPath,
-        'faceEnrolledAt': FieldValue.serverTimestamp(),
-      });
+      final String functionName = _reEnrollMode == _ReEnrollMode.training
+          ? 'trainOperatorFace'
+          : 'enrollOperatorFace';
 
-      if (mounted) {
-        setState(() { _enrolled = true; _capturedFrame = null; _error = null; });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Face enrolled successfully'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ),
-        );
+      final response = await FirebaseFunctions.instance
+          .httpsCallable(functionName, options: HttpsCallableOptions(timeout: const Duration(seconds: 120)))
+          .call({'images': images, 'companyId': companyId, 'operatorEmail': operatorEmail});
+
+      final data = Map<String, dynamic>.from(response.data as Map);
+      if (data['success'] == true) {
+        // Also generate local embedding via sidecar (non-blocking)
+        _generateSidecarEmbedding(allFrames, widget.operatorId, operatorEmail, opDoc.data()?['name'] as String? ?? '');
+
+        _frameTimer?.cancel();
+        _autoCaptureTimer?.cancel();
+        await _stopCamera();
+        if (mounted) {
+          final wasTraining = _reEnrollMode == _ReEnrollMode.training;
+          setState(() {
+            _enrolled = true;
+            _saving = false;
+            _started = false;
+            _wearsSpecs = null;
+            _cameraReady = false;
+            _currentFrame = null;
+            _capturedFrames.clear();
+            _specsFrames.clear();
+            _noSpecsFrames.clear();
+            _specsPhaseComplete = false;
+            _transitionAcknowledged = false;
+            _specsPhase = true;
+            _autoCapturing = false;
+            _enrolling = false;
+            _enrollError = null;
+            _reEnrollMode = _ReEnrollMode.none;
+            _otpStage = _OtpStage.notStarted;
+            _warningAccepted = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(wasTraining
+                  ? 'Training data added successfully'
+                  : 'Face enrolled successfully'),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+            ),
+          );
+          widget.onEnrollmentComplete?.call();
+        }
+      } else {
+        setState(() {
+          _saving = false;
+          _enrollError = data['message'] as String? ?? 'Enrollment failed. Please retry.';
+          _capturedFrames.clear();
+        });
       }
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) setState(() { _saving = false; _enrollError = e.message ?? 'Enrollment failed.'; });
     } catch (e) {
-      if (mounted) setState(() => _error = 'Failed to save: $e');
-    } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) setState(() { _saving = false; _enrollError = 'Enrollment failed: $e'; });
     }
   }
 
-  Future<void> _removeFace() async {
-    setState(() => _saving = true);
+  /// Generate embedding via local sidecar and store in Firestore for fast local identification.
+  Future<void> _generateSidecarEmbedding(List<Uint8List> frames, String operatorId, String email, String name) async {
     try {
-      final db = widget.ref.read(firestorePathsProvider);
-      await db.operators.doc(widget.operatorId).update({
-        'facePhoto': FieldValue.delete(),
-        'faceEnrolledAt': FieldValue.delete(),
-      });
-
-      final photoPath = '$_frameCachePath/face_${widget.operatorId}.jpg';
-      final file = File(photoPath);
-      if (await file.exists()) await file.delete();
-
-      if (mounted) {
-        setState(() { _enrolled = false; _capturedFrame = null; });
+      final sidecar = widget.ref.read(sidecarClientProvider);
+      final embedding = await sidecar.enrollFromImages(frames);
+      if (embedding != null && embedding.isNotEmpty) {
+        // Store embedding in operator doc for future sync
+        final paths = widget.ref.read(firestorePathsProvider);
+        await paths.operators.doc(operatorId).update({
+          'faceEmbedding': embedding,
+        });
+        // Also push to sidecar cache immediately
+        await sidecar.syncEnrollments([{
+          'operator_id': operatorId,
+          'email': email,
+          'name': name,
+          'embedding': embedding,
+          'is_active': true,
+        }]);
       }
-    } catch (e) {
-      if (mounted) setState(() => _error = 'Failed to remove: $e');
-    } finally {
-      if (mounted) setState(() => _saving = false);
+    } catch (_) {
+      // Non-critical — cloud enrollment already succeeded
     }
+  }
+
+  void _cancelFlow() {
+    _frameTimer?.cancel();
+    _autoCaptureTimer?.cancel();
+    _stopCamera();
+    setState(() {
+      _started = false;
+      _wearsSpecs = null;
+      _cameraReady = false;
+      _cameraError = false;
+      _currentFrame = null;
+      _capturedFrames.clear();
+      _specsFrames.clear();
+      _noSpecsFrames.clear();
+      _specsPhaseComplete = false;
+      _transitionAcknowledged = false;
+      _specsPhase = true;
+      _autoCapturing = false;
+      _enrolling = false;
+      _enrollError = null;
+      _reEnrollMode = _ReEnrollMode.none;
+      _otpStage = _OtpStage.notStarted;
+      _otpError = null;
+      _warningAccepted = false;
+    });
+    _clearOtpFields();
   }
 
   @override
@@ -3874,214 +5678,783 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
+    // Idle state
+    if (!_started && _reEnrollMode == _ReEnrollMode.none) {
+      if (_enrolled && _hasExistingEnrollment) {
+        return SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => setState(() => _started = true),
+            icon: const Icon(Icons.refresh_rounded, size: 14),
+            label: const Text('Re-enroll Face', style: TextStyle(fontSize: 11)),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        );
+      }
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () => setState(() => _started = true),
+          icon: const Icon(Icons.videocam_rounded, size: 14),
+          label: const Text('Start Face Enrollment', style: TextStyle(fontSize: 11)),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      );
+    }
+
+    // Re-enrollment mode selection (only when existing data)
+    if (_started && _hasExistingEnrollment && _reEnrollMode == _ReEnrollMode.none) {
+      return _buildModeChoice(scheme, text);
+    }
+
+    // OTP verification flow for training
+    if (_reEnrollMode == _ReEnrollMode.training && _otpStage != _OtpStage.adminVerified) {
+      return _buildTrainingOtp(scheme, text);
+    }
+
+    // OTP verification flow for full reset
+    if (_reEnrollMode == _ReEnrollMode.fullReset && _otpStage != _OtpStage.adminVerified) {
+      return _buildFullResetOtp(scheme, text);
+    }
+
+    // Warning for full reset
+    if (_reEnrollMode == _ReEnrollMode.fullReset && !_warningAccepted) {
+      return _buildResetWarning(scheme, text);
+    }
+
+    // Specs question
+    if (_wearsSpecs == null) {
+      return _buildSpecsQuestion(scheme, text);
+    }
+
+    // Camera error
+    if (_cameraError) {
+      return _buildErrorView(scheme, text);
+    }
+
+    // Camera view with auto-capture
+    return _buildCameraView(scheme, text);
+  }
+
+  Widget _buildModeChoice(ColorScheme scheme, TextTheme text) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.face_retouching_natural_rounded, size: 24, color: scheme.primary),
+          const SizedBox(height: 8),
+          Text('Face data already exists', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(
+            'Choose how to update face enrollment:',
+            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() => _reEnrollMode = _ReEnrollMode.training),
+              icon: Icon(Icons.model_training_rounded, size: 14, color: scheme.primary),
+              label: const Text('Add Training Data', style: TextStyle(fontSize: 11)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 3, bottom: 10),
+            child: Text(
+              'Adds more face samples to improve recognition. Requires admin verification.',
+              style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
+            ),
+          ),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() => _reEnrollMode = _ReEnrollMode.fullReset),
+              icon: Icon(Icons.restart_alt_rounded, size: 14, color: scheme.error),
+              label: Text('Complete Re-enrollment', style: TextStyle(fontSize: 11, color: scheme.error)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                side: BorderSide(color: scheme.error.withValues(alpha: 0.4)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 3, bottom: 6),
+            child: Text(
+              'Replaces all existing data. Requires operator + admin verification.',
+              style: TextStyle(fontSize: 9, color: scheme.error.withValues(alpha: 0.7)),
+            ),
+          ),
+          TextButton(
+            onPressed: _cancelFlow,
+            child: Text('Cancel', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrainingOtp(ColorScheme scheme, TextTheme text) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.admin_panel_settings_rounded, size: 22, color: scheme.primary),
+          const SizedBox(height: 8),
+          Text('Admin Verification', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(
+            'An OTP will be sent to admin email to authorize adding training data.',
+            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          if (_otpStage == _OtpStage.notStarted) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _otpSending ? null : _startTrainingOtp,
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                child: _otpSending
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Send OTP to Admin', style: TextStyle(fontSize: 11)),
+              ),
+            ),
+          ],
+          if (_otpStage == _OtpStage.adminSent) ...[
+            _buildOtpInput(scheme),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _otpVerifying ? null : _verifyTrainingAdminOtp,
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                child: _otpVerifying
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Verify', style: TextStyle(fontSize: 11)),
+              ),
+            ),
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: _otpSending ? null : _startTrainingOtp,
+              child: Text('Resend Code', style: TextStyle(fontSize: 10, color: scheme.primary)),
+            ),
+          ],
+          if (_otpError != null) ...[
+            const SizedBox(height: 6),
+            Text(_otpError!, style: TextStyle(fontSize: 10, color: scheme.error)),
+          ],
+          const SizedBox(height: 6),
+          TextButton(
+            onPressed: _cancelFlow,
+            child: Text('Cancel', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFullResetOtp(ColorScheme scheme, TextTheme text) {
+    final isOperatorStage = _otpStage == _OtpStage.notStarted || _otpStage == _OtpStage.operatorSent;
+    final stageLabel = isOperatorStage ? 'Step 1: Operator Verification' : 'Step 2: Admin Verification';
+    final stageDesc = isOperatorStage
+        ? 'OTP will be sent to operator\'s email to confirm identity.'
+        : 'OTP will be sent to admin email to authorize re-enrollment.';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.error.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 20, height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: (!isOperatorStage ? AppTheme.successColor : scheme.primary).withValues(alpha: 0.15),
+                ),
+                child: Center(child: Text('1', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: !isOperatorStage ? AppTheme.successColor : scheme.primary))),
+              ),
+              Container(width: 24, height: 2, color: scheme.outlineVariant.withValues(alpha: 0.4)),
+              Container(
+                width: 20, height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: (!isOperatorStage ? scheme.primary : scheme.surfaceContainerHigh).withValues(alpha: isOperatorStage ? 1 : 0.15),
+                ),
+                child: Center(child: Text('2', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: !isOperatorStage ? scheme.primary : scheme.onSurfaceVariant))),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(stageLabel, style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(stageDesc, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant), textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          if (_otpStage == _OtpStage.notStarted) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _otpSending ? null : _startFullResetOtp,
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                child: _otpSending
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Send OTP to Operator', style: TextStyle(fontSize: 11)),
+              ),
+            ),
+          ],
+          if (_otpStage == _OtpStage.operatorSent) ...[
+            _buildOtpInput(scheme),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _otpVerifying ? null : _verifyOperatorOtp,
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                child: _otpVerifying
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Verify Operator', style: TextStyle(fontSize: 11)),
+              ),
+            ),
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: _otpSending ? null : _startFullResetOtp,
+              child: Text('Resend Code', style: TextStyle(fontSize: 10, color: scheme.primary)),
+            ),
+          ],
+          if (_otpStage == _OtpStage.adminSent) ...[
+            _buildOtpInput(scheme),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _otpVerifying ? null : _verifyFullResetAdminOtp,
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                child: _otpVerifying
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Verify Admin', style: TextStyle(fontSize: 11)),
+              ),
+            ),
+          ],
+          if (_otpError != null) ...[
+            const SizedBox(height: 6),
+            Text(_otpError!, style: TextStyle(fontSize: 10, color: scheme.error)),
+          ],
+          const SizedBox(height: 6),
+          TextButton(
+            onPressed: _cancelFlow,
+            child: Text('Cancel', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResetWarning(ColorScheme scheme, TextTheme text) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 28, color: scheme.error),
+          const SizedBox(height: 8),
+          Text('Complete Re-enrollment', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700, color: scheme.error)),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: scheme.error.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: scheme.error.withValues(alpha: 0.15)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _warningRow(Icons.delete_forever_rounded, 'All existing face data will be permanently deleted', scheme),
+                const SizedBox(height: 4),
+                _warningRow(Icons.history_rounded, 'Previous training sessions will be lost', scheme),
+                const SizedBox(height: 4),
+                _warningRow(Icons.face_retouching_off_rounded, 'Face login will fail until new enrollment completes', scheme),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => setState(() => _warningAccepted = true),
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.error,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('I understand, proceed', style: TextStyle(fontSize: 11)),
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextButton(
+            onPressed: _cancelFlow,
+            child: Text('Cancel', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _warningRow(IconData icon, String msg, ColorScheme scheme) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 12, color: scheme.error.withValues(alpha: 0.8)),
+        const SizedBox(width: 6),
+        Expanded(child: Text(msg, style: TextStyle(fontSize: 10, color: scheme.onSurface.withValues(alpha: 0.8)))),
+      ],
+    );
+  }
+
+  Widget _buildOtpInput(ColorScheme scheme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(6, (i) => Container(
+        width: 32, height: 38,
+        margin: const EdgeInsets.symmetric(horizontal: 3),
+        child: TextField(
+          controller: _otpControllers[i],
+          focusNode: _otpFocusNodes[i],
+          textAlign: TextAlign.center,
+          keyboardType: TextInputType.number,
+          maxLength: 1,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          decoration: InputDecoration(
+            counterText: '',
+            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(color: scheme.primary, width: 2),
+            ),
+          ),
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          onChanged: (val) {
+            if (val.isNotEmpty && i < 5) {
+              _otpFocusNodes[i + 1].requestFocus();
+            } else if (val.isEmpty && i > 0) {
+              _otpFocusNodes[i - 1].requestFocus();
+            }
+          },
+        ),
+      )),
+    );
+  }
+
+  Widget _buildSpecsQuestion(ColorScheme scheme, TextTheme text) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.visibility_rounded, size: 24, color: scheme.primary),
+          const SizedBox(height: 8),
+          Text('Do you wear spectacles?', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(
+            'If yes, face will be captured both with and without glasses.',
+            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _answerSpecs(false),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('No', style: TextStyle(fontSize: 11)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => _answerSpecs(true),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Yes', style: TextStyle(fontSize: 11)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          TextButton(
+            onPressed: _cancelFlow,
+            child: Text('Cancel', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorView(ColorScheme scheme, TextTheme text) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.videocam_off_rounded, size: 24, color: scheme.error),
+          const SizedBox(height: 8),
+          Text(_errorMessage ?? 'Camera not available', style: TextStyle(fontSize: 11, color: scheme.error)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _cancelFlow,
+                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                  child: const Text('Cancel', style: TextStyle(fontSize: 11)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () { setState(() { _cameraError = false; _errorMessage = null; }); _initCamera(); },
+                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                  child: const Text('Retry', style: TextStyle(fontSize: 11)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCameraView(ColorScheme scheme, TextTheme text) {
+    final isDualPhase = _wearsSpecs == true;
+
+    // Transition screen between phases
+    if (isDualPhase && _specsPhaseComplete && !_transitionAcknowledged && _capturedFrames.isEmpty && !_enrolling) {
+      return _buildPhaseTransition(scheme, text);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_enrolled && !_liveMode && _capturedFrame == null)
+        // Phase label for dual-phase
+        if (isDualPhase)
           Container(
-            padding: const EdgeInsets.all(12),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: (_specsPhase ? scheme.primaryContainer : scheme.tertiaryContainer).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: (_specsPhase ? scheme.primary : scheme.tertiary).withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _specsPhase ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                  size: 14,
+                  color: _specsPhase ? scheme.primary : scheme.tertiary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _specsPhase ? 'Phase 1/2 — WITH glasses' : 'Phase 2/2 — WITHOUT glasses',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _specsPhase ? scheme.primary : scheme.tertiary),
+                  ),
+                ),
+                if (_specsPhaseComplete)
+                  Icon(Icons.check_circle_rounded, size: 13, color: AppTheme.successColor),
+              ],
+            ),
+          ),
+
+        // Camera selector
+        if (_cameras.length > 1 && !_autoCapturing)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: DropdownButtonFormField<String>(
+              initialValue: _selectedCameraId,
+              isExpanded: true,
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                prefixIcon: const Icon(Icons.videocam_rounded, size: 14),
+              ),
+              items: _cameras.map((cam) => DropdownMenuItem(
+                value: cam['id'],
+                child: Text(cam['name']!, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
+              )).toList(),
+              onChanged: (id) {
+                if (id == null || id == _selectedCameraId) return;
+                setState(() { _selectedCameraId = id; _cameraReady = false; _currentFrame = null; });
+                _frameTimer?.cancel();
+                _stopCamera().then((_) => _initCamera());
+              },
+            ),
+          ),
+
+        // Camera preview
+        Container(
+          width: double.infinity,
+          height: 200,
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: _capturing ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.3),
+              width: _capturing ? 2 : 1,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(9),
+            child: _currentFrame != null
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.memory(_currentFrame!, fit: BoxFit.cover, gaplessPlayback: true),
+                      CustomPaint(painter: _FaceGuidePainter(detected: _cameraReady, scheme: scheme)),
+                    ],
+                  )
+                : Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
+                        const SizedBox(height: 6),
+                        Text('Initializing camera...', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                      ],
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Progress indicators (thumbnail slots)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_requiredFrames, (i) {
+            final captured = i < _capturedFrames.length;
+            return Container(
+              width: 30,
+              height: 30,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: captured ? AppTheme.successColor : scheme.outlineVariant.withValues(alpha: 0.4),
+                  width: captured ? 2 : 1,
+                ),
+              ),
+              child: captured
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(5),
+                      child: Image.memory(_capturedFrames[i], fit: BoxFit.cover),
+                    )
+                  : Center(child: Text('${i + 1}', style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)))),
+            );
+          }),
+        ),
+        const SizedBox(height: 4),
+        Center(
+          child: Text(
+            '${_capturedFrames.length} of $_requiredFrames captured',
+            style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Action area
+        if (_enrolling || _saving) ...[
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                const SizedBox(width: 8),
+                Text(_saving ? 'Enrolling face...' : 'Validating...', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+              ],
+            ),
+          ),
+        ] else if (_enrollError != null) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: scheme.errorContainer.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, size: 13, color: scheme.error),
+                const SizedBox(width: 6),
+                Expanded(child: Text(_enrollError!, style: TextStyle(fontSize: 10, color: scheme.error))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _resetCapture(fullReset: !(_wearsSpecs == true && _specsPhaseComplete)),
+              icon: const Icon(Icons.refresh_rounded, size: 13),
+              label: const Text('Try Again', style: TextStyle(fontSize: 11)),
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 7), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+            ),
+          ),
+        ] else if (_autoCapturing && _autoCountdown > 0) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
             ),
-            child: Row(
-              children: [
-                Icon(Icons.check_circle_rounded, size: 18, color: scheme.primary),
-                const SizedBox(width: 8),
-                Text('Face enrolled', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.primary)),
-                const Spacer(),
-                TextButton(
-                  onPressed: _saving ? null : _removeFace,
-                  child: Text('Remove', style: TextStyle(fontSize: 11, color: scheme.error)),
-                ),
-              ],
+            child: Center(
+              child: Text(
+                'Starting in $_autoCountdown...',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.primary),
+              ),
             ),
           ),
-
-        if (_liveMode)
-          Column(
-            children: [
-              Stack(
+        ] else if (_autoCapturing) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.successColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.3)),
+            ),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: _liveFrame != null
-                        ? Image.memory(
-                            _liveFrame!,
-                            width: double.infinity,
-                            height: 180,
-                            fit: BoxFit.cover,
-                            gaplessPlayback: true,
-                          )
-                        : Container(
-                            width: double.infinity,
-                            height: 180,
-                            decoration: BoxDecoration(
-                              color: scheme.surfaceContainerHigh,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
-                                  const SizedBox(height: 8),
-                                  Text(_status, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-                                ],
-                              ),
-                            ),
-                          ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: (_faceDetected ? Colors.green : Colors.orange).withValues(alpha: 0.85),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _faceDetected ? Icons.face_rounded : Icons.face_retouching_off_rounded,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _faceDetected ? 'Face Detected' : 'Searching...',
-                            style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (_liveFrame != null)
-                    Positioned.fill(
-                      child: CustomPaint(painter: _FaceGuidePainter(detected: _faceDetected, scheme: scheme)),
-                    ),
+                  Icon(Icons.fiber_manual_record_rounded, size: 10, color: AppTheme.successColor),
+                  const SizedBox(width: 6),
+                  Text('Capturing... look at camera', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(_status, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _cancelLiveFeed,
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _faceDetected ? _captureForEnrollment : null,
-                      icon: const Icon(Icons.camera_rounded, size: 16),
-                      label: const Text('Capture'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
-
-        if (_capturedFrame != null && !_liveMode)
-          Column(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.memory(
-                  _capturedFrame!,
-                  width: double.infinity,
-                  height: 180,
-                  fit: BoxFit.cover,
-                ),
+        ] else ...[
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: !_cameraReady ? null : _startAutoCapture,
+              icon: const Icon(Icons.play_arrow_rounded, size: 16),
+              label: Text(
+                isDualPhase
+                    ? (_specsPhase ? 'Capture with glasses' : 'Capture without glasses')
+                    : 'Start capture',
+                style: const TextStyle(fontSize: 11),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _saving ? null : _beginEnrollment,
-                      icon: const Icon(Icons.refresh_rounded, size: 16),
-                      label: const Text('Retake'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _saving ? null : _enrollFace,
-                      icon: _saving
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.check_rounded, size: 16),
-                      label: Text(_saving ? 'Saving...' : 'Enroll'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+            ),
           ),
-
-        if (_showCameraChoice && !_liveMode)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Select Camera', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              ..._availableCameras.map((cam) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _startLiveFeedWithCamera(cam),
-                    icon: Icon(cam.key == 'operator' ? Icons.face_rounded : Icons.person_search_rounded, size: 16),
-                    label: Text('${cam.label} (${cam.source})', style: const TextStyle(fontSize: 12)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ),
-              )),
-              const SizedBox(height: 4),
-              Center(
-                child: TextButton(
-                  onPressed: () => setState(() => _showCameraChoice = false),
-                  child: Text('Cancel', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
-                ),
-              ),
-            ],
-          ),
-
-        if (!_enrolled && !_liveMode && _capturedFrame == null && !_showCameraChoice)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Capture a face photo for quick switch via face scan.',
-                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _beginEnrollment,
-                  icon: const Icon(Icons.videocam_rounded, size: 16),
-                  label: const Text('Start Face Enrollment'),
-                ),
-              ),
-            ],
-          ),
-
-        if (_error != null) ...[
-          const SizedBox(height: 8),
-          Text(_error!, style: text.labelSmall?.copyWith(color: scheme.error)),
+          const SizedBox(height: 4),
+          Center(child: Text('5 photos auto-captured (1/sec)', style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)))),
         ],
+
+        const SizedBox(height: 8),
+        if (!_autoCapturing && !_enrolling && !_saving)
+          Center(
+            child: TextButton(
+              onPressed: _cancelFlow,
+              child: Text('Cancel', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+            ),
+          ),
       ],
+    );
+  }
+
+  Widget _buildPhaseTransition(ColorScheme scheme, TextTheme text) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.tertiaryContainer.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.tertiary.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.visibility_off_rounded, size: 28, color: scheme.tertiary),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.successColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text('Phase 1 complete', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
+          ),
+          const SizedBox(height: 10),
+          Text('Remove spectacles', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(
+            'Take off glasses before continuing.',
+            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => setState(() => _transitionAcknowledged = true),
+              icon: const Icon(Icons.arrow_forward_rounded, size: 14),
+              label: const Text('Glasses removed — Continue', style: TextStyle(fontSize: 11)),
+              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -4117,4 +6490,134 @@ class _FaceGuidePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _FaceGuidePainter oldDelegate) => oldDelegate.detected != detected;
+}
+
+class _IdDocImageView extends StatefulWidget {
+  final String base64Data;
+  final ColorScheme scheme;
+
+  const _IdDocImageView({required this.base64Data, required this.scheme});
+
+  @override
+  State<_IdDocImageView> createState() => _IdDocImageViewState();
+}
+
+class _IdDocImageViewState extends State<_IdDocImageView> {
+  List<Uint8List> _pages = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _processData();
+  }
+
+  Future<void> _processData() async {
+    try {
+      final bytes = base64Decode(widget.base64Data);
+
+      if (_isPdf(bytes)) {
+        await _convertPdfToImages(bytes);
+      } else {
+        setState(() {
+          _pages = [bytes];
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load document image';
+        _loading = false;
+      });
+    }
+  }
+
+  bool _isPdf(Uint8List bytes) {
+    if (bytes.length < 5) return false;
+    return bytes[0] == 0x25 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x44 &&
+        bytes[3] == 0x46 &&
+        bytes[4] == 0x2D;
+  }
+
+  Future<void> _convertPdfToImages(Uint8List pdfBytes) async {
+    try {
+      final doc = await PdfDocument.openData(pdfBytes);
+      final pages = <Uint8List>[];
+      for (int p = 1; p <= doc.pagesCount && p <= 4; p++) {
+        final page = await doc.getPage(p);
+        final pageImage = await page.render(width: page.width * 2, height: page.height * 2, format: PdfPageImageFormat.png);
+        if (pageImage != null) pages.add(pageImage.bytes);
+        await page.close();
+      }
+      await doc.close();
+      if (pages.isNotEmpty) {
+        setState(() { _pages = pages; _loading = false; });
+      } else {
+        setState(() { _error = 'Could not render PDF pages'; _loading = false; });
+      }
+    } catch (e) {
+      debugPrint('PDF rendering error: $e');
+      setState(() { _error = 'PDF rendering failed: $e'; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: widget.scheme.surfaceContainerHigh.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+
+    if (_error != null) {
+      return Container(
+        height: 100,
+        decoration: BoxDecoration(
+          color: widget.scheme.errorContainer.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline_rounded, size: 16, color: widget.scheme.error),
+              const SizedBox(width: 8),
+              Text(_error!, style: TextStyle(fontSize: 12, color: widget.scheme.error)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: _pages.asMap().entries.map((entry) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: entry.key < _pages.length - 1 ? 8 : 0),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.memory(
+              entry.value,
+              fit: BoxFit.contain,
+              width: double.infinity,
+              errorBuilder: (_, __, ___) => Container(
+                height: 100,
+                color: widget.scheme.surfaceContainerHigh.withValues(alpha: 0.3),
+                child: Center(
+                  child: Text('Unable to display page ${entry.key + 1}', style: TextStyle(fontSize: 12, color: widget.scheme.onSurfaceVariant)),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
 }

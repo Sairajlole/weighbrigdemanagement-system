@@ -3,11 +3,13 @@ import FlutterMacOS
 import AVFoundation
 
 /// A multi-camera plugin that supports simultaneous live feeds from multiple cameras.
-/// Each camera gets its own AVCaptureSession and Flutter Texture.
+/// Sessions sharing the same physical device reuse one AVCaptureSession + texture.
 public class MultiCameraPlugin: NSObject, FlutterPlugin {
 
     private let registry: FlutterTextureRegistry
     private var sessions: [String: CameraSession] = [:]
+    // Maps deviceUniqueID → shared session key (first session that opened this device)
+    private var deviceToSession: [String: String] = [:]
 
     init(registry: FlutterTextureRegistry) {
         self.registry = registry
@@ -59,8 +61,16 @@ public class MultiCameraPlugin: NSObject, FlutterPlugin {
                     return
                 }
                 var devices: [[String: Any]] = []
+                var seen = Set<String>()
                 let captured: [AVCaptureDevice]
-                if #available(macOS 10.15, *) {
+                if #available(macOS 14.0, *) {
+                    let session = AVCaptureDevice.DiscoverySession(
+                        deviceTypes: [.builtInWideAngleCamera, .externalUnknown, .continuityCamera],
+                        mediaType: .video,
+                        position: .unspecified
+                    )
+                    captured = session.devices
+                } else if #available(macOS 10.15, *) {
                     let session = AVCaptureDevice.DiscoverySession(
                         deviceTypes: [.builtInWideAngleCamera, .externalUnknown],
                         mediaType: .video,
@@ -73,6 +83,8 @@ public class MultiCameraPlugin: NSObject, FlutterPlugin {
                 for device in captured {
                     let name = device.localizedName.lowercased()
                     if name.contains("desk view") { continue }
+                    if seen.contains(device.uniqueID) { continue }
+                    seen.insert(device.uniqueID)
                     devices.append([
                         "deviceId": device.uniqueID,
                         "name": device.localizedName,
@@ -89,6 +101,8 @@ public class MultiCameraPlugin: NSObject, FlutterPlugin {
         if let existing = sessions[sessionId] {
             existing.stop(registry: registry)
             sessions.removeValue(forKey: sessionId)
+            // Clean up deviceToSession if this was the owner
+            deviceToSession = deviceToSession.filter { $0.value != sessionId }
         }
 
         AVCaptureDevice.requestAccess(for: .video) { granted in
@@ -99,7 +113,14 @@ public class MultiCameraPlugin: NSObject, FlutterPlugin {
                 }
 
                 let captured: [AVCaptureDevice]
-                if #available(macOS 10.15, *) {
+                if #available(macOS 14.0, *) {
+                    let session = AVCaptureDevice.DiscoverySession(
+                        deviceTypes: [.builtInWideAngleCamera, .externalUnknown, .continuityCamera],
+                        mediaType: .video,
+                        position: .unspecified
+                    )
+                    captured = session.devices
+                } else if #available(macOS 10.15, *) {
                     let session = AVCaptureDevice.DiscoverySession(
                         deviceTypes: [.builtInWideAngleCamera, .externalUnknown],
                         mediaType: .video,
@@ -110,13 +131,33 @@ public class MultiCameraPlugin: NSObject, FlutterPlugin {
                     captured = AVCaptureDevice.devices(for: .video)
                 }
 
+                let filtered = captured.filter { !$0.localizedName.lowercased().contains("desk view") }
+
                 var device: AVCaptureDevice?
                 if let deviceId = deviceId, !deviceId.isEmpty {
-                    device = captured.first(where: { $0.uniqueID == deviceId })
+                    device = filtered.first(where: { $0.uniqueID == deviceId })
+                        ?? filtered.first(where: { $0.localizedName == deviceId })
+                } else {
+                    device = filtered.first
                 }
 
                 guard let camera = device else {
-                    result(FlutterError(code: "NO_CAMERA", message: "No camera found", details: nil))
+                    result(FlutterError(code: "NO_CAMERA", message: "Device not found: \(deviceId ?? "none")", details: nil))
+                    return
+                }
+
+                // If another session already owns this physical device, share its texture
+                if let ownerKey = self.deviceToSession[camera.uniqueID],
+                   let ownerSession = self.sessions[ownerKey] {
+                    self.sessions[sessionId] = ownerSession
+                    result([
+                        "sessionId": sessionId,
+                        "textureId": ownerSession.textureId!,
+                        "width": ownerSession.outputWidth,
+                        "height": ownerSession.outputHeight,
+                        "deviceId": camera.uniqueID,
+                        "deviceName": camera.localizedName,
+                    ] as [String: Any])
                     return
                 }
 
@@ -124,6 +165,7 @@ public class MultiCameraPlugin: NSObject, FlutterPlugin {
                 do {
                     try session.start(device: camera, registry: self.registry, width: width, height: height)
                     self.sessions[sessionId] = session
+                    self.deviceToSession[camera.uniqueID] = sessionId
                     result([
                         "sessionId": sessionId,
                         "textureId": session.textureId!,
@@ -140,20 +182,35 @@ public class MultiCameraPlugin: NSObject, FlutterPlugin {
     }
 
     private func stop(sessionId: String, result: @escaping FlutterResult) {
-        if let session = sessions[sessionId] {
-            session.stop(registry: registry)
-            sessions.removeValue(forKey: sessionId)
-            result(true)
-        } else {
+        guard let session = sessions[sessionId] else {
             result(false)
+            return
         }
+        sessions.removeValue(forKey: sessionId)
+
+        // Only actually stop the capture session if no other session key references it
+        let stillInUse = sessions.values.contains(where: { $0 === session })
+        if !stillInUse {
+            session.stop(registry: registry)
+            // Remove from deviceToSession
+            deviceToSession = deviceToSession.filter { $0.value != sessionId }
+        }
+        result(true)
     }
 
     private func stopAll(result: @escaping FlutterResult) {
+        // Deduplicate so shared sessions only stop once
+        let uniqueSessions = Set(sessions.values.map { ObjectIdentifier($0) })
+        var stopped = Set<ObjectIdentifier>()
         for (_, session) in sessions {
-            session.stop(registry: registry)
+            let id = ObjectIdentifier(session)
+            if !stopped.contains(id) {
+                session.stop(registry: registry)
+                stopped.insert(id)
+            }
         }
         sessions.removeAll()
+        deviceToSession.removeAll()
         result(true)
     }
 

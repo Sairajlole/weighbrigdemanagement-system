@@ -57,6 +57,9 @@ class FirestorePaths {
   CollectionReference<Map<String, dynamic>> get operators =>
       _db.collection('$_companyPrefix/operators');
 
+  CollectionReference<Map<String, dynamic>> get rejections =>
+      _db.collection('$_companyPrefix/rejections');
+
   DocumentReference<Map<String, dynamic>> siteSetting(String id) =>
       _db.doc('$_sitePrefix/settings/$id');
 

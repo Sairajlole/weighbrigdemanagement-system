@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
@@ -420,9 +419,11 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
       final db = ref.read(firestoreProvider);
       final email = _email.text.trim();
 
+      bool firebaseAuthOk = false;
       try {
         await ref.read(firebaseAuthProvider).signInWithEmailAndPassword(
           email: email, password: _password.text);
+        firebaseAuthOk = true;
       } catch (_) {}
 
       // Find operator by email
@@ -442,20 +443,37 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
           setState(() { _error = 'No account found with this email.'; _loading = false; });
           return;
         }
+        // Company admin: verify password via hash
+        if (!firebaseAuthOk) {
+          final companyData = companySnap.docs.first.data();
+          final storedHash = companyData['passwordHash'] as String?;
+          if (storedHash != null && storedHash != _hashPassword(_password.text)) {
+            setState(() { _error = 'Invalid email or password.'; _loading = false; });
+            return;
+          }
+          // Migrate: store hash for accounts that don't have one yet
+          if (storedHash == null) {
+            companySnap.docs.first.reference.update({'passwordHash': _hashPassword(_password.text)});
+          }
+        }
         companyId = companySnap.docs.first.id;
       } else {
-        // Verify password
-        if (Platform.isMacOS) {
+        // Verify password via Firebase Auth or hash fallback
+        if (!firebaseAuthOk) {
           final storedHash = operatorSnap.docs.first.data()['passwordHash'] as String?;
           if (storedHash != null && storedHash != _hashPassword(_password.text)) {
             setState(() { _error = 'Invalid email or password.'; _loading = false; });
             return;
           }
+          // Migrate: store hash for accounts that don't have one yet
+          if (storedHash == null) {
+            operatorSnap.docs.first.reference.update({'passwordHash': _hashPassword(_password.text)});
+          }
         }
         companyId = operatorSnap.docs.first.data()['companyId'] as String? ?? '';
       }
 
-      if (companyId == null || companyId.isEmpty) {
+      if (companyId.isEmpty) {
         setState(() { _error = 'No company linked to this account.'; _loading = false; });
         return;
       }
@@ -842,14 +860,14 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
       final db = ref.read(firestoreProvider);
       final email = _email.text.trim();
 
+      bool firebaseAuthOk = false;
       try {
         await ref.read(firebaseAuthProvider).signInWithEmailAndPassword(
           email: email,
           password: _password.text,
         );
-      } catch (_) {
-        // On macOS keychain may fail — continue with Firestore-only auth
-      }
+        firebaseAuthOk = true;
+      } catch (_) {}
 
       final operatorSnap = await db
           .collectionGroup('operators')
@@ -867,6 +885,19 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         if (companySnap.docs.isEmpty) {
           setState(() { _error = 'No account found with this email.'; _loading = false; });
           return;
+        }
+
+        // Company admin: verify password via Firebase Auth or hash fallback
+        if (!firebaseAuthOk) {
+          final companyData = companySnap.docs.first.data();
+          final storedHash = companyData['passwordHash'] as String?;
+          if (storedHash != null && storedHash != _hashPassword(_password.text)) {
+            setState(() { _error = 'Invalid email or password.'; _loading = false; });
+            return;
+          }
+          if (storedHash == null) {
+            companySnap.docs.first.reference.update({'passwordHash': _hashPassword(_password.text)});
+          }
         }
 
         await LocalCacheService.cacheCurrentUserEmail(email);
@@ -914,13 +945,16 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         return;
       }
 
-      // Found operator record
+      // Found operator record — verify password
       final opDoc = operatorSnap.docs.first;
-      if (Platform.isMacOS) {
+      if (!firebaseAuthOk) {
         final storedHash = opDoc.data()['passwordHash'] as String?;
         if (storedHash != null && storedHash != _hashPassword(_password.text)) {
           setState(() { _error = 'Invalid email or password.'; _loading = false; });
           return;
+        }
+        if (storedHash == null) {
+          opDoc.reference.update({'passwordHash': _hashPassword(_password.text)});
         }
       }
 
@@ -1315,9 +1349,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
           'mustChangePassword': false,
           'passwordLastChanged': FieldValue.serverTimestamp(),
         };
-        if (Platform.isMacOS) {
-          updateData['passwordHash'] = _hashPassword(_newPassword.text);
-        }
+        updateData['passwordHash'] = _hashPassword(_newPassword.text);
         await opSnap.docs.first.reference.update(updateData);
       }
       setState(() {

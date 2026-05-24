@@ -1,14 +1,47 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/services/ai_detection_service.dart';
 import 'package:weighbridgemanagement/shared/services/ai_sidecar_client.dart'
-    show AiSidecarClient, ModelUpdateStatus, SidecarHealth;
+    show AiSidecarClient, ModelUpdateStatus, SidecarHealth, SidecarProcessManager;
 import 'package:weighbridgemanagement/shared/services/training_data_service.dart';
 
 final sidecarClientProvider = Provider<AiSidecarClient>((ref) {
   final client = AiSidecarClient();
   ref.onDispose(() => client.dispose());
   return client;
+});
+
+final sidecarProcessProvider = Provider<SidecarProcessManager>((ref) {
+  final manager = SidecarProcessManager();
+  ref.onDispose(() => manager.stop());
+  return manager;
+});
+
+/// Auto-starts sidecar if not already running. Watch from app shell.
+final sidecarAutoStartProvider = FutureProvider<bool>((ref) async {
+  final client = ref.watch(sidecarClientProvider);
+  if (await client.isAvailable()) return true;
+
+  final manager = ref.read(sidecarProcessProvider);
+  debugPrint('[Sidecar] Not running — attempting auto-start...');
+  final started = await manager.start();
+  if (!started) {
+    debugPrint('[Sidecar] Auto-start failed');
+    return false;
+  }
+
+  // Wait for it to become available (model loading takes time)
+  for (int i = 0; i < 30; i++) {
+    await Future.delayed(const Duration(seconds: 2));
+    if (await client.isAvailable()) {
+      debugPrint('[Sidecar] Started successfully');
+      return true;
+    }
+  }
+  debugPrint('[Sidecar] Started but not responding within 60s');
+  return false;
 });
 
 final trainingDataServiceProvider = Provider<TrainingDataService>((ref) {
@@ -50,4 +83,45 @@ final modelUpdateStatusProvider = FutureProvider<ModelUpdateStatus?>((ref) async
 final hasModelUpdatesProvider = Provider<bool>((ref) {
   final status = ref.watch(modelUpdateStatusProvider).valueOrNull;
   return status?.hasUpdates ?? false;
+});
+
+/// Syncs all enrolled operator embeddings to sidecar on startup.
+/// Watch this provider from a top-level widget to trigger sync.
+final sidecarEmbeddingSyncProvider = FutureProvider<int>((ref) async {
+  final sidecar = ref.watch(sidecarClientProvider);
+  final paths = ref.watch(firestorePathsProvider);
+
+  if (!paths.isConfigured) return 0;
+  if (!await sidecar.isAvailable()) return 0;
+
+  try {
+    final snap = await paths.operators.get();
+    final operators = <Map<String, dynamic>>[];
+
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      final embedding = data['faceEmbedding'];
+      if (embedding == null || (embedding is List && embedding.isEmpty)) continue;
+
+      final status = data['status'] as String? ?? 'active';
+      operators.add({
+        'operator_id': doc.id,
+        'email': data['email'] as String? ?? '',
+        'name': data['name'] as String? ?? '',
+        'embedding': (embedding as List).map((e) => (e as num).toDouble()).toList(),
+        'is_active': status == 'active',
+      });
+    }
+
+    if (operators.isEmpty) return 0;
+
+    final success = await sidecar.syncEnrollments(operators);
+    if (success) {
+      debugPrint('[SidecarSync] Synced ${operators.length} operator embeddings');
+    }
+    return operators.length;
+  } catch (e) {
+    debugPrint('[SidecarSync] Failed: $e');
+    return 0;
+  }
 });

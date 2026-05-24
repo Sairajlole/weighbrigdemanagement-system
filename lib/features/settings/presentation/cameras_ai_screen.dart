@@ -30,44 +30,54 @@ final _systemCamerasProvider = FutureProvider<List<String>>((ref) async {
   if (!Platform.isMacOS) return [];
   final devices = <String>{};
 
-  // Source 1: system_profiler
+  // Primary: use MultiCameraService (same AVFoundation API as native plugin)
+  // This ensures names saved here exactly match what the plugin resolves at runtime.
   try {
-    final result = await Process.run('system_profiler', ['SPCameraDataType', '-json']);
-    if (result.exitCode == 0) {
-      final data = jsonDecode(result.stdout as String) as Map<String, dynamic>;
-      final cameras = data['SPCameraDataType'] as List<dynamic>?;
-      if (cameras != null) {
-        for (final c in cameras) {
-          final name = (c as Map<String, dynamic>)['_name'] as String?;
-          if (name != null && name.isNotEmpty && !name.toLowerCase().contains('desk view')) devices.add(name);
-        }
-      }
+    final nativeDevices = await MultiCameraService.listDevices();
+    for (final d in nativeDevices) {
+      if (d.name.isNotEmpty) devices.add(d.name);
     }
   } catch (_) {}
 
-  // Source 2: ffmpeg avfoundation device listing
-  try {
-    final result = await Process.run('ffmpeg', [
-      '-f', 'avfoundation', '-list_devices', 'true', '-i', '',
-    ], stdoutEncoding: utf8, stderrEncoding: utf8);
-    final output = '${result.stdout}${result.stderr}';
-    final lines = output.split('\n');
-    bool inVideo = false;
-    for (final line in lines) {
-      if (line.contains('AVFoundation video devices:')) {
-        inVideo = true;
-        continue;
-      }
-      if (line.contains('AVFoundation audio devices:')) break;
-      if (inVideo) {
-        final match = RegExp(r'\[(\d+)\]\s+(.+)').firstMatch(line);
-        if (match != null) {
-          final name = match.group(2)!.trim();
-          if (name.isNotEmpty && !name.toLowerCase().contains('screen') && !name.toLowerCase().contains('desk view')) devices.add(name);
+  // Fallback: system_profiler + ffmpeg if native plugin returned nothing
+  if (devices.isEmpty) {
+    try {
+      final result = await Process.run('system_profiler', ['SPCameraDataType', '-json']);
+      if (result.exitCode == 0) {
+        final data = jsonDecode(result.stdout as String) as Map<String, dynamic>;
+        final cameras = data['SPCameraDataType'] as List<dynamic>?;
+        if (cameras != null) {
+          for (final c in cameras) {
+            final name = (c as Map<String, dynamic>)['_name'] as String?;
+            if (name != null && name.isNotEmpty && !name.toLowerCase().contains('desk view')) devices.add(name);
+          }
         }
       }
-    }
-  } catch (_) {}
+    } catch (_) {}
+
+    try {
+      final result = await Process.run('ffmpeg', [
+        '-f', 'avfoundation', '-list_devices', 'true', '-i', '',
+      ], stdoutEncoding: utf8, stderrEncoding: utf8);
+      final output = '${result.stdout}${result.stderr}';
+      final lines = output.split('\n');
+      bool inVideo = false;
+      for (final line in lines) {
+        if (line.contains('AVFoundation video devices:')) {
+          inVideo = true;
+          continue;
+        }
+        if (line.contains('AVFoundation audio devices:')) break;
+        if (inVideo) {
+          final match = RegExp(r'\[(\d+)\]\s+(.+)').firstMatch(line);
+          if (match != null) {
+            final name = match.group(2)!.trim();
+            if (name.isNotEmpty && !name.toLowerCase().contains('screen') && !name.toLowerCase().contains('desk view')) devices.add(name);
+          }
+        }
+      }
+    } catch (_) {}
+  }
 
   if (devices.isEmpty) return ['FaceTime HD Camera'];
   return devices.toList();
@@ -118,6 +128,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
   };
 
   bool _anprEnabled = true;
+  bool _anprTopCamEnabled = false;
   bool _materialRecognition = true;
   bool _operatorFaceVerification = true;
   bool _driverAssist = true;
@@ -172,6 +183,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
     if (_loaded) return;
     _loaded = true;
     _anprEnabled = data['anprEnabled'] as bool? ?? true;
+    _anprTopCamEnabled = data['anprTopCamEnabled'] as bool? ?? false;
     _materialRecognition = data['materialRecognition'] as bool? ?? true;
     _operatorFaceVerification = data['operatorFaceVerification'] as bool? ?? true;
     _driverAssist = data['driverAssist'] as bool? ?? true;
@@ -363,6 +375,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
   Map<String, dynamic> _buildCameraPayload(String key, _CameraConfig cam) {
     final payload = <String, dynamic>{
       'enabled': cam.enabled,
+      'label': cam.label,
       'source': cam.source,
       'address': cam.addressCtrl.text.trim(),
       'username': cam.usernameCtrl.text.trim(),
@@ -396,6 +409,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
       await db.camerasAiSettings.set({
         'cameras': allCamerasData,
         'anprEnabled': isFree ? false : _anprEnabled,
+        'anprTopCamEnabled': _anprTopCamEnabled,
         'materialRecognition': isFree ? false : _materialRecognition,
         'operatorFaceVerification': _operatorFaceVerification,
         'driverAssist': isFree ? false : _driverAssist,
@@ -2421,6 +2435,18 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             onChanged: (v) { setState(() => _anprEnabled = v); _markDirty(); },
             locked: isFree,
           ),
+          if (_anprEnabled) ...[
+            Padding(
+              padding: const EdgeInsets.only(left: 40),
+              child: _FeatureToggle(
+                icon: Icons.vertical_align_top_rounded,
+                label: 'Include Top Camera for ANPR',
+                subtitle: 'Use top-view camera for plate reading (usually not needed)',
+                value: _anprTopCamEnabled,
+                onChanged: (v) { setState(() => _anprTopCamEnabled = v); _markDirty(); },
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           _FeatureToggle(
             icon: Icons.inventory_2_rounded,

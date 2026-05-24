@@ -50,7 +50,7 @@ class _SiteStepState extends ConsumerState<SiteStep> {
 
 
   static const _maxSites = 1;
-  static const _maxWeighbridges = 2;
+  static const _maxWeighbridges = 1;
 
   Future<String?> _createSite(String name, String location) async {
     final col = _db.collection('companies/$_selectedCompanyId/sites');
@@ -376,12 +376,26 @@ class _SiteStepState extends ConsumerState<SiteStep> {
                     color: scheme.primaryContainer.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
-                      const SizedBox(width: 8),
-                      Text('Maximum $_maxWeighbridges weighbridges allowed. Remove to add a different one.',
-                          style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text('1 weighbridge configured. All scale settings in this wizard will apply to it.',
+                              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant))),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.add_circle_outline_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text('Additional weighbridges can be added in Settings later, as per your license.',
+                              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)))),
+                        ],
+                      ),
                     ],
                   ),
                 );

@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/features/weighment/application/gate_automation_provider.dart';
+import 'package:weighbridgemanagement/features/weighment/application/inline_verification_provider.dart';
 import 'package:weighbridgemanagement/features/weighment/application/post_weighment_service.dart';
 import 'package:weighbridgemanagement/features/weighment/application/snapshot_service.dart';
 import 'package:weighbridgemanagement/features/weighment/application/weighment_audio.dart';
@@ -11,12 +13,16 @@ import 'package:weighbridgemanagement/features/weighment/application/weighment_p
 import 'package:weighbridgemanagement/features/weighment/application/weighment_session.dart';
 import 'package:weighbridgemanagement/features/weighment/application/weighment_state_machine.dart';
 import 'package:weighbridgemanagement/features/weighment/application/weighment_step.dart';
+import 'package:weighbridgemanagement/features/weighment/presentation/widgets/action_bar.dart';
 import 'package:weighbridgemanagement/features/weighment/presentation/widgets/ai_confirmation_dialog.dart';
-import 'package:weighbridgemanagement/features/weighment/presentation/widgets/camera_feeds_panel.dart';
-import 'package:weighbridgemanagement/features/weighment/presentation/widgets/live_weight_display.dart';
+import 'package:weighbridgemanagement/features/weighment/presentation/widgets/device_context_bar.dart';
+import 'package:weighbridgemanagement/features/weighment/presentation/widgets/device_status_bar.dart';
+import 'package:weighbridgemanagement/features/weighment/presentation/widgets/identity_cameras.dart';
+import 'package:weighbridgemanagement/features/weighment/presentation/widgets/live_weight_banner.dart';
 import 'package:weighbridgemanagement/features/weighment/presentation/widgets/pending_queue_panel.dart';
-import 'package:weighbridgemanagement/features/weighment/presentation/widgets/status_bar.dart';
 import 'package:weighbridgemanagement/features/weighment/presentation/widgets/vehicle_info_form.dart';
+import 'package:weighbridgemanagement/features/weighment/presentation/widgets/weighbridge_cameras_column.dart';
+import 'package:weighbridgemanagement/features/weighment/presentation/widgets/weight_summary_strip.dart';
 import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
@@ -26,7 +32,6 @@ import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/face_verification_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/services/training_data_service.dart';
-import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
 
 class WeighmentScreen extends ConsumerStatefulWidget {
   const WeighmentScreen({super.key});
@@ -37,14 +42,28 @@ class WeighmentScreen extends ConsumerStatefulWidget {
 
 class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
   Timer? _elapsedTimer;
+  Timer? _anprScanTimer;
+  Timer? _anprTimeoutTimer;
+  bool _anprScanning = false;
+  bool _anprScanInProgress = false; // re-entrancy guard
+  String? _anprSessionId;
+  Duration _anprInterval = const Duration(milliseconds: 500);
 
   @override
   void initState() {
     super.initState();
-    // Activate gate weight trigger monitoring
     Future.microtask(() => ref.read(gateWeightTriggerProvider));
-    // Check face verification requirements on screen entry
     Future.microtask(() => _checkSessionFaceVerification());
+  }
+
+  void _rescanAnpr() {
+    _stopAllScanning();
+    final session = ref.read(weighmentMachineProvider).session;
+    if (session == null || !mounted) return;
+    ref.read(weighmentMachineProvider.notifier).updateSession(
+      (s) => s.copyWith(anprPrediction: null, anprConfidence: null, plateCropB64: null),
+    );
+    _runAnprDetection();
   }
 
   Future<void> _checkSessionFaceVerification() async {
@@ -52,26 +71,63 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final isAdmin = ref.read(isAdminProvider);
     final verifier = ref.read(faceVerificationProvider.notifier);
 
-    if (verifier.needsVerification(FaceVerifyTrigger.dayStart, settings, isAdmin)) {
-      if (!mounted) return;
-      final passed = await showFaceVerificationDialog(context, trigger: FaceVerifyTrigger.dayStart);
-      if (passed) {
-        verifier.markVerified(FaceVerifyTrigger.dayStart);
+    if (settings.shiftBasedLogin && !isAdmin) {
+      final shiftBlock = await _checkShiftEnforcement();
+      if (shiftBlock != null && mounted) {
+        _showShiftBlockedDialog(shiftBlock);
+        return;
       }
     }
 
-    if (verifier.needsVerification(FaceVerifyTrigger.sessionStart, settings, isAdmin)) {
-      if (!mounted) return;
-      final passed = await showFaceVerificationDialog(context, trigger: FaceVerifyTrigger.sessionStart);
-      if (passed) {
-        verifier.markVerified(FaceVerifyTrigger.sessionStart);
-      }
+    final needsDay = verifier.needsVerification(FaceVerifyTrigger.dayStart, settings, isAdmin);
+    final needsSession = verifier.needsVerification(FaceVerifyTrigger.sessionStart, settings, isAdmin);
+
+    if (needsDay || needsSession) {
+      ref.read(inlineVerificationProvider.notifier).startBackgroundVerification();
     }
+  }
+
+  Future<String?> _checkShiftEnforcement() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user?.email == null) return null;
+    final paths = ref.read(firestorePathsProvider);
+    try {
+      final snap = await paths.operators.where('email', isEqualTo: user!.email).limit(1).get();
+      if (snap.docs.isEmpty) return null;
+      return checkShiftRestriction(snap.docs.first.data());
+    } catch (_) {}
+    return null;
+  }
+
+  void _showShiftBlockedDialog(String message) {
+    final scheme = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        icon: Container(
+          width: 56, height: 56,
+          decoration: BoxDecoration(
+            color: scheme.errorContainer.withValues(alpha: 0.3),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.schedule_rounded, size: 28, color: scheme.error),
+        ),
+        title: const Text('Outside Your Shift', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        content: Text(message, style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant), textAlign: TextAlign.center),
+        actions: [
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('OK')),
+        ],
+      ),
+    );
   }
 
   @override
   void dispose() {
     _elapsedTimer?.cancel();
+    _anprScanTimer?.cancel();
+    _anprTimeoutTimer?.cancel();
     super.dispose();
   }
 
@@ -92,11 +148,16 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final isAdmin = ref.read(isAdminProvider);
     final verifier = ref.read(faceVerificationProvider.notifier);
 
+    if (settings.shiftBasedLogin && !isAdmin) {
+      final shiftBlock = await _checkShiftEnforcement();
+      if (shiftBlock != null && mounted) {
+        _showShiftBlockedDialog(shiftBlock);
+        return;
+      }
+    }
+
     if (verifier.needsVerification(FaceVerifyTrigger.weighmentStart, settings, isAdmin)) {
-      if (!mounted) return;
-      final passed = await showFaceVerificationDialog(context, trigger: FaceVerifyTrigger.weighmentStart);
-      if (!passed) return;
-      verifier.markVerified(FaceVerifyTrigger.weighmentStart);
+      ref.read(inlineVerificationProvider.notifier).startBackgroundVerification();
     }
 
     ref.read(weighmentMachineProvider.notifier).startNew();
@@ -105,45 +166,268 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
   }
 
   Future<void> _runAnprDetection() async {
-    final ai = ref.read(aiDetectionServiceProvider);
-    await ai.initialize();
-    if (!ai.isAvailable) return;
+    _anprScanTimer?.cancel();
+    _anprScanning = true;
 
-    final snapshotSvc = ref.read(snapshotServiceProvider);
-    final cameras = ref.read(activeWeighbridgeCamerasProvider).valueOrNull ?? [];
-    if (cameras.isEmpty) return;
+    final sidecar = ref.read(sidecarClientProvider);
 
-    final frame = await snapshotSvc.captureFrame(cameras.first.key);
-    if (frame == null || !mounted) return;
+    // Determine adaptive parameters from sidecar health
+    final health = await sidecar.health();
+    final minVotes = health?.recommendedMinVotes ?? 3;
+    _anprInterval = health?.recommendedScanInterval ?? const Duration(milliseconds: 400);
 
-    final result = await ai.detectPlate(frame);
-    if (!result.hasResult || !mounted) return;
+    _anprSessionId = await sidecar.startAnprSession(minVotes: minVotes, maxFrames: 15);
 
-    final confirmation = await showAiConfirmation(
-      context,
-      title: 'Number Plate Detected',
-      prediction: result.result!.plateText,
-      confidence: result.result!.confidence,
-      frame: frame,
-      fieldLabel: 'Vehicle Number',
-    );
+    _anprScanTimer = Timer.periodic(_anprInterval, (_) => _anprScanOnce());
+    _anprScanOnce();
+    ref.read(anprScanningProvider.notifier).state = true;
 
-    if (confirmation == null || confirmation.wasSkipped) return;
+    _anprTimeoutTimer = Timer(const Duration(seconds: 60), () {
+      if (!_anprScanning) return;
+      _stopAnprScan();
+    });
+  }
 
-    ref.read(weighmentMachineProvider.notifier).updateSession(
-      (s) => s.copyWith(
-        vehicleNumber: confirmation.confirmedValue,
-        anprPrediction: result.result!.plateText,
-        anprConfidence: result.result!.confidence,
+  void _stopAnprScan() {
+    _anprScanTimer?.cancel();
+    _anprScanTimer = null;
+    _anprTimeoutTimer?.cancel();
+    _anprScanning = false;
+    _anprScanInProgress = false;
+    if (_anprSessionId != null) {
+      ref.read(sidecarClientProvider).deleteAnprSession(_anprSessionId!);
+      _anprSessionId = null;
+    }
+    ref.read(anprScanningProvider.notifier).state = false;
+    // Clear live bboxes but keep best crops visible
+    final overlays = ref.read(anprDetectionOverlayProvider);
+    final cleaned = <String, AnprOverlay>{};
+    for (final entry in overlays.entries) {
+      if (entry.value.hasCrop) {
+        cleaned[entry.key] = AnprOverlay(
+          cameraKey: entry.value.cameraKey,
+          bbox: const [],
+          plateText: entry.value.plateText,
+          confidence: entry.value.confidence,
+          plateType: entry.value.plateType,
+          plateCropB64: entry.value.plateCropB64,
+          plateBgColor: entry.value.plateBgColor,
+        );
+      }
+    }
+    ref.read(anprDetectionOverlayProvider.notifier).state = cleaned;
+  }
+
+  void _stopAllScanning() {
+    _anprScanTimer?.cancel();
+    _anprScanTimer = null;
+    _anprTimeoutTimer?.cancel();
+    _anprScanning = false;
+    _anprScanInProgress = false;
+    if (_anprSessionId != null) {
+      ref.read(sidecarClientProvider).deleteAnprSession(_anprSessionId!);
+      _anprSessionId = null;
+    }
+    ref.read(anprScanningProvider.notifier).state = false;
+    ref.read(anprDetectionOverlayProvider.notifier).state = {};
+  }
+
+  void _sendPlateToDisplayBoard(String plateText) {
+    try {
+      final displayService = ref.read(displayBoardServiceProvider);
+      if (displayService.hasEnabledBoards) {
+        displayService.sendTextToBoard(0, plateText);
+      }
+    } catch (_) {}
+  }
+
+  int _anprConsecutiveErrors = 0;
+
+  Future<void> _anprScanOnce() async {
+    if (!_anprScanning || !mounted || _anprScanInProgress) return;
+    _anprScanInProgress = true;
+
+    try {
+      final session = ref.read(weighmentMachineProvider).session;
+      if (session == null) { _stopAllScanning(); return; }
+
+      final sidecar = ref.read(sidecarClientProvider);
+      final snapshotSvc = ref.read(snapshotServiceProvider);
+      final cameras = ref.read(anprCamerasProvider).valueOrNull ?? [];
+      if (cameras.isEmpty) return;
+
+      // Scan cameras sequentially with stagger to avoid CPU spike
+      for (final cam in cameras) {
+        if (!_anprScanning || !mounted) break;
+        await _scanSingleCamera(cam, sidecar, snapshotSvc);
+      }
+    } finally {
+      _anprScanInProgress = false;
+    }
+  }
+
+  Future<void> _scanSingleCamera(dynamic cam, dynamic sidecar, dynamic snapshotSvc) async {
+    if (!_anprScanning || !mounted) return;
+
+    try {
+      final frame = await snapshotSvc.captureFrame(cam.key);
+      if (frame == null || !mounted) return;
+
+      if (_anprSessionId != null) {
+        final result = await sidecar.submitAnprFrame(_anprSessionId!, frame, cameraId: cam.key);
+        if (result == null || !mounted || !_anprScanning) {
+          _anprConsecutiveErrors++;
+          if (_anprConsecutiveErrors >= 5) {
+            _anprSessionId = null;
+            _anprConsecutiveErrors = 0;
+          }
+          return;
+        }
+        _anprConsecutiveErrors = 0;
+
+        // Update overlay map for this camera — keep best crop always visible
+        final overlays = Map<String, AnprOverlay>.from(ref.read(anprDetectionOverlayProvider));
+        if (result.frameDetection != null && result.frameDetection!.hasDetection) {
+          final existing = overlays[cam.key];
+          final newConf = result.frameDetection!.confidence;
+          // Always update bbox for live tracking; only replace crop if better
+          final keepCrop = existing != null &&
+              existing.plateCropB64.isNotEmpty &&
+              newConf <= existing.confidence;
+          overlays[cam.key] = AnprOverlay(
+            cameraKey: cam.key,
+            bbox: result.frameDetection!.bbox,
+            plateText: result.frameDetection!.plateText,
+            confidence: newConf,
+            plateType: result.frameDetection!.plateType,
+            srApplied: keepCrop ? existing.srApplied : result.frameDetection!.srApplied,
+            plateCropB64: keepCrop ? existing.plateCropB64 : result.frameDetection!.plateCropB64,
+            plateBgColor: keepCrop ? existing.plateBgColor : result.frameDetection!.plateBgColor,
+          );
+          ref.read(anprDetectionOverlayProvider.notifier).state = overlays;
+        } else if (overlays.containsKey(cam.key)) {
+          // No detection — keep best crop visible but clear live bbox
+          final existing = overlays[cam.key]!;
+          if (existing.plateCropB64.isNotEmpty) {
+            overlays[cam.key] = AnprOverlay(
+              cameraKey: cam.key,
+              bbox: const [],
+              plateText: existing.plateText,
+              confidence: existing.confidence,
+              plateType: existing.plateType,
+              srApplied: existing.srApplied,
+              plateCropB64: existing.plateCropB64,
+              plateBgColor: existing.plateBgColor,
+            );
+            ref.read(anprDetectionOverlayProvider.notifier).state = overlays;
+          }
+        }
+
+        if (result.isLocked) {
+          if (result.plateText != null && result.plateText!.isNotEmpty) {
+            _stopAnprScan();
+
+            final isValidFormat = result.plateType != null && result.plateType != 'unknown';
+            ref.read(weighmentMachineProvider.notifier).updateSession(
+              (s) => s.copyWith(
+                vehicleNumber: isValidFormat ? result.plateText! : s.vehicleNumber,
+                anprPrediction: result.plateText,
+                anprConfidence: result.confidence,
+                plateCropB64: result.bestPlateCropB64,
+              ),
+            );
+
+            // Send plate to display board
+            _sendPlateToDisplayBoard(result.plateText!);
+
+            final ai = ref.read(aiDetectionServiceProvider);
+            await ai.recordTrainingSample(
+              feature: TrainingFeature.anpr,
+              prediction: result.plateText!,
+              operatorAnswer: result.plateText!,
+              confidence: result.confidence,
+              frame: frame,
+            );
+          } else {
+            // No plate found after max frames — try vehicle description fallback
+            _stopAnprScan();
+            _attemptVehicleDescription(frame);
+          }
+        }
+      } else {
+        // Fallback: single-shot if session start failed — try to restart session
+        _anprSessionId = await sidecar.startAnprSession(minVotes: 3, maxFrames: 15);
+        if (_anprSessionId != null) return; // will use session on next tick
+
+        final ai = ref.read(aiDetectionServiceProvider);
+        await ai.initialize();
+        if (!ai.isAvailable || !mounted) return;
+
+        final result = await ai.detectPlate(frame);
+        if (!result.hasResult || !mounted) return;
+
+        final plate = result.result!;
+        if (plate.plateText.isEmpty || plate.confidence < 0.5) return;
+
+        _stopAnprScan();
+        _sendPlateToDisplayBoard(plate.plateText);
+        ref.read(weighmentMachineProvider.notifier).updateSession(
+          (s) => s.copyWith(
+            vehicleNumber: plate.plateText,
+            anprPrediction: plate.plateText,
+            anprConfidence: plate.confidence,
+          ),
+        );
+      }
+    } catch (_) {
+      _anprConsecutiveErrors++;
+      if (_anprConsecutiveErrors >= 5) {
+        _anprSessionId = null;
+        _anprConsecutiveErrors = 0;
+      }
+    }
+  }
+
+
+
+  Future<void> _attemptVehicleDescription(Uint8List frame) async {
+    if (!mounted) return;
+    final sidecar = ref.read(sidecarClientProvider);
+    final desc = await sidecar.describeVehicle(frame);
+    if (desc == null || !desc.hasDescription || !mounted) return;
+
+    // Show snackbar offering the vehicle description
+    final session = ref.read(weighmentMachineProvider).session;
+    if (session == null || session.vehicleNumber.isNotEmpty) return;
+
+    if (!mounted) return;
+    final scheme = Theme.of(context).colorScheme;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.directions_car_rounded, color: scheme.onInverseSurface, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'No plate found. Vehicle: ${desc.descriptor}',
+                style: TextStyle(color: scheme.onInverseSurface, fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'USE',
+          onPressed: () {
+            ref.read(weighmentMachineProvider.notifier).updateSession(
+              (s) => s.copyWith(vehicleNumber: desc.descriptor),
+            );
+          },
+        ),
+        duration: const Duration(seconds: 8),
+        behavior: SnackBarBehavior.floating,
+        width: 400,
       ),
-    );
-
-    await ai.recordTrainingSample(
-      feature: TrainingFeature.anpr,
-      prediction: result.result!.plateText,
-      operatorAnswer: confirmation.confirmedValue,
-      confidence: result.result!.confidence,
-      frame: frame,
     );
   }
 
@@ -234,6 +518,42 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     return true;
   }
 
+  void _showManualEntryDialog() {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Manual Weight Entry'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: 'Weight (kg)', hintText: '0', suffixText: 'kg'),
+          onSubmitted: (v) {
+            final weight = double.tryParse(v);
+            if (weight != null && weight > 0) {
+              Navigator.pop(ctx);
+              _handleManualWeight(weight);
+            }
+          },
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              final weight = double.tryParse(ctrl.text);
+              if (weight != null && weight > 0) {
+                Navigator.pop(ctx);
+                _handleManualWeight(weight);
+              }
+            },
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _handleManualWeight(double weight) {
     final machine = ref.read(weighmentMachineProvider);
     final session = machine.session;
@@ -269,7 +589,6 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     if (session == null) return;
 
     final notifier = ref.read(weighmentMachineProvider.notifier);
-
     final gateAuto = ref.read(gateAutomationProvider);
 
     if (session.firstWeight == null) {
@@ -295,31 +614,24 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final session = ref.read(weighmentMachineProvider).session;
     if (session == null) return;
 
-    // Assign RST
     try {
       final rst = await ref.read(nextRstProvider.future);
       notifier.updateSession((s) => s.copyWith(rstNumber: rst));
     } catch (_) {}
 
-    // Mark completed before saving so status='completed' in Firestore
     notifier.markCompleted();
-
-    // Save to Firestore
     notifier.advanceToStep(WeighmentStep.saveToFirestore);
     await _saveToFirestore();
 
-    // Gate automation: open exit on completion
     final gateAuto = ref.read(gateAutomationProvider);
     gateAuto.onWeighmentComplete(vehicleNumber: session.vehicleNumber);
 
-    // Post-weighment integrations (sheets, whatsapp, billing, sticker)
     final postService = ref.read(postWeighmentServiceProvider);
     final updatedSession = ref.read(weighmentMachineProvider).session;
     if (updatedSession != null) {
       postService.execute(updatedSession.toFirestoreMap());
     }
 
-    // Auto-print docket
     final docId = ref.read(weighmentMachineProvider).session?.existingDocId;
     if (docId != null) {
       ref.read(printServiceProvider).printWeighment(weighmentId: docId);
@@ -334,7 +646,6 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final session = ref.read(weighmentMachineProvider).session;
     if (session == null || session.firstWeight == null) return;
 
-    // Assign RST for first weight too
     try {
       final rst = await ref.read(nextRstProvider.future);
       notifier.updateSession((s) => s.copyWith(rstNumber: rst));
@@ -368,6 +679,12 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     }
   }
 
+  void _handlePrintSlip() {
+    final session = ref.read(weighmentMachineProvider).session;
+    if (session == null || session.existingDocId == null) return;
+    ref.read(printServiceProvider).printWeighment(weighmentId: session.existingDocId!);
+  }
+
   void _handleCancel() async {
     final session = ref.read(weighmentMachineProvider).session;
     if (session != null && session.firstWeight != null) {
@@ -386,17 +703,37 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     }
     ref.read(weighmentMachineProvider.notifier).cancel();
     _elapsedTimer?.cancel();
+    _stopAllScanning();
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<InlineVerificationState>(inlineVerificationProvider, (prev, next) {
+      if (next.phase == VerificationUIPhase.verified && prev?.phase != VerificationUIPhase.verified) {
+        ref.read(faceVerificationProvider.notifier).markVerified(FaceVerifyTrigger.weighmentStart);
+        ref.read(faceVerificationProvider.notifier).markVerified(FaceVerifyTrigger.dayStart);
+        ref.read(faceVerificationProvider.notifier).markVerified(FaceVerifyTrigger.sessionStart);
+      }
+    });
+    ref.listen<int>(anprRescanTriggerProvider, (_, __) => _rescanAnpr());
+
     final machine = ref.watch(weighmentMachineProvider);
     final scheme = Theme.of(context).colorScheme;
+    final session = machine.session;
+    final inlineVerify = ref.watch(inlineVerificationProvider);
+    final reading = ref.watch(scaleReadingProvider).valueOrNull;
+    final modeConfig = ref.watch(weighmentModeConfigProvider).valueOrNull ?? const WeighmentModeConfig();
 
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.f5): _handleCaptureWeight,
-        const SingleActivator(LogicalKeyboardKey.f4): _handlePrintSlip,
+        const SingleActivator(LogicalKeyboardKey.f4): () {
+          if (machine.session?.status == SessionStatus.completed) {
+            _handlePrintSlip();
+          } else {
+            _handleSaveFirstWeight();
+          }
+        },
         const SingleActivator(LogicalKeyboardKey.f2): () => _handleNewWeighment(),
         const SingleActivator(LogicalKeyboardKey.escape): _handleCancel,
       },
@@ -404,294 +741,210 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
         autofocus: true,
         child: Column(
           children: [
-            // Top: Site/Weighbridge selector + mode indicator
-            const WeighbridgeContextBar(label: 'Weighbridge'),
-            _buildModeIndicator(scheme),
+            // Top: Context bar
+            const DeviceContextBar(),
+
+            // Middle: 3-column layout
             Expanded(
               child: Row(
                 children: [
-                  // Left: Pending queue
-                  PendingQueuePanel(onSelect: _handleResumePending),
-                  // Center: Main work area
+                  // LEFT: Pending queue (always visible)
+                  SizedBox(
+                    width: 300,
+                    child: PendingQueuePanel(onSelect: _handleResumePending),
+                  ),
+
+                  // CENTER: Scale + Form + Identity cameras
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: machine.isIdle ? _buildIdleState(scheme) : _buildActiveState(machine, scheme),
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          // Scale reading banner
+                          const LiveWeightBanner(),
+                          const SizedBox(height: 16),
+
+                          // Data zone: Form + AI detections
+                          Expanded(
+                            child: _buildCenterContent(machine, session, scheme),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // Identity cameras at bottom of center
+                          const IdentityCameras(),
+                        ],
+                      ),
                     ),
                   ),
-                  // Right: Camera feeds
-                  if (!machine.isIdle) const CameraFeedsPanel(),
+
+                  // RIGHT: Weighbridge cameras column
+                  const WeighbridgeCamerasColumn(),
                 ],
               ),
             ),
-            // Bottom: Status bar
-            const WeighmentStatusBar(),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildModeIndicator(ColorScheme scheme) {
-    final modeConfig = ref.watch(weighmentModeConfigProvider).valueOrNull ?? const WeighmentModeConfig();
-    final isSingle = modeConfig.entryMode == WeighmentEntryMode.singleEntry;
-
-    return Container(
-      height: 28,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
-        border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.15))),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isSingle ? Icons.looks_one_rounded : Icons.looks_two_rounded,
-            size: 14,
-            color: scheme.primary,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            isSingle ? 'Single Entry' : 'Multi Entry',
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant),
-          ),
-          if (modeConfig.allowCrossWeighbridge && !isSingle) ...[
-            const SizedBox(width: 12),
-            Icon(Icons.swap_horiz_rounded, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-            const SizedBox(width: 4),
-            Text('Cross-WB', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
-          ],
-          if (isSingle && modeConfig.minWeightDiff > 0) ...[
-            const SizedBox(width: 12),
-            Icon(Icons.difference_rounded, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-            const SizedBox(width: 4),
-            Text('Min diff: ${modeConfig.minWeightDiff.toStringAsFixed(0)} kg', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIdleState(ColorScheme scheme) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.scale_rounded, size: 64, color: scheme.primary.withValues(alpha: 0.3)),
-          const SizedBox(height: 24),
-          Text(
-            'Ready for Weighment',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: scheme.onSurface),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Start a new weighment or select a pending vehicle from the queue',
-            style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 32),
-          FilledButton.icon(
-            onPressed: _handleNewWeighment,
-            icon: const Icon(Icons.add_rounded, size: 20),
-            label: const Text('New Weighment'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text('or press F2', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActiveState(WeighmentMachineState machine, ColorScheme scheme) {
-    final session = machine.session!;
-    final hasFirstWeight = session.firstWeight != null;
-    final isComplete = session.status == SessionStatus.completed;
-
-    return Column(
-      children: [
-        // Top: Step indicator + timer
-        _buildTopBar(machine, scheme),
-        const SizedBox(height: 20),
-        // Main content
-        Expanded(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                // Weight display
-                LiveWeightDisplay(
-                  captureEnabled: !isComplete,
-                  onCapture: _handleCaptureWeight,
-                  canManualEntry: ref.watch(permissionServiceProvider).canManualWeight,
-                  onManualCapture: _handleManualWeight,
-                ),
-                const SizedBox(height: 24),
-                // Weight summary (after capture)
-                if (hasFirstWeight) _buildWeightSummary(session, scheme),
-                if (hasFirstWeight) const SizedBox(height: 20),
-                // Vehicle info form
-                const VehicleInfoForm(),
-                const SizedBox(height: 24),
-                // Error
-                if (machine.error != null)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: scheme.errorContainer,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.error_outline, size: 16, color: scheme.error),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(machine.error!, style: TextStyle(fontSize: 12, color: scheme.error))),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        // Bottom: Action buttons
-        _buildActionBar(machine, scheme),
-      ],
-    );
-  }
-
-  Widget _buildTopBar(WeighmentMachineState machine, ColorScheme scheme) {
-    final step = machine.currentStep;
-    final elapsed = machine.elapsed;
-    final minutes = elapsed.inMinutes.toString().padLeft(2, '0');
-    final seconds = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
-
-    return Row(
-      children: [
-        if (step != null) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: scheme.primaryContainer,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              stepConfigs[step]?.label ?? step.name,
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.onPrimaryContainer),
-            ),
-          ),
-          const SizedBox(width: 12),
-        ],
-        const Spacer(),
-        Icon(Icons.timer_outlined, size: 14, color: scheme.onSurfaceVariant),
-        const SizedBox(width: 4),
-        Text(
-          '$minutes:$seconds',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, fontFeatures: const [FontFeature.tabularFigures()], color: scheme.onSurfaceVariant),
-        ),
-        const SizedBox(width: 16),
-        TextButton.icon(
-          onPressed: _handleCancel,
-          icon: Icon(Icons.close_rounded, size: 14, color: scheme.error),
-          label: Text('Cancel', style: TextStyle(fontSize: 12, color: scheme.error)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWeightSummary(WeighmentSession session, ColorScheme scheme) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          _weightBlock('1st Weight', session.firstWeight, session.firstWeighType == 'gross' ? 'Gross' : 'Tare', scheme),
-          if (session.secondWeight != null) ...[
-            Container(width: 1, height: 40, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-            _weightBlock('2nd Weight', session.secondWeight, session.firstWeighType == 'gross' ? 'Tare' : 'Gross', scheme),
-            Container(width: 1, height: 40, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-            _weightBlock('Net Weight', session.netWeight, 'Net', scheme, highlight: true),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _weightBlock(String label, double? weight, String type, ColorScheme scheme, {bool highlight = false}) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(label, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-          const SizedBox(height: 4),
-          Text(
-            weight != null ? '${weight.toStringAsFixed(0)} kg' : '—',
-            style: TextStyle(
-              fontSize: highlight ? 18 : 15,
-              fontWeight: FontWeight.w700,
-              color: highlight ? scheme.primary : scheme.onSurface,
-            ),
-          ),
-          Text(type, style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
-        ],
-      ),
-    );
-  }
-
-  void _handlePrintSlip() {
-    final session = ref.read(weighmentMachineProvider).session;
-    if (session == null || session.existingDocId == null) return;
-    final printService = ref.read(printServiceProvider);
-    printService.printWeighment(weighmentId: session.existingDocId!);
-  }
-
-  Widget _buildActionBar(WeighmentMachineState machine, ColorScheme scheme) {
-    final session = machine.session!;
-    final hasFirstWeight = session.firstWeight != null;
-    final isComplete = session.status == SessionStatus.completed;
-    final modeConfig = ref.watch(weighmentModeConfigProvider).valueOrNull ?? const WeighmentModeConfig();
-    final isMultiEntry = modeConfig.entryMode == WeighmentEntryMode.multiEntry;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
-      ),
-      child: Row(
-        children: [
-          Text('F5 = Capture', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.4))),
-          if (isComplete) ...[
-            const SizedBox(width: 8),
-            Text('F4 = Print', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.4))),
-          ],
-          const Spacer(),
-          if (isMultiEntry && hasFirstWeight && !isComplete && session.secondWeight == null) ...[
-            OutlinedButton(
-              onPressed: _handleSaveFirstWeight,
-              child: const Text('Save & Wait for 2nd Weight'),
-            ),
-            const SizedBox(width: 12),
-          ],
-          if (isComplete) ...[
-            OutlinedButton.icon(
-              onPressed: _handlePrintSlip,
-              icon: const Icon(Icons.print_rounded, size: 18),
-              label: const Text('Print Slip'),
-            ),
-            const SizedBox(width: 12),
-            FilledButton.icon(
-              onPressed: () {
+            // Action bar (full width)
+            WeighmentActionBar(
+              hasSession: session != null,
+              hasFirstWeight: session?.firstWeight != null,
+              isComplete: session?.status == SessionStatus.completed,
+              isMultiEntry: modeConfig.entryMode == WeighmentEntryMode.multiEntry,
+              canCapture: session != null &&
+                  session.status != SessionStatus.completed &&
+                  (reading?.stable ?? false),
+              canManualEntry: ref.watch(permissionServiceProvider).canManualWeight,
+              onNew: _handleNewWeighment,
+              onCapture: _handleCaptureWeight,
+              onManualEntry: _showManualEntryDialog,
+              onSaveWait: _handleSaveFirstWeight,
+              onPrint: _handlePrintSlip,
+              onDone: () {
                 ref.read(weighmentMachineProvider.notifier).reset();
                 _elapsedTimer?.cancel();
               },
-              icon: const Icon(Icons.check_rounded, size: 18),
-              label: const Text('Done — Next Vehicle'),
+              onCancel: _handleCancel,
+            ),
+
+            // Status bar
+            DeviceStatusBar(
+              elapsed: machine.elapsed,
+              sessionActive: !machine.isIdle,
+              isVerified: inlineVerify.phase == VerificationUIPhase.verified ||
+                  ref.watch(faceVerificationProvider).lastWeighmentVerified != null,
+              verificationMethod: inlineVerify.phase == VerificationUIPhase.verified
+                  ? (inlineVerify.verifiedName ?? 'face')
+                  : (ref.watch(faceVerificationProvider).lastWeighmentVerified != null ? 'face' : null),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCenterContent(WeighmentMachineState machine, WeighmentSession? session, ColorScheme scheme) {
+    final inlineVerify = ref.watch(inlineVerificationProvider);
+    final hasSession = session != null;
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Verification/session status banner (when no active session)
+          if (!hasSession) _buildSessionPrompt(scheme, inlineVerify),
+
+          // Weight summary (after first capture)
+          if (hasSession && session.firstWeight != null) ...[
+            WeightSummaryStrip(
+              firstWeight: session.firstWeight,
+              secondWeight: session.secondWeight,
+              firstWeighType: session.firstWeighType,
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Vehicle form (AI detection shown inline in fields)
+          if (hasSession) const VehicleInfoForm(),
+
+          // Error message
+          if (machine.error != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: scheme.errorContainer,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline, size: 16, color: scheme.error),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(machine.error!, style: TextStyle(fontSize: 13, color: scheme.error))),
+                ],
+              ),
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildSessionPrompt(ColorScheme scheme, InlineVerificationState verifyState) {
+    final isVerifying = verifyState.phase == VerificationUIPhase.background;
+    final needsPin = verifyState.phase == VerificationUIPhase.pinRequired;
+    final isVerified = verifyState.phase == VerificationUIPhase.verified;
+    final isIdle = verifyState.phase == VerificationUIPhase.idle;
+
+    IconData icon;
+    String title;
+    String subtitle;
+    Color accentColor;
+
+    if (isVerifying) {
+      icon = Icons.face_rounded;
+      title = 'Verifying identity...';
+      subtitle = 'Look at the operator camera. Weighment will begin automatically once verified.';
+      accentColor = Colors.blue;
+    } else if (needsPin) {
+      icon = Icons.pin_rounded;
+      title = 'PIN verification required';
+      subtitle = 'Enter your PIN in the operator camera panel to start weighment.';
+      accentColor = Colors.orange;
+    } else if (isVerified || isIdle) {
+      icon = Icons.scale_rounded;
+      title = 'Ready';
+      subtitle = 'Press F2 or select a pending vehicle to start a new weighment.';
+      accentColor = scheme.primary;
+    } else {
+      icon = Icons.scale_rounded;
+      title = 'Ready';
+      subtitle = 'Press F2 to begin.';
+      accentColor = scheme.primary;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: accentColor.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: accentColor.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44, height: 44,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 22, color: accentColor),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: scheme.onSurface)),
+                      if (isVerifying) ...[
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 14, height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: accentColor),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant)),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

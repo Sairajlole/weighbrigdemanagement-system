@@ -1,12 +1,16 @@
 import Cocoa
 import FlutterMacOS
 import AVFoundation
+import Vision
 
-/// Simple webcam plugin for face enrollment — captures JPEG frames from the default front camera.
+/// Simple webcam plugin for face enrollment — captures JPEG frames from a selected camera.
 public class WebcamPlugin: NSObject, FlutterPlugin, AVCaptureVideoDataOutputSampleBufferDelegate {
 
     private var captureSession: AVCaptureSession?
-    private var latestBuffer: CVPixelBuffer?
+    private var latestJpeg: Data?
+    private var faceDetected: Bool = false
+    private var faceCount: Int = 0
+    private var frameCount: Int = 0
     private let queue = DispatchQueue(label: "webcam.face.capture", qos: .userInteractive)
 
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -17,10 +21,16 @@ public class WebcamPlugin: NSObject, FlutterPlugin, AVCaptureVideoDataOutputSamp
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
+        case "listCameras":
+            listCameras(result: result)
         case "startCamera":
-            startCamera(result: result)
+            let args = call.arguments as? [String: Any]
+            let deviceId = args?["deviceId"] as? String
+            startCamera(deviceId: deviceId, result: result)
         case "captureFrame":
             captureFrame(result: result)
+        case "detectFace":
+            detectFace(result: result)
         case "stopCamera":
             stopCamera(result: result)
         default:
@@ -28,7 +38,35 @@ public class WebcamPlugin: NSObject, FlutterPlugin, AVCaptureVideoDataOutputSamp
         }
     }
 
-    private func startCamera(result: @escaping FlutterResult) {
+    private func listCameras(result: @escaping FlutterResult) {
+        let devices: [AVCaptureDevice]
+        if #available(macOS 14.0, *) {
+            let session = AVCaptureDevice.DiscoverySession(
+                deviceTypes: [.builtInWideAngleCamera, .externalUnknown, .continuityCamera],
+                mediaType: .video,
+                position: .unspecified
+            )
+            devices = session.devices
+        } else {
+            let session = AVCaptureDevice.DiscoverySession(
+                deviceTypes: [.builtInWideAngleCamera, .externalUnknown],
+                mediaType: .video,
+                position: .unspecified
+            )
+            devices = session.devices
+        }
+        let cameras = devices
+            .filter { !$0.localizedName.lowercased().contains("desk view") }
+            .map { device -> [String: String] in
+                return [
+                    "id": device.uniqueID,
+                    "name": device.localizedName,
+                ]
+            }
+        result(cameras)
+    }
+
+    private func startCamera(deviceId: String?, result: @escaping FlutterResult) {
         AVCaptureDevice.requestAccess(for: .video) { granted in
             DispatchQueue.main.async {
                 if !granted {
@@ -36,19 +74,40 @@ public class WebcamPlugin: NSObject, FlutterPlugin, AVCaptureVideoDataOutputSamp
                     return
                 }
 
-                // Find front-facing or default camera
-                let device: AVCaptureDevice?
-                if #available(macOS 10.15, *) {
-                    let session = AVCaptureDevice.DiscoverySession(
+                // Stop existing session if any
+                if let existing = self.captureSession {
+                    existing.stopRunning()
+                    for input in existing.inputs { existing.removeInput(input) }
+                    for output in existing.outputs { existing.removeOutput(output) }
+                    self.captureSession = nil
+                    self.latestJpeg = nil
+                }
+
+                let allDevices: [AVCaptureDevice]
+                if #available(macOS 14.0, *) {
+                    let disc = AVCaptureDevice.DiscoverySession(
+                        deviceTypes: [.builtInWideAngleCamera, .externalUnknown, .continuityCamera],
+                        mediaType: .video,
+                        position: .unspecified
+                    )
+                    allDevices = disc.devices
+                } else {
+                    let disc = AVCaptureDevice.DiscoverySession(
                         deviceTypes: [.builtInWideAngleCamera, .externalUnknown],
                         mediaType: .video,
                         position: .unspecified
                     )
-                    // Prefer front-facing camera
-                    device = session.devices.first(where: { $0.position == .front })
-                        ?? session.devices.first(where: { !$0.localizedName.lowercased().contains("desk view") })
+                    allDevices = disc.devices
+                }
+                let filtered = allDevices.filter { !$0.localizedName.lowercased().contains("desk view") }
+
+                let device: AVCaptureDevice?
+                if let requestedId = deviceId, !requestedId.isEmpty {
+                    device = filtered.first(where: { $0.uniqueID == requestedId })
+                        ?? filtered.first(where: { $0.localizedName == requestedId })
                 } else {
-                    device = AVCaptureDevice.default(for: .video)
+                    device = filtered.first(where: { $0.position == .front })
+                        ?? filtered.first
                 }
 
                 guard let camera = device else {
@@ -57,29 +116,32 @@ public class WebcamPlugin: NSObject, FlutterPlugin, AVCaptureVideoDataOutputSamp
                 }
 
                 do {
-                    let session = AVCaptureSession()
-                    session.sessionPreset = .medium
+                    let captureSession = AVCaptureSession()
+                    captureSession.sessionPreset = .medium
 
                     let input = try AVCaptureDeviceInput(device: camera)
-                    guard session.canAddInput(input) else {
+                    guard captureSession.canAddInput(input) else {
                         result(FlutterError(code: "INIT_ERROR", message: "Cannot add camera input", details: nil))
                         return
                     }
-                    session.addInput(input)
+                    captureSession.addInput(input)
 
                     let output = AVCaptureVideoDataOutput()
                     output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
                     output.alwaysDiscardsLateVideoFrames = true
                     output.setSampleBufferDelegate(self, queue: self.queue)
 
-                    guard session.canAddOutput(output) else {
+                    guard captureSession.canAddOutput(output) else {
                         result(FlutterError(code: "INIT_ERROR", message: "Cannot add video output", details: nil))
                         return
                     }
-                    session.addOutput(output)
+                    captureSession.addOutput(output)
 
-                    session.startRunning()
-                    self.captureSession = session
+                    self.frameCount = 0
+                    self.faceDetected = false
+                    self.faceCount = 0
+                    captureSession.startRunning()
+                    self.captureSession = captureSession
                     result(true)
                 } catch {
                     result(FlutterError(code: "INIT_ERROR", message: error.localizedDescription, details: nil))
@@ -89,24 +151,15 @@ public class WebcamPlugin: NSObject, FlutterPlugin, AVCaptureVideoDataOutputSamp
     }
 
     private func captureFrame(result: @escaping FlutterResult) {
-        guard let buffer = latestBuffer else {
+        guard let jpeg = latestJpeg else {
             result(FlutterError(code: "NO_FRAME", message: "No frame available", details: nil))
             return
         }
+        result(FlutterStandardTypedData(bytes: jpeg))
+    }
 
-        CVPixelBufferLockBaseAddress(buffer, .readOnly)
-        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
-
-        let ciImage = CIImage(cvPixelBuffer: buffer)
-        let context = CIContext()
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-
-        guard let jpegData = context.jpegRepresentation(of: ciImage, colorSpace: colorSpace, options: [:]) else {
-            result(FlutterError(code: "ENCODE_ERROR", message: "Failed to encode frame", details: nil))
-            return
-        }
-
-        result(FlutterStandardTypedData(bytes: jpegData))
+    private func detectFace(result: @escaping FlutterResult) {
+        result(["detected": faceDetected, "count": faceCount] as [String: Any])
     }
 
     private func stopCamera(result: @escaping FlutterResult) {
@@ -118,7 +171,9 @@ public class WebcamPlugin: NSObject, FlutterPlugin, AVCaptureVideoDataOutputSamp
             for output in outputs { captureSession?.removeOutput(output) }
         }
         captureSession = nil
-        latestBuffer = nil
+        latestJpeg = nil
+        faceDetected = false
+        faceCount = 0
         result(true)
     }
 
@@ -126,6 +181,31 @@ public class WebcamPlugin: NSObject, FlutterPlugin, AVCaptureVideoDataOutputSamp
 
     public func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        latestBuffer = imageBuffer
+
+        // Convert to JPEG
+        CVPixelBufferLockBaseAddress(imageBuffer, .readOnly)
+        let ciImage = CIImage(cvPixelBuffer: imageBuffer)
+        let context = CIContext()
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        if let jpeg = context.jpegRepresentation(of: ciImage, colorSpace: colorSpace, options: [:]) {
+            latestJpeg = jpeg
+        }
+        CVPixelBufferUnlockBaseAddress(imageBuffer, .readOnly)
+
+        // Run face detection every 5th frame to avoid overload
+        frameCount += 1
+        if frameCount % 5 == 0 {
+            let request = VNDetectFaceRectanglesRequest()
+            let handler = VNImageRequestHandler(cvPixelBuffer: imageBuffer, orientation: .up, options: [:])
+            do {
+                try handler.perform([request])
+                let faces = request.results ?? []
+                faceDetected = !faces.isEmpty
+                faceCount = faces.count
+            } catch {
+                faceDetected = false
+                faceCount = 0
+            }
+        }
     }
 }

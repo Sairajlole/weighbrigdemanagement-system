@@ -72,7 +72,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (!authRoutes.contains(state.matchedLocation)) return '/setup';
       }
       if (siteCtx.isConfigured && wizardProgress.setupComplete && isSetupRoute) {
-        if (skipAuth) return null; // macOS dev: stay on setup (welcome page)
+        if (skipAuth) return null;
         final authState = ref.read(authStateProvider);
         final isLoggedIn = authState.valueOrNull != null;
         if (!isLoggedIn) return null;

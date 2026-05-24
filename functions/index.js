@@ -3,6 +3,7 @@ const admin = require("firebase-admin");
 
 admin.initializeApp();
 const db = admin.firestore();
+const bucket = admin.storage().bucket("weighbridge-management.firebasestorage.app");
 
 // ─── Operator Created: Set defaults ─────────────────────────────────────────
 
@@ -2615,6 +2616,7 @@ exports.migrateFreeTierToTrial = functions.https.onCall(async (data, context) =>
 // ─── Verify Document (GSTIN Certificate / PAN Card via Vision OCR) ──────────
 
 const vision = require("@google-cloud/vision");
+const Jimp = require("jimp");
 
 exports.verifyDocument = functions.runWith({ timeoutSeconds: 60, memory: "512MB" }).https.onCall(async (data) => {
   const { imageBase64, documentType, expectedGstin, expectedPan } = data;
@@ -3110,20 +3112,58 @@ exports.verifyOperatorId = functions.runWith({ timeoutSeconds: 90, memory: "512M
       extractedName = [givenNames, surname].filter(Boolean).join(" ");
     }
 
-    // Passport address: look for "Address" or "Place of Birth"
+    // Passport address extraction — Indian passport last page format:
+    // "Address" label followed by multi-line residential address (can be 3-8 lines)
+    // terminated by pincode line, or next field ("Name of Father", "Name of Mother", "Spouse", "File No", "Old Passport")
+    const addrTerminators = /^(name of (father|mother|spouse)|spouse|father|mother|file\s*(no|number)|old passport|emergency|place of (birth|issue))/i;
+
     for (let i = 0; i < lines.length; i++) {
-      if (/^(address|place of birth|place of issue)\s*[:.]?/i.test(lines[i])) {
+      if (/\baddress\b/i.test(lines[i])) {
         const addrLines = [];
-        const firstLine = lines[i].replace(/^(address|place of birth|place of issue)\s*[:.]?\s*/i, "").trim();
-        if (firstLine.length > 2) addrLines.push(firstLine);
-        for (let j = i + 1; j < lines.length && j < i + 5; j++) {
+        const firstLine = lines[i].replace(/^.*\baddress\b\s*[:.]?\s*/i, "").trim();
+        if (firstLine.length > 2 && !addrTerminators.test(firstLine)) addrLines.push(firstLine);
+        for (let j = i + 1; j < lines.length && j < i + 10; j++) {
           const l = lines[j].trim();
-          if (/^(date|DOB|DOI|passport|surname|given|nationality|sex|type)/i.test(l)) break;
+          if (addrTerminators.test(l)) break;
           if (l.length > 1) addrLines.push(l);
-          if (/\b\d{6}\b/.test(l)) break;
+          if (/\b\d{6}\b/.test(l)) break; // pincode = end of address
         }
-        if (addrLines.length > 0) extractedAddress = addrLines.join(", ");
-        break;
+        if (addrLines.length > 0) {
+          extractedAddress = addrLines.join(", ");
+          break;
+        }
+      }
+    }
+
+    // Fallback: "Place of Birth" as partial address (front page)
+    if (!extractedAddress) {
+      for (let i = 0; i < lines.length; i++) {
+        if (/place of birth/i.test(lines[i])) {
+          const val = lines[i].replace(/^.*place of birth\s*[:.]?\s*/i, "").trim();
+          if (val.length > 2) { extractedAddress = val; break; }
+          if (i + 1 < lines.length && lines[i + 1].trim().length > 2 && !/^(date|DOI|sex|nationality)/i.test(lines[i + 1])) {
+            extractedAddress = lines[i + 1].trim();
+            break;
+          }
+        }
+      }
+    }
+
+    // Last fallback: pincode-bearing line + preceding context
+    if (!extractedAddress) {
+      for (let i = 0; i < lines.length; i++) {
+        if (/\b\d{6}\b/.test(lines[i]) && !/passport|file/i.test(lines[i])) {
+          const addrLines = [];
+          const startIdx = Math.max(0, i - 4);
+          for (let j = startIdx; j <= i; j++) {
+            const l = lines[j].trim();
+            if (l.length > 2 && !/^(surname|given|date|DOB|nationality|sex|type|passport|name of)/i.test(l)) {
+              addrLines.push(l);
+            }
+          }
+          if (addrLines.length > 0) extractedAddress = addrLines.join(", ");
+          break;
+        }
       }
     }
   }
@@ -3260,24 +3300,129 @@ exports.verifyOperatorId = functions.runWith({ timeoutSeconds: 90, memory: "512M
   const titleName = toTitleCase(extractedName.trim());
   const titleAddress = extractedAddress ? toTitleCase(extractedAddress.trim()) : null;
 
-  // Store ID image and face landmarks for future face enrollment comparison
-  if (companyId && nameMatch !== "mismatch" && imageList.length > 0) {
+  // Extract and crop face photo from ID for enrollment comparison
+  let croppedFaceBase64 = null;
+  const firstImageBuffer = Buffer.from(imageList[0], "base64");
+  const firstImageIsPdf = firstImageBuffer.slice(0, 5).toString() === "%PDF-";
+  if (imageList.length > 0 && !firstImageIsPdf) {
     try {
-      // Detect face in ID document for later comparison
+      // Step 1: Detect face bounding box in full ID document image
       const [faceResult] = await client.faceDetection({ image: { content: imageList[0] } });
       const idFaces = faceResult.faceAnnotations || [];
+      functions.logger.info(`Face detection on ID: found ${idFaces.length} face(s)`);
+
       if (idFaces.length > 0) {
-        const idFaceLandmarks = {};
-        for (const lm of (idFaces[0].landmarks || [])) {
+        const bestFace = idFaces[0];
+        const vertices = bestFace.fdBoundingPoly?.vertices || bestFace.boundingPoly?.vertices || [];
+        functions.logger.info(`Face bounding vertices: ${JSON.stringify(vertices)}`);
+
+        if (vertices.length >= 4) {
+          // Compute bounding rect from vertices
+          const xs = vertices.map(v => v.x || 0);
+          const ys = vertices.map(v => v.y || 0);
+          let left = Math.max(0, Math.min(...xs));
+          let top = Math.max(0, Math.min(...ys));
+          let right = Math.max(...xs);
+          let bottom = Math.max(...ys);
+
+          // Add 20% padding around face for better landmark context
+          const w = right - left;
+          const h = bottom - top;
+          const padX = Math.round(w * 0.20);
+          const padY = Math.round(h * 0.20);
+          left = Math.max(0, left - padX);
+          top = Math.max(0, top - padY);
+          right = right + padX;
+          bottom = bottom + padY;
+
+          // Step 2: Crop face region from full ID image using Jimp
+          const idBuffer = Buffer.from(imageList[0], "base64");
+          const image = await Jimp.read(idBuffer);
+          const imgWidth = image.getWidth();
+          const imgHeight = image.getHeight();
+          functions.logger.info(`ID image size: ${imgWidth}x${imgHeight}, crop: left=${Math.round(left)} top=${Math.round(top)} w=${Math.round(right-left)} h=${Math.round(bottom-top)}`);
+
+          const cropLeft = Math.max(0, Math.round(left));
+          const cropTop = Math.max(0, Math.round(top));
+          const cropWidth = Math.min(Math.round(right - left), imgWidth - cropLeft);
+          const cropHeight = Math.min(Math.round(bottom - top), imgHeight - cropTop);
+
+          if (cropWidth > 20 && cropHeight > 20) {
+            const cropped = image.clone().crop(cropLeft, cropTop, cropWidth, cropHeight);
+            const croppedBuffer = await cropped.quality(90).getBufferAsync(Jimp.MIME_JPEG);
+            croppedFaceBase64 = croppedBuffer.toString("base64");
+            functions.logger.info(`Cropped face: ${croppedFaceBase64.length} chars`);
+          }
+        }
+      } else {
+        // No face detected via faceDetection — try object localization as fallback
+        functions.logger.info("No face found via faceDetection, trying objectLocalization...");
+        const [objResult] = await client.objectLocalization({ image: { content: imageList[0] } });
+        const persons = (objResult.localizedObjectAnnotations || []).filter(o => o.name === "Person" || o.name === "Face");
+        if (persons.length > 0) {
+          const person = persons[0];
+          const normVerts = person.boundingPoly?.normalizedVertices || [];
+          if (normVerts.length >= 4) {
+            const idBuffer = Buffer.from(imageList[0], "base64");
+            const image = await Jimp.read(idBuffer);
+            const imgWidth = image.getWidth();
+            const imgHeight = image.getHeight();
+
+            const xs = normVerts.map(v => (v.x || 0) * imgWidth);
+            const ys = normVerts.map(v => (v.y || 0) * imgHeight);
+            const cropLeft = Math.max(0, Math.round(Math.min(...xs)));
+            const cropTop = Math.max(0, Math.round(Math.min(...ys)));
+            const cropWidth = Math.min(Math.round(Math.max(...xs) - Math.min(...xs)), imgWidth - cropLeft);
+            const cropHeight = Math.min(Math.round(Math.max(...ys) - Math.min(...ys)), imgHeight - cropTop);
+
+            if (cropWidth > 20 && cropHeight > 20) {
+              const cropped = image.clone().crop(cropLeft, cropTop, cropWidth, cropHeight);
+              const croppedBuffer = await cropped.quality(90).getBufferAsync(Jimp.MIME_JPEG);
+              croppedFaceBase64 = croppedBuffer.toString("base64");
+              functions.logger.info(`Cropped via objectLocalization: ${croppedFaceBase64.length} chars`);
+            }
+          }
+        }
+      }
+
+      // Fallback: if no face/person detected, convert full image to JPEG as reference
+      if (!croppedFaceBase64) {
+        functions.logger.info("No face region found via any method — converting full ID image to JPEG as reference");
+        try {
+          const idBuffer = Buffer.from(imageList[0], "base64");
+          const image = await Jimp.read(idBuffer);
+          const jpegBuffer = await image.quality(85).getBufferAsync(Jimp.MIME_JPEG);
+          croppedFaceBase64 = jpegBuffer.toString("base64");
+          functions.logger.info(`Fallback JPEG: ${croppedFaceBase64.length} chars`);
+        } catch (imgErr) {
+          functions.logger.warn("Could not convert ID image to JPEG:", imgErr.message);
+        }
+      }
+
+      // Step 3: Run face landmark detection on cropped face (higher accuracy)
+      const faceImageForLandmarks = croppedFaceBase64;
+      const [croppedFaceResult] = await client.faceDetection({ image: { content: faceImageForLandmarks } });
+      const croppedFaces = croppedFaceResult.faceAnnotations || [];
+
+      let idFaceLandmarks = null;
+      if (croppedFaces.length > 0) {
+        idFaceLandmarks = {};
+        for (const lm of (croppedFaces[0].landmarks || [])) {
           idFaceLandmarks[lm.type] = { x: lm.position.x, y: lm.position.y, z: lm.position.z || 0 };
         }
-        // Save to operator doc for enrollment comparison
-        const opQuery = await db.collection("operators")
-          .where("companyId", "==", companyId)
+      }
+
+      // Step 4: Save to operator doc — full ID image + cropped face photo + landmarks
+      if (companyId) {
+        const opQuery = await db.collection(`companies/${companyId}/operators`)
           .where("name", "==", operatorName.trim())
           .limit(1).get();
         if (opQuery.docs.length > 0) {
-          await opQuery.docs[0].ref.update({ idFaceLandmarks, idImageBase64: imageList[0] });
+          await opQuery.docs[0].ref.update({
+            ...(idFaceLandmarks && { idFaceLandmarks }),
+            idDocImages: imageList,
+            ...(croppedFaceBase64 && { idCroppedFaceBase64: croppedFaceBase64 }),
+          });
         }
       }
     } catch (e) {
@@ -3297,6 +3442,7 @@ exports.verifyOperatorId = functions.runWith({ timeoutSeconds: 90, memory: "512M
     similarity: Math.round(similarity * 100),
     tokenSimilarity: Math.round(tokenSimilarity * 100),
     duplicateWarning,
+    idCroppedFaceBase64: croppedFaceBase64 || null,
     message: nameMatch === "exact" ? "Name matches perfectly."
       : nameMatch === "close" ? `Name is similar: "${titleName}". You can update the operator name to match the ID.`
       : `Name on document "${titleName}" does not match operator name "${operatorName}".`,
@@ -3620,10 +3766,363 @@ exports.updateOperatorEmail = functions.https.onCall(async (data, context) => {
 });
 
 // ─── Face Enrollment ────────────────────────────────────────────────────────
-// Receives webcam face snapshots, verifies a face is present, compares against
-// the ID document face stored during verifyOperatorId, and stores face embeddings.
+// Receives webcam face snapshots, detects faces, and stores face landmark
+// embeddings for future operator verification during login.
 
-exports.enrollOperatorFace = functions.https.onCall(async (data) => {
+exports.validateFaceConsistency = functions.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onCall(async (data) => {
+  const { images, referenceImages } = data;
+
+  if (!images || !images.length) {
+    throw new functions.https.HttpsError("invalid-argument", "At least one face image required");
+  }
+
+  let Jimp, client;
+  try {
+    Jimp = require("jimp");
+    client = new vision.ImageAnnotatorClient();
+  } catch (initErr) {
+    functions.logger.error("validateFaceConsistency init error:", initErr);
+    throw new functions.https.HttpsError("internal", `Initialization failed: ${initErr.message}`);
+  }
+
+  try {
+  // Step 1: Detect faces, extract landmarks + pose, and crop to normalized grayscale
+  const CROP_SIZE = 64;
+  const faceCrops = []; // { pixels, confidence }
+  const facePoses = []; // { roll, pan, tilt }
+  const faceLandmarks = []; // { noseTip, leftEye, rightEye, leftEarTop, rightEarTop }
+  const eyeAspectRatios = []; // EAR per frame
+
+  const getLandmarkPos = (landmarks, type) => {
+    const lm = landmarks.find(l => l.type === type);
+    return lm ? { x: lm.position.x || 0, y: lm.position.y || 0 } : null;
+  };
+
+  const computeEAR = (landmarks) => {
+    const leftTop = getLandmarkPos(landmarks, "LEFT_EYE_TOP_BOUNDARY");
+    const leftBottom = getLandmarkPos(landmarks, "LEFT_EYE_BOTTOM_BOUNDARY");
+    const leftLeft = getLandmarkPos(landmarks, "LEFT_EYE_LEFT_CORNER");
+    const leftRight = getLandmarkPos(landmarks, "LEFT_EYE_RIGHT_CORNER");
+    const rightTop = getLandmarkPos(landmarks, "RIGHT_EYE_TOP_BOUNDARY");
+    const rightBottom = getLandmarkPos(landmarks, "RIGHT_EYE_BOTTOM_BOUNDARY");
+    const rightLeft = getLandmarkPos(landmarks, "RIGHT_EYE_LEFT_CORNER");
+    const rightRight = getLandmarkPos(landmarks, "RIGHT_EYE_RIGHT_CORNER");
+
+    if (!leftTop || !leftBottom || !leftLeft || !leftRight || !rightTop || !rightBottom || !rightLeft || !rightRight) return null;
+
+    const dist = (a, b) => Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+    const leftEAR = dist(leftTop, leftBottom) / (dist(leftLeft, leftRight) || 1);
+    const rightEAR = dist(rightTop, rightBottom) / (dist(rightLeft, rightRight) || 1);
+    return (leftEAR + rightEAR) / 2;
+  };
+
+  for (const img of images) {
+    try {
+      const [result] = await client.faceDetection({ image: { content: img } });
+      const faces = result.faceAnnotations || [];
+      if (faces.length === 0) continue;
+
+      const bestFace = faces.reduce((a, b) =>
+        (a.detectionConfidence || 0) > (b.detectionConfidence || 0) ? a : b
+      );
+      if ((bestFace.detectionConfidence || 0) < 0.7) continue;
+
+      // Extract head pose angles
+      facePoses.push({
+        roll: bestFace.rollAngle || 0,
+        pan: bestFace.panAngle || 0,
+        tilt: bestFace.tiltAngle || 0,
+      });
+
+      // Extract key landmarks for micro-motion analysis
+      const landmarks = bestFace.landmarks || [];
+      const noseTip = getLandmarkPos(landmarks, "NOSE_TIP");
+      const leftEye = getLandmarkPos(landmarks, "LEFT_EYE");
+      const rightEye = getLandmarkPos(landmarks, "RIGHT_EYE");
+      if (noseTip && leftEye && rightEye) {
+        faceLandmarks.push({ noseTip, leftEye, rightEye });
+      }
+
+      // Compute EAR
+      const ear = computeEAR(landmarks);
+      if (ear !== null) eyeAspectRatios.push(ear);
+
+      // Get bounding box for face crop
+      const vertices = bestFace.boundingPoly?.vertices || bestFace.fdBoundingPoly?.vertices;
+      if (!vertices || vertices.length < 4) continue;
+
+      const xs = vertices.map(v => v.x || 0);
+      const ys = vertices.map(v => v.y || 0);
+      let x = Math.max(0, Math.min(...xs));
+      let y = Math.max(0, Math.min(...ys));
+      let w = Math.max(...xs) - x;
+      let h = Math.max(...ys) - y;
+      if (w < 20 || h < 20) continue;
+
+      const imgBuf = Buffer.from(img, "base64");
+      const jimpImg = await Jimp.read(imgBuf);
+
+      x = Math.min(x, jimpImg.bitmap.width - 1);
+      y = Math.min(y, jimpImg.bitmap.height - 1);
+      w = Math.min(w, jimpImg.bitmap.width - x);
+      h = Math.min(h, jimpImg.bitmap.height - y);
+
+      const cropped = jimpImg.crop(x, y, w, h).resize(CROP_SIZE, CROP_SIZE).greyscale();
+
+      const pixels = new Float64Array(CROP_SIZE * CROP_SIZE);
+      for (let py = 0; py < CROP_SIZE; py++) {
+        for (let px = 0; px < CROP_SIZE; px++) {
+          const rgba = Jimp.intToRGBA(cropped.getPixelColor(px, py));
+          pixels[py * CROP_SIZE + px] = rgba.r / 255.0;
+        }
+      }
+
+      faceCrops.push({ pixels, confidence: bestFace.detectionConfidence });
+    } catch (e) {
+      functions.logger.warn("Face crop failed for frame:", e.message);
+    }
+  }
+
+  functions.logger.info(`Face consistency: ${faceCrops.length} valid crops from ${images.length} images`);
+
+  if (faceCrops.length < 4) {
+    return {
+      success: false,
+      facesDetected: faceCrops.length,
+      message: `Only ${faceCrops.length} valid face(s) detected. Need at least 4 clear shots. Ensure good lighting and face the camera directly.`,
+    };
+  }
+
+  // Step 2: Liveness detection — head pose variance, landmark micro-motion, EAR variance
+  const variance = (arr) => {
+    if (arr.length < 2) return 0;
+    const mean = arr.reduce((s, v) => s + v, 0) / arr.length;
+    return arr.reduce((s, v) => s + (v - mean) ** 2, 0) / arr.length;
+  };
+
+  let livenessPass = true;
+  let livenessReason = "";
+  const livenessMetrics = {};
+
+  // Check 1: Head pose variance — real faces have natural micro-tilts
+  if (facePoses.length >= 4) {
+    const rollVar = variance(facePoses.map(p => p.roll));
+    const panVar = variance(facePoses.map(p => p.pan));
+    const tiltVar = variance(facePoses.map(p => p.tilt));
+    const totalPoseVar = rollVar + panVar + tiltVar;
+    livenessMetrics.poseVariance = parseFloat(totalPoseVar.toFixed(4));
+    livenessMetrics.rollVar = parseFloat(rollVar.toFixed(4));
+    livenessMetrics.panVar = parseFloat(panVar.toFixed(4));
+    livenessMetrics.tiltVar = parseFloat(tiltVar.toFixed(4));
+
+    // A static photo will have near-zero pose variance (< 0.5 degrees² combined)
+    // Real faces naturally vary by 1-5+ degrees across captures
+    if (totalPoseVar < 0.15) {
+      livenessPass = false;
+      livenessReason = "No natural head movement detected between captures. Please face the camera naturally — small movements are expected.";
+    }
+  }
+
+  // Check 2: Landmark micro-motion — real faces shift position slightly between frames
+  if (livenessPass && faceLandmarks.length >= 4) {
+    // Normalize landmarks relative to inter-eye distance to be scale-invariant
+    const normalizedPositions = faceLandmarks.map(lm => {
+      const eyeDist = Math.sqrt((lm.leftEye.x - lm.rightEye.x) ** 2 + (lm.leftEye.y - lm.rightEye.y) ** 2) || 1;
+      return {
+        noseX: lm.noseTip.x / eyeDist,
+        noseY: lm.noseTip.y / eyeDist,
+        leftX: lm.leftEye.x / eyeDist,
+        leftY: lm.leftEye.y / eyeDist,
+      };
+    });
+
+    const noseXVar = variance(normalizedPositions.map(p => p.noseX));
+    const noseYVar = variance(normalizedPositions.map(p => p.noseY));
+    const landmarkVar = noseXVar + noseYVar;
+    livenessMetrics.landmarkVariance = parseFloat(landmarkVar.toFixed(6));
+
+    // A held-up photo has near-zero normalized landmark variance
+    // Real faces: nose position relative to eyes shifts due to micro head tilts
+    if (landmarkVar < 0.0001) {
+      livenessPass = false;
+      livenessReason = "Face appears static across all captures. Please ensure you are present in person — photos are not accepted.";
+    }
+  }
+
+  // Check 3: Eye Aspect Ratio variance — natural blinking causes variation
+  if (livenessPass && eyeAspectRatios.length >= 4) {
+    const earVar = variance(eyeAspectRatios);
+    const earMean = eyeAspectRatios.reduce((s, v) => s + v, 0) / eyeAspectRatios.length;
+    livenessMetrics.earVariance = parseFloat(earVar.toFixed(6));
+    livenessMetrics.earMean = parseFloat(earMean.toFixed(4));
+
+    // Real eyes have micro-fluctuation in openness (natural partial blinks)
+    // A photo has perfectly uniform eye openness (variance < 0.0001)
+    if (earVar < 0.00005) {
+      livenessPass = false;
+      livenessReason = "No natural eye movement detected. Please blink naturally between captures — holding eyes open rigidly or using a photo will be rejected.";
+    }
+  }
+
+  functions.logger.info(`Liveness: pass=${livenessPass}, metrics=${JSON.stringify(livenessMetrics)}`);
+
+  if (!livenessPass) {
+    return {
+      success: false,
+      facesDetected: faceCrops.length,
+      liveness: false,
+      livenessMetrics,
+      message: livenessReason,
+    };
+  }
+
+  // Step 3: Identity consistency — NCC pixel comparison (same person check)
+  const SIMILARITY_THRESHOLD = 0.45;
+
+  const computeNCC = (a, b) => {
+    const n = a.length;
+    let sumA = 0, sumB = 0;
+    for (let i = 0; i < n; i++) { sumA += a[i]; sumB += b[i]; }
+    const meanA = sumA / n, meanB = sumB / n;
+    let num = 0, denA = 0, denB = 0;
+    for (let i = 0; i < n; i++) {
+      const da = a[i] - meanA, db = b[i] - meanB;
+      num += da * db;
+      denA += da * da;
+      denB += db * db;
+    }
+    const den = Math.sqrt(denA * denB);
+    return den === 0 ? 0 : num / den;
+  };
+
+  const outlierCounts = faceCrops.map((_, i) => {
+    let failures = 0;
+    for (let j = 0; j < faceCrops.length; j++) {
+      if (i === j) continue;
+      const ncc = computeNCC(faceCrops[i].pixels, faceCrops[j].pixels);
+      if (ncc < SIMILARITY_THRESHOLD) failures++;
+    }
+    return failures;
+  });
+
+  const halfGroup = Math.floor(faceCrops.length / 2);
+  const outliers = outlierCounts.filter(c => c >= halfGroup).length;
+
+  let totalNCC = 0, pairCount = 0;
+  for (let i = 0; i < faceCrops.length; i++) {
+    for (let j = i + 1; j < faceCrops.length; j++) {
+      totalNCC += computeNCC(faceCrops[i].pixels, faceCrops[j].pixels);
+      pairCount++;
+    }
+  }
+  const avgNCC = pairCount > 0 ? totalNCC / pairCount : 0;
+  const avgConfidence = faceCrops.reduce((s, f) => s + f.confidence, 0) / faceCrops.length;
+
+  functions.logger.info(`Face NCC: avg=${avgNCC.toFixed(3)}, outliers=${outliers}/${faceCrops.length}, counts=[${outlierCounts.join(",")}]`);
+
+  if (outliers > 1) {
+    return {
+      success: false,
+      facesDetected: faceCrops.length,
+      avgConfidence: parseFloat(avgConfidence.toFixed(3)),
+      avgSimilarity: parseFloat(avgNCC.toFixed(3)),
+      outliers,
+      liveness: true,
+      livenessMetrics,
+      message: "Multiple different faces detected. Please ensure only one person is in front of the camera and retake.",
+    };
+  }
+
+  // Step 4: Cross-phase identity check (specs vs no-specs must be same person)
+  if (referenceImages && referenceImages.length > 0) {
+    const refCrops = [];
+    for (const img of referenceImages) {
+      try {
+        const [result] = await client.faceDetection({ image: { content: img } });
+        const faces = result.faceAnnotations || [];
+        if (faces.length === 0) continue;
+        const bestFace = faces.reduce((a, b) =>
+          (a.detectionConfidence || 0) > (b.detectionConfidence || 0) ? a : b
+        );
+        if ((bestFace.detectionConfidence || 0) < 0.7) continue;
+        const vertices = bestFace.boundingPoly?.vertices || bestFace.fdBoundingPoly?.vertices;
+        if (!vertices || vertices.length < 4) continue;
+        const xs = vertices.map(v => v.x || 0);
+        const ys = vertices.map(v => v.y || 0);
+        let x = Math.max(0, Math.min(...xs));
+        let y = Math.max(0, Math.min(...ys));
+        let w = Math.max(...xs) - x;
+        let h = Math.max(...ys) - y;
+        if (w < 20 || h < 20) continue;
+        const imgBuf = Buffer.from(img, "base64");
+        const jimpImg = await Jimp.read(imgBuf);
+        x = Math.min(x, jimpImg.bitmap.width - 1);
+        y = Math.min(y, jimpImg.bitmap.height - 1);
+        w = Math.min(w, jimpImg.bitmap.width - x);
+        h = Math.min(h, jimpImg.bitmap.height - y);
+        const cropped = jimpImg.crop(x, y, w, h).resize(CROP_SIZE, CROP_SIZE).greyscale();
+        const pixels = new Float64Array(CROP_SIZE * CROP_SIZE);
+        for (let py = 0; py < CROP_SIZE; py++) {
+          for (let px = 0; px < CROP_SIZE; px++) {
+            const rgba = Jimp.intToRGBA(cropped.getPixelColor(px, py));
+            pixels[py * CROP_SIZE + px] = rgba.r / 255.0;
+          }
+        }
+        refCrops.push(pixels);
+      } catch (e) {
+        functions.logger.warn("Cross-phase ref crop failed:", e.message);
+      }
+    }
+
+    if (refCrops.length >= 2) {
+      // Compare each current crop against reference crops (lower threshold due to glasses difference)
+      const CROSS_PHASE_THRESHOLD = 0.30;
+      let crossMatches = 0;
+      for (const crop of faceCrops) {
+        let maxNcc = -1;
+        for (const ref of refCrops) {
+          const ncc = computeNCC(crop.pixels, ref);
+          if (ncc > maxNcc) maxNcc = ncc;
+        }
+        if (maxNcc >= CROSS_PHASE_THRESHOLD) crossMatches++;
+      }
+
+      const crossMatchRatio = crossMatches / faceCrops.length;
+      functions.logger.info(`Cross-phase check: ${crossMatches}/${faceCrops.length} matched (ratio=${crossMatchRatio.toFixed(2)}, threshold=${CROSS_PHASE_THRESHOLD})`);
+
+      if (crossMatchRatio < 0.5) {
+        return {
+          success: false,
+          facesDetected: faceCrops.length,
+          avgConfidence: parseFloat(avgConfidence.toFixed(3)),
+          avgSimilarity: parseFloat(avgNCC.toFixed(3)),
+          outliers,
+          liveness: true,
+          livenessMetrics,
+          crossPhaseMatch: false,
+          message: "Face in this phase doesn't match the previous phase. The same person must complete both phases.",
+        };
+      }
+    }
+  }
+
+  return {
+    success: true,
+    facesDetected: faceCrops.length,
+    avgConfidence: parseFloat(avgConfidence.toFixed(3)),
+    avgSimilarity: parseFloat(avgNCC.toFixed(3)),
+    outliers,
+    liveness: true,
+    livenessMetrics,
+  };
+} catch (err) {
+  functions.logger.error("validateFaceConsistency unhandled error:", err);
+  if (err instanceof functions.https.HttpsError) throw err;
+  throw new functions.https.HttpsError("internal", `Face validation error: ${err.message || err}`);
+}
+});
+
+exports.enrollOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onCall(async (data) => {
   const { images, companyId, operatorEmail } = data;
 
   if (!images || !images.length) {
@@ -3635,7 +4134,7 @@ exports.enrollOperatorFace = functions.https.onCall(async (data) => {
 
   const client = new vision.ImageAnnotatorClient();
 
-  // Step 1: Detect faces in all provided snapshots
+  // Detect faces in all provided snapshots
   const faceResults = [];
   for (const img of images) {
     try {
@@ -3645,14 +4144,12 @@ exports.enrollOperatorFace = functions.https.onCall(async (data) => {
       const faces = result.faceAnnotations || [];
       if (faces.length === 0) continue;
 
-      // Take the most confident face
       const bestFace = faces.reduce((a, b) =>
         (a.detectionConfidence || 0) > (b.detectionConfidence || 0) ? a : b
       );
 
       if ((bestFace.detectionConfidence || 0) < 0.7) continue;
 
-      // Extract normalized landmark positions for embedding
       const landmarks = {};
       for (const lm of (bestFace.landmarks || [])) {
         landmarks[lm.type] = {
@@ -3664,9 +4161,7 @@ exports.enrollOperatorFace = functions.https.onCall(async (data) => {
 
       faceResults.push({
         confidence: bestFace.detectionConfidence,
-        joy: bestFace.joyLikelihood,
         landmarks,
-        boundingPoly: bestFace.boundingPoly,
         rollAngle: bestFace.rollAngle || 0,
         panAngle: bestFace.panAngle || 0,
         tiltAngle: bestFace.tiltAngle || 0,
@@ -3676,75 +4171,75 @@ exports.enrollOperatorFace = functions.https.onCall(async (data) => {
     }
   }
 
-  if (faceResults.length < 3) {
+  functions.logger.info(`Face enrollment: ${faceResults.length} valid faces from ${images.length} images`);
+
+  if (faceResults.length < 4) {
     return {
       success: false,
-      message: `Only ${faceResults.length} valid face(s) detected. Need at least 3 clear shots. Ensure good lighting and face the camera directly.`,
+      facesDetected: faceResults.length,
+      message: `Only ${faceResults.length} valid face(s) detected. Need at least 4 clear shots. Ensure good lighting and face the camera directly.`,
     };
   }
 
-  // Step 2: Get the ID document image face for comparison
-  let idFaceLandmarks = null;
-  let matchConfidence = 0;
+  // Face consistency validation: identify outliers (faces that don't match the majority)
+  const CONSISTENCY_THRESHOLD = 0.75;
+  // For each face, count how many others it fails to match
+  const outlierCounts = faceResults.map((_, i) => {
+    let failures = 0;
+    for (let j = 0; j < faceResults.length; j++) {
+      if (i === j) continue;
+      const sim = computeLandmarkSimilarity(faceResults[i].landmarks, faceResults[j].landmarks);
+      if (sim < CONSISTENCY_THRESHOLD) failures++;
+    }
+    return failures;
+  });
 
+  // A face is an outlier if it fails to match more than half the group
+  const halfGroup = Math.floor(faceResults.length / 2);
+  const outliers = outlierCounts.filter(c => c >= halfGroup).length;
+
+  functions.logger.info(`Face consistency: outliers=${outliers}/${faceResults.length}, outlierCounts=[${outlierCounts.join(",")}]`);
+
+  if (outliers > 1) {
+    return {
+      success: false,
+      facesDetected: faceResults.length,
+      outliers,
+      message: "Multiple different faces detected in your snapshots. Please ensure only one person is in front of the camera and retake.",
+    };
+  }
+
+  // Identify non-outlier frame indices
+  const validIndices = [];
+  for (let i = 0; i < faceResults.length; i++) {
+    if (outlierCounts[i] < halfGroup) validIndices.push(i);
+  }
+
+  // Upload non-outlier frames to Cloud Storage (use temp prefix to avoid overwriting old data)
+  const storagePaths = [];
   try {
-    // Look up the operator's ID verification data
-    const opsSnap = await db.collection("operators")
-      .where("companyId", "==", companyId)
-      .where("email", "==", operatorEmail)
-      .limit(1).get();
-
-    let opDoc = opsSnap.docs.length > 0 ? opsSnap.docs[0] : null;
-
-    // Also check company-level operators
-    if (!opDoc) {
-      const companyOps = await db.collection(`companies/${companyId}/operators`)
-        .where("email", "==", operatorEmail)
-        .limit(1).get();
-      if (companyOps.docs.length > 0) opDoc = companyOps.docs[0];
-    }
-
-    if (opDoc && opDoc.data().idFaceLandmarks) {
-      idFaceLandmarks = opDoc.data().idFaceLandmarks;
-    }
-
-    // If no stored ID face landmarks, try to detect from stored ID image
-    if (!idFaceLandmarks && opDoc && opDoc.data().idImageBase64) {
-      const [idResult] = await client.faceDetection({
-        image: { content: opDoc.data().idImageBase64 },
-      });
-      const idFaces = idResult.faceAnnotations || [];
-      if (idFaces.length > 0) {
-        const idFace = idFaces[0];
-        idFaceLandmarks = {};
-        for (const lm of (idFace.landmarks || [])) {
-          idFaceLandmarks[lm.type] = {
-            x: lm.position.x,
-            y: lm.position.y,
-            z: lm.position.z || 0,
-          };
-        }
-      }
-    }
+    const uploadPromises = validIndices.map(async (faceIdx, storageIdx) => {
+      const imgBase64 = images[faceIdx];
+      const imgBuffer = Buffer.from(imgBase64, "base64");
+      const path = `face-enrollment/${companyId}/${operatorEmail}/${storageIdx}.jpg`;
+      const file = bucket.file(path);
+      await file.save(imgBuffer, { contentType: "image/jpeg", metadata: { cacheControl: "private,max-age=31536000" } });
+      storagePaths.push(path);
+    });
+    await Promise.all(uploadPromises);
+    functions.logger.info(`Face enrollment: uploaded ${storagePaths.length} reference frames to Storage`);
   } catch (e) {
-    functions.logger.warn("Could not retrieve ID face for comparison:", e.message);
+    functions.logger.warn("Failed to upload face frames to Storage:", e.message);
   }
 
-  // Step 3: Compare face geometry if ID face available
-  if (idFaceLandmarks) {
-    // Compute geometric similarity between ID face and average of captured faces
-    const similarities = faceResults.map(fr => computeLandmarkSimilarity(fr.landmarks, idFaceLandmarks));
-    matchConfidence = similarities.reduce((sum, s) => sum + s, 0) / similarities.length;
-  }
-
-  // Step 4: Store face enrollment data
+  // Store face enrollment data
   const enrollmentData = {
     enrolledAt: admin.firestore.FieldValue.serverTimestamp(),
     faceCount: faceResults.length,
+    validFrameCount: validIndices.length,
     averageConfidence: faceResults.reduce((s, f) => s + f.confidence, 0) / faceResults.length,
-    matchConfidence,
-    // Store landmark data for future verification (average of all captured faces)
     faceLandmarks: averageLandmarks(faceResults.map(f => f.landmarks)),
+    referenceFrames: storagePaths,
     enrolled: true,
   };
 
@@ -3759,7 +4254,6 @@ exports.enrollOperatorFace = functions.https.onCall(async (data) => {
       await opsSnap.docs[0].ref.update({ faceEnrollment: enrollmentData });
     }
 
-    // Also update company-level operator if exists
     const companyOps = await db.collection(`companies/${companyId}/operators`)
       .where("email", "==", operatorEmail)
       .limit(1).get();
@@ -3768,73 +4262,501 @@ exports.enrollOperatorFace = functions.https.onCall(async (data) => {
     }
   } catch (e) {
     functions.logger.warn("Could not save face enrollment:", e.message);
+    return {
+      success: false,
+      facesDetected: faceResults.length,
+      message: "Failed to save enrollment data. Previous enrollment preserved.",
+    };
+  }
+
+  // Delete previously stored face frames only after successful enrollment
+  try {
+    const [existingFiles] = await bucket.getFiles({ prefix: `face-enrollment/${companyId}/${operatorEmail}/` });
+    const oldFiles = existingFiles.filter(f => !storagePaths.includes(f.name));
+    if (oldFiles.length > 0) {
+      await Promise.all(oldFiles.map(f => f.delete()));
+      functions.logger.info(`Face enrollment: deleted ${oldFiles.length} previous frames`);
+    }
+  } catch (e) {
+    functions.logger.warn("Failed to delete previous face frames:", e.message);
   }
 
   return {
     success: true,
-    matchConfidence,
     facesDetected: faceResults.length,
-    message: matchConfidence > 0.4
-      ? "Face enrolled and matches your ID."
-      : (idFaceLandmarks ? "Face enrolled. Low ID match — this is acceptable for enrollment." : "Face enrolled successfully."),
+    validFrames: validIndices.length,
+    message: "Face enrolled successfully.",
   };
 });
 
-// Compute normalized similarity between two sets of face landmarks
+// trainOperatorFace - Adds training frames to existing face enrollment with relaxed tolerance.
+// Validates new frames against existing reference frames to ensure same person,
+// then appends valid new frames to storage.
+exports.trainOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onCall(async (data) => {
+  const { images, companyId, operatorEmail } = data;
+
+  if (!images || !images.length) {
+    throw new functions.https.HttpsError("invalid-argument", "At least one face image required");
+  }
+  if (!companyId || !operatorEmail) {
+    throw new functions.https.HttpsError("invalid-argument", "companyId and operatorEmail required");
+  }
+
+  // Load existing enrollment data from both collection locations
+  let existingEnrollment = null;
+  let operatorRef = null;
+  const opsSnap = await db.collection("operators")
+    .where("companyId", "==", companyId)
+    .where("email", "==", operatorEmail)
+    .limit(1).get();
+
+  if (!opsSnap.empty) {
+    operatorRef = opsSnap.docs[0].ref;
+    existingEnrollment = opsSnap.docs[0].data().faceEnrollment;
+  }
+
+  if (!existingEnrollment || !existingEnrollment.enrolled) {
+    const companyOps = await db.collection(`companies/${companyId}/operators`)
+      .where("email", "==", operatorEmail)
+      .limit(1).get();
+    if (!companyOps.empty) {
+      operatorRef = companyOps.docs[0].ref;
+      existingEnrollment = companyOps.docs[0].data().faceEnrollment;
+    }
+  }
+
+  if (!existingEnrollment || !existingEnrollment.enrolled) {
+    throw new functions.https.HttpsError("failed-precondition", "No existing face enrollment found. Use full enrollment instead.");
+  }
+
+  const existingPaths = existingEnrollment.referenceFrames || [];
+  const existingLandmarks = existingEnrollment.faceLandmarks;
+
+  if (existingPaths.length === 0 && !existingLandmarks) {
+    throw new functions.https.HttpsError("failed-precondition", "No existing reference data found.");
+  }
+
+  const client = new vision.ImageAnnotatorClient();
+
+  // Detect faces in new images
+  const newFaceResults = [];
+  for (const img of images) {
+    try {
+      const [result] = await client.faceDetection({ image: { content: img } });
+      const faces = result.faceAnnotations || [];
+      if (faces.length === 0) continue;
+
+      const bestFace = faces.reduce((a, b) =>
+        (a.detectionConfidence || 0) > (b.detectionConfidence || 0) ? a : b
+      );
+
+      if ((bestFace.detectionConfidence || 0) < 0.65) continue;
+
+      const landmarks = {};
+      for (const lm of (bestFace.landmarks || [])) {
+        landmarks[lm.type] = { x: lm.position.x, y: lm.position.y, z: lm.position.z || 0 };
+      }
+
+      newFaceResults.push({
+        confidence: bestFace.detectionConfidence,
+        landmarks,
+        imageIndex: images.indexOf(img),
+      });
+    } catch (e) {
+      functions.logger.warn("trainOperatorFace: face detection failed for frame:", e.message);
+    }
+  }
+
+  if (newFaceResults.length < 3) {
+    return {
+      success: false,
+      facesDetected: newFaceResults.length,
+      message: `Only ${newFaceResults.length} valid face(s) detected. Need at least 3 clear shots for training.`,
+    };
+  }
+
+  if (!existingLandmarks) {
+    throw new functions.https.HttpsError("failed-precondition", "Existing enrollment has no landmark data for comparison.");
+  }
+
+  // Compare new frames against existing enrollment landmarks with RELAXED tolerance
+  const TRAINING_SIMILARITY_THRESHOLD = 0.55; // relaxed from 0.75 used in full enrollment
+  let matchCount = 0;
+  for (const face of newFaceResults) {
+    const sim = computeLandmarkSimilarity(face.landmarks, existingLandmarks);
+    if (sim >= TRAINING_SIMILARITY_THRESHOLD) matchCount++;
+  }
+
+  const matchRatio = matchCount / newFaceResults.length;
+  functions.logger.info(`trainOperatorFace: ${matchCount}/${newFaceResults.length} frames match existing (ratio=${matchRatio.toFixed(2)}, threshold=${TRAINING_SIMILARITY_THRESHOLD})`);
+
+  if (matchRatio < 0.6) {
+    return {
+      success: false,
+      facesDetected: newFaceResults.length,
+      matchedFrames: matchCount,
+      message: "New frames don't sufficiently match existing face data. This doesn't appear to be the same person.",
+    };
+  }
+
+  // Upload new training frames to storage (best-effort, non-fatal)
+  const existingCount = existingPaths.length;
+  const newStoragePaths = [];
+  try {
+    const uploadPromises = newFaceResults.map(async (face, idx) => {
+      const imgBase64 = images[face.imageIndex];
+      const imgBuffer = Buffer.from(imgBase64, "base64");
+      const path = `face-enrollment/${companyId}/${operatorEmail}/train_${existingCount + idx}.jpg`;
+      const file = bucket.file(path);
+      await file.save(imgBuffer, { contentType: "image/jpeg", metadata: { cacheControl: "private,max-age=31536000" } });
+      newStoragePaths.push(path);
+    });
+    await Promise.all(uploadPromises);
+    functions.logger.info(`trainOperatorFace: uploaded ${newStoragePaths.length} training frames`);
+  } catch (e) {
+    functions.logger.warn("trainOperatorFace: storage upload skipped:", e.message);
+  }
+
+  // Update enrollment data
+  const allPaths = [...existingPaths, ...newStoragePaths];
+  const newAvgConf = newFaceResults.reduce((s, f) => s + f.confidence, 0) / newFaceResults.length;
+  const prevCount = existingEnrollment.faceCount || existingCount || 1;
+  const blendedConfidence = (existingEnrollment.averageConfidence * prevCount + newAvgConf * newFaceResults.length) / (prevCount + newFaceResults.length);
+
+  const updatedEnrollment = {
+    ...existingEnrollment,
+    referenceFrames: allPaths,
+    validFrameCount: allPaths.length,
+    faceCount: (existingEnrollment.faceCount || existingCount) + newFaceResults.length,
+    averageConfidence: blendedConfidence,
+    lastTrainedAt: admin.firestore.FieldValue.serverTimestamp(),
+    trainingSessions: (existingEnrollment.trainingSessions || 0) + 1,
+  };
+
+  // Save to both operator document locations
+  try {
+    const flatOps = await db.collection("operators")
+      .where("companyId", "==", companyId)
+      .where("email", "==", operatorEmail)
+      .limit(1).get();
+    if (!flatOps.empty) {
+      await flatOps.docs[0].ref.update({ faceEnrollment: updatedEnrollment });
+    }
+    const companyOps = await db.collection(`companies/${companyId}/operators`)
+      .where("email", "==", operatorEmail)
+      .limit(1).get();
+    if (!companyOps.empty) {
+      await companyOps.docs[0].ref.update({ faceEnrollment: updatedEnrollment });
+    }
+  } catch (e) {
+    functions.logger.warn("trainOperatorFace: could not update operator doc:", e.message);
+  }
+
+  return {
+    success: true,
+    facesDetected: newFaceResults.length,
+    matchedFrames: matchCount,
+    totalFrames: allPaths.length,
+    message: "Training data added successfully.",
+  };
+});
+
+// verifyOperatorFace - Real-time face identification across all enrolled operators in a company.
+// Detects face in frame, compares against ALL enrolled operators, returns best match.
+exports.verifyOperatorFace = functions.runWith({ timeoutSeconds: 30, memory: "512MB" }).https.onCall(async (data) => {
+  const { image, companyId } = data;
+
+  if (!image) {
+    throw new functions.https.HttpsError("invalid-argument", "Face image required");
+  }
+  if (!companyId) {
+    throw new functions.https.HttpsError("invalid-argument", "companyId required");
+  }
+
+  // Detect face in the provided frame
+  const client = new vision.ImageAnnotatorClient();
+  let liveLandmarks = null;
+  let liveConfidence = 0;
+
+  try {
+    const [result] = await client.faceDetection({ image: { content: image } });
+    const faces = result.faceAnnotations || [];
+
+    if (faces.length === 0) {
+      return { match: false, reason: "no_face", message: "No face detected in the frame." };
+    }
+
+    if (faces.length > 1) {
+      return { match: false, reason: "multiple_faces", message: "Multiple faces detected. Only the operator should be visible." };
+    }
+
+    const face = faces[0];
+    liveConfidence = face.detectionConfidence || 0;
+
+    if (liveConfidence < 0.6) {
+      return { match: false, reason: "low_confidence", message: "Face detection confidence too low. Ensure good lighting." };
+    }
+
+    const blur = face.blurredLikelihood || "UNKNOWN";
+    if (blur === "VERY_LIKELY" || blur === "LIKELY") {
+      return { match: false, reason: "blurry", message: "Image too blurry. Hold steady and ensure good lighting." };
+    }
+
+    liveLandmarks = {};
+    for (const lm of (face.landmarks || [])) {
+      liveLandmarks[lm.type] = { x: lm.position.x, y: lm.position.y, z: lm.position.z || 0 };
+    }
+  } catch (e) {
+    functions.logger.error("verifyOperatorFace: detection error:", e.message);
+    return { match: false, reason: "detection_error", message: "Face detection failed. Try again." };
+  }
+
+  // Load ALL operators in this company and filter to enrolled ones in-memory
+  // (avoids requiring a composite index on nested map fields)
+  let opsSnap = await db.collection(`companies/${companyId}/operators`).get();
+
+  // Fallback: also check flat operators collection
+  if (opsSnap.empty) {
+    opsSnap = await db.collection("operators")
+      .where("companyId", "==", companyId)
+      .get();
+  }
+
+  // Filter to those with face enrollment
+  const enrolledDocs = opsSnap.docs.filter(doc => {
+    const fe = doc.data().faceEnrollment;
+    return fe && fe.enrolled === true && fe.faceLandmarks;
+  });
+
+  if (enrolledDocs.length === 0) {
+    return { match: false, reason: "no_enrollments", message: "No enrolled operators found in this company." };
+  }
+
+  // Compare against each enrolled operator
+  const VERIFY_THRESHOLD = 0.65;
+  let bestMatch = null;
+  let bestSimilarity = 0;
+
+  for (const doc of enrolledDocs) {
+    const opData = doc.data();
+    const enrollment = opData.faceEnrollment;
+
+    const similarity = computeLandmarkSimilarity(liveLandmarks, enrollment.faceLandmarks);
+
+    if (similarity > bestSimilarity) {
+      bestSimilarity = similarity;
+      bestMatch = {
+        operatorId: doc.id,
+        email: opData.email || "",
+        name: opData.name || "",
+        isActive: opData.isActive !== false,
+        shiftRestricted: opData.shiftRestricted || false,
+        shiftStart: opData.shiftStart || "",
+        shiftEnd: opData.shiftEnd || "",
+        shiftDays: opData.shiftDays || [],
+      };
+    }
+  }
+
+  functions.logger.info(`verifyOperatorFace: best match=${bestMatch?.email || "none"}, similarity=${bestSimilarity.toFixed(3)}, threshold=${VERIFY_THRESHOLD}, candidates=${enrolledDocs.length}`);
+
+  if (bestSimilarity >= VERIFY_THRESHOLD && bestMatch) {
+    return {
+      match: true,
+      confidence: bestSimilarity,
+      detectionConfidence: liveConfidence,
+      operator: bestMatch,
+      message: "Identity verified.",
+    };
+  } else {
+    return {
+      match: false,
+      reason: "mismatch",
+      confidence: bestSimilarity,
+      message: "Face does not match any enrolled operator.",
+    };
+  }
+});
+
+// verifyOperatorPin - Verify operator PIN for fallback authentication.
+exports.verifyOperatorPin = functions.https.onCall(async (data) => {
+  const { pin, companyId, operatorEmail } = data;
+
+  if (!pin || !companyId || !operatorEmail) {
+    throw new functions.https.HttpsError("invalid-argument", "pin, companyId, and operatorEmail required");
+  }
+
+  // Look up operator
+  let operatorDoc = null;
+  const companyOps = await db.collection(`companies/${companyId}/operators`)
+    .where("email", "==", operatorEmail)
+    .limit(1).get();
+
+  if (!companyOps.empty) {
+    operatorDoc = companyOps.docs[0];
+  } else {
+    const flatOps = await db.collection("operators")
+      .where("companyId", "==", companyId)
+      .where("email", "==", operatorEmail)
+      .limit(1).get();
+    if (!flatOps.empty) operatorDoc = flatOps.docs[0];
+  }
+
+  if (!operatorDoc) {
+    return { match: false, message: "Operator not found." };
+  }
+
+  const storedHash = operatorDoc.data().pinHash;
+  if (!storedHash) {
+    return { match: false, message: "No PIN set for this operator." };
+  }
+
+  // Compare PIN hash (SHA-256)
+  const crypto = require("crypto");
+  const inputHash = crypto.createHash("sha256").update(pin + operatorEmail).digest("hex");
+
+  if (inputHash === storedHash) {
+    // Record successful verification
+    await operatorDoc.ref.update({
+      lastPinVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return { match: true, message: "PIN verified." };
+  } else {
+    return { match: false, message: "Incorrect PIN." };
+  }
+});
+
+// setOperatorPin - Set or update operator PIN.
+exports.setOperatorPin = functions.https.onCall(async (data) => {
+  const { pin, companyId, operatorEmail } = data;
+
+  if (!pin || !companyId || !operatorEmail) {
+    throw new functions.https.HttpsError("invalid-argument", "pin, companyId, and operatorEmail required");
+  }
+
+  if (pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
+    throw new functions.https.HttpsError("invalid-argument", "PIN must be 4-6 digits.");
+  }
+
+  const crypto = require("crypto");
+  const pinHash = crypto.createHash("sha256").update(pin + operatorEmail).digest("hex");
+
+  // Update both locations
+  const companyOps = await db.collection(`companies/${companyId}/operators`)
+    .where("email", "==", operatorEmail)
+    .limit(1).get();
+  if (!companyOps.empty) {
+    await companyOps.docs[0].ref.update({ pinHash, pinSetAt: admin.firestore.FieldValue.serverTimestamp() });
+  }
+
+  const flatOps = await db.collection("operators")
+    .where("companyId", "==", companyId)
+    .where("email", "==", operatorEmail)
+    .limit(1).get();
+  if (!flatOps.empty) {
+    await flatOps.docs[0].ref.update({ pinHash, pinSetAt: admin.firestore.FieldValue.serverTimestamp() });
+  }
+
+  return { success: true, message: "PIN set successfully." };
+});
+
+// Compute similarity between two faces using discriminative facial ratios.
+// Ratios are scale/position-invariant and capture unique proportions of a face.
 function computeLandmarkSimilarity(landmarks1, landmarks2) {
   if (!landmarks1 || !landmarks2) return 0;
 
-  // Get common landmark types
-  const keys1 = Object.keys(landmarks1);
-  const keys2 = Object.keys(landmarks2);
-  const common = keys1.filter(k => keys2.includes(k));
-
-  if (common.length < 5) return 0;
-
-  // Normalize both landmark sets relative to nose tip
-  const normalize = (lms, keys) => {
-    const nose = lms["NOSE_TIP"] || lms["NOSE_BOTTOM_CENTER"] || lms[keys[0]];
-    if (!nose) return null;
-    // Compute scale from eye distance
-    const leftEye = lms["LEFT_EYE"] || lms["LEFT_EYE_PUPIL"];
-    const rightEye = lms["RIGHT_EYE"] || lms["RIGHT_EYE_PUPIL"];
-    let scale = 1;
-    if (leftEye && rightEye) {
-      scale = Math.sqrt(Math.pow(rightEye.x - leftEye.x, 2) + Math.pow(rightEye.y - leftEye.y, 2));
-      if (scale < 1) scale = 1;
-    }
-    const normalized = {};
-    for (const k of keys) {
-      if (!lms[k]) continue;
-      normalized[k] = {
-        x: (lms[k].x - nose.x) / scale,
-        y: (lms[k].y - nose.y) / scale,
-      };
-    }
-    return normalized;
+  const dist = (a, b) => {
+    if (!a || !b) return null;
+    return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
   };
 
-  const norm1 = normalize(landmarks1, common);
-  const norm2 = normalize(landmarks2, common);
-  if (!norm1 || !norm2) return 0;
+  // Extract key facial distances and compute ratios
+  const computeRatios = (lms) => {
+    const leftEye = lms["LEFT_EYE"] || lms["LEFT_EYE_PUPIL"];
+    const rightEye = lms["RIGHT_EYE"] || lms["RIGHT_EYE_PUPIL"];
+    const noseTip = lms["NOSE_TIP"];
+    const noseBottom = lms["NOSE_BOTTOM_CENTER"];
+    const mouth = lms["UPPER_LIP"] || lms["MOUTH_CENTER"];
+    const mouthLeft = lms["MOUTH_LEFT"];
+    const mouthRight = lms["MOUTH_RIGHT"];
+    const chin = lms["CHIN_GNATHION"] || lms["CHIN_LEFT_GONION"];
+    const leftEar = lms["LEFT_EAR_TRAGION"];
+    const rightEar = lms["RIGHT_EAR_TRAGION"];
+    const leftEyebrow = lms["LEFT_OF_LEFT_EYEBROW"];
+    const rightEyebrow = lms["RIGHT_OF_RIGHT_EYEBROW"];
+    const foreheadMid = lms["FOREHEAD_GLABELLA"] || lms["MIDPOINT_BETWEEN_EYES"];
 
-  // Compute average Euclidean distance between corresponding landmarks
-  let totalDist = 0;
-  let count = 0;
-  for (const k of common) {
-    if (!norm1[k] || !norm2[k]) continue;
-    const dx = norm1[k].x - norm2[k].x;
-    const dy = norm1[k].y - norm2[k].y;
-    totalDist += Math.sqrt(dx * dx + dy * dy);
-    count++;
+    const eyeDist = dist(leftEye, rightEye);
+    if (!eyeDist || eyeDist < 5) return null;
+
+    const ratios = [];
+
+    // Nose length / eye distance
+    const noseLen = dist(foreheadMid || noseTip, noseBottom || noseTip);
+    if (noseLen) ratios.push(noseLen / eyeDist);
+
+    // Nose to mouth / eye distance
+    const noseToMouth = dist(noseBottom || noseTip, mouth);
+    if (noseToMouth) ratios.push(noseToMouth / eyeDist);
+
+    // Mouth width / eye distance
+    const mouthWidth = dist(mouthLeft, mouthRight);
+    if (mouthWidth) ratios.push(mouthWidth / eyeDist);
+
+    // Nose to chin / eye distance
+    const noseToChin = dist(noseBottom || noseTip, chin);
+    if (noseToChin) ratios.push(noseToChin / eyeDist);
+
+    // Face width (ear-to-ear) / eye distance
+    const faceWidth = dist(leftEar, rightEar);
+    if (faceWidth) ratios.push(faceWidth / eyeDist);
+
+    // Left eye to nose / eye distance
+    const leftEyeToNose = dist(leftEye, noseTip);
+    if (leftEyeToNose) ratios.push(leftEyeToNose / eyeDist);
+
+    // Right eye to nose / eye distance
+    const rightEyeToNose = dist(rightEye, noseTip);
+    if (rightEyeToNose) ratios.push(rightEyeToNose / eyeDist);
+
+    // Eyebrow span / eye distance
+    const browSpan = dist(leftEyebrow, rightEyebrow);
+    if (browSpan) ratios.push(browSpan / eyeDist);
+
+    // Forehead to nose / nose to chin (vertical thirds)
+    if (foreheadMid && noseTip && chin) {
+      const upper = dist(foreheadMid, noseTip);
+      const lower = dist(noseTip, chin);
+      if (upper && lower && lower > 0) ratios.push(upper / lower);
+    }
+
+    // Eye to mouth / eye distance
+    const leftEyeToMouth = dist(leftEye, mouth);
+    if (leftEyeToMouth) ratios.push(leftEyeToMouth / eyeDist);
+
+    return ratios.length >= 5 ? ratios : null;
+  };
+
+  const ratios1 = computeRatios(landmarks1);
+  const ratios2 = computeRatios(landmarks2);
+  if (!ratios1 || !ratios2) return 0;
+
+  // Compare only ratios that both sets have (same indices)
+  const len = Math.min(ratios1.length, ratios2.length);
+  if (len < 5) return 0;
+
+  let totalRelDiff = 0;
+  for (let i = 0; i < len; i++) {
+    const avg = (ratios1[i] + ratios2[i]) / 2;
+    if (avg === 0) continue;
+    totalRelDiff += Math.abs(ratios1[i] - ratios2[i]) / avg;
   }
 
-  if (count === 0) return 0;
-  const avgDist = totalDist / count;
+  const avgRelDiff = totalRelDiff / len;
 
-  // Convert distance to similarity (0-1 range, lower distance = higher similarity)
-  // A distance of 0 = perfect match (1.0), distance of 0.5+ = poor match (0.0)
-  return Math.max(0, 1 - avgDist * 2);
+  // Convert to 0-1 similarity. Same person typically < 0.15 diff, different person > 0.25
+  // Threshold at 0.3: 0 diff = 1.0, 0.3+ diff = 0.0
+  return Math.max(0, 1 - avgRelDiff / 0.3);
 }
 
 // Average multiple landmark sets into one representative set

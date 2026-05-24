@@ -53,7 +53,7 @@ const wizardSteps = [
   WizardStepDef(id: WizardStepId.cameras, title: 'Cameras', subtitle: 'ANPR & CCTV', required: false, roles: {WizardRole.admin}),
   WizardStepDef(id: WizardStepId.printing, title: 'Printing', subtitle: 'Docket printers', required: false, roles: {WizardRole.admin}),
   WizardStepDef(id: WizardStepId.security, title: 'Security', subtitle: 'Access & audit', required: false, roles: {WizardRole.admin}),
-  WizardStepDef(id: WizardStepId.review, title: 'Review', subtitle: 'Confirm & finish', required: true, roles: {WizardRole.admin, WizardRole.returning}),
+  WizardStepDef(id: WizardStepId.review, title: 'Review', subtitle: 'Confirm & finish', required: true, roles: {WizardRole.admin, WizardRole.operator, WizardRole.returning}),
 ];
 
 class SetupWizardState {

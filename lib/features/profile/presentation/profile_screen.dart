@@ -63,25 +63,24 @@ final profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 
   try {
     final adminDoc = await db.adminProfileSettings.get();
-    if (adminDoc.exists) {
-      final profile = {'role': 'admin', 'email': email, 'name': user?.displayName, ...adminDoc.data()!};
+    final profile = <String, dynamic>{'role': 'admin', 'email': email, 'name': user?.displayName};
+    if (adminDoc.exists) profile.addAll(adminDoc.data()!);
+
+    // Merge company doc data (phone, adminName, etc.)
+    try {
+      final companyDoc = await db.firestore.doc(db.context.companyPath).get();
+      if (companyDoc.exists) {
+        final cd = companyDoc.data()!;
+        profile['phone'] ??= cd['phone'];
+        profile['name'] ??= cd['adminName'] ?? cd['name'];
+        profile['companyName'] = cd['name'];
+        profile['gstin'] = cd['gstin'];
+      }
+    } catch (_) {}
+
+    if (adminDoc.exists || profile.length > 3) {
       LocalCacheService.cacheAdminProfile(profile.map((k, v) => MapEntry(k, v?.toString())));
       return profile;
-    }
-  } catch (_) {}
-
-  // Check company doc for admin profile (phone, etc.)
-  try {
-    final companySnap = await db.firestore.collection('companies').where('email', isEqualTo: email).limit(1).get();
-    if (companySnap.docs.isNotEmpty) {
-      final companyData = companySnap.docs.first.data();
-      return {
-        'role': 'admin',
-        'email': email,
-        'name': user?.displayName ?? companyData['adminName'],
-        'phone': companyData['phone'],
-        ...companyData,
-      };
     }
   } catch (_) {}
 

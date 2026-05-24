@@ -23,11 +23,32 @@ final wizardPrefillEmailProvider = StateProvider<String?>((ref) => null);
 /// Set to true to show the Resume Sign-In screen on Welcome step.
 final wizardShowResumeSignInProvider = StateProvider<bool>((ref) => false);
 
+/// The document type submitted during account step (e.g. 'Aadhaar', 'PAN', etc.)
+final wizardSubmittedDocTypeProvider = StateProvider<String?>((ref) => null);
+
+/// Cropped face photo from the ID document (base64-decoded bytes), for display in face enrollment.
+final wizardIdFacePhotoProvider = StateProvider<List<int>?>((ref) => null);
+
+/// Uploaded ID document image(s) as base64 strings, stored in operator doc for admin review.
+final wizardIdDocImagesProvider = StateProvider<List<String>?>((ref) => null);
+
 /// Tracks whether the operator was pre-invited (true) or is a walk-in request (false).
 final wizardOperatorInvitedProvider = StateProvider<bool>((ref) => false);
 
 /// Stores the Firestore doc path for a non-invited operator (to check approval status).
 final wizardOperatorDocPathProvider = StateProvider<String?>((ref) => null);
+
+/// Holds operator registration data to be written on review step submit.
+final wizardOperatorFormDataProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
+
+/// Tracks whether face enrollment was completed (not just ID face photo).
+final wizardFaceEnrolledProvider = StateProvider<bool>((ref) => false);
+
+/// Holds validated face frames (base64) to be uploaded on final submit.
+final wizardFaceFramesProvider = StateProvider<List<String>?>((ref) => null);
+
+/// When true, the wizard screen hides its sidebar and progress bar (e.g. pending approval).
+final wizardFullscreenModeProvider = StateProvider<bool>((ref) => false);
 
 class SetupWizardNotifier extends StateNotifier<SetupWizardState> {
   final WizardProgressNotifier _progressNotifier;
