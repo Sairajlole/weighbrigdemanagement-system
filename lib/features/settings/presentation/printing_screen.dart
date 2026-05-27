@@ -240,12 +240,47 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
       if (name.isEmpty) continue;
       try {
         if (Platform.isWindows) {
-          final result = await Process.run('powershell', ['-Command', 'Get-PrinterProperty -PrinterName "$name" | Where-Object { \$_.PropertyName -eq "Config:InputBin" } | Select-Object -ExpandProperty Value']);
+          // Try multiple methods to detect trays
+          final result = await Process.run('powershell', ['-NoProfile', '-Command', '''
+\$bins = @()
+# Method 1: WMI PrinterConfiguration
+try {
+  \$wmi = Get-CimInstance -ClassName Win32_PrinterConfiguration -Filter "Name='$name'" -ErrorAction Stop
+  if (\$wmi.PaperSources) { \$bins += \$wmi.PaperSources }
+} catch {}
+# Method 2: PrinterProperty InputBin
+try {
+  \$props = Get-PrinterProperty -PrinterName "$name" -ErrorAction Stop
+  \$ib = \$props | Where-Object { \$_.PropertyName -match "InputBin|InputSlot|TraySelect" }
+  foreach (\$p in \$ib) {
+    if (\$p.Type -eq "PickOne" -and \$p.Value) { \$bins += \$p.Value }
+  }
+} catch {}
+# Method 3: Enumerate all properties containing Tray/Bin
+if (\$bins.Count -eq 0) {
+  try {
+    \$props = Get-PrinterProperty -PrinterName "$name" -ErrorAction Stop
+    \$trayProps = \$props | Where-Object { \$_.PropertyName -match "Tray|Bin|Cassette" -and \$_.Type -eq "PickOne" }
+    foreach (\$p in \$trayProps) { \$bins += \$p.PropertyName + "=" + \$p.Value }
+  } catch {}
+}
+# Method 4: devmode paper sources via .NET
+if (\$bins.Count -eq 0) {
+  try {
+    Add-Type -AssemblyName System.Drawing
+    \$ps = New-Object System.Drawing.Printing.PrinterSettings
+    \$ps.PrinterName = "$name"
+    foreach (\$s in \$ps.PaperSources) { \$bins += \$s.SourceName }
+  } catch {}
+}
+\$bins | Select-Object -Unique | ForEach-Object { Write-Output \$_ }
+'''
+          ]);
           if (result.exitCode == 0) {
             final output = (result.stdout as String).trim();
             if (output.isNotEmpty) {
               final options = output.split(RegExp(r'[\r\n]+')).map((o) => o.trim()).where((o) => o.isNotEmpty).toList();
-              if (options.length > 1) trays[name] = options;
+              if (options.length > 0) trays[name] = options;
             }
           }
         } else {
