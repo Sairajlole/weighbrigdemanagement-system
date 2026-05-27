@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -49,11 +47,9 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final bool skipAuth = Platform.isMacOS;
-
   final router = GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: skipAuth ? '/setup' : '/dashboard',
+    initialLocation: '/dashboard',
     redirect: (context, state) {
       final perms = ref.read(permissionServiceProvider);
       if (perms.isLockdown && state.matchedLocation != '/lockdown') {
@@ -72,7 +68,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (!authRoutes.contains(state.matchedLocation)) return '/setup';
       }
       if (siteCtx.isConfigured && wizardProgress.setupComplete && isSetupRoute) {
-        if (skipAuth) return null;
         final authState = ref.read(authStateProvider);
         final isLoggedIn = authState.valueOrNull != null;
         if (!isLoggedIn) return null;
@@ -109,8 +104,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           return '/settings/license';
         }
       }
-
-      if (skipAuth) return null;
 
       final authState = ref.read(authStateProvider);
       final isLoggedIn = authState.valueOrNull != null;
@@ -159,11 +152,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 
-  if (!skipAuth) {
-    ref.listen(authStateProvider, (_, __) {
-      router.refresh();
-    });
-  }
+  ref.listen(authStateProvider, (_, __) {
+    router.refresh();
+  });
 
   return router;
 });

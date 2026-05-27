@@ -25,8 +25,11 @@ void main() async {
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
-  // Clear cached login on every cold start — user must sign in fresh
+  // Sign out on every cold start — user must sign in fresh
   await LocalCacheService.clearCurrentUser();
+  if (FirebaseAuth.instance.currentUser != null && !FirebaseAuth.instance.currentUser!.isAnonymous) {
+    await FirebaseAuth.instance.signOut();
+  }
 
   // On macOS, attempt anonymous sign-in so Firestore works even when
   // keychain-based Google Sign-In fails (common in dev sandboxes).
