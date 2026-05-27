@@ -17,10 +17,10 @@
 class WebcamPlugin {
  public:
   static void Register(flutter::BinaryMessenger* messenger);
-
- private:
   WebcamPlugin();
   ~WebcamPlugin();
+
+ private:
 
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue>& call,
