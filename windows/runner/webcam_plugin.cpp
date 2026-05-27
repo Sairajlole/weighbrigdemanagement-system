@@ -213,7 +213,7 @@ void WebcamPlugin::CaptureFrame(
     *reinterpret_cast<uint16_t*>(&bmp[28]) = 32;
     *reinterpret_cast<uint32_t*>(&bmp[34]) = imageSize;
 
-    memcpy(&bmp[headerSize], rawData, (imageSize < curLen) ? imageSize : curLen);
+    memcpy(&bmp[headerSize], rawData, ((DWORD)imageSize < curLen) ? (DWORD)imageSize : curLen);
 
     buffer->Unlock();
     SafeRelease(&buffer);
