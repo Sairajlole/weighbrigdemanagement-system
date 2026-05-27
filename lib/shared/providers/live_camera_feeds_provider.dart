@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -134,7 +135,13 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
     native.setProperty('rtsp-transport', 'tcp');
     native.setProperty('profile', 'low-latency');
     native.setProperty('audio', 'yes');
-    native.setProperty('ao', 'coreaudio');
+    if (Platform.isWindows) {
+      native.setProperty('ao', 'wasapi');
+      native.setProperty('hwdec', 'd3d11va');
+    } else {
+      native.setProperty('ao', 'coreaudio');
+      native.setProperty('hwdec', 'videotoolbox');
+    }
     native.setProperty('audio-exclusive', 'no');
     native.setProperty('cache', 'no');
     native.setProperty('cache-pause', 'no');
