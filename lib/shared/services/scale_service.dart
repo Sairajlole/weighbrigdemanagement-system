@@ -294,7 +294,21 @@ class ScaleService {
       _readerSub = _reader!.stream.listen(
         _onData,
         onError: _onError,
-        onDone: _onDone,
+        onDone: () {
+          // On serial, onDone just means the reader timed out or stopped.
+          // Re-create the reader if port is still open.
+          if (_port?.isOpen ?? false) {
+            _readerSub?.cancel();
+            _reader = SerialPortReader(_port!, timeout: _config.readTimeout);
+            _readerSub = _reader!.stream.listen(
+              _onData,
+              onError: _onError,
+              onDone: _onDone,
+            );
+          } else {
+            _onDone();
+          }
+        },
       );
 
       _setStatus(ScaleConnectionStatus.connected);
@@ -649,11 +663,9 @@ class ScaleService {
     }
   }
 
-  /// Capture raw serial data for ~1.5s with given config.
+  /// Capture raw serial data for ~2s with given config.
   static Future<String?> _captureRawSerial(ScaleConfig config) async {
     SerialPort? serialPort;
-    SerialPortReader? reader;
-    StreamSubscription<Uint8List>? sub;
 
     try {
       serialPort = SerialPort(config.port);
@@ -667,27 +679,22 @@ class ScaleService {
       if (!serialPort.openReadWrite()) return null;
       serialPort.config = portConfig;
 
+      // Poll for data over 2 seconds instead of relying on stream timeout
       final buffer = StringBuffer();
-      final completer = Completer<String?>();
+      final deadline = DateTime.now().add(const Duration(milliseconds: 2000));
+      while (DateTime.now().isBefore(deadline)) {
+        final available = serialPort.bytesAvailable;
+        if (available > 0) {
+          final bytes = serialPort.read(available);
+          buffer.write(utf8.decode(bytes, allowMalformed: true));
+        }
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
 
-      reader = SerialPortReader(serialPort, timeout: 1500);
-      sub = reader.stream.listen(
-        (data) => buffer.write(utf8.decode(data, allowMalformed: true)),
-        onError: (_) { if (!completer.isCompleted) completer.complete(null); },
-        onDone: () { if (!completer.isCompleted) completer.complete(buffer.toString()); },
-      );
-
-      Timer(const Duration(milliseconds: 1500), () {
-        if (!completer.isCompleted) completer.complete(buffer.toString());
-      });
-
-      final result = await completer.future;
-      await sub.cancel();
       try { if (serialPort.isOpen) serialPort.close(); } catch (_) {}
       serialPort.dispose();
-      return result;
+      return buffer.toString();
     } catch (_) {
-      await sub?.cancel();
       try { if (serialPort?.isOpen ?? false) serialPort!.close(); } catch (_) {}
       serialPort?.dispose();
       return null;
@@ -700,14 +707,34 @@ class ScaleService {
     _rawDataController.add(chunk);
 
     final delimiter = _config.resolvedDelimiter;
-    while (_buffer.contains(delimiter)) {
-      final idx = _buffer.indexOf(delimiter);
-      final line = _buffer.substring(0, idx).trim();
-      _buffer = _buffer.substring(idx + delimiter.length);
 
-      if (line.isNotEmpty) {
-        _parseLine(line);
+    // Try configured delimiter first, then fallback to common ones
+    String? activeDelim;
+    if (_buffer.contains(delimiter)) {
+      activeDelim = delimiter;
+    } else if (_buffer.contains('\r\n')) {
+      activeDelim = '\r\n';
+    } else if (_buffer.contains('\n')) {
+      activeDelim = '\n';
+    } else if (_buffer.contains('\r')) {
+      activeDelim = '\r';
+    }
+
+    if (activeDelim != null) {
+      while (_buffer.contains(activeDelim)) {
+        final idx = _buffer.indexOf(activeDelim);
+        final line = _buffer.substring(0, idx).trim();
+        _buffer = _buffer.substring(idx + activeDelim.length);
+
+        if (line.isNotEmpty) {
+          _parseLine(line);
+        }
       }
+    }
+
+    // Prevent unbounded buffer growth if no delimiter found
+    if (_buffer.length > 4096) {
+      _buffer = _buffer.substring(_buffer.length - 1024);
     }
   }
 
@@ -794,9 +821,13 @@ class ScaleService {
 
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
-    if (_config.connectionType == 'tcp' && _config.tcpHost.isNotEmpty) {
+    if (_disposed) return;
+    final shouldReconnect = _config.connectionType == 'tcp'
+        ? _config.tcpHost.isNotEmpty
+        : _config.port.isNotEmpty;
+    if (shouldReconnect) {
       _reconnectTimer = Timer(const Duration(seconds: 3), () {
-        if (_status != ScaleConnectionStatus.connected) connect();
+        if (!_disposed && _status != ScaleConnectionStatus.connected) connect();
       });
     }
   }
