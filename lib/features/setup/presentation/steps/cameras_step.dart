@@ -168,7 +168,9 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
               if (slot != null && entry.value is Map<String, dynamic>) {
                 final cam = entry.value as Map<String, dynamic>;
                 slot.enabled = cam['enabled'] as bool? ?? false;
-                slot.source = cam['source'] as String? ?? 'IP Camera';
+                final rawSource = cam['source'] as String? ?? 'Network Camera';
+                slot.source = (rawSource == 'IP Camera' || rawSource == 'DVR' || rawSource == 'RTSP Stream') ? 'Network Camera' : rawSource;
+                slot.networkType = cam['networkType'] as String? ?? 'nvr';
                 slot.addressCtrl.text = cam['address'] as String? ?? '';
                 slot.usernameCtrl.text = cam['username'] as String? ?? '';
                 slot.passwordCtrl.text = CryptoService.decrypt(cam['password'] as String? ?? '');
@@ -178,6 +180,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                 slot.dvrStreamType = cam['dvrStreamType'] as String? ?? 'main';
                 slot.usbDevice = cam['usbDevice'] as String? ?? '';
                 slot.builtInDevice = cam['builtInDevice'] as String? ?? '';
+                slot.rtspPathCtrl.text = cam['rtspPath'] as String? ?? '';
                 if (entry.key != 'operator' && entry.key != 'customer') {
                   slot.grossEnabled = cam['grossEnabled'] as bool? ?? true;
                   slot.grossRole = cam['grossRole'] as String? ?? 'Front';
@@ -211,36 +214,64 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
     await _stopFeed(key);
     if (!cam.enabled && !forceEnabled) return;
 
-    if (cam.source == 'IP Camera' || cam.source == 'DVR') {
+    if (cam.source == 'Network Camera') {
       _startRtspFeed(key, cam);
     } else {
       _startLocalFeed(key, cam);
     }
   }
 
+  static String _encodeRtspUrl(String raw) {
+    if (!raw.startsWith('rtsp://') && !raw.startsWith('rtsps://')) return raw;
+    final schemeEnd = raw.indexOf('://') + 3;
+    final afterScheme = raw.substring(schemeEnd);
+    final lastAt = afterScheme.lastIndexOf('@');
+    if (lastAt < 0) return raw;
+    final credentials = afterScheme.substring(0, lastAt);
+    final rest = afterScheme.substring(lastAt + 1);
+    final colonIdx = credentials.indexOf(':');
+    if (colonIdx < 0) return raw;
+    final user = Uri.decodeComponent(credentials.substring(0, colonIdx));
+    final pass = Uri.decodeComponent(credentials.substring(colonIdx + 1));
+    return '${raw.substring(0, schemeEnd)}${Uri.encodeComponent(user)}:${Uri.encodeComponent(pass)}@$rest';
+  }
+
   void _startRtspFeed(String key, _CamSlot cam) {
-    final addr = cam.addressCtrl.text.trim();
-    final port = cam.portCtrl.text.trim();
-    if (addr.isEmpty) {
-      setState(() => _feedErrors[key] = 'No IP configured');
-      return;
+    final String rtspUrl;
+    final storedPath = cam.rtspPathCtrl.text.trim();
+    if (storedPath.startsWith('rtsp://') || storedPath.startsWith('rtsps://')) {
+      rtspUrl = _encodeRtspUrl(storedPath);
+    } else {
+      final addr = cam.addressCtrl.text.trim();
+      final port = cam.portCtrl.text.trim();
+      if (addr.isEmpty) {
+        setState(() => _feedErrors[key] = 'No IP configured');
+        return;
+      }
+      final user = cam.usernameCtrl.text.trim();
+      final pass = cam.passwordCtrl.text.trim();
+      final auth = user.isNotEmpty ? '${Uri.encodeComponent(user)}:${Uri.encodeComponent(pass)}@' : '';
+      final path = cam.rtspPath;
+      rtspUrl = 'rtsp://$auth$addr:$port$path';
     }
 
-    final user = cam.usernameCtrl.text.trim();
-    final pass = cam.passwordCtrl.text.trim();
-    final auth = user.isNotEmpty ? '$user:$pass@' : '';
-    final path = cam.rtspPath;
-    final rtspUrl = 'rtsp://$auth$addr:$port$path';
+    debugPrint('[CamerasStep] $key: Opening RTSP → $rtspUrl');
 
-    final player = Player();
+    final player = Player(
+      configuration: const PlayerConfiguration(
+        protocolWhitelist: ['file', 'tcp', 'tls', 'http', 'https', 'crypto', 'data', 'rtsp', 'rtp', 'udp'],
+      ),
+    );
     final controller = VideoController(player);
     _players[key] = player;
 
     player.stream.error.listen((error) {
+      debugPrint('[CamerasStep] $key: Stream error → $error');
       if (mounted) setState(() => _feedErrors[key] = 'Stream error');
     });
 
     player.stream.width.listen((w) {
+      debugPrint('[CamerasStep] $key: Width → $w');
       if (mounted && w != null && w > 0) {
         setState(() {
           _videoControllers[key] = controller;
@@ -249,6 +280,15 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
       }
     });
 
+    final native = player.platform as NativePlayer;
+    native.setProperty('rtsp-transport', 'tcp');
+    native.setProperty('profile', 'low-latency');
+    native.setProperty('untimed', 'yes');
+    native.setProperty('cache', 'no');
+    native.setProperty('cache-pause', 'no');
+    native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+fastseek');
+    native.setProperty('framedrop', 'vo');
+    native.setProperty('video-latency-hacks', 'yes');
     player.open(Media(rtspUrl), play: true);
     player.setVolume(0);
   }
@@ -297,6 +337,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
     final payload = <String, dynamic>{
       'enabled': cam.enabled,
       'source': cam.source,
+      'networkType': cam.networkType,
       'address': cam.addressCtrl.text.trim(),
       'username': cam.usernameCtrl.text.trim(),
       'password': CryptoService.encrypt(cam.passwordCtrl.text.trim()),
@@ -306,6 +347,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
       'dvrStreamType': cam.dvrStreamType,
       'usbDevice': cam.usbDevice,
       'builtInDevice': cam.builtInDevice,
+      'rtspPath': cam.rtspPathCtrl.text.trim(),
     };
     if (key != 'operator' && key != 'customer') {
       payload['grossEnabled'] = cam.grossEnabled;
@@ -427,26 +469,18 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
 
   Set<String> _takenDevices(String excludeKey) {
     return _slots.entries
-        .where((e) => e.key != excludeKey && e.value.enabled && e.value.source != 'IP Camera' && e.value.source != 'DVR')
+        .where((e) => e.key != excludeKey && e.value.enabled && e.value.source != 'Network Camera')
         .map((e) => e.value.usbDevice.isNotEmpty ? e.value.usbDevice : e.value.builtInDevice)
         .where((d) => d.isNotEmpty)
         .toSet();
   }
 
   bool _isDuplicate(String key, _CamSlot cam) {
-    if (cam.source == 'IP Camera') {
-      final addr = cam.addressCtrl.text.trim();
-      final port = cam.portCtrl.text.trim();
-      if (addr.isEmpty) return false;
-      for (final entry in _slots.entries) {
-        if (entry.key == key || !entry.value.enabled || entry.value.source != 'IP Camera') continue;
-        if (entry.value.addressCtrl.text.trim() == addr && entry.value.portCtrl.text.trim() == port) return true;
-      }
-    } else if (cam.source == 'DVR') {
+    if (cam.source == 'Network Camera') {
       final addr = cam.addressCtrl.text.trim();
       if (addr.isEmpty) return false;
       for (final entry in _slots.entries) {
-        if (entry.key == key || !entry.value.enabled || entry.value.source != 'DVR') continue;
+        if (entry.key == key || !entry.value.enabled || entry.value.source != 'Network Camera') continue;
         if (entry.value.addressCtrl.text.trim() == addr && entry.value.dvrChannel == cam.dvrChannel) return true;
       }
     } else {
@@ -821,9 +855,9 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
     }
 
     if (!_isCameraConfigured(cam)) {
-      cam.source = (isWb && !isFree) ? 'IP Camera' : 'Local Device';
+      cam.source = (isWb && !isFree) ? 'Network Camera' : 'Local Device';
     }
-    if (isFree && cam.source == 'IP Camera') cam.source = 'Local Device';
+    if (isFree && cam.source == 'Network Camera') cam.source = 'Local Device';
 
     setState(() {
       _expandedSlot = key;
@@ -841,11 +875,11 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
-          children: ['IP Camera', 'DVR', 'Local Device'].map((src) {
+          children: ['Network Camera', 'Local Device'].map((src) {
             final selected = src == 'Local Device'
                 ? (cam.source == 'Local Device' || cam.source == 'USB' || cam.source == 'Built-in')
                 : cam.source == src;
-            final isLocked = (src == 'IP Camera' || src == 'DVR') && isFree;
+            final isLocked = src == 'Network Camera' && isFree;
             return GestureDetector(
               onTap: isLocked ? null : () {
                 _fieldChangeTimer?.cancel();
@@ -878,59 +912,90 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
             );
           }).toList(),
         ),
+        // Network type sub-option
+        if (cam.source == 'Network Camera') ...[
+          const SizedBox(height: 12),
+          Text('NETWORK TYPE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.8)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() { cam.networkType = 'ip'; });
+                    _testedSlots.remove(key);
+                    _stopFeed(key);
+                    _inlineTestError = null;
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: cam.networkType == 'ip' ? scheme.primaryContainer : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: cam.networkType == 'ip' ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.camera_outdoor_rounded, size: 14, color: cam.networkType == 'ip' ? scheme.primary : scheme.onSurfaceVariant),
+                        const SizedBox(width: 6),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('IP Camera', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: cam.networkType == 'ip' ? scheme.primary : scheme.onSurfaceVariant)),
+                            Text('Standalone', style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() { cam.networkType = 'nvr'; });
+                    _testedSlots.remove(key);
+                    _stopFeed(key);
+                    _inlineTestError = null;
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: cam.networkType == 'nvr' ? scheme.primaryContainer : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: cam.networkType == 'nvr' ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.dns_rounded, size: 14, color: cam.networkType == 'nvr' ? scheme.primary : scheme.onSurfaceVariant),
+                        const SizedBox(width: 6),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('NVR / DVR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: cam.networkType == 'nvr' ? scheme.primary : scheme.onSurfaceVariant)),
+                            Text('Recorder', style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+
         const SizedBox(height: 16),
 
         // Connection fields
-        if (cam.source == 'IP Camera') ...[
+        if (cam.source == 'Network Camera') ...[
           TextField(
             controller: cam.addressCtrl,
             inputFormatters: [IpInputFormatter()],
             onChanged: (_) => _onFieldChanged(key),
             decoration: InputDecoration(
               labelText: 'IP Address', hintText: '192.168.1.64', isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            style: const TextStyle(fontSize: 13),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              SizedBox(width: 90, child: TextField(
-                controller: cam.portCtrl,
-                onChanged: (_) => _onFieldChanged(key),
-                decoration: InputDecoration(labelText: 'Port', hintText: '554', isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
-                style: const TextStyle(fontSize: 13),
-              )),
-              const SizedBox(width: 10),
-              Expanded(child: TextField(
-                controller: cam.usernameCtrl,
-                onChanged: (_) => _onFieldChanged(key),
-                decoration: InputDecoration(labelText: 'Username', hintText: 'admin', isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
-                style: const TextStyle(fontSize: 13),
-              )),
-              const SizedBox(width: 10),
-              Expanded(child: TextField(
-                controller: cam.passwordCtrl, obscureText: true,
-                onChanged: (_) => _onFieldChanged(key),
-                decoration: InputDecoration(labelText: 'Password', hintText: '••••', isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
-                style: const TextStyle(fontSize: 13),
-              )),
-            ],
-          ),
-        ] else if (cam.source == 'DVR') ...[
-          TextField(
-            controller: cam.addressCtrl,
-            inputFormatters: [IpInputFormatter()],
-            onChanged: (_) => _onFieldChanged(key),
-            decoration: InputDecoration(
-              labelText: 'DVR IP Address', hintText: '192.168.1.100', isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             ),
@@ -949,13 +1014,14 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
               )),
+              if (cam.networkType == 'nvr') ...[
               const SizedBox(width: 10),
               SizedBox(width: 90, child: DropdownButtonFormField<int>(
                 key: ValueKey('${key}_ch_${cam.dvrChannel}'),
                 initialValue: cam.dvrChannel, isDense: true,
-                items: List.generate(32, (i) => i + 1)
+                items: List.generate(4, (i) => i + 1)
                     .map((ch) => DropdownMenuItem(value: ch, child: Text('CH $ch', style: const TextStyle(fontSize: 12)))).toList(),
-                onChanged: (v) { setState(() { cam.dvrChannel = v!; }); _onFieldChanged(key); },
+                onChanged: (v) { setState(() { cam.dvrChannel = v!; cam.rtspPathCtrl.text = ''; }); _restartFeedAfterChange(key, cam); },
                 decoration: InputDecoration(labelText: 'Channel', isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
@@ -968,11 +1034,12 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                   DropdownMenuItem(value: 'main', child: Text('Main', style: TextStyle(fontSize: 12))),
                   DropdownMenuItem(value: 'sub', child: Text('Sub', style: TextStyle(fontSize: 12))),
                 ],
-                onChanged: (v) { setState(() { cam.dvrStreamType = v!; }); _onFieldChanged(key); },
+                onChanged: (v) { setState(() { cam.dvrStreamType = v!; cam.rtspPathCtrl.text = ''; }); _restartFeedAfterChange(key, cam); },
                 decoration: InputDecoration(labelText: 'Quality', isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
               )),
+              ],
             ],
           ),
           const SizedBox(height: 10),
@@ -1053,7 +1120,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                     cam.portCtrl.text = '554';
                     cam.usernameCtrl.clear();
                     cam.passwordCtrl.clear();
-                    cam.source = (isWb && !isFree) ? 'IP Camera' : 'Local Device';
+                    cam.source = (isWb && !isFree) ? 'Network Camera' : 'Local Device';
                     cam.dvrBrand = 'Hikvision';
                     cam.dvrChannel = 1;
                     cam.dvrStreamType = 'main';
@@ -1149,12 +1216,11 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
 
   String _sourceLabel(_CamSlot cam) {
     switch (cam.source) {
-      case 'IP Camera':
+      case 'Network Camera':
         final addr = cam.addressCtrl.text.trim();
-        return addr.isNotEmpty ? '${cam.source} · $addr:${cam.portCtrl.text}' : cam.source;
-      case 'DVR':
-        final addr = cam.addressCtrl.text.trim();
-        return addr.isNotEmpty ? '${cam.dvrBrand} · CH ${cam.dvrChannel} · $addr' : 'DVR';
+        if (addr.isEmpty) return 'Network Camera';
+        if (cam.networkType == 'ip') return '${cam.dvrBrand} · $addr';
+        return '${cam.dvrBrand} · CH ${cam.dvrChannel} · $addr';
       case 'Local Device':
         final device = cam.usbDevice.isNotEmpty ? cam.usbDevice : cam.builtInDevice;
         return device.isNotEmpty ? device : 'Local';
@@ -1322,6 +1388,13 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
     );
   }
 
+  void _restartFeedAfterChange(String key, _CamSlot cam) {
+    _fieldChangeTimer?.cancel();
+    _testedSlots.remove(key);
+    setState(() => _inlineTestError = null);
+    _startFeed(key, cam, forceEnabled: true);
+  }
+
   void _onFieldChanged(String key) {
     _fieldChangeTimer?.cancel();
     setState(() {
@@ -1337,8 +1410,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
 
   bool _isCameraConfigured(_CamSlot cam) {
     switch (cam.source) {
-      case 'IP Camera':
-      case 'DVR':
+      case 'Network Camera':
         return cam.addressCtrl.text.trim().isNotEmpty;
       case 'Local Device':
       case 'USB':
@@ -1355,7 +1427,8 @@ class _CamSlot {
   final String label;
   final String purpose;
   bool enabled = false;
-  String source = 'IP Camera';
+  String source = 'Network Camera';
+  String networkType = 'nvr'; // 'ip' (standalone camera) or 'nvr' (NVR/DVR)
   String usbDevice = '';
   String builtInDevice = '';
   String dvrBrand = 'Hikvision';
@@ -1369,23 +1442,23 @@ class _CamSlot {
   final TextEditingController usernameCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController portCtrl;
+  final TextEditingController rtspPathCtrl;
 
   _CamSlot({required this.label, required this.purpose})
       : addressCtrl = TextEditingController(),
         usernameCtrl = TextEditingController(),
         passwordCtrl = TextEditingController(),
-        portCtrl = TextEditingController(text: '554');
+        portCtrl = TextEditingController(text: '554'),
+        rtspPathCtrl = TextEditingController();
 
   String get rtspPath {
-    switch (source) {
-      case 'DVR':
-        return _dvrRtspPath(dvrBrand, dvrChannel, dvrStreamType);
-      default:
-        return '/stream';
-    }
+    final custom = rtspPathCtrl.text.trim();
+    if (custom.startsWith('rtsp://') || custom.startsWith('rtsps://')) return custom;
+    if (custom.isNotEmpty) return custom.startsWith('/') ? custom : '/$custom';
+    return _brandStreamPath(dvrBrand, dvrChannel, dvrStreamType);
   }
 
-  static String _dvrRtspPath(String brand, int channel, String streamType) {
+  static String _brandStreamPath(String brand, int channel, String streamType) {
     final subtype = streamType == 'sub' ? 1 : 0;
     final chMain = channel * 100 + 1;
     final chSub = channel * 100 + 2;
@@ -1401,10 +1474,12 @@ class _CamSlot {
         return '/cam/realmonitor?channel=$channel&subtype=$subtype';
       case 'Uniview':
         return '/media/video$channel';
+      case 'Bosch':
+        return '/rtsp_tunnel?h26x=$channel&line=$channel&inst=$subtype';
       case 'Axis':
         return '/axis-media/media.amp?camera=$channel&videocodec=h264&resolution=1920x1080';
       case 'Samsung (Hanwha)':
-        return '/profile$channel/media.smp';
+        return '/profile$channel/${streamType == 'sub' ? 'media.smp' : 'media.smp'}';
       case 'Vivotek':
         return '/live.sdp?channel=$channel&stream=${subtype + 1}';
       case 'Pelco':

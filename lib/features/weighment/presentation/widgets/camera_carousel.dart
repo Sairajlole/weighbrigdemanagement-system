@@ -87,15 +87,18 @@ class _CameraCarouselState extends ConsumerState<CameraCarousel> {
     }
 
     final added = desiredKeys.difference(_activeKeys);
+    final futures = <Future<void>>[];
     for (final key in added) {
+      if (!mounted) break;
       final camData = allCams[key] as Map<String, dynamic>? ?? {};
       final source = camData['source'] as String? ?? 'Local Device';
-      if (source == 'IP Camera' || source == 'DVR') {
-        _startIpFeed(key, camData);
+      if (source == 'Network Camera') {
+        futures.add(_startIpFeed(key, camData));
       } else {
-        await _startNativeFeed(key, camData);
+        futures.add(_startNativeFeed(key, camData));
       }
     }
+    if (futures.isNotEmpty) await Future.wait(futures);
 
     _activeKeys
       ..clear()
@@ -109,55 +112,95 @@ class _CameraCarouselState extends ConsumerState<CameraCarousel> {
     if (mounted) setState(() {});
   }
 
-  void _startIpFeed(String key, Map<String, dynamic> camData) {
-    final address = camData['address'] as String? ?? '';
-    if (address.isEmpty) return;
+  static String _encodeRtspUrl(String raw) {
+    if (!raw.startsWith('rtsp://') && !raw.startsWith('rtsps://')) return raw;
+    final schemeEnd = raw.indexOf('://') + 3;
+    final afterScheme = raw.substring(schemeEnd);
+    final lastAt = afterScheme.lastIndexOf('@');
+    if (lastAt < 0) return raw;
+    final credentials = afterScheme.substring(0, lastAt);
+    final rest = afterScheme.substring(lastAt + 1);
+    final colonIdx = credentials.indexOf(':');
+    if (colonIdx < 0) return raw;
+    final user = Uri.decodeComponent(credentials.substring(0, colonIdx));
+    final pass = Uri.decodeComponent(credentials.substring(colonIdx + 1));
+    return '${raw.substring(0, schemeEnd)}${Uri.encodeComponent(user)}:${Uri.encodeComponent(pass)}@$rest';
+  }
 
-    final username = camData['username'] as String? ?? '';
-    final encPassword = camData['password'] as String? ?? '';
-    final password = encPassword.isNotEmpty ? CryptoService.decrypt(encPassword) : '';
-    final port = camData['port'] as int? ?? 554;
+  Future<void> _startIpFeed(String key, Map<String, dynamic> camData) async {
+    final String rtspUrl;
 
-    final auth = username.isNotEmpty ? '$username:$password@' : '';
-    final path = _resolveStreamPath(camData);
-    final rtspUrl = 'rtsp://$auth$address:$port$path';
+    final rtspPath = camData['rtspPath'] as String? ?? '';
+    if (rtspPath.startsWith('rtsp://') || rtspPath.startsWith('rtsps://')) {
+      rtspUrl = _encodeRtspUrl(rtspPath);
+    } else {
+      final address = camData['address'] as String? ?? '';
+      if (address.isEmpty) return;
+      final username = camData['username'] as String? ?? '';
+      final encPassword = camData['password'] as String? ?? '';
+      final password = encPassword.isNotEmpty ? CryptoService.decrypt(encPassword) : '';
+      final rawPort = camData['port'] as int? ?? 554;
+      final port = rawPort > 0 ? rawPort : 554;
+      final auth = username.isNotEmpty ? '${Uri.encodeComponent(username)}:${Uri.encodeComponent(password)}@' : '';
+      final path = _resolveStreamPath(camData);
+      rtspUrl = 'rtsp://$auth$address:$port$path';
+    }
+
+    if (!mounted) return;
 
     final player = Player();
     final controller = VideoController(player);
     _players[key] = player;
     _videoControllers[key] = controller;
 
+    final native = player.platform as NativePlayer;
+    native.setProperty('rtsp-transport', 'tcp');
+    native.setProperty('profile', 'low-latency');
+    native.setProperty('untimed', 'yes');
+    native.setProperty('cache', 'no');
+    native.setProperty('cache-pause', 'no');
+    native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+fastseek');
+    native.setProperty('framedrop', 'vo');
+    native.setProperty('video-latency-hacks', 'yes');
     player.open(Media(rtspUrl), play: true);
     player.setVolume(0);
-    if (mounted) setState(() {});
   }
 
   static String _resolveStreamPath(Map<String, dynamic> camData) {
-    final source = camData['source'] as String? ?? 'IP Camera';
-    if (source == 'DVR') {
-      final brand = camData['dvrBrand'] as String? ?? 'Hikvision';
-      final channel = camData['dvrChannel'] as int? ?? 1;
-      final streamType = camData['dvrStreamType'] as String? ?? 'main';
-      final subtype = streamType == 'sub' ? 1 : 0;
-      final chMain = channel * 100 + 1;
-      final chSub = channel * 100 + 2;
-      switch (brand) {
-        case 'Hikvision':
-        case 'TVT':
-        case 'Honeywell':
-          return '/Streaming/Channels/${streamType == 'sub' ? chSub : chMain}';
-        case 'Dahua':
-        case 'CP Plus':
-        case 'Godrej':
-        case 'Zebronics':
-          return '/cam/realmonitor?channel=$channel&subtype=$subtype';
-        case 'Uniview':
-          return '/media/video$channel';
-        default:
-          return '/Streaming/Channels/${streamType == 'sub' ? chSub : chMain}';
-      }
+    final brand = camData['dvrBrand'] as String? ?? camData['cameraBrand'] as String? ?? 'Hikvision';
+    final channel = camData['dvrChannel'] as int? ?? 1;
+    final streamType = camData['dvrStreamType'] as String? ?? 'main';
+    final subtype = streamType == 'sub' ? 1 : 0;
+    final chMain = channel * 100 + 1;
+    final chSub = channel * 100 + 2;
+    switch (brand) {
+      case 'Hikvision':
+      case 'TVT':
+      case 'Honeywell':
+        return '/Streaming/Channels/${streamType == 'sub' ? chSub : chMain}';
+      case 'Dahua':
+      case 'CP Plus':
+      case 'Godrej':
+      case 'Zebronics':
+        return '/cam/realmonitor?channel=$channel&subtype=$subtype';
+      case 'Uniview':
+        return '/media/video$channel';
+      case 'Bosch':
+        return '/rtsp_tunnel?h26x=$channel&line=$channel&inst=$subtype';
+      case 'Axis':
+        return '/axis-media/media.amp?camera=$channel&videocodec=h264&resolution=1920x1080';
+      case 'Samsung (Hanwha)':
+        return '/profile$channel/${streamType == 'sub' ? 'media.smp' : 'media.smp'}';
+      case 'Vivotek':
+        return '/live.sdp?channel=$channel&stream=${subtype + 1}';
+      case 'Pelco':
+      case 'TP-Link VIGI':
+        return '/stream$channel';
+      case 'D-Link':
+        return '/live$channel.sdp';
+      default:
+        return '/Streaming/Channels/${streamType == 'sub' ? chSub : chMain}';
     }
-    return '/stream';
   }
 
   Future<void> _startNativeFeed(String key, Map<String, dynamic> camData) async {
@@ -321,7 +364,7 @@ class _CameraCarouselState extends ConsumerState<CameraCarousel> {
                                 right: 4, top: 4,
                                 child: Container(
                                   width: 7, height: 7,
-                                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                                  decoration: const BoxDecoration(color: Colors.white70, shape: BoxShape.circle),
                                 ),
                               ),
                           ],
@@ -489,7 +532,7 @@ class _EnlargedCameraOverlayState extends State<_EnlargedCameraOverlay>
                                       child: Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
-                                        child: const Icon(Icons.close_rounded, size: 18, color: Colors.white70),
+                                        child: const Icon(Icons.close_outlined, size: 18, color: Colors.white70),
                                       ),
                                     ),
                                   ),

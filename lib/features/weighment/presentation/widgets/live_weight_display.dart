@@ -71,18 +71,10 @@ class LiveWeightDisplay extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: stable
-              ? Colors.green.withValues(alpha: 0.4)
+              ? scheme.onSurface.withValues(alpha: 0.3)
               : scheme.outlineVariant.withValues(alpha: 0.3),
           width: stable ? 2 : 1,
         ),
-        boxShadow: [
-          if (stable)
-            BoxShadow(
-              color: Colors.green.withValues(alpha: 0.08),
-              blurRadius: 20,
-              spreadRadius: 2,
-            ),
-        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -96,7 +88,7 @@ class LiveWeightDisplay extends ConsumerWidget {
                 height: 8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: connected ? Colors.green : Colors.red,
+                  color: connected ? scheme.onSurface : scheme.error,
                 ),
               ),
               const SizedBox(width: 8),
@@ -106,7 +98,7 @@ class LiveWeightDisplay extends ConsumerWidget {
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1,
-                  color: connected ? scheme.onSurfaceVariant : Colors.red,
+                  color: connected ? scheme.onSurfaceVariant : scheme.error,
                 ),
               ),
             ],
@@ -144,23 +136,19 @@ class LiveWeightDisplay extends ConsumerWidget {
             duration: const Duration(milliseconds: 300),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
-              color: stable
-                  ? Colors.green.withValues(alpha: 0.1)
-                  : Colors.orange.withValues(alpha: 0.1),
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: stable
-                    ? Colors.green.withValues(alpha: 0.3)
-                    : Colors.orange.withValues(alpha: 0.3),
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.2),
               ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  stable ? Icons.check_circle_rounded : Icons.pending_rounded,
+                  stable ? Icons.check_circle_outlined : Icons.pending_outlined,
                   size: 14,
-                  color: stable ? Colors.green : Colors.orange,
+                  color: scheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -169,7 +157,7 @@ class LiveWeightDisplay extends ConsumerWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.5,
-                    color: stable ? Colors.green : Colors.orange,
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -180,7 +168,7 @@ class LiveWeightDisplay extends ConsumerWidget {
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: stable ? onCapture : null,
-              icon: const Icon(Icons.camera_alt_rounded, size: 18),
+              icon: const Icon(Icons.camera_alt_outlined, size: 18),
               label: const Text('Capture Weight'),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -193,7 +181,7 @@ class LiveWeightDisplay extends ConsumerWidget {
             const SizedBox(height: 12),
             TextButton.icon(
               onPressed: () => _showManualEntryDialog(context),
-              icon: const Icon(Icons.edit_rounded, size: 16),
+              icon: const Icon(Icons.edit_outlined, size: 16),
               label: const Text('Manual Entry'),
               style: TextButton.styleFrom(
                 textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),

@@ -26,11 +26,15 @@ import 'package:weighbridgemanagement/features/weighment/presentation/widgets/we
 import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/gate_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/integrations_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/print_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/face_verification_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
+import 'package:weighbridgemanagement/shared/services/gate_service.dart';
+import 'package:weighbridgemanagement/shared/services/multi_camera_service.dart';
 import 'package:weighbridgemanagement/shared/services/training_data_service.dart';
 
 class WeighmentScreen extends ConsumerStatefulWidget {
@@ -41,6 +45,8 @@ class WeighmentScreen extends ConsumerStatefulWidget {
 }
 
 class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
+  final _weightBannerKey = GlobalKey<LiveWeightBannerState>();
+  final _screenFocusNode = FocusNode();
   Timer? _elapsedTimer;
   Timer? _anprScanTimer;
   Timer? _anprTimeoutTimer;
@@ -48,6 +54,11 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
   bool _anprScanInProgress = false; // re-entrancy guard
   String? _anprSessionId;
   Duration _anprInterval = const Duration(milliseconds: 500);
+  bool _showCustomerSearch = false;
+  final _customerSearchController = TextEditingController();
+  bool _showPrintSearch = false;
+  final _printSearchController = TextEditingController();
+  List<Map<String, dynamic>> _printSearchResults = [];
 
   @override
   void initState() {
@@ -61,7 +72,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final session = ref.read(weighmentMachineProvider).session;
     if (session == null || !mounted) return;
     ref.read(weighmentMachineProvider.notifier).updateSession(
-      (s) => s.copyWith(anprPrediction: null, anprConfidence: null, plateCropB64: null),
+      (s) => s.copyWith(vehicleNumber: '', anprPrediction: null, anprConfidence: null, plateCropB64: null),
     );
     _runAnprDetection();
   }
@@ -83,7 +94,12 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final needsSession = verifier.needsVerification(FaceVerifyTrigger.sessionStart, settings, isAdmin);
 
     if (needsDay || needsSession) {
-      ref.read(inlineVerificationProvider.notifier).startBackgroundVerification();
+      final opCam = await ref.read(operatorCameraConfigProvider.future);
+      if (opCam.enabled) {
+        ref.read(inlineVerificationProvider.notifier).startBackgroundVerification();
+      } else {
+        ref.read(inlineVerificationProvider.notifier).skipToPin();
+      }
     }
   }
 
@@ -105,17 +121,9 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        icon: Container(
-          width: 56, height: 56,
-          decoration: BoxDecoration(
-            color: scheme.errorContainer.withValues(alpha: 0.3),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(Icons.schedule_rounded, size: 28, color: scheme.error),
-        ),
-        title: const Text('Outside Your Shift', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-        content: Text(message, style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant), textAlign: TextAlign.center),
+        icon: Icon(Icons.schedule_outlined, size: 28, color: scheme.error),
+        title: const Text('Outside Your Shift'),
+        content: Text(message, textAlign: TextAlign.center),
         actions: [
           FilledButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('OK')),
         ],
@@ -124,11 +132,35 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
   }
 
   @override
+  void reassemble() {
+    super.reassemble();
+    _handleClear();
+  }
+
+  @override
   void dispose() {
     _elapsedTimer?.cancel();
     _anprScanTimer?.cancel();
+    _anprScanTimer = null;
     _anprTimeoutTimer?.cancel();
+    _anprScanning = false;
+    _anprScanInProgress = false;
+    _anprSessionId = null;
+    _customerSearchController.dispose();
+    _printSearchController.dispose();
+    _screenFocusNode.dispose();
+    _disposeProviders();
     super.dispose();
+  }
+
+  void _disposeProviders() {
+    try {
+      ref.read(weighmentMachineProvider.notifier).reset();
+      ref.read(customerFaceProvider.notifier).state = CustomerFaceState.empty;
+      ref.read(inlineVerificationProvider.notifier).reset();
+      ref.read(anprDetectionOverlayProvider.notifier).state = {};
+      ref.read(anprScanningProvider.notifier).state = false;
+    } catch (_) {}
   }
 
   void _startTimer() {
@@ -156,16 +188,31 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       }
     }
 
-    if (verifier.needsVerification(FaceVerifyTrigger.weighmentStart, settings, isAdmin)) {
-      ref.read(inlineVerificationProvider.notifier).startBackgroundVerification();
+    final needsVerify = verifier.needsVerification(FaceVerifyTrigger.weighmentStart, settings, isAdmin);
+    if (needsVerify) {
+      ref.read(inlineVerificationProvider.notifier).reset();
+      final opCam = await ref.read(operatorCameraConfigProvider.future);
+      if (opCam.enabled) {
+        ref.read(inlineVerificationProvider.notifier).startBackgroundVerification();
+      } else {
+        ref.read(inlineVerificationProvider.notifier).skipToPin();
+      }
     }
 
     ref.read(weighmentMachineProvider.notifier).startNew();
     _startTimer();
+
+    // Stagger ANPR start to avoid concurrent inference with face verification
+    if (needsVerify) {
+      await Future.delayed(const Duration(milliseconds: 1500));
+    }
     _runAnprDetection();
   }
 
   Future<void> _runAnprDetection() async {
+    final cameras = ref.read(anprCamerasProvider).valueOrNull ?? [];
+    if (cameras.isEmpty) return;
+
     _anprScanTimer?.cancel();
     _anprScanning = true;
 
@@ -174,7 +221,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     // Determine adaptive parameters from sidecar health
     final health = await sidecar.health();
     final minVotes = health?.recommendedMinVotes ?? 3;
-    _anprInterval = health?.recommendedScanInterval ?? const Duration(milliseconds: 400);
+    _anprInterval = health?.recommendedScanInterval ?? const Duration(milliseconds: 300);
 
     _anprSessionId = await sidecar.startAnprSession(minVotes: minVotes, maxFrames: 15);
 
@@ -184,7 +231,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
 
     _anprTimeoutTimer = Timer(const Duration(seconds: 60), () {
       if (!_anprScanning) return;
-      _stopAnprScan();
+      _applyBestCandidateAndStop();
     });
   }
 
@@ -216,6 +263,35 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       }
     }
     ref.read(anprDetectionOverlayProvider.notifier).state = cleaned;
+  }
+
+  void _applyBestCandidateAndStop() {
+    // On timeout or forced stop: use best candidate even if consensus didn't fully lock
+    final overlays = ref.read(anprDetectionOverlayProvider);
+    AnprOverlay? best;
+    for (final entry in overlays.values) {
+      if (entry.plateText.isNotEmpty && entry.confidence > 0.4) {
+        if (best == null || entry.confidence > best.confidence) {
+          best = entry;
+        }
+      }
+    }
+    _stopAnprScan();
+    if (best != null) {
+      final bestPlate = best.plateText;
+      final bestConf = best.confidence;
+      final bestCrop = best.plateCropB64;
+      final isValidFormat = best.plateType != 'unknown';
+      ref.read(weighmentMachineProvider.notifier).updateSession(
+        (s) => s.copyWith(
+          vehicleNumber: isValidFormat ? bestPlate : s.vehicleNumber,
+          anprPrediction: bestPlate,
+          anprConfidence: bestConf,
+          plateCropB64: bestCrop,
+        ),
+      );
+      _sendPlateToDisplayBoard(bestPlate);
+    }
   }
 
   void _stopAllScanning() {
@@ -274,7 +350,8 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       if (frame == null || !mounted) return;
 
       if (_anprSessionId != null) {
-        final result = await sidecar.submitAnprFrame(_anprSessionId!, frame, cameraId: cam.key);
+        final zones = ref.read(cameraPrivacyZonesProvider).valueOrNull?[cam.key] ?? const [];
+        final result = await sidecar.submitAnprFrame(_anprSessionId!, frame, cameraId: cam.key, privacyZones: zones);
         if (result == null || !mounted || !_anprScanning) {
           _anprConsecutiveErrors++;
           if (_anprConsecutiveErrors >= 5) {
@@ -294,6 +371,11 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
           final keepCrop = existing != null &&
               existing.plateCropB64.isNotEmpty &&
               newConf <= existing.confidence;
+          // Only show crop after consensus confirms (topVotes >= 2) to avoid stale frames
+          final confirmed = result.topVotes >= 2 || (existing != null && existing.hasCrop);
+          final cropToShow = confirmed
+              ? (keepCrop ? existing.plateCropB64 : result.frameDetection!.plateCropB64)
+              : '';
           overlays[cam.key] = AnprOverlay(
             cameraKey: cam.key,
             bbox: result.frameDetection!.bbox,
@@ -301,7 +383,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
             confidence: newConf,
             plateType: result.frameDetection!.plateType,
             srApplied: keepCrop ? existing.srApplied : result.frameDetection!.srApplied,
-            plateCropB64: keepCrop ? existing.plateCropB64 : result.frameDetection!.plateCropB64,
+            plateCropB64: cropToShow,
             plateBgColor: keepCrop ? existing.plateBgColor : result.frameDetection!.plateBgColor,
           );
           ref.read(anprDetectionOverlayProvider.notifier).state = overlays;
@@ -321,6 +403,19 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
             );
             ref.read(anprDetectionOverlayProvider.notifier).state = overlays;
           }
+        }
+
+        // Early update: show candidate in vehicle number field before full lock
+        // Only if candidate looks like a real plate (6+ chars, not garbage from random objects)
+        if (!result.isLocked && result.topCandidate != null && result.topVotes >= 2 && result.topCandidate!.length >= 6) {
+          final latestCrop = result.frameDetection?.plateCropB64 ?? '';
+          ref.read(weighmentMachineProvider.notifier).updateSession(
+            (s) => s.copyWith(
+              anprPrediction: result.topCandidate,
+              vehicleNumber: result.topCandidate!,
+              plateCropB64: latestCrop.isNotEmpty ? latestCrop : s.plateCropB64,
+            ),
+          );
         }
 
         if (result.isLocked) {
@@ -406,7 +501,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.directions_car_rounded, color: scheme.onInverseSurface, size: 18),
+            Icon(Icons.directions_car_outlined, color: scheme.onInverseSurface, size: 18),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -518,40 +613,18 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     return true;
   }
 
+  bool _canCaptureWeight(WeighmentSession session) {
+    if (session.firstWeight == null) return true;
+    final modeConfig = ref.read(weighmentModeConfigProvider).valueOrNull ?? const WeighmentModeConfig();
+    if (modeConfig.entryMode == WeighmentEntryMode.singleEntry) {
+      return session.secondWeight == null;
+    }
+    // Multi-entry: second weight only allowed when resumed from pending queue
+    return session.existingDocId != null && session.secondWeight == null;
+  }
+
   void _showManualEntryDialog() {
-    final ctrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Manual Weight Entry'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'Weight (kg)', hintText: '0', suffixText: 'kg'),
-          onSubmitted: (v) {
-            final weight = double.tryParse(v);
-            if (weight != null && weight > 0) {
-              Navigator.pop(ctx);
-              _handleManualWeight(weight);
-            }
-          },
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              final weight = double.tryParse(ctrl.text);
-              if (weight != null && weight > 0) {
-                Navigator.pop(ctx);
-                _handleManualWeight(weight);
-              }
-            },
-            child: const Text('Apply'),
-          ),
-        ],
-      ),
-    );
+    _weightBannerKey.currentState?.startEditing();
   }
 
   void _handleManualWeight(double weight) {
@@ -568,6 +641,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       WeighmentAudio.playCapture();
       gateAuto.onFirstWeightCaptured(vehicleNumber: session.vehicleNumber);
       _captureWeightSnapshots('first');
+      _captureDriverFace();
       _sendToDisplayBoard(weight, session.vehicleNumber);
       _runMaterialDetection();
     } else {
@@ -576,6 +650,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       notifier.advanceToStep(WeighmentStep.rstAssignment);
       WeighmentAudio.playCapture();
       _captureWeightSnapshots('second');
+      _verifyDriver();
       _handlePostCapture();
     }
   }
@@ -597,6 +672,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       WeighmentAudio.playCapture();
       gateAuto.onFirstWeightCaptured(vehicleNumber: session.vehicleNumber);
       _captureWeightSnapshots('first');
+      _captureDriverFace();
       _sendToDisplayBoard(reading.weight, session.vehicleNumber);
       _runMaterialDetection();
     } else {
@@ -605,19 +681,20 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       notifier.advanceToStep(WeighmentStep.rstAssignment);
       WeighmentAudio.playCapture();
       _captureWeightSnapshots('second');
+      _verifyDriver();
       _handlePostCapture();
     }
   }
 
   Future<void> _handlePostCapture() async {
+    // After second weight captured, do NOT auto-save.
+    // Wait for operator to press SAVE button.
+  }
+
+  Future<void> _handleSaveComplete() async {
     final notifier = ref.read(weighmentMachineProvider.notifier);
     final session = ref.read(weighmentMachineProvider).session;
     if (session == null) return;
-
-    try {
-      final rst = await ref.read(nextRstProvider.future);
-      notifier.updateSession((s) => s.copyWith(rstNumber: rst));
-    } catch (_) {}
 
     notifier.markCompleted();
     notifier.advanceToStep(WeighmentStep.saveToFirestore);
@@ -646,23 +723,27 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final session = ref.read(weighmentMachineProvider).session;
     if (session == null || session.firstWeight == null) return;
 
-    try {
-      final rst = await ref.read(nextRstProvider.future);
-      notifier.updateSession((s) => s.copyWith(rstNumber: rst));
-    } catch (_) {}
-
     await _saveToFirestore();
     notifier.markAwaitingSecondWeight();
     _elapsedTimer?.cancel();
   }
 
   Future<void> _saveToFirestore() async {
-    final session = ref.read(weighmentMachineProvider).session;
+    final notifier = ref.read(weighmentMachineProvider.notifier);
+    var session = ref.read(weighmentMachineProvider).session;
     if (session == null) return;
     final paths = ref.read(firestorePathsProvider);
     if (!paths.isConfigured) return;
 
     try {
+      // Assign RST only on first save (not on updates to existing docs)
+      if (session.existingDocId == null && (session.rstNumber == null || session.rstNumber!.isEmpty)) {
+        ref.invalidate(nextRstProvider);
+        final rst = await ref.read(nextRstProvider.future);
+        notifier.updateSession((s) => s.copyWith(rstNumber: rst));
+        session = ref.read(weighmentMachineProvider).session!;
+      }
+
       final data = session.toFirestoreMap();
       data['operatorName'] = ref.read(currentOperatorNameProvider);
 
@@ -674,15 +755,111 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
           (s) => s.copyWith(existingDocId: docRef.id),
         );
       }
+
+      // Enroll new customer face if detected during this weighment
+      _enrollNewCustomerFaceIfNeeded(session, paths);
     } catch (e) {
       ref.read(weighmentMachineProvider.notifier).setError('Save failed: $e');
     }
   }
 
-  void _handlePrintSlip() {
+  Future<void> _captureDriverFace() async {
+    final session = ref.read(weighmentMachineProvider).session;
+    if (session == null) return;
+
+    try {
+      final frame = await MultiCameraService.takePicture('identity_customer');
+      if (frame == null || frame.isEmpty) return;
+
+      final sidecar = ref.read(sidecarClientProvider);
+      final result = await sidecar.captureDriverFace(frame, weighmentId: session.id);
+      if (result != null && result['captured'] == true) {
+        ref.read(weighmentMachineProvider.notifier).updateSession(
+          (s) => s.copyWith(driverFaceEmbedding: session.id),
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _verifyDriver() async {
     final session = ref.read(weighmentMachineProvider).session;
     if (session == null || session.existingDocId == null) return;
-    ref.read(printServiceProvider).printWeighment(weighmentId: session.existingDocId!);
+
+    try {
+      final frame = await MultiCameraService.takePicture('identity_customer');
+      if (frame == null || frame.isEmpty) return;
+
+      final sidecar = ref.read(sidecarClientProvider);
+      final result = await sidecar.verifyDriver(
+        frame,
+        firstWeighmentId: session.existingDocId!,
+      );
+      if (result != null && !result.verified && result.level == 'mismatch') {
+        ref.read(weighmentMachineProvider.notifier).setError(
+          'Driver mismatch detected (${(result.confidence * 100).toStringAsFixed(0)}% match). Supervisor review may be required.',
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _enrollNewCustomerFaceIfNeeded(WeighmentSession session, dynamic paths) async {
+    final custFace = ref.read(customerFaceProvider);
+    if (!custFace.detected || custFace.isKnown || custFace.embedding == null) return;
+    if (session.customerName.isEmpty) return;
+
+    final sidecar = ref.read(sidecarClientProvider);
+
+    // Create customer doc in Firestore
+    try {
+      final custData = <String, dynamic>{
+        'name': session.customerName,
+        'address': session.customerAddress,
+        'phone': session.customerPhone,
+        'faceEmbedding': custFace.embedding,
+        'createdAt': DateTime.now().toIso8601String(),
+      };
+      final custDoc = await paths.customers.add(custData);
+
+      // Enroll in sidecar FAISS index
+      await sidecar.enrollCustomerFace(
+        customerId: custDoc.id,
+        name: session.customerName,
+        embedding: custFace.embedding!,
+        phone: session.customerPhone,
+        metadata: {'address': session.customerAddress},
+      );
+
+      // Update session with customer face ID
+      ref.read(weighmentMachineProvider.notifier).updateSession(
+        (s) => s.copyWith(customerFaceId: custDoc.id),
+      );
+    } catch (_) {}
+  }
+
+  void _handlePrintSlip() {
+    final session = ref.read(weighmentMachineProvider).session;
+    if (session != null && session.existingDocId != null && session.status == SessionStatus.completed) {
+      ref.read(printServiceProvider).printWeighment(weighmentId: session.existingDocId!);
+      return;
+    }
+    // No completed session — show print search panel
+    setState(() {
+      _showPrintSearch = true;
+      _showCustomerSearch = false;
+      _printSearchController.clear();
+      _printSearchResults = [];
+    });
+  }
+
+  void _handleEscape() {
+    final bannerState = _weightBannerKey.currentState;
+    if (bannerState != null && bannerState.isEditing) {
+      bannerState.cancelEditing();
+      _screenFocusNode.requestFocus();
+      return;
+    }
+    _handleCancel();
+    _screenFocusNode.requestFocus();
   }
 
   void _handleCancel() async {
@@ -701,9 +878,53 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       );
       if (discard != true) return;
     }
-    ref.read(weighmentMachineProvider.notifier).cancel();
-    _elapsedTimer?.cancel();
+    _handleClear();
+  }
+
+  void _handleOpenGate() {
+    final gateService = ref.read(gateServiceProvider);
+    gateService.openGate(GateId.entry);
+  }
+
+  void _handleCloseGate() {
+    final gateService = ref.read(gateServiceProvider);
+    gateService.closeGate(GateId.entry);
+  }
+
+  Future<void> _handleRetryOperatorVerify() async {
+    ref.read(inlineVerificationProvider.notifier).reset();
+    final opCam = await ref.read(operatorCameraConfigProvider.future);
+    if (opCam.enabled) {
+      ref.read(inlineVerificationProvider.notifier).startBackgroundVerification();
+    } else {
+      ref.read(inlineVerificationProvider.notifier).skipToPin();
+    }
+  }
+
+  void _handleRetryCustomerVerify() {
+    ref.read(customerFaceProvider.notifier).state = const CustomerFaceState(enabled: true);
+  }
+
+  void _handleCustomerSearch() {
+    setState(() {
+      _showCustomerSearch = !_showCustomerSearch;
+      if (_showCustomerSearch) {
+        _customerSearchController.clear();
+      }
+    });
+  }
+
+  void _handleClear() {
     _stopAllScanning();
+    _elapsedTimer?.cancel();
+    ref.read(inlineVerificationProvider.notifier).reset();
+    ref.read(customerFaceProvider.notifier).state = CustomerFaceState.empty;
+    ref.read(anprDetectionOverlayProvider.notifier).state = {};
+    ref.read(weighmentMachineProvider.notifier).reset();
+    setState(() {
+      _showCustomerSearch = false;
+      _showPrintSearch = false;
+    });
   }
 
   @override
@@ -716,28 +937,57 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       }
     });
     ref.listen<int>(anprRescanTriggerProvider, (_, __) => _rescanAnpr());
+    ref.listen<SiteContext>(siteContextProvider, (prev, next) {
+      if (prev != null && (prev.siteId != next.siteId || prev.weighbridgeId != next.weighbridgeId)) {
+        _handleClear();
+      }
+    });
 
     final machine = ref.watch(weighmentMachineProvider);
     final scheme = Theme.of(context).colorScheme;
     final session = machine.session;
     final inlineVerify = ref.watch(inlineVerificationProvider);
     final reading = ref.watch(scaleReadingProvider).valueOrNull;
-    final modeConfig = ref.watch(weighmentModeConfigProvider).valueOrNull ?? const WeighmentModeConfig();
+
+    final gateConfig = ref.watch(gateConfigProvider).valueOrNull ?? const GateSystemConfig();
+    final gateEnabled = gateConfig.systemEnabled && (gateConfig.entry.enabled || gateConfig.exit.enabled);
+    const printConfigured = true;
 
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.f5): _handleCaptureWeight,
+        const SingleActivator(LogicalKeyboardKey.f1): () => _handleNewWeighment(),
+        const SingleActivator(LogicalKeyboardKey.f2): () => _handleNewWeighment(),
+        const SingleActivator(LogicalKeyboardKey.f3): _showManualEntryDialog,
         const SingleActivator(LogicalKeyboardKey.f4): () {
           if (machine.session?.status == SessionStatus.completed) {
             _handlePrintSlip();
+          } else if (machine.session?.secondWeight != null) {
+            _handleSaveComplete();
           } else {
             _handleSaveFirstWeight();
           }
         },
-        const SingleActivator(LogicalKeyboardKey.f2): () => _handleNewWeighment(),
-        const SingleActivator(LogicalKeyboardKey.escape): _handleCancel,
+        const SingleActivator(LogicalKeyboardKey.f5): _handleCaptureWeight,
+        const SingleActivator(LogicalKeyboardKey.f6): () {
+          if (gateEnabled) _handleOpenGate();
+        },
+        const SingleActivator(LogicalKeyboardKey.f7): () {
+          if (gateEnabled) _handleCloseGate();
+        },
+        const SingleActivator(LogicalKeyboardKey.f8): () {
+          if (session != null) _handleRetryOperatorVerify();
+        },
+        const SingleActivator(LogicalKeyboardKey.f9): () {
+          if (session != null) _handleRetryCustomerVerify();
+        },
+        const SingleActivator(LogicalKeyboardKey.f10): () {
+          if (session != null) _handleCustomerSearch();
+        },
+        const SingleActivator(LogicalKeyboardKey.f11): _handlePrintSlip,
+        const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
       },
       child: Focus(
+        focusNode: _screenFocusNode,
         autofocus: true,
         child: Column(
           children: [
@@ -749,10 +999,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
               child: Row(
                 children: [
                   // LEFT: Pending queue (always visible)
-                  SizedBox(
-                    width: 300,
-                    child: PendingQueuePanel(onSelect: _handleResumePending),
-                  ),
+                  PendingQueuePanel(onSelect: _handleResumePending),
 
                   // CENTER: Scale + Form + Identity cameras
                   Expanded(
@@ -761,7 +1008,11 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
                       child: Column(
                         children: [
                           // Scale reading banner
-                          const LiveWeightBanner(),
+                          LiveWeightBanner(
+                            key: _weightBannerKey,
+                            canManualEntry: ref.watch(permissionServiceProvider).canManualWeight,
+                            onManualSubmit: _handleManualWeight,
+                          ),
                           const SizedBox(height: 16),
 
                           // Data zone: Form + AI detections
@@ -771,8 +1022,13 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
 
                           const SizedBox(height: 12),
 
-                          // Identity cameras at bottom of center
-                          const IdentityCameras(),
+                          // Hidden: keeps webcam + customer camera + face scanning alive
+                          // Keyed to WB so it fully re-inits on WB change
+                          Offstage(
+                            child: IdentityCameras(
+                              key: ValueKey(ref.watch(siteContextProvider).weighbridgeId),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -789,21 +1045,28 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
               hasSession: session != null,
               hasFirstWeight: session?.firstWeight != null,
               isComplete: session?.status == SessionStatus.completed,
-              isMultiEntry: modeConfig.entryMode == WeighmentEntryMode.multiEntry,
               canCapture: session != null &&
                   session.status != SessionStatus.completed &&
-                  (reading?.stable ?? false),
+                  (reading?.stable ?? false) &&
+                  _canCaptureWeight(session) &&
+                  (inlineVerify.phase == VerificationUIPhase.verified ||
+                      !ref.watch(faceVerificationProvider.notifier).needsVerification(
+                        FaceVerifyTrigger.weighmentStart,
+                        ref.watch(securitySettingsProvider).valueOrNull ?? const SecuritySettings(),
+                        ref.watch(isAdminProvider),
+                      )),
               canManualEntry: ref.watch(permissionServiceProvider).canManualWeight,
               onNew: _handleNewWeighment,
               onCapture: _handleCaptureWeight,
               onManualEntry: _showManualEntryDialog,
-              onSaveWait: _handleSaveFirstWeight,
+              onSaveWait: session?.secondWeight != null ? _handleSaveComplete : _handleSaveFirstWeight,
               onPrint: _handlePrintSlip,
-              onDone: () {
-                ref.read(weighmentMachineProvider.notifier).reset();
-                _elapsedTimer?.cancel();
-              },
               onCancel: _handleCancel,
+              gateEnabled: gateEnabled,
+              onOpenGate: gateEnabled ? _handleOpenGate : null,
+              onCloseGate: gateEnabled ? _handleCloseGate : null,
+              onCustomerSearch: _handleCustomerSearch,
+              printConfigured: printConfigured,
             ),
 
             // Status bar
@@ -823,44 +1086,60 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
   }
 
   Widget _buildCenterContent(WeighmentMachineState machine, WeighmentSession? session, ColorScheme scheme) {
-    final inlineVerify = ref.watch(inlineVerificationProvider);
     final hasSession = session != null;
 
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Verification/session status banner (when no active session)
-          if (!hasSession) _buildSessionPrompt(scheme, inlineVerify),
+          // Print search panel (works without session)
+          if (_showPrintSearch) _buildInlinePrintSearch(scheme),
 
-          // Weight summary (after first capture)
-          if (hasSession && session.firstWeight != null) ...[
+
+          // Weight summary (always visible)
+          if (!_showPrintSearch) ...[
             WeightSummaryStrip(
-              firstWeight: session.firstWeight,
-              secondWeight: session.secondWeight,
-              firstWeighType: session.firstWeighType,
+              firstWeight: session?.firstWeight,
+              secondWeight: session?.secondWeight,
+              firstWeighType: session?.firstWeighType ?? 'gross',
+              firstWeightAt: session?.firstWeightAt,
+              secondWeightAt: session?.secondWeightAt,
+              onToggleType: session != null && session.status != SessionStatus.completed
+                  ? () {
+                      ref.read(weighmentMachineProvider.notifier).updateSession(
+                        (s) => s.copyWith(firstWeighType: s.firstWeighType == 'gross' ? 'tare' : 'gross'),
+                      );
+                    }
+                  : null,
             ),
             const SizedBox(height: 16),
           ],
 
-          // Vehicle form (AI detection shown inline in fields)
-          if (hasSession) const VehicleInfoForm(),
+          // Vehicle form — always visible, locked until verified / session started
+          if (!_showCustomerSearch && !_showPrintSearch) const VehicleInfoForm(),
+
+          // Inline customer search panel
+          if (hasSession && _showCustomerSearch && !_showPrintSearch) _buildInlineCustomerSearch(scheme),
 
           // Error message
           if (machine.error != null) ...[
             const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: scheme.errorContainer,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.error_outline, size: 16, color: scheme.error),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(machine.error!, style: TextStyle(fontSize: 13, color: scheme.error))),
-                ],
+            Card(
+              elevation: 0,
+              color: scheme.errorContainer,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, size: 18, color: scheme.onErrorContainer),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(
+                      machine.error!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onErrorContainer),
+                    )),
+                  ],
+                ),
               ),
             ),
           ],
@@ -869,83 +1148,181 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     );
   }
 
-  Widget _buildSessionPrompt(ColorScheme scheme, InlineVerificationState verifyState) {
-    final isVerifying = verifyState.phase == VerificationUIPhase.background;
-    final needsPin = verifyState.phase == VerificationUIPhase.pinRequired;
-    final isVerified = verifyState.phase == VerificationUIPhase.verified;
-    final isIdle = verifyState.phase == VerificationUIPhase.idle;
+  Widget _buildInlineCustomerSearch(ColorScheme scheme) {
+    final customers = ref.watch(customerNamesProvider).valueOrNull ?? [];
+    final textTheme = Theme.of(context).textTheme;
+    final query = _customerSearchController.text.toLowerCase();
+    final filtered = query.isEmpty
+        ? customers
+        : customers.where((n) => n.toLowerCase().contains(query)).toList();
 
-    IconData icon;
-    String title;
-    String subtitle;
-    Color accentColor;
-
-    if (isVerifying) {
-      icon = Icons.face_rounded;
-      title = 'Verifying identity...';
-      subtitle = 'Look at the operator camera. Weighment will begin automatically once verified.';
-      accentColor = Colors.blue;
-    } else if (needsPin) {
-      icon = Icons.pin_rounded;
-      title = 'PIN verification required';
-      subtitle = 'Enter your PIN in the operator camera panel to start weighment.';
-      accentColor = Colors.orange;
-    } else if (isVerified || isIdle) {
-      icon = Icons.scale_rounded;
-      title = 'Ready';
-      subtitle = 'Press F2 or select a pending vehicle to start a new weighment.';
-      accentColor = scheme.primary;
-    } else {
-      icon = Icons.scale_rounded;
-      title = 'Ready';
-      subtitle = 'Press F2 to begin.';
-      accentColor = scheme.primary;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: accentColor.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accentColor.withValues(alpha: 0.2)),
-        ),
-        child: Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, size: 22, color: accentColor),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: scheme.onSurface)),
-                      if (isVerifying) ...[
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          width: 14, height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: accentColor),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant)),
-                ],
-              ),
+            Icon(Icons.person_search_outlined, size: 18, color: scheme.primary),
+            const SizedBox(width: 8),
+            Text('Customer Search', style: textTheme.titleSmall),
+            const Spacer(),
+            IconButton.filledTonal(
+              onPressed: () => setState(() => _showCustomerSearch = false),
+              icon: const Icon(Icons.close, size: 18),
+              style: IconButton.styleFrom(minimumSize: const Size(32, 32)),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 8),
+        SearchBar(
+          controller: _customerSearchController,
+          hintText: 'Type customer name...',
+          leading: const Icon(Icons.search, size: 20),
+          elevation: WidgetStatePropertyAll(0),
+          onChanged: (_) => setState(() {}),
+          autoFocus: true,
+        ),
+        const SizedBox(height: 8),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 250),
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: filtered.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (_, i) => ListTile(
+              dense: true,
+              title: Text(filtered[i], style: textTheme.bodyMedium),
+              leading: CircleAvatar(
+                radius: 14,
+                backgroundColor: scheme.primaryContainer,
+                child: Text(
+                  filtered[i].isNotEmpty ? filtered[i][0] : '?',
+                  style: textTheme.labelSmall?.copyWith(color: scheme.onPrimaryContainer),
+                ),
+              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              onTap: () {
+                ref.read(weighmentMachineProvider.notifier).updateSession(
+                  (s) => s.copyWith(customerName: filtered[i]),
+                );
+                setState(() => _showCustomerSearch = false);
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
+
+  Widget _buildInlinePrintSearch(ColorScheme scheme) {
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.print_outlined, size: 18, color: scheme.primary),
+            const SizedBox(width: 8),
+            Text('Print Weighment', style: textTheme.titleSmall),
+            const Spacer(),
+            IconButton.filledTonal(
+              onPressed: () => setState(() => _showPrintSearch = false),
+              icon: const Icon(Icons.close, size: 18),
+              style: IconButton.styleFrom(minimumSize: const Size(32, 32)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SearchBar(
+          controller: _printSearchController,
+          hintText: 'Search by RST, vehicle, customer, phone...',
+          leading: const Icon(Icons.search, size: 20),
+          elevation: WidgetStatePropertyAll(0),
+          onChanged: (_) => _runPrintSearch(),
+          autoFocus: true,
+        ),
+        const SizedBox(height: 10),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 300),
+          child: _printSearchResults.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      _printSearchController.text.isEmpty ? 'Enter RST number, vehicle, customer name, or phone' : 'No results found',
+                      style: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _printSearchResults.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final w = _printSearchResults[i];
+                    final rst = w['rstNumber'] as String? ?? '';
+                    final vehicle = w['vehicleNumber'] as String? ?? '';
+                    final customer = w['customerName'] as String? ?? '';
+                    final net = (w['netWeight'] as num?)?.toStringAsFixed(0) ?? '-';
+                    final material = w['material'] as String? ?? '';
+                    final docId = w['id'] as String? ?? '';
+
+                    return ListTile(
+                      dense: true,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      leading: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: scheme.primaryContainer,
+                        child: Text(
+                          rst.isNotEmpty ? rst : '#',
+                          style: textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onPrimaryContainer),
+                        ),
+                      ),
+                      title: Text(
+                        '${vehicle.isNotEmpty ? vehicle : "No plate"}  •  $customer',
+                        style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        '${material.isNotEmpty ? material : "-"}  •  Net: $net kg  •  RST: $rst',
+                        style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                      trailing: FilledButton.tonalIcon(
+                        onPressed: docId.isNotEmpty ? () {
+                          ref.read(printServiceProvider).printWeighment(weighmentId: docId);
+                          setState(() => _showPrintSearch = false);
+                        } : null,
+                        icon: const Icon(Icons.print_outlined, size: 16),
+                        label: Text('Print', style: textTheme.labelMedium),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          minimumSize: const Size(0, 32),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  void _runPrintSearch() {
+    final query = _printSearchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      setState(() => _printSearchResults = []);
+      return;
+    }
+
+    final allWeighments = ref.read(allWeighmentsForPrintProvider).valueOrNull ?? [];
+    final results = allWeighments.where((w) {
+      final rst = (w['rstNumber'] as String? ?? '').toLowerCase();
+      final vehicle = (w['vehicleNumber'] as String? ?? '').toLowerCase();
+      final customer = (w['customerName'] as String? ?? '').toLowerCase();
+      final phone = (w['customerPhone'] as String? ?? '').toLowerCase();
+      return rst.contains(query) || vehicle.contains(query) || customer.contains(query) || phone.contains(query);
+    }).take(20).toList();
+
+    setState(() => _printSearchResults = results);
+  }
+
+
 }

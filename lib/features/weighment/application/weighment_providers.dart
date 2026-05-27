@@ -34,12 +34,129 @@ final anprDetectionOverlayProvider = StateProvider<Map<String, AnprOverlay>>((re
 final anprScanningProvider = StateProvider<bool>((ref) => false);
 final anprRescanTriggerProvider = StateProvider<int>((ref) => 0);
 
+// ─── Panel Collapse State ─────────────────────────────────────────────────────
+
+final pendingPanelCollapsedProvider = StateProvider<bool>((ref) => false);
+final camerasPanelCollapsedProvider = StateProvider<bool>((ref) => false);
+
+// ─── Customer Face Auto-Detect ────────────────────────────────────────────────
+
+class CustomerFaceCandidate {
+  final String customerId;
+  final String name;
+  final String phone;
+  final double confidence;
+
+  const CustomerFaceCandidate({
+    required this.customerId,
+    required this.name,
+    required this.phone,
+    required this.confidence,
+  });
+}
+
+class CustomerFaceState {
+  final bool detected;
+  final bool isKnown;
+  final bool isAmbiguous;
+  final String? customerId;
+  final String? name;
+  final String? phone;
+  final String? email;
+  final String? address;
+  final double confidence;
+  final List<double>? embedding;
+  final String? faceCropB64;
+  final List<CustomerFaceCandidate> candidates;
+  final bool scanning;
+  final bool enabled;
+
+  const CustomerFaceState({
+    this.detected = false,
+    this.isKnown = false,
+    this.isAmbiguous = false,
+    this.customerId,
+    this.name,
+    this.phone,
+    this.email,
+    this.address,
+    this.confidence = 0,
+    this.embedding,
+    this.faceCropB64,
+    this.candidates = const [],
+    this.scanning = false,
+    this.enabled = true,
+  });
+
+  CustomerFaceState copyWith({
+    bool? detected,
+    bool? isKnown,
+    bool? isAmbiguous,
+    String? customerId,
+    String? name,
+    String? phone,
+    String? email,
+    String? address,
+    double? confidence,
+    List<double>? embedding,
+    String? faceCropB64,
+    List<CustomerFaceCandidate>? candidates,
+    bool? scanning,
+    bool? enabled,
+  }) => CustomerFaceState(
+    detected: detected ?? this.detected,
+    isKnown: isKnown ?? this.isKnown,
+    isAmbiguous: isAmbiguous ?? this.isAmbiguous,
+    customerId: customerId ?? this.customerId,
+    name: name ?? this.name,
+    phone: phone ?? this.phone,
+    email: email ?? this.email,
+    address: address ?? this.address,
+    confidence: confidence ?? this.confidence,
+    embedding: embedding ?? this.embedding,
+    faceCropB64: faceCropB64 ?? this.faceCropB64,
+    candidates: candidates ?? this.candidates,
+    scanning: scanning ?? this.scanning,
+    enabled: enabled ?? this.enabled,
+  );
+
+  static const empty = CustomerFaceState();
+
+  CustomerFaceState cleared() => const CustomerFaceState(enabled: true);
+}
+
+final customerFaceProvider = StateProvider<CustomerFaceState>((ref) => CustomerFaceState.empty);
+
+class CustomerCameraFeed {
+  final int? textureId;
+  final int width;
+  final int height;
+  final String? ipCameraKey;
+
+  const CustomerCameraFeed({this.textureId, this.width = 960, this.height = 540, this.ipCameraKey});
+  static const empty = CustomerCameraFeed();
+  bool get active => textureId != null || ipCameraKey != null;
+  bool get isIpCamera => ipCameraKey != null;
+}
+
+final customerCameraFeedProvider = StateProvider<CustomerCameraFeed>((ref) => CustomerCameraFeed.empty);
+
 final pendingWeighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return const Stream.empty();
   return paths.weighments
       .where('status', isEqualTo: 'awaitingTare')
       .orderBy('createdAt', descending: true)
+      .snapshots()
+      .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+});
+
+final allWeighmentsForPrintProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  return paths.weighments
+      .orderBy('createdAt', descending: true)
+      .limit(200)
       .snapshots()
       .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
 });
@@ -72,6 +189,18 @@ final materialsListProvider = StreamProvider<List<String>>((ref) {
         .where((n) => n.isNotEmpty)
         .toList(),
   );
+});
+
+final materialAllowOtherProvider = FutureProvider<bool>((ref) async {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return true;
+  try {
+    final doc = await paths.materialsSettings.get();
+    if (!doc.exists) return true;
+    return doc.data()?['allowOther'] as bool? ?? true;
+  } catch (_) {
+    return true;
+  }
 });
 
 final materialDirectionMapProvider = StreamProvider<Map<String, String>>((ref) {
@@ -163,3 +292,6 @@ final weighmentModeConfigProvider = FutureProvider<WeighmentModeConfig>((ref) as
   } catch (_) {}
   return const WeighmentModeConfig();
 });
+
+// Form font scale: compact (0.6) or regular (0.85)
+final formScaleProvider = StateProvider<double>((ref) => 0.85);

@@ -33,10 +33,10 @@ final sidecarAutoStartProvider = FutureProvider<bool>((ref) async {
   }
 
   // Wait for it to become available (model loading takes time)
-  for (int i = 0; i < 30; i++) {
-    await Future.delayed(const Duration(seconds: 2));
+  for (int i = 0; i < 60; i++) {
+    await Future.delayed(const Duration(seconds: 1));
     if (await client.isAvailable()) {
-      debugPrint('[Sidecar] Started successfully');
+      debugPrint('[Sidecar] Started successfully after ${i + 1}s');
       return true;
     }
   }
@@ -85,7 +85,7 @@ final hasModelUpdatesProvider = Provider<bool>((ref) {
   return status?.hasUpdates ?? false;
 });
 
-/// Syncs all enrolled operator embeddings to sidecar on startup.
+/// Syncs all enrolled operator + customer embeddings to sidecar on startup.
 /// Watch this provider from a top-level widget to trigger sync.
 final sidecarEmbeddingSyncProvider = FutureProvider<int>((ref) async {
   final sidecar = ref.watch(sidecarClientProvider);
@@ -95,14 +95,22 @@ final sidecarEmbeddingSyncProvider = FutureProvider<int>((ref) async {
   if (!await sidecar.isAvailable()) return 0;
 
   try {
-    final snap = await paths.operators.get();
+    final opSnap = await paths.operators.get();
     final operators = <Map<String, dynamic>>[];
-
-    for (final doc in snap.docs) {
+    int skippedNoEmbed = 0, skippedWrongModel = 0;
+    for (final doc in opSnap.docs) {
       final data = doc.data();
       final embedding = data['faceEmbedding'];
-      if (embedding == null || (embedding is List && embedding.isEmpty)) continue;
-
+      if (embedding == null || (embedding is List && embedding.isEmpty)) {
+        skippedNoEmbed++;
+        continue;
+      }
+      final modelVersion = data['faceModelVersion'] as String? ?? '';
+      if (modelVersion != 'arcface_glintr100') {
+        skippedWrongModel++;
+        debugPrint('[SidecarSync] Skipped ${data['name']} — model=$modelVersion');
+        continue;
+      }
       final status = data['status'] as String? ?? 'active';
       operators.add({
         'operator_id': doc.id,
@@ -112,14 +120,39 @@ final sidecarEmbeddingSyncProvider = FutureProvider<int>((ref) async {
         'is_active': status == 'active',
       });
     }
+    debugPrint('[SidecarSync] Operators: ${opSnap.docs.length} total, ${operators.length} with embedding, $skippedNoEmbed no embed, $skippedWrongModel wrong model');
 
-    if (operators.isEmpty) return 0;
-
-    final success = await sidecar.syncEnrollments(operators);
-    if (success) {
-      debugPrint('[SidecarSync] Synced ${operators.length} operator embeddings');
+    final custSnap = await paths.customers.get();
+    final customers = <Map<String, dynamic>>[];
+    for (final doc in custSnap.docs) {
+      final data = doc.data();
+      final embedding = data['faceEmbedding'];
+      if (embedding == null || (embedding is List && embedding.isEmpty)) continue;
+      final centroids = data['faceCentroids'];
+      customers.add({
+        'customer_id': doc.id,
+        'name': data['name'] as String? ?? '',
+        'email': data['email'] as String? ?? '',
+        'phone': data['phone'] as String? ?? '',
+        'embedding': (embedding as List).map((e) => (e as num).toDouble()).toList(),
+        if (centroids != null && centroids is List)
+          'centroids': centroids.map((c) => (c as List).map((e) => (e as num).toDouble()).toList()).toList(),
+        'metadata': {'address': data['address'] as String? ?? ''},
+      });
     }
-    return operators.length;
+
+    if (operators.isEmpty && customers.isEmpty) {
+      debugPrint('[SidecarSync] No embeddings to sync');
+      return 0;
+    }
+
+    final success = await sidecar.syncEnrollments(operators: operators, customers: customers);
+    if (success) {
+      debugPrint('[SidecarSync] Synced ${operators.length} operators + ${customers.length} customers');
+    } else {
+      debugPrint('[SidecarSync] syncEnrollments call returned false');
+    }
+    return operators.length + customers.length;
   } catch (e) {
     debugPrint('[SidecarSync] Failed: $e');
     return 0;

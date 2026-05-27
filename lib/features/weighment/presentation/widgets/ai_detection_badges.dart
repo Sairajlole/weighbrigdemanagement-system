@@ -36,7 +36,7 @@ class AiDetectionBadges extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.smart_toy_rounded, size: 18, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
+            Icon(Icons.memory_outlined, size: 18, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
             const SizedBox(width: 10),
             Text(
               'AI detections will appear here',
@@ -51,7 +51,7 @@ class AiDetectionBadges extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (hasAnpr) _AiBadge(
-          icon: Icons.directions_car_rounded,
+          icon: Icons.directions_car_outlined,
           label: 'Number Plate',
           value: anprText!,
           confidence: anprConfidence,
@@ -61,12 +61,12 @@ class AiDetectionBadges extends StatelessWidget {
         ),
         if (hasAnpr && hasMaterial) const SizedBox(height: 8),
         if (hasMaterial) _AiBadge(
-          icon: Icons.inventory_2_rounded,
+          icon: Icons.inventory_2_outlined,
           label: 'Material',
           value: materialText!,
           confidence: materialConfidence,
           crop: materialCrop,
-          accentColor: Colors.teal,
+          accentColor: scheme.onSurfaceVariant,
           scheme: scheme,
         ),
       ],
@@ -156,7 +156,7 @@ class _AiBadge extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.check_circle_rounded, size: 10, color: accentColor),
+                  Icon(Icons.check_circle_outlined, size: 10, color: accentColor),
                   const SizedBox(width: 3),
                   Text(confPercent, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: accentColor)),
                 ],

@@ -21,9 +21,13 @@ import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/l10n/app_strings.dart';
 import 'package:weighbridgemanagement/shared/providers/connectivity_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/offline_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/live_camera_feeds_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/system_stats_provider.dart';
 import 'package:weighbridgemanagement/shared/widgets/background_art.dart';
 import 'package:weighbridgemanagement/shared/widgets/inactivity_wrapper.dart';
 import 'package:weighbridgemanagement/shared/widgets/security_overlay.dart';
+
+final sidebarCollapsedProvider = StateProvider<bool>((ref) => false);
 
 final _pendingOperatorsCountProvider = StreamProvider<int>((ref) {
   final paths = ref.watch(firestorePathsProvider);
@@ -69,7 +73,7 @@ class AppShell extends ConsumerWidget {
       if (item.path == '/customers' && !perms.canManageCustomers) return false;
       if (item.path == '/weighments' && !perms.canViewWeighments) return false;
       if (item.path == '/settings' && !perms.canAccessSettings) return false;
-      if (item.path == '/weighment' && perms.isDeactivated) return false;
+      if (item.path == '/weighment' && (perms.isDeactivated || perms.isAdmin)) return false;
       return true;
     }).toList();
   }
@@ -85,21 +89,35 @@ class AppShell extends ConsumerWidget {
     // Auto-start sidecar if not running, then sync embeddings
     ref.watch(sidecarAutoStartProvider);
     ref.watch(sidecarEmbeddingSyncProvider);
+    // Eagerly start camera feeds so they're ready when navigating to weighment
+    ref.watch(eagerCameraWarmupProvider);
 
     final perms = ref.watch(permissionServiceProvider);
     final strings = ref.watch(stringsProvider);
     final navItems = _filteredNavItems(perms, strings);
     final selectedIndex = _currentIndex(context, navItems);
 
+    final location = GoRouterState.of(context).matchedLocation;
+    final isWeighScreen = location == '/weighment' || location.startsWith('/weighment/');
+    final collapsed = ref.watch(sidebarCollapsedProvider);
+    final hideSidebar = isWeighScreen && collapsed;
+
     return Scaffold(
       body: Row(
         children: [
-          _Sidebar(
-            navItems: navItems,
-            selectedIndex: selectedIndex,
-            onItemTap: (path) => context.go(path),
-            onProfileTap: () => context.go('/profile'),
-            isProfileSelected: GoRouterState.of(context).matchedLocation == '/profile',
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            width: hideSidebar ? 0 : 64,
+            clipBehavior: Clip.hardEdge,
+            decoration: const BoxDecoration(),
+            child: _Sidebar(
+              navItems: navItems,
+              selectedIndex: selectedIndex,
+              onItemTap: (path) => context.go(path),
+              onProfileTap: () => context.go('/profile'),
+              isProfileSelected: GoRouterState.of(context).matchedLocation == '/profile',
+            ),
           ),
           Expanded(
             child: Column(
@@ -767,6 +785,30 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                       );
                     },
                   ),
+
+                  // Device stats
+                  Consumer(
+                    builder: (_, ref2, __) {
+                      final stats = ref2.watch(systemStatsProvider).valueOrNull ?? SystemStats.zero;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 14),
+                          Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
+                          const SizedBox(height: 12),
+                          Text('Device', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 10),
+                          _DeviceStatRow(label: 'CPU', percent: stats.cpuPercent, scheme: scheme),
+                          const SizedBox(height: 8),
+                          _DeviceStatRow(label: 'RAM', percent: stats.memPercent, scheme: scheme),
+                          if (stats.tempCelsius != null) ...[
+                            const SizedBox(height: 8),
+                            _DeviceStatRow(label: 'TEMP', percent: stats.tempCelsius!, maxVal: 100, suffix: '°C', scheme: scheme),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -799,4 +841,60 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
     'sessions' => 'Session records',
     _ => type,
   };
+}
+
+class _DeviceStatRow extends StatelessWidget {
+  final String label;
+  final double percent;
+  final double maxVal;
+  final String suffix;
+  final ColorScheme scheme;
+
+  const _DeviceStatRow({
+    required this.label,
+    required this.percent,
+    this.maxVal = 100,
+    this.suffix = '%',
+    required this.scheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = (percent / maxVal).clamp(0.0, 1.0);
+    final color = percent > 80 ? Colors.red : percent > 50 ? Colors.orange : Colors.green;
+    final displayVal = suffix == '°C' ? '${percent.toStringAsFixed(0)}$suffix' : '${percent.toStringAsFixed(0)}$suffix';
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 38,
+          child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+        ),
+        Expanded(
+          child: Container(
+            height: 6,
+            decoration: BoxDecoration(
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: ratio,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 32,
+          child: Text(displayVal, textAlign: TextAlign.right, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+        ),
+      ],
+    );
+  }
 }

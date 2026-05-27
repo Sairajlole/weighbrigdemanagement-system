@@ -53,10 +53,10 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
     final scheme = Theme.of(context).colorScheme;
     final confPercent = (widget.confidence * 100).toStringAsFixed(0);
     final confColor = widget.confidence >= 0.9
-        ? Colors.green
+        ? scheme.onSurface
         : widget.confidence >= 0.7
-            ? Colors.orange
-            : Colors.red;
+            ? scheme.onSurfaceVariant
+            : scheme.error;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -70,7 +70,7 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.smart_toy_rounded, size: 20, color: scheme.primary),
+                  Icon(Icons.memory_outlined, size: 20, color: scheme.primary),
                   const SizedBox(width: 8),
                   Text(widget.title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: scheme.onSurface)),
                   const Spacer(),
@@ -152,7 +152,7 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
                   if (!_editing)
                     OutlinedButton.icon(
                       onPressed: () => setState(() => _editing = true),
-                      icon: const Icon(Icons.edit_rounded, size: 14),
+                      icon: const Icon(Icons.edit_outlined, size: 14),
                       label: const Text('Correct'),
                     ),
                   const SizedBox(width: 8),
@@ -164,7 +164,7 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
                         wasCorrect: value == widget.prediction,
                       ));
                     },
-                    icon: const Icon(Icons.check_rounded, size: 16),
+                    icon: const Icon(Icons.check_outlined, size: 16),
                     label: Text(_editing ? 'Save' : 'Confirm'),
                   ),
                 ],

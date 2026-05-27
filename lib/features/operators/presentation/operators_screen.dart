@@ -5569,8 +5569,10 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
 
       final data = Map<String, dynamic>.from(response.data as Map);
       if (data['success'] == true) {
-        // Also generate local embedding via sidecar (non-blocking)
-        _generateSidecarEmbedding(allFrames, widget.operatorId, operatorEmail, opDoc.data()?['name'] as String? ?? '');
+        // Generate local AdaFace embedding via sidecar, then refresh parent UI
+        _generateSidecarEmbedding(allFrames, widget.operatorId, operatorEmail, opDoc.data()?['name'] as String? ?? '').then((_) {
+          widget.onEnrollmentComplete?.call();
+        });
 
         _frameTimer?.cancel();
         _autoCaptureTimer?.cancel();
@@ -5625,24 +5627,31 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
   Future<void> _generateSidecarEmbedding(List<Uint8List> frames, String operatorId, String email, String name) async {
     try {
       final sidecar = widget.ref.read(sidecarClientProvider);
-      final embedding = await sidecar.enrollFromImages(frames);
-      if (embedding != null && embedding.isNotEmpty) {
-        // Store embedding in operator doc for future sync
+      final result = await sidecar.enrollFromImages(frames);
+      if (result != null && result.embedding.isNotEmpty) {
         final paths = widget.ref.read(firestorePathsProvider);
         await paths.operators.doc(operatorId).update({
-          'faceEmbedding': embedding,
+          'faceEmbedding': result.embedding,
+          'faceModelVersion': 'arcface_glintr100',
+          'faceEnrollment': {
+            'enrolled': true,
+            'validFrameCount': result.facesUsed,
+            'totalFrames': result.totalImages,
+            'averageConfidence': result.avgQuality,
+            'enrolledAt': FieldValue.serverTimestamp(),
+            'model': 'arcface_glintr100',
+          },
         });
-        // Also push to sidecar cache immediately
-        await sidecar.syncEnrollments([{
+        await sidecar.syncEnrollments(operators: [{
           'operator_id': operatorId,
           'email': email,
           'name': name,
-          'embedding': embedding,
+          'embedding': result.embedding,
           'is_active': true,
         }]);
       }
-    } catch (_) {
-      // Non-critical — cloud enrollment already succeeded
+    } catch (e) {
+      debugPrint('[SidecarEnroll] Failed: $e');
     }
   }
 

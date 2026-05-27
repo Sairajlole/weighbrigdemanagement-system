@@ -49,18 +49,16 @@ class WeighmentStateMachine extends StateNotifier<WeighmentMachineState> {
   final Ref ref;
 
   WeighmentStateMachine(this.ref) : super(const WeighmentMachineState()) {
-    _tryResumeSession();
+    _clearStaleSession();
   }
 
   SiteContext get _ctx => ref.read(siteContextProvider);
   String? get _siteId => _ctx.siteId.isNotEmpty ? _ctx.siteId : null;
   String? get _wbId => _ctx.weighbridgeId.isNotEmpty ? _ctx.weighbridgeId : null;
 
-  Future<void> _tryResumeSession() async {
+  Future<void> _clearStaleSession() async {
     final existing = await WeighmentSession.loadLatestFromDisk(siteId: _siteId, weighbridgeId: _wbId);
-    if (existing != null) {
-      state = state.copyWith(session: existing, isRunning: false);
-    }
+    existing?.deleteFromDisk(siteId: _siteId, weighbridgeId: _wbId);
   }
 
   void startNew() {

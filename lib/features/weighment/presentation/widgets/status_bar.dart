@@ -35,7 +35,7 @@ class WeighmentStatusBar extends ConsumerWidget {
         children: [
           // Scale status
           _StatusChip(
-            icon: Icons.scale_rounded,
+            icon: Icons.scale_outlined,
             label: scaleConnected ? 'Scale OK' : 'Scale Off',
             active: scaleConnected,
           ),
@@ -43,14 +43,14 @@ class WeighmentStatusBar extends ConsumerWidget {
           // Gate status
           if (gatesEnabled) ...[
             _StatusChip(
-              icon: Icons.sensor_door_rounded,
+              icon: Icons.sensor_door_outlined,
               label: 'Entry: ${_gateLabel(entryState)}',
               active: entryState == GateState.closed || entryState == GateState.open,
               warning: entryState == GateState.error,
             ),
             const SizedBox(width: 12),
             _StatusChip(
-              icon: Icons.sensor_door_rounded,
+              icon: Icons.sensor_door_outlined,
               label: 'Exit: ${_gateLabel(exitState)}',
               active: exitState == GateState.closed || exitState == GateState.open,
               warning: exitState == GateState.error,
@@ -59,14 +59,14 @@ class WeighmentStatusBar extends ConsumerWidget {
           ],
           // Camera count
           _StatusChip(
-            icon: Icons.videocam_rounded,
+            icon: Icons.videocam_outlined,
             label: '${cameras.length} cam${cameras.length == 1 ? '' : 's'}',
             active: cameras.isNotEmpty,
           ),
           const SizedBox(width: 16),
           // AI sidecar
           _StatusChip(
-            icon: Icons.smart_toy_rounded,
+            icon: Icons.memory_outlined,
             label: aiAvailable ? 'AI On' : 'AI Off',
             active: aiAvailable,
           ),
@@ -104,7 +104,7 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = warning ? Colors.orange : (active ? Colors.green : scheme.onSurfaceVariant.withValues(alpha: 0.4));
+    final color = warning ? scheme.onSurfaceVariant : (active ? scheme.onSurface : scheme.onSurfaceVariant.withValues(alpha: 0.4));
 
     return Row(
       mainAxisSize: MainAxisSize.min,

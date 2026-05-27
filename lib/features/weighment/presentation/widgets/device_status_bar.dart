@@ -42,12 +42,12 @@ class DeviceStatusBar extends ConsumerWidget {
           // Verification status
           _StatusChip(
             icon: isVerified
-                ? Icons.verified_user_rounded
+                ? Icons.verified_user_outlined
                 : inlineVerify.phase == VerificationUIPhase.background
-                    ? Icons.hourglass_top_rounded
+                    ? Icons.hourglass_top_outlined
                     : inlineVerify.phase == VerificationUIPhase.pinRequired
-                        ? Icons.pin_rounded
-                        : Icons.shield_rounded,
+                        ? Icons.pin_outlined
+                        : Icons.shield_outlined,
             label: isVerified
                 ? 'Verified${verificationMethod != null ? ' ($verificationMethod)' : ''}'
                 : inlineVerify.phase == VerificationUIPhase.background
@@ -56,11 +56,11 @@ class DeviceStatusBar extends ConsumerWidget {
                         ? 'PIN Required'
                         : 'Ready',
             color: isVerified
-                ? Colors.green
+                ? scheme.onSurface
                 : inlineVerify.phase == VerificationUIPhase.background
-                    ? Colors.blue
+                    ? scheme.onSurfaceVariant
                     : inlineVerify.phase == VerificationUIPhase.pinRequired
-                        ? Colors.orange
+                        ? scheme.onSurfaceVariant
                         : scheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
 
@@ -68,18 +68,18 @@ class DeviceStatusBar extends ConsumerWidget {
 
           // Cameras
           _StatusChip(
-            icon: Icons.videocam_rounded,
+            icon: Icons.videocam_outlined,
             label: '${cameras.length} cam${cameras.length == 1 ? '' : 's'}',
-            color: cameras.isNotEmpty ? Colors.green : scheme.onSurfaceVariant.withValues(alpha: 0.5),
+            color: cameras.isNotEmpty ? scheme.onSurface : scheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
 
           const SizedBox(width: 20),
 
           // AI
           _StatusChip(
-            icon: Icons.smart_toy_rounded,
+            icon: Icons.memory_outlined,
             label: aiAvailable ? 'AI Ready' : 'AI Off',
-            color: aiAvailable ? Colors.green : scheme.onSurfaceVariant.withValues(alpha: 0.5),
+            color: aiAvailable ? scheme.onSurface : scheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
 
           // Timer
@@ -99,7 +99,7 @@ class DeviceStatusBar extends ConsumerWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.person_rounded, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                Icon(Icons.person_outlined, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
                 const SizedBox(width: 4),
                 Text(
                   user?.displayName ?? user!.email!.split('@').first,
@@ -137,3 +137,4 @@ class _StatusChip extends StatelessWidget {
     );
   }
 }
+

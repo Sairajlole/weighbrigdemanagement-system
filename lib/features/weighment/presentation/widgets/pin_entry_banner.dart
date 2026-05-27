@@ -57,7 +57,7 @@ class _PinEntryBannerState extends State<PinEntryBanner> {
               color: scheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.lock_rounded, size: 20, color: scheme.primary),
+            child: Icon(Icons.lock_outlined, size: 20, color: scheme.primary),
           ),
           const SizedBox(width: 16),
 
@@ -117,7 +117,7 @@ class _PinEntryBannerState extends State<PinEntryBanner> {
             const SizedBox(width: 8),
             IconButton(
               onPressed: widget.onCancel,
-              icon: Icon(Icons.close_rounded, size: 18, color: scheme.onSurfaceVariant),
+              icon: Icon(Icons.close_outlined, size: 18, color: scheme.onSurfaceVariant),
               tooltip: 'Cancel',
             ),
           ],

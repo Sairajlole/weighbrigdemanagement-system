@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 import 'package:weighbridgemanagement/features/weighment/application/inline_verification_provider.dart';
+import 'package:weighbridgemanagement/features/weighment/application/weighment_providers.dart';
+import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
-import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
+import 'package:weighbridgemanagement/shared/providers/live_camera_feeds_provider.dart';
 import 'package:weighbridgemanagement/shared/services/multi_camera_service.dart';
 
 class IdentityCameras extends ConsumerStatefulWidget {
@@ -21,52 +24,160 @@ class _IdentityCamerasState extends ConsumerState<IdentityCameras> {
   static const _channel = MethodChannel('com.weighbridge/webcam');
 
   bool _webcamReady = false;
-  Uint8List? _webcamFrame;
   Timer? _webcamTimer;
 
-  Player? _customerPlayer;
-  VideoController? _customerController;
-  CameraFeed? _customerNativeFeed;
-
-  String _operatorLabel = 'Operator';
-  String _customerLabel = 'Customer';
+  // Customer face auto-detect
+  Timer? _customerFaceTimer;
+  bool _customerFaceScanning = false;
+  final bool _customerFaceEnabled = true;
+  bool _customerNativeCamera = false;
+  String? _customerRtspUrl;
 
   @override
   void initState() {
     super.initState();
-    _initWebcam();
     Future.microtask(_initCustomerCamera);
-    Future.microtask(_loadLabels);
+    Future.microtask(() {
+      ref.listenManual<CustomerFaceState>(customerFaceProvider, (prev, next) {
+        if (next.scanning && !(prev?.scanning ?? false)) {
+          _startCustomerFaceScan();
+        } else if (!next.scanning && (prev?.scanning ?? false)) {
+          _stopCustomerFaceScan();
+        }
+      });
+    });
   }
 
   @override
   void dispose() {
     _webcamTimer?.cancel();
+    _customerFaceTimer?.cancel();
     _stopWebcam();
-    _customerPlayer?.dispose();
-    if (_customerNativeFeed != null) {
-      MultiCameraService.stop('identity_customer');
-    }
     super.dispose();
   }
 
-  Future<void> _loadLabels() async {
-    final paths = ref.read(firestorePathsProvider);
-    if (!paths.isConfigured) return;
+  void _startCustomerFaceScan() {
+    _customerFaceTimer?.cancel();
+    debugPrint('[CustomerFace] Starting face scan timer (native=$_customerNativeCamera, rtsp=${_customerRtspUrl != null})');
+    _customerFaceTimer = Timer.periodic(const Duration(seconds: 2), (_) => _scanCustomerFace());
+  }
+
+  void _stopCustomerFaceScan() {
+    _customerFaceTimer?.cancel();
+    _customerFaceTimer = null;
+    _customerFaceScanning = false;
+    debugPrint('[CustomerFace] Stopped face scan');
+  }
+
+  Future<Uint8List?> _captureIpCameraFrame() async {
+    if (_customerRtspUrl == null) return null;
+    final home = Platform.environment['HOME'] ?? '.';
+    final dir = Directory('$home/.weighbridge/frames');
+    if (!dir.existsSync()) dir.createSync(recursive: true);
+    final framePath = '${dir.path}/customer_face_live.jpg';
     try {
-      final doc = await paths.camerasAiSettings.get();
-      if (!doc.exists) return;
-      final cameras = doc.data()!['cameras'] as Map<String, dynamic>? ?? {};
-      final op = cameras['operator'] as Map<String, dynamic>?;
-      final cust = cameras['customer'] as Map<String, dynamic>?;
-      if (mounted) {
-        setState(() {
-          _operatorLabel = op?['label'] as String? ?? 'Operator';
-          _customerLabel = cust?['label'] as String? ?? 'Customer';
-        });
+      final result = await Process.run('ffmpeg', [
+        '-y', '-rtsp_transport', 'tcp',
+        '-i', _customerRtspUrl!,
+        '-frames:v', '1', '-q:v', '3', framePath,
+      ], stdoutEncoding: utf8, stderrEncoding: utf8);
+      if (result.exitCode != 0) return null;
+      final file = File(framePath);
+      if (await file.exists()) return file.readAsBytes();
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> _scanCustomerFace() async {
+    if (_customerFaceScanning || !_customerFaceEnabled || !mounted) return;
+    final faceState = ref.read(customerFaceProvider);
+    if (!faceState.enabled || faceState.isKnown) return;
+
+    _customerFaceScanning = true;
+    try {
+      Uint8List? frame;
+      final nativeFeed = ref.read(customerNativeFeedProvider).feed;
+      if (_customerNativeCamera && nativeFeed != null) {
+        frame = await MultiCameraService.takePicture('identity_customer');
+      } else if (_customerRtspUrl != null) {
+        frame = await _captureIpCameraFrame();
+      } else {
+        _customerFaceScanning = false;
+        return;
+      }
+
+      if (frame == null || frame.isEmpty) {
+        debugPrint('[CustomerFace] Frame capture returned null/empty');
+        _customerFaceScanning = false;
+        return;
+      }
+
+      debugPrint('[CustomerFace] Got frame ${frame.length} bytes, calling identify_customer');
+      final sidecar = ref.read(sidecarClientProvider);
+      final result = await sidecar.identifyCustomerBurst([frame]);
+      if (result == null || !mounted) {
+        debugPrint('[CustomerFace] identify_customer returned null');
+        _customerFaceScanning = false;
+        return;
+      }
+
+      if (result.isAmbiguous) {
+        _stopCustomerFaceScan();
+        ref.read(customerFaceProvider.notifier).state = CustomerFaceState(
+          detected: true,
+          isAmbiguous: true,
+          faceCropB64: result.faceCropB64,
+          candidates: result.candidates.map((c) => CustomerFaceCandidate(
+            customerId: c.customerId,
+            name: c.name,
+            phone: c.phone,
+            confidence: c.confidence,
+          )).toList(),
+          enabled: true,
+        );
+      } else if (result.match) {
+        _stopCustomerFaceScan();
+        ref.read(customerFaceProvider.notifier).state = CustomerFaceState(
+          detected: true,
+          isKnown: true,
+          customerId: result.customerId,
+          name: result.name,
+          phone: result.phone,
+          email: result.email,
+          address: result.metadata['address'] as String?,
+          confidence: result.confidence,
+          faceCropB64: result.faceCropB64,
+          enabled: true,
+        );
+        if (result.updatedEmbedding != null && result.customerId != null) {
+          final paths = ref.read(firestorePathsProvider);
+          if (paths.isConfigured) {
+            final update = <String, dynamic>{
+              'faceEmbedding': result.updatedEmbedding,
+            };
+            if (result.updatedCentroids != null) {
+              update['faceCentroids'] = result.updatedCentroids;
+            }
+            if (result.faceCropB64 != null) {
+              update['faceCropB64'] = result.faceCropB64;
+            }
+            paths.customers.doc(result.customerId).update(update).catchError((_) {});
+          }
+        }
+      } else if (result.isNewFace) {
+        _stopCustomerFaceScan();
+        ref.read(customerFaceProvider.notifier).state = CustomerFaceState(
+          detected: true,
+          isKnown: false,
+          embedding: result.embedding,
+          faceCropB64: result.faceCropB64,
+          enabled: true,
+        );
       }
     } catch (_) {}
+    _customerFaceScanning = false;
   }
+
 
   Future<void> _initWebcam() async {
     try {
@@ -98,14 +209,7 @@ class _IdentityCamerasState extends ConsumerState<IdentityCameras> {
 
       final result = await _channel.invokeMethod<bool>('startCamera', deviceId != null ? {'deviceId': deviceId} : null);
       if (result == true && mounted) {
-        setState(() => _webcamReady = true);
-        _webcamTimer = Timer.periodic(const Duration(milliseconds: 150), (_) async {
-          if (!_webcamReady || !mounted) return;
-          try {
-            final frame = await _channel.invokeMethod<Uint8List>('captureFrame');
-            if (frame != null && mounted) setState(() => _webcamFrame = frame);
-          } catch (_) {}
-        });
+        _webcamReady = true;
       }
     } catch (_) {}
   }
@@ -116,46 +220,54 @@ class _IdentityCamerasState extends ConsumerState<IdentityCameras> {
 
   Future<void> _initCustomerCamera() async {
     final paths = ref.read(firestorePathsProvider);
-    if (!paths.isConfigured) return;
+    if (!paths.isConfigured) {
+      debugPrint('[CustomerFace] Firestore paths not configured');
+      return;
+    }
     try {
       final doc = await paths.camerasAiSettings.get();
-      if (!doc.exists) return;
+      if (!doc.exists) {
+        debugPrint('[CustomerFace] camerasAiSettings doc not found');
+        return;
+      }
       final cameras = doc.data()!['cameras'] as Map<String, dynamic>? ?? {};
       final cust = cameras['customer'] as Map<String, dynamic>?;
-      if (cust == null || cust['enabled'] != true) return;
+      if (cust == null || cust['enabled'] != true) {
+        debugPrint('[CustomerFace] Customer camera not enabled: ${cust?['enabled']}');
+        return;
+      }
 
       final source = cust['source'] as String? ?? 'Local Device';
+      debugPrint('[CustomerFace] Init customer camera, source=$source');
 
-      if (source == 'IP Camera' || source == 'DVR') {
+      if (source == 'Network Camera') {
         await _initCustomerIpCamera(cust);
       } else {
         await _initCustomerNativeCamera(cust);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[CustomerFace] Init error: $e');
+    }
   }
 
   Future<void> _initCustomerIpCamera(Map<String, dynamic> cust) async {
-    final address = cust['address'] as String? ?? '';
-    if (address.isEmpty) return;
+    final cameras = [ActiveCamera(key: 'customer', label: 'Customer', grossRole: 'customer', tareRole: 'customer')];
+    final paths = ref.read(firestorePathsProvider);
+    if (!paths.isConfigured) return;
+    try {
+      final doc = await paths.camerasAiSettings.get();
+      if (!doc.exists) return;
+      final settings = doc.data()!;
+      await ref.read(liveCameraFeedsProvider.notifier).syncFeeds(cameras, settings);
+    } catch (_) {}
 
-    final username = cust['username'] as String? ?? '';
-    final encPassword = cust['password'] as String? ?? '';
-    final password = encPassword.isNotEmpty ? CryptoService.decrypt(encPassword) : '';
-    final port = cust['port'] as int? ?? 554;
-    final auth = username.isNotEmpty ? '$username:$password@' : '';
-    final path = cust['streamPath'] as String? ?? '/Streaming/Channels/101';
-    final rtspUrl = 'rtsp://$auth$address:$port$path';
+    final feed = ref.read(liveCameraFeedsProvider).feeds['customer'];
+    _customerRtspUrl = feed?.rtspUrl;
 
-    final player = Player();
-    final controller = VideoController(player);
-    await player.open(Media(rtspUrl), play: true);
-    await player.setVolume(0);
-
-    if (mounted) {
-      setState(() {
-        _customerPlayer = player;
-        _customerController = controller;
-      });
+    if (feed != null && mounted) {
+      ref.read(customerCameraFeedProvider.notifier).state = CustomerCameraFeed(
+        ipCameraKey: 'customer',
+      );
     }
   }
 
@@ -163,264 +275,43 @@ class _IdentityCamerasState extends ConsumerState<IdentityCameras> {
     final usbDevice = cust['usbDevice'] as String? ?? '';
     final builtInDevice = cust['builtInDevice'] as String? ?? '';
     final deviceName = usbDevice.isNotEmpty ? usbDevice : builtInDevice;
-    if (deviceName.isEmpty) return;
+    if (deviceName.isEmpty) {
+      debugPrint('[CustomerFace] No device name configured');
+      return;
+    }
 
-    final devices = await MultiCameraService.listDevices();
-    final match = devices.where((d) => d.name == deviceName).firstOrNull;
-    if (match == null) return;
-
-    final feed = await MultiCameraService.start(
-      sessionId: 'identity_customer',
-      deviceId: match.deviceId,
-      width: 960,
-      height: 540,
-    );
+    await ref.read(customerNativeFeedProvider.notifier).start(deviceName);
+    final feed = ref.read(customerNativeFeedProvider).feed;
 
     if (feed != null && mounted) {
-      setState(() => _customerNativeFeed = feed);
+      _customerNativeCamera = true;
+      ref.read(customerCameraFeedProvider.notifier).state = CustomerCameraFeed(
+        textureId: feed.textureId,
+        width: feed.width,
+        height: feed.height,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final inlineVerify = ref.watch(inlineVerificationProvider);
-    final showPin = inlineVerify.phase == VerificationUIPhase.pinRequired;
+    // Start/stop webcam based on verification state
+    ref.listen<InlineVerificationState>(inlineVerificationProvider, (prev, next) {
+      final wasActive = prev != null &&
+          (prev.phase == VerificationUIPhase.background || prev.phase == VerificationUIPhase.pinRequired || prev.phase == VerificationUIPhase.switchPrompt);
+      final isActive = next.phase == VerificationUIPhase.background || next.phase == VerificationUIPhase.pinRequired || next.phase == VerificationUIPhase.switchPrompt;
+      final isDone = next.phase == VerificationUIPhase.verified || next.phase == VerificationUIPhase.idle;
 
-    return Row(
-      children: [
-        Expanded(
-          child: _buildCameraTile(
-            scheme: scheme,
-            label: _operatorLabel,
-            icon: Icons.face_rounded,
-            verified: inlineVerify.phase == VerificationUIPhase.verified,
-            verifying: inlineVerify.phase == VerificationUIPhase.background,
-            verifyStatus: inlineVerify.statusMessage,
-            verifiedName: inlineVerify.verifiedName,
-            pinOverlay: showPin,
-            child: _webcamFrame != null
-                ? Image.memory(_webcamFrame!, fit: BoxFit.cover, gaplessPlayback: true)
-                : _buildPlaceholder(scheme, Icons.face_rounded, _operatorLabel),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildCameraTile(
-            scheme: scheme,
-            label: _customerLabel,
-            icon: Icons.person_search_rounded,
-            child: _customerController != null
-                ? Video(controller: _customerController!, fill: Colors.black)
-                : _customerNativeFeed != null
-                    ? FittedBox(
-                        fit: BoxFit.cover,
-                        clipBehavior: Clip.hardEdge,
-                        child: SizedBox(
-                          width: _customerNativeFeed!.width.toDouble(),
-                          height: _customerNativeFeed!.height.toDouble(),
-                          child: Texture(textureId: _customerNativeFeed!.textureId),
-                        ),
-                      )
-                    : _buildPlaceholder(scheme, Icons.person_search_rounded, _customerLabel),
-          ),
-        ),
-      ],
-    );
-  }
+      if (isActive && !wasActive && !_webcamReady) {
+        _initWebcam();
+      } else if (isDone && _webcamReady) {
+        _webcamTimer?.cancel();
+        _webcamTimer = null;
+        _stopWebcam();
+        _webcamReady = false;
+      }
+    });
 
-  Widget _buildPlaceholder(ColorScheme scheme, IconData icon, String label) {
-    return Container(
-      color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 28, color: scheme.onSurfaceVariant.withValues(alpha: 0.2)),
-            const SizedBox(height: 6),
-            Text(label, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.3))),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCameraTile({
-    required ColorScheme scheme,
-    required String label,
-    required IconData icon,
-    required Widget child,
-    bool verified = false,
-    bool verifying = false,
-    bool pinOverlay = false,
-    String? verifyStatus,
-    String? verifiedName,
-  }) {
-    final borderColor = verified
-        ? Colors.green.withValues(alpha: 0.6)
-        : verifying
-            ? Colors.blue.withValues(alpha: 0.5)
-            : scheme.outlineVariant.withValues(alpha: 0.3);
-
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: borderColor, width: verified || verifying ? 2 : 1),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(9),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              child,
-
-              // PIN overlay on operator camera
-              if (pinOverlay) _buildPinOverlay(scheme),
-
-              // Bottom label bar — shows verification state inline
-              Positioned(
-                left: 0, right: 0, bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                      colors: [Colors.black.withValues(alpha: 0.85), Colors.transparent],
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      // Icon changes based on state
-                      if (verified)
-                        const Icon(Icons.verified_user_rounded, size: 14, color: Colors.green)
-                      else if (verifying)
-                        SizedBox(
-                          width: 12, height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.blue.shade200),
-                        )
-                      else
-                        Icon(icon, size: 13, color: Colors.white70),
-                      const SizedBox(width: 6),
-                      // Label changes based on state
-                      Expanded(
-                        child: Text(
-                          verified
-                              ? verifiedName ?? label
-                              : verifying
-                                  ? (verifyStatus ?? 'Verifying...')
-                                  : label,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: verified ? Colors.green.shade200 : Colors.white70,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPinOverlay(ColorScheme scheme) {
-    return Container(
-      color: Colors.black.withValues(alpha: 0.75),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.lock_rounded, size: 24, color: Colors.white70),
-              const SizedBox(height: 8),
-              const Text(
-                'Enter PIN to verify',
-                style: TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: 160,
-                child: _PinField(
-                  onSubmit: (pin) => ref.read(inlineVerificationProvider.notifier).submitPin(pin),
-                ),
-              ),
-              if (ref.watch(inlineVerificationProvider).errorMessage != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  ref.watch(inlineVerificationProvider).errorMessage!,
-                  style: const TextStyle(fontSize: 10, color: Colors.redAccent),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PinField extends StatefulWidget {
-  final void Function(String pin) onSubmit;
-  const _PinField({required this.onSubmit});
-
-  @override
-  State<_PinField> createState() => _PinFieldState();
-}
-
-class _PinFieldState extends State<_PinField> {
-  final _ctrl = TextEditingController();
-  final _focus = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() => _focus.requestFocus());
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    _focus.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: _ctrl,
-      focusNode: _focus,
-      obscureText: true,
-      maxLength: 6,
-      keyboardType: TextInputType.number,
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      textAlign: TextAlign.center,
-      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: 8, color: Colors.white),
-      decoration: InputDecoration(
-        counterText: '',
-        hintText: '••••',
-        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), letterSpacing: 8),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.1),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
-        ),
-      ),
-      onSubmitted: (v) {
-        if (v.trim().length >= 4) widget.onSubmit(v.trim());
-      },
-    );
+    return const SizedBox.shrink();
   }
 }

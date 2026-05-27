@@ -24,7 +24,7 @@ class CustomerSnapshot extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.person_rounded, size: 14, color: scheme.onSurfaceVariant),
+              Icon(Icons.person_outlined, size: 14, color: scheme.onSurfaceVariant),
               const SizedBox(width: 6),
               Text('Customer', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
               const Spacer(),
@@ -40,7 +40,7 @@ class CustomerSnapshot extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.camera_alt_rounded, size: 10, color: scheme.primary),
+                        Icon(Icons.camera_alt_outlined, size: 10, color: scheme.primary),
                         const SizedBox(width: 3),
                         Text('Capture', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.primary)),
                       ],
@@ -72,7 +72,7 @@ class CustomerSnapshot extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.person_outline_rounded, size: 24, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
+                        Icon(Icons.person_outline_outlined, size: 24, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
                         const SizedBox(height: 4),
                         Text('No photo', style: TextStyle(fontSize: 8, color: scheme.onSurfaceVariant.withValues(alpha: 0.4))),
                       ],

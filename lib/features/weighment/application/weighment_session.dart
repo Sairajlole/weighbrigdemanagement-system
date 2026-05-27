@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum WeighmentDirection { inbound, outbound }
+enum WeighmentDirection { inbound, outbound } // Legacy — kept for Firestore backward compat
 
 enum SessionStatus { active, awaitingSecondWeight, completed, cancelled }
 
@@ -52,6 +52,8 @@ class WeighmentSession {
   final String? materialPrediction;
   final double? materialConfidence;
   final String? driverFaceEmbedding;
+  final String? customerFaceEmbedding;
+  final String? customerFaceId;
 
   // Custom fields
   final Map<String, String> customFields;
@@ -92,6 +94,8 @@ class WeighmentSession {
     this.materialPrediction,
     this.materialConfidence,
     this.driverFaceEmbedding,
+    this.customerFaceEmbedding,
+    this.customerFaceId,
     this.customFields = const {},
     this.existingDocId,
     this.deviceId,
@@ -129,6 +133,8 @@ class WeighmentSession {
     String? materialPrediction,
     double? materialConfidence,
     String? driverFaceEmbedding,
+    String? customerFaceEmbedding,
+    String? customerFaceId,
     Map<String, String>? customFields,
     String? existingDocId,
     String? deviceId,
@@ -165,6 +171,8 @@ class WeighmentSession {
       materialPrediction: materialPrediction ?? this.materialPrediction,
       materialConfidence: materialConfidence ?? this.materialConfidence,
       driverFaceEmbedding: driverFaceEmbedding ?? this.driverFaceEmbedding,
+      customerFaceEmbedding: customerFaceEmbedding ?? this.customerFaceEmbedding,
+      customerFaceId: customerFaceId ?? this.customerFaceId,
       customFields: customFields ?? this.customFields,
       existingDocId: existingDocId ?? this.existingDocId,
       deviceId: deviceId ?? this.deviceId,
@@ -203,6 +211,8 @@ class WeighmentSession {
       'materialPrediction': materialPrediction,
       'materialConfidence': materialConfidence,
       'driverFaceEmbedding': driverFaceEmbedding,
+      'customerFaceEmbedding': customerFaceEmbedding,
+      'customerFaceId': customerFaceId,
       'customFields': customFields,
       'existingDocId': existingDocId,
       'deviceId': deviceId,
@@ -247,6 +257,8 @@ class WeighmentSession {
       materialPrediction: map['materialPrediction'] as String?,
       materialConfidence: (map['materialConfidence'] as num?)?.toDouble(),
       driverFaceEmbedding: map['driverFaceEmbedding'] as String?,
+      customerFaceEmbedding: map['customerFaceEmbedding'] as String?,
+      customerFaceId: map['customerFaceId'] as String?,
       customFields: (map['customFields'] as Map<String, dynamic>?)?.cast<String, String>() ?? {},
       existingDocId: map['existingDocId'] as String?,
       deviceId: map['deviceId'] as String?,

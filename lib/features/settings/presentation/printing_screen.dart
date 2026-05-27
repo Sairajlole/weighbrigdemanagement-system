@@ -43,7 +43,20 @@ final _companyLogoProvider = FutureProvider<Uint8List?>((ref) async {
 final _companyInfoProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
   final doc = await db.generalSettings.get();
-  return doc.exists ? doc.data()! : {};
+  final data = doc.exists ? Map<String, dynamic>.from(doc.data()!) : <String, dynamic>{};
+  if ((data['companyName'] as String? ?? '').isEmpty ||
+      (data['address1'] as String? ?? '').isEmpty) {
+    try {
+      final companyDoc = await db.firestore.doc(db.context.companyPath).get();
+      if (companyDoc.exists) {
+        final cd = companyDoc.data()!;
+        if ((data['companyName'] as String? ?? '').isEmpty) data['companyName'] = cd['name'] ?? '';
+        if ((data['address1'] as String? ?? '').isEmpty) data['address1'] = cd['address1'] ?? '';
+        if ((data['address2'] as String? ?? '').isEmpty) data['address2'] = cd['address2'] ?? '';
+      }
+    } catch (_) {}
+  }
+  return data;
 });
 
 final _customFieldsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {

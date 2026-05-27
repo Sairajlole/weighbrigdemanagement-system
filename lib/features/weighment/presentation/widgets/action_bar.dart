@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+enum _PrimaryAction { newSession, capture, print }
+
 class WeighmentActionBar extends StatelessWidget {
   final bool hasSession;
   final bool hasFirstWeight;
   final bool isComplete;
-  final bool isMultiEntry;
   final bool canCapture;
   final bool canManualEntry;
   final VoidCallback onNew;
@@ -12,15 +13,18 @@ class WeighmentActionBar extends StatelessWidget {
   final VoidCallback? onManualEntry;
   final VoidCallback onSaveWait;
   final VoidCallback onPrint;
-  final VoidCallback onDone;
   final VoidCallback onCancel;
+  final bool gateEnabled;
+  final VoidCallback? onOpenGate;
+  final VoidCallback? onCloseGate;
+  final VoidCallback? onCustomerSearch;
+  final bool printConfigured;
 
   const WeighmentActionBar({
     super.key,
     required this.hasSession,
     required this.hasFirstWeight,
     required this.isComplete,
-    required this.isMultiEntry,
     required this.canCapture,
     this.canManualEntry = false,
     required this.onNew,
@@ -28,176 +32,146 @@ class WeighmentActionBar extends StatelessWidget {
     this.onManualEntry,
     required this.onSaveWait,
     required this.onPrint,
-    required this.onDone,
     required this.onCancel,
+    this.gateEnabled = false,
+    this.onOpenGate,
+    this.onCloseGate,
+    this.onCustomerSearch,
+    this.printConfigured = false,
   });
+
+  _PrimaryAction get _primaryAction {
+    if (isComplete) return _PrimaryAction.print;
+    if (canCapture) return _PrimaryAction.capture;
+    return _PrimaryAction.newSession;
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final primary = _primaryAction;
 
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh.withValues(alpha: 0.6),
-        border: Border(top: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
-      ),
+    final newEnabled = !hasSession || isComplete;
+    final leftButtons = <_BtnDef>[
+      _BtnDef('NEW', 'F1', newEnabled, newEnabled ? onNew : null, isPrimary: primary == _PrimaryAction.newSession),
+      _BtnDef('CAPTURE', 'F5', canCapture, canCapture ? onCapture : null, isPrimary: primary == _PrimaryAction.capture),
+      if (canManualEntry && hasSession && !isComplete)
+        _BtnDef('MANUAL', 'F3', true, onManualEntry),
+      if (hasSession && hasFirstWeight && !isComplete)
+        _BtnDef('SAVE', 'F4', true, onSaveWait),
+    ];
+
+    final rightButtons = <_BtnDef>[
+      if (gateEnabled) _BtnDef('OPEN GATE', 'F6', true, onOpenGate),
+      if (gateEnabled) _BtnDef('CLOSE GATE', 'F7', true, onCloseGate),
+      if (hasSession) _BtnDef('SEARCH', 'F10', true, onCustomerSearch),
+      _BtnDef('PRINT', 'F11', printConfigured, printConfigured ? onPrint : null, isPrimary: primary == _PrimaryAction.print),
+      if (hasSession) _BtnDef('CANCEL', 'Esc', true, onCancel, destructive: true),
+    ];
+
+    return BottomAppBar(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
       child: Row(
         children: [
-          // Left side: primary actions
-          if (!hasSession) ...[
-            _ActionButton(
-              icon: Icons.add_rounded,
-              label: 'New Weighment',
-              shortcut: 'F2',
-              onPressed: onNew,
-              filled: true,
-              scheme: scheme,
-            ),
-          ],
-
-          if (hasSession && !isComplete) ...[
-            _ActionButton(
-              icon: Icons.camera_alt_rounded,
-              label: 'Capture Weight',
-              shortcut: 'F5',
-              onPressed: canCapture ? onCapture : null,
-              filled: true,
-              scheme: scheme,
-            ),
-            if (canManualEntry && onManualEntry != null) ...[
-              const SizedBox(width: 10),
-              _ActionButton(
-                icon: Icons.edit_rounded,
-                label: 'Manual',
-                onPressed: onManualEntry,
-                scheme: scheme,
-              ),
-            ],
-            if (isMultiEntry && hasFirstWeight) ...[
-              const SizedBox(width: 10),
-              _ActionButton(
-                icon: Icons.save_rounded,
-                label: 'Save & Wait',
-                shortcut: 'F4',
-                onPressed: onSaveWait,
-                scheme: scheme,
-              ),
-            ],
-          ],
-
-          if (isComplete) ...[
-            _ActionButton(
-              icon: Icons.print_rounded,
-              label: 'Print Slip',
-              shortcut: 'F4',
-              onPressed: onPrint,
-              scheme: scheme,
-            ),
-            const SizedBox(width: 10),
-            _ActionButton(
-              icon: Icons.check_circle_rounded,
-              label: 'Done — Next',
-              onPressed: onDone,
-              filled: true,
-              color: Colors.green,
-              scheme: scheme,
-            ),
-          ],
-
+          ..._buildGroup(leftButtons, scheme, textTheme),
           const Spacer(),
-
-          // Right side: cancel
-          if (hasSession)
-            _ActionButton(
-              icon: Icons.close_rounded,
-              label: 'Cancel',
-              shortcut: 'Esc',
-              onPressed: onCancel,
-              color: scheme.error,
-              scheme: scheme,
-            ),
-
-          if (!hasSession)
-            Text(
-              'Press F2 to begin weighment',
-              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-            ),
+          ..._buildGroup(rightButtons, scheme, textTheme),
         ],
+      ),
+    );
+  }
+
+  List<Widget> _buildGroup(List<_BtnDef> buttons, ColorScheme scheme, TextTheme textTheme) {
+    final widgets = <Widget>[];
+    for (var i = 0; i < buttons.length; i++) {
+      if (i > 0) widgets.add(const SizedBox(width: 6));
+      widgets.add(_buildButton(buttons[i], scheme, textTheme));
+    }
+    return widgets;
+  }
+
+  Widget _buildButton(_BtnDef def, ColorScheme scheme, TextTheme textTheme) {
+    final active = def.enabled && def.onPressed != null;
+    final isPrimary = def.isPrimary && active;
+
+    final ButtonStyle style;
+    if (isPrimary) {
+      style = FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
+        shape: const StadiumBorder(),
+      );
+    } else if (def.destructive && active) {
+      style = FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        backgroundColor: scheme.errorContainer,
+        foregroundColor: scheme.onErrorContainer,
+        shape: const StadiumBorder(),
+      );
+    } else {
+      style = FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        backgroundColor: active ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+        foregroundColor: active ? scheme.onPrimaryContainer : scheme.onSurfaceVariant.withValues(alpha: 0.4),
+        shape: const StadiumBorder(),
+      );
+    }
+
+    return SizedBox(
+      height: 40,
+      child: FilledButton(
+        onPressed: active ? def.onPressed : null,
+        style: style,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              def.label,
+              style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              def.shortcut,
+              style: textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isPrimary
+                    ? scheme.onPrimary.withValues(alpha: 0.7)
+                    : def.destructive && active
+                        ? scheme.onErrorContainer.withValues(alpha: 0.7)
+                        : active
+                            ? scheme.onPrimaryContainer.withValues(alpha: 0.6)
+                            : scheme.onSurfaceVariant.withValues(alpha: 0.3),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
+class _BtnDef {
   final String label;
-  final String? shortcut;
+  final String shortcut;
+  final bool enabled;
   final VoidCallback? onPressed;
-  final bool filled;
-  final Color? color;
-  final ColorScheme scheme;
+  final bool destructive;
+  final bool isPrimary;
 
-  const _ActionButton({
-    required this.icon,
-    required this.label,
+  const _BtnDef(
+    this.label,
     this.shortcut,
-    this.onPressed,
-    this.filled = false,
-    this.color,
-    required this.scheme,
+    this.enabled,
+    this.onPressed, {
+    this.destructive = false,
+    this.isPrimary = false,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    final btnColor = color ?? scheme.primary;
-
-    if (filled) {
-      return FilledButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 18),
-        label: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-            if (shortcut != null) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(shortcut!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ],
-        ),
-        style: FilledButton.styleFrom(
-          backgroundColor: onPressed != null ? btnColor : null,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        ),
-      );
-    }
-
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 16, color: onPressed != null ? btnColor : null),
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: onPressed != null ? btnColor : null)),
-          if (shortcut != null) ...[
-            const SizedBox(width: 6),
-            Text(shortcut!, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5))),
-          ],
-        ],
-      ),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        side: BorderSide(color: (onPressed != null ? btnColor : scheme.outlineVariant).withValues(alpha: 0.4)),
-      ),
-    );
-  }
 }

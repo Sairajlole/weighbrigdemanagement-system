@@ -9,7 +9,6 @@ enum WeighmentStep {
   materialDetection,
   customerLookup,
   driverAssist,
-  directionSelect,
   secondWeightCapture,
   rstAssignment,
   saveToFirestore,
@@ -104,11 +103,7 @@ const stepConfigs = <WeighmentStep, StepConfig>{
     requiresAI: true,
     canSkip: true,
   ),
-  WeighmentStep.directionSelect: StepConfig(
-    step: WeighmentStep.directionSelect,
-    label: 'Direction',
-  ),
-  WeighmentStep.secondWeightCapture: StepConfig(
+WeighmentStep.secondWeightCapture: StepConfig(
     step: WeighmentStep.secondWeightCapture,
     label: 'Second Weight',
     timeout: Duration(seconds: 60),

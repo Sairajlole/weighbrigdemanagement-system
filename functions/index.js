@@ -4579,51 +4579,66 @@ exports.verifyOperatorFace = functions.runWith({ timeoutSeconds: 30, memory: "51
 });
 
 // verifyOperatorPin - Verify operator PIN for fallback authentication.
+// If PIN doesn't match the current operator, checks all operators in the company.
+// Returns operatorEmail/operatorName of the matched operator for switch detection.
 exports.verifyOperatorPin = functions.https.onCall(async (data) => {
   const { pin, companyId, operatorEmail } = data;
 
-  if (!pin || !companyId || !operatorEmail) {
-    throw new functions.https.HttpsError("invalid-argument", "pin, companyId, and operatorEmail required");
+  if (!pin || !companyId) {
+    throw new functions.https.HttpsError("invalid-argument", "pin and companyId required");
   }
 
-  // Look up operator
-  let operatorDoc = null;
-  const companyOps = await db.collection(`companies/${companyId}/operators`)
-    .where("email", "==", operatorEmail)
-    .limit(1).get();
+  const crypto = require("crypto");
 
-  if (!companyOps.empty) {
-    operatorDoc = companyOps.docs[0];
-  } else {
-    const flatOps = await db.collection("operators")
-      .where("companyId", "==", companyId)
+  // First: try matching against the current operator (fast path)
+  if (operatorEmail) {
+    let operatorDoc = null;
+    const companyOps = await db.collection(`companies/${companyId}/operators`)
       .where("email", "==", operatorEmail)
       .limit(1).get();
-    if (!flatOps.empty) operatorDoc = flatOps.docs[0];
+
+    if (!companyOps.empty) {
+      operatorDoc = companyOps.docs[0];
+    } else {
+      const flatOps = await db.collection("operators")
+        .where("companyId", "==", companyId)
+        .where("email", "==", operatorEmail)
+        .limit(1).get();
+      if (!flatOps.empty) operatorDoc = flatOps.docs[0];
+    }
+
+    if (operatorDoc) {
+      const storedHash = operatorDoc.data().pinHash;
+      if (storedHash) {
+        const inputHash = crypto.createHash("sha256").update(pin + operatorEmail).digest("hex");
+        if (inputHash === storedHash) {
+          await operatorDoc.ref.update({
+            lastPinVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          return { match: true, message: "PIN verified.", operatorName: operatorDoc.data().name || "", operatorEmail: operatorEmail, isSameOperator: true };
+        }
+      }
+    }
   }
 
-  if (!operatorDoc) {
-    return { match: false, message: "Operator not found." };
+  // Second: check all other operators in the company
+  const allOps = await db.collection(`companies/${companyId}/operators`).get();
+  for (const doc of allOps.docs) {
+    const opData = doc.data();
+    const opEmail = opData.email || "";
+    if (opEmail === operatorEmail) continue;
+    const storedHash = opData.pinHash;
+    if (!storedHash) continue;
+    const inputHash = crypto.createHash("sha256").update(pin + opEmail).digest("hex");
+    if (inputHash === storedHash) {
+      await doc.ref.update({
+        lastPinVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return { match: true, message: "PIN verified.", operatorName: opData.name || "", operatorEmail: opEmail, isSameOperator: false };
+    }
   }
 
-  const storedHash = operatorDoc.data().pinHash;
-  if (!storedHash) {
-    return { match: false, message: "No PIN set for this operator." };
-  }
-
-  // Compare PIN hash (SHA-256)
-  const crypto = require("crypto");
-  const inputHash = crypto.createHash("sha256").update(pin + operatorEmail).digest("hex");
-
-  if (inputHash === storedHash) {
-    // Record successful verification
-    await operatorDoc.ref.update({
-      lastPinVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-    return { match: true, message: "PIN verified." };
-  } else {
-    return { match: false, message: "Incorrect PIN." };
-  }
+  return { match: false, message: "Incorrect PIN." };
 });
 
 // setOperatorPin - Set or update operator PIN.
