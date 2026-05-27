@@ -609,6 +609,21 @@ class PrintService {
       final tmpFile = File('${Directory.systemTemp.path}/weighbridge_thermal_${DateTime.now().millisecondsSinceEpoch}.prn');
       await tmpFile.writeAsBytes(data);
 
+      if (Platform.isWindows) {
+        for (var i = 0; i < copies; i++) {
+          final result = await Process.run('powershell', [
+            '-NoProfile', '-Command',
+            'Get-Content -Encoding Byte -ReadCount 0 "${tmpFile.path}" | Out-Printer -Name "$printer"'
+          ]);
+          if (result.exitCode != 0) {
+            await tmpFile.delete().catchError((_) => tmpFile);
+            return PrintResult(success: false, error: 'Print failed: ${result.stderr}');
+          }
+        }
+        await tmpFile.delete().catchError((_) => tmpFile);
+        return PrintResult(success: true);
+      }
+
       final args = <String>['-#', '$copies', '-o', 'raw'];
       if (tray.isNotEmpty && tray != 'Auto') {
         args.addAll(['-o', 'InputSlot=$tray']);
@@ -1291,6 +1306,20 @@ class PrintService {
       final tmpFile = File('${Directory.systemTemp.path}/weighbridge_docket_${DateTime.now().millisecondsSinceEpoch}.pdf');
       await tmpFile.writeAsBytes(pdfBytes);
 
+      if (Platform.isWindows) {
+        final result = await Process.run('powershell', [
+          '-NoProfile', '-Command',
+          'Start-Process -FilePath "${tmpFile.path}" -Verb PrintTo -ArgumentList "$printer" -Wait -WindowStyle Hidden'
+        ]);
+        await tmpFile.delete().catchError((_) => tmpFile);
+        if (result.exitCode != 0) {
+          final backupResult = await _tryBackupPrinter(pdfBytes, copies);
+          if (backupResult != null) return backupResult;
+          return PrintResult(success: false, error: 'Print failed: ${result.stderr}');
+        }
+        return PrintResult(success: true);
+      }
+
       final args = <String>['-#', '$copies'];
       if (tray.isNotEmpty && tray != 'Auto') {
         args.addAll(['-o', 'InputSlot=$tray']);
@@ -1304,7 +1333,7 @@ class PrintService {
       await tmpFile.delete().catchError((_) => tmpFile);
 
       if (result.exitCode != 0) {
-        final backupResult = await _tryBackupPrinter(tmpFile.path, copies);
+        final backupResult = await _tryBackupPrinter(pdfBytes, copies);
         if (backupResult != null) return backupResult;
         return PrintResult(success: false, error: 'lpr failed: ${result.stderr}');
       }
@@ -1314,7 +1343,7 @@ class PrintService {
     }
   }
 
-  Future<PrintResult?> _tryBackupPrinter(String filePath, int copies) async {
+  Future<PrintResult?> _tryBackupPrinter(Uint8List pdfBytes, int copies) async {
     try {
       final settings = await _fetchPrintSettings();
       final backupEnabled = settings['backupEnabled'] as bool? ?? false;
@@ -1322,15 +1351,26 @@ class PrintService {
       final backupTray = settings['backupTray'] as String? ?? '';
       if (!backupEnabled || backupPrinter.isEmpty) return null;
 
-      final args = <String>['-#', '$copies'];
-      if (backupTray.isNotEmpty && backupTray != 'Auto') {
-        args.addAll(['-o', 'InputSlot=$backupTray']);
-      }
-      args.addAll(['-P', backupPrinter, filePath]);
+      final tmpFile = File('${Directory.systemTemp.path}/weighbridge_backup_${DateTime.now().millisecondsSinceEpoch}.pdf');
+      await tmpFile.writeAsBytes(pdfBytes);
 
-      final result = await Process.run('lpr', args);
-      if (result.exitCode == 0) {
-        return PrintResult(success: true, usedBackup: true);
+      if (Platform.isWindows) {
+        final result = await Process.run('powershell', [
+          '-NoProfile', '-Command',
+          'Start-Process -FilePath "${tmpFile.path}" -Verb PrintTo -ArgumentList "$backupPrinter" -Wait -WindowStyle Hidden'
+        ]);
+        await tmpFile.delete().catchError((_) => tmpFile);
+        if (result.exitCode == 0) return PrintResult(success: true, usedBackup: true);
+      } else {
+        final args = <String>['-#', '$copies'];
+        if (backupTray.isNotEmpty && backupTray != 'Auto') {
+          args.addAll(['-o', 'InputSlot=$backupTray']);
+        }
+        args.addAll(['-P', backupPrinter, tmpFile.path]);
+
+        final result = await Process.run('lpr', args);
+        await tmpFile.delete().catchError((_) => tmpFile);
+        if (result.exitCode == 0) return PrintResult(success: true, usedBackup: true);
       }
     } catch (_) {}
     return null;
