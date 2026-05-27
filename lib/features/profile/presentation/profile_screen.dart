@@ -1010,7 +1010,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
         const SizedBox(height: 10),
         FutureBuilder<List<MultiFactorInfo>>(
-          future: FirebaseAuth.instance.currentUser?.multiFactor.getEnrolledFactors() ?? Future.value([]),
+          future: (Platform.isWindows || Platform.isLinux) ? Future.value(<MultiFactorInfo>[]) : (FirebaseAuth.instance.currentUser?.multiFactor.getEnrolledFactors() ?? Future.value([])),
           builder: (context, snap) {
             final enrolled = snap.data ?? [];
             final mfaEnabled = enrolled.isNotEmpty;
