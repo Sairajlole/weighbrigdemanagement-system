@@ -35,9 +35,9 @@ WebcamPlugin::~WebcamPlugin() {
     }
 }
 
-void WebcamPlugin::Register(flutter::FlutterEngine* engine) {
+void WebcamPlugin::Register(flutter::BinaryMessenger* messenger) {
     auto channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-        engine->messenger(), "com.weighbridge/webcam",
+        messenger, "com.weighbridge/webcam",
         &flutter::StandardMethodCodec::GetInstance());
 
     auto plugin = std::make_unique<WebcamPlugin>();

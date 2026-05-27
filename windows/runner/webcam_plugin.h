@@ -16,7 +16,7 @@
 
 class WebcamPlugin {
  public:
-  static void Register(flutter::FlutterEngine* engine);
+  static void Register(flutter::BinaryMessenger* messenger);
 
  private:
   WebcamPlugin();

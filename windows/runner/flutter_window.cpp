@@ -28,10 +28,11 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
-  WebcamPlugin::Register(flutter_controller_->engine());
+  WebcamPlugin::Register(flutter_controller_->engine()->messenger());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   // Security method channel for screenshot prevention
+  HWND hwnd = GetHandle();
   auto security_channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
       flutter_controller_->engine()->messenger(),
       "com.weighbridge/security",
