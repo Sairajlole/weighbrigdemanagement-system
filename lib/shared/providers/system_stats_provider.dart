@@ -163,36 +163,17 @@ Future<SystemStats> _fetchWindows() async {
   double? temp;
 
   try {
-    final cpuResult = await Process.run('wmic', ['cpu', 'get', 'loadpercentage', '/value']);
-    if (cpuResult.exitCode == 0) {
-      final match = RegExp(r'LoadPercentage=(\d+)').firstMatch(cpuResult.stdout as String);
-      cpu = double.tryParse(match?.group(1) ?? '') ?? 0;
-    }
-  } catch (_) {}
-
-  try {
-    final memResult = await Process.run('wmic', ['OS', 'get', 'FreePhysicalMemory,TotalVisibleMemorySize', '/value']);
-    if (memResult.exitCode == 0) {
-      final output = memResult.stdout as String;
-      final total = RegExp(r'TotalVisibleMemorySize=(\d+)').firstMatch(output);
-      final free = RegExp(r'FreePhysicalMemory=(\d+)').firstMatch(output);
-      final totalVal = int.tryParse(total?.group(1) ?? '') ?? 0;
-      final freeVal = int.tryParse(free?.group(1) ?? '') ?? 0;
-      if (totalVal > 0) {
-        mem = ((totalVal - freeVal) / totalVal) * 100;
-      }
-    }
-  } catch (_) {}
-
-  try {
-    final tempResult = await Process.run(
-      'powershell',
-      ['-Command', r"(Get-CimInstance MSAcpi_ThermalZoneTemperature -Namespace root/wmi -ErrorAction SilentlyContinue | Select -First 1).CurrentTemperature"],
-    );
-    if (tempResult.exitCode == 0) {
-      final val = int.tryParse((tempResult.stdout as String).trim());
-      if (val != null && val > 0) {
-        temp = (val - 2732) / 10.0;
+    final result = await Process.run('powershell', [
+      '-NoProfile', '-Command',
+      r'$cpu = (Get-CimInstance Win32_Processor).LoadPercentage; $os = Get-CimInstance Win32_OperatingSystem; $mem = [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize * 100, 1); $t = (Get-CimInstance MSAcpi_ThermalZoneTemperature -Namespace root/wmi -ErrorAction SilentlyContinue | Select -First 1).CurrentTemperature; Write-Output "$cpu $mem $t"'
+    ]);
+    if (result.exitCode == 0) {
+      final parts = (result.stdout as String).trim().split(' ');
+      if (parts.isNotEmpty) cpu = double.tryParse(parts[0]) ?? 0;
+      if (parts.length > 1) mem = double.tryParse(parts[1]) ?? 0;
+      if (parts.length > 2) {
+        final val = int.tryParse(parts[2]);
+        if (val != null && val > 0) temp = (val - 2732) / 10.0;
       }
     }
   } catch (_) {}
