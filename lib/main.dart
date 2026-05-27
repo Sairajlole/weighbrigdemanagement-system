@@ -28,7 +28,10 @@ void main() async {
   // Clear cached login on every cold start — user must sign in fresh
   await LocalCacheService.clearCurrentUser();
 
-  // On macOS, attempt sign-in (keychain issues may prevent this)
+  // On macOS, attempt anonymous sign-in so Firestore works even when
+  // keychain-based Google Sign-In fails (common in dev sandboxes).
+  // NOTE: Windows auth is handled via the normal login flow; this block
+  // intentionally only runs on macOS to avoid disrupting that path.
   if (Platform.isMacOS && FirebaseAuth.instance.currentUser == null) {
     try {
       await FirebaseAuth.instance.signInAnonymously();

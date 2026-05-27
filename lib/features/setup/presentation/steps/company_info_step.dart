@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as img;
@@ -243,14 +244,17 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
 
     try {
       final prompt = isCert ? 'GSTIN Certificate' : 'PAN Card';
-      final result = await Process.run('osascript', [
-        '-e',
-        'set theFile to choose file of type {"public.jpeg", "public.png", "com.adobe.pdf"} with prompt "Select $prompt (JPEG, PNG, or PDF only)"',
-        '-e',
-        'POSIX path of theFile',
-      ]);
-      final path = (result.stdout as String).trim();
-      if (path.isEmpty) {
+      final picked = await FilePicker.platform.pickFiles(
+        dialogTitle: 'Select $prompt (JPEG, PNG, or PDF only)',
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+      );
+      if (picked == null || picked.files.isEmpty) {
+        if (mounted) setState(() { if (isCert) _uploadingCert = false; else _uploadingPan = false; });
+        return;
+      }
+      final path = picked.files.single.path;
+      if (path == null || path.isEmpty) {
         if (mounted) setState(() { if (isCert) _uploadingCert = false; else _uploadingPan = false; });
         return;
       }

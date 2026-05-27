@@ -38,8 +38,10 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
   final _nativeFeeds = <String, CameraFeed>{};
   // Snapshot timer for AI service
   Timer? _snapshotTimer;
+  Timer? _healthTimer;
   final _activeKeys = <String>{};
   bool _syncing = false;
+  Map<String, dynamic> _lastSettings = {};
 
   @override
   void dispose() {
@@ -47,6 +49,7 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
       player.dispose();
     }
     _snapshotTimer?.cancel();
+    _healthTimer?.cancel();
     MultiCameraService.stopAll();
     super.dispose();
   }
@@ -54,12 +57,14 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
   Future<void> _syncFeeds(List<ActiveCamera> cameras, Map<String, dynamic> settings) async {
     if (_syncing) return;
 
+    _lastSettings = settings;
     final allCams = settings['cameras'] as Map<String, dynamic>? ?? {};
     if (allCams.isEmpty && _activeKeys.isEmpty) return;
 
     final desiredKeys = cameras.map((c) => c.key).toSet();
     if (desiredKeys.length == _activeKeys.length && desiredKeys.containsAll(_activeKeys)) return;
 
+    debugPrint('[CameraFeeds] Syncing: desired=$desiredKeys active=$_activeKeys allCams=${allCams.keys.toList()}');
     _syncing = true;
 
     // Stop feeds for cameras that were removed
@@ -74,17 +79,19 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
       }
     }
 
-    // Start feeds for newly added cameras
     final added = desiredKeys.difference(_activeKeys);
+    final futures = <Future<void>>[];
     for (final key in added) {
+      if (!mounted) break;
       final camData = allCams[key] as Map<String, dynamic>? ?? {};
       final source = camData['source'] as String? ?? 'Local Device';
-      if (source == 'IP Camera' || source == 'DVR') {
-        _startIpFeed(key, camData);
+      if (source == 'Network Camera') {
+        futures.add(_startIpFeed(key, camData));
       } else {
-        await _startNativeFeed(key, camData);
+        futures.add(_startNativeFeed(key, camData));
       }
     }
+    if (futures.isNotEmpty) await Future.wait(futures);
 
     _activeKeys
       ..clear()
@@ -94,74 +101,180 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
       _startSnapshotCapture();
     }
 
+    _healthTimer ??= Timer.periodic(const Duration(seconds: 20), (_) => _syncToLive());
+
     _syncing = false;
     if (mounted) setState(() {});
   }
 
-  static String _resolveStreamPath(Map<String, dynamic> camData) {
-    final source = camData['source'] as String? ?? 'IP Camera';
-    if (source == 'DVR') {
-      final brand = camData['dvrBrand'] as String? ?? 'Hikvision';
-      final channel = camData['dvrChannel'] as int? ?? 1;
-      final streamType = camData['dvrStreamType'] as String? ?? 'main';
-      final subtype = streamType == 'sub' ? 1 : 0;
-      final chMain = channel * 100 + 1;
-      final chSub = channel * 100 + 2;
-      final hikvisionPath = '/Streaming/Channels/${streamType == 'sub' ? chSub : chMain}';
-      final dahuaPath = '/cam/realmonitor?channel=$channel&subtype=$subtype';
-      switch (brand) {
-        case 'Hikvision':
-        case 'TVT':
-        case 'Honeywell':
-          return hikvisionPath;
-        case 'Dahua':
-        case 'CP Plus':
-        case 'Godrej':
-        case 'Zebronics':
-          return dahuaPath;
-        case 'Uniview':
-          return '/media/video$channel';
-        case 'Bosch':
-          return '/rtsp_tunnel?h26x=$channel&line=$channel&inst=$subtype';
-        case 'Axis':
-          return '/axis-media/media.amp?camera=$channel&videocodec=h264&resolution=1920x1080';
-        case 'Samsung (Hanwha)':
-          return '/profile$channel/${streamType == 'sub' ? 'media.smp' : 'media.smp'}';
-        case 'Vivotek':
-          return '/live.sdp?channel=$channel&stream=${subtype + 1}';
-        case 'Pelco':
-        case 'TP-Link VIGI':
-          return '/stream$channel';
-        case 'D-Link':
-          return '/live$channel.sdp';
-        default:
-          return hikvisionPath;
-      }
+  Future<void> _syncToLive() async {
+    if (!mounted || _syncing) return;
+    _syncing = true;
+    final allCams = _lastSettings['cameras'] as Map<String, dynamic>? ?? {};
+
+    for (final key in _activeKeys.toList()) {
+      if (!mounted) break;
+      if (!_players.containsKey(key)) continue;
+      final camData = allCams[key] as Map<String, dynamic>? ?? {};
+      if (camData.isEmpty) continue;
+      final source = camData['source'] as String? ?? 'Local Device';
+      if (source != 'Network Camera') continue;
+      await _hotSwapFeed(key, camData);
     }
-    return '/stream';
+
+    _syncing = false;
   }
 
-  void _startIpFeed(String key, Map<String, dynamic> camData) {
-    final address = camData['address'] as String? ?? '';
-    if (address.isEmpty) return;
+  Future<void> _hotSwapFeed(String key, Map<String, dynamic> camData) async {
+    final oldPlayer = _players[key];
 
-    final username = camData['username'] as String? ?? '';
-    final encPassword = camData['password'] as String? ?? '';
-    final password = encPassword.isNotEmpty ? CryptoService.decrypt(encPassword) : '';
-    final port = camData['port'] as int? ?? 554;
+    final newPlayer = Player();
+    final newController = VideoController(newPlayer);
 
-    final auth = username.isNotEmpty ? '$username:$password@' : '';
-    final path = _resolveStreamPath(camData);
-    final rtspUrl = 'rtsp://$auth$address:$port$path';
+    final native = newPlayer.platform as NativePlayer;
+    native.setProperty('rtsp-transport', 'tcp');
+    native.setProperty('profile', 'low-latency');
+    native.setProperty('untimed', 'yes');
+    native.setProperty('cache', 'no');
+    native.setProperty('cache-pause', 'no');
+    native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+fastseek');
+    native.setProperty('framedrop', 'vo');
+    native.setProperty('video-latency-hacks', 'yes');
+
+    final String rtspUrl;
+    final rtspPath = camData['rtspPath'] as String? ?? '';
+    if (rtspPath.startsWith('rtsp://') || rtspPath.startsWith('rtsps://')) {
+      rtspUrl = _encodeRtspUrl(rtspPath);
+    } else {
+      final address = camData['address'] as String? ?? '';
+      if (address.isEmpty) { newPlayer.dispose(); return; }
+      final username = camData['username'] as String? ?? '';
+      final encPassword = camData['password'] as String? ?? '';
+      final password = encPassword.isNotEmpty ? CryptoService.decrypt(encPassword) : '';
+      final port = camData['port'] as int?;
+      final rtspPort = (port != null && port > 0) ? port : 554;
+      final auth = username.isNotEmpty ? '${Uri.encodeComponent(username)}:${Uri.encodeComponent(password)}@' : '';
+      final path = _resolveStreamPath(camData);
+      rtspUrl = 'rtsp://$auth$address:$rtspPort$path';
+    }
+
+    newPlayer.open(Media(rtspUrl), play: true);
+    newPlayer.setVolume(0);
+
+    // Wait for first frame (max 4s)
+    final completer = Completer<void>();
+    final sub = newPlayer.stream.width.listen((w) {
+      if ((w ?? 0) > 0 && !completer.isCompleted) completer.complete();
+    });
+    if ((newPlayer.state.width ?? 0) > 0) {
+      if (!completer.isCompleted) completer.complete();
+    }
+
+    await Future.any([completer.future, Future.delayed(const Duration(seconds: 4))]);
+    sub.cancel();
+
+    if (!mounted || !completer.isCompleted) {
+      newPlayer.dispose();
+      return;
+    }
+
+    // Atomic swap
+    _players[key] = newPlayer;
+    _videoControllers[key] = newController;
+    if (mounted) setState(() {});
+
+    oldPlayer?.dispose();
+  }
+
+  static String _resolveStreamPath(Map<String, dynamic> camData) {
+    final brand = camData['dvrBrand'] as String? ?? camData['cameraBrand'] as String? ?? 'Hikvision';
+    final channel = camData['dvrChannel'] as int? ?? 1;
+    final streamType = camData['dvrStreamType'] as String? ?? 'main';
+    final subtype = streamType == 'sub' ? 1 : 0;
+    final chMain = channel * 100 + 1;
+    final chSub = channel * 100 + 2;
+    switch (brand) {
+      case 'Hikvision':
+      case 'TVT':
+      case 'Honeywell':
+        return '/Streaming/Channels/${streamType == 'sub' ? chSub : chMain}';
+      case 'Dahua':
+      case 'CP Plus':
+      case 'Godrej':
+      case 'Zebronics':
+        return '/cam/realmonitor?channel=$channel&subtype=$subtype';
+      case 'Uniview':
+        return '/media/video$channel';
+      case 'Bosch':
+        return '/rtsp_tunnel?h26x=$channel&line=$channel&inst=$subtype';
+      case 'Axis':
+        return '/axis-media/media.amp?camera=$channel&videocodec=h264&resolution=1920x1080';
+      case 'Samsung (Hanwha)':
+        return '/profile$channel/${streamType == 'sub' ? 'media.smp' : 'media.smp'}';
+      case 'Vivotek':
+        return '/live.sdp?channel=$channel&stream=${subtype + 1}';
+      case 'Pelco':
+      case 'TP-Link VIGI':
+        return '/stream$channel';
+      case 'D-Link':
+        return '/live$channel.sdp';
+      default:
+        return '/Streaming/Channels/${streamType == 'sub' ? chSub : chMain}';
+    }
+  }
+
+  static String _encodeRtspUrl(String raw) {
+    if (!raw.startsWith('rtsp://') && !raw.startsWith('rtsps://')) return raw;
+    final schemeEnd = raw.indexOf('://') + 3;
+    final afterScheme = raw.substring(schemeEnd);
+    final lastAt = afterScheme.lastIndexOf('@');
+    if (lastAt < 0) return raw;
+    final credentials = afterScheme.substring(0, lastAt);
+    final rest = afterScheme.substring(lastAt + 1);
+    final colonIdx = credentials.indexOf(':');
+    if (colonIdx < 0) return raw;
+    final user = Uri.decodeComponent(credentials.substring(0, colonIdx));
+    final pass = Uri.decodeComponent(credentials.substring(colonIdx + 1));
+    return '${raw.substring(0, schemeEnd)}${Uri.encodeComponent(user)}:${Uri.encodeComponent(pass)}@$rest';
+  }
+
+  Future<void> _startIpFeed(String key, Map<String, dynamic> camData) async {
+    final String rtspUrl;
+
+    final rtspPath = camData['rtspPath'] as String? ?? '';
+    if (rtspPath.startsWith('rtsp://') || rtspPath.startsWith('rtsps://')) {
+      rtspUrl = _encodeRtspUrl(rtspPath);
+    } else {
+      final address = camData['address'] as String? ?? '';
+      if (address.isEmpty) return;
+      final username = camData['username'] as String? ?? '';
+      final encPassword = camData['password'] as String? ?? '';
+      final password = encPassword.isNotEmpty ? CryptoService.decrypt(encPassword) : '';
+      final port = camData['port'] as int?;
+      final rtspPort = (port != null && port > 0) ? port : 554;
+      final auth = username.isNotEmpty ? '${Uri.encodeComponent(username)}:${Uri.encodeComponent(password)}@' : '';
+      final path = _resolveStreamPath(camData);
+      rtspUrl = 'rtsp://$auth$address:$rtspPort$path';
+    }
+
+    if (!mounted) return;
 
     final player = Player();
     final controller = VideoController(player);
     _players[key] = player;
     _videoControllers[key] = controller;
 
+    final native = player.platform as NativePlayer;
+    native.setProperty('rtsp-transport', 'tcp');
+    native.setProperty('profile', 'low-latency');
+    native.setProperty('untimed', 'yes');
+    native.setProperty('cache', 'no');
+    native.setProperty('cache-pause', 'no');
+    native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+fastseek');
+    native.setProperty('framedrop', 'vo');
+    native.setProperty('video-latency-hacks', 'yes');
     player.open(Media(rtspUrl), play: true);
     player.setVolume(0);
-    if (mounted) setState(() {});
   }
 
   Future<void> _startNativeFeed(String key, Map<String, dynamic> camData) async {
@@ -197,6 +310,15 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
           await File(outPath).writeAsBytes(bytes);
         }
       }
+      for (final entry in _players.entries) {
+        try {
+          final bytes = await entry.value.screenshot(format: 'image/jpeg');
+          if (bytes != null) {
+            final outPath = '$home/.weighbridge/frames/live_${entry.key}.jpg';
+            await File(outPath).writeAsBytes(bytes);
+          }
+        } catch (_) {}
+      }
     }
 
     _snapshotTimer = Timer.periodic(const Duration(seconds: 3), (_) => capture());
@@ -220,7 +342,7 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.videocam_off_rounded, size: 28, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
+              Icon(Icons.videocam_off_outlined, size: 28, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
               const SizedBox(height: 8),
               Text('No cameras', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5))),
             ],
@@ -243,7 +365,7 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                Icon(Icons.videocam_rounded, size: 16, color: scheme.primary),
+                Icon(Icons.videocam_outlined, size: 16, color: scheme.primary),
                 const SizedBox(width: 6),
                 Text('Cameras', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.onSurface)),
               ],
@@ -373,7 +495,7 @@ class _NativeCameraTile extends StatelessWidget {
             children: [
               Text(camera.label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
               const Spacer(),
-              Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+              Container(width: 6, height: 6, decoration: BoxDecoration(color: scheme.onSurface.withValues(alpha: 0.6), shape: BoxShape.circle)),
             ],
           ),
           const SizedBox(height: 4),
@@ -484,19 +606,19 @@ Widget _dialogHeader(BuildContext context, String label, ColorScheme scheme) {
     padding: const EdgeInsets.fromLTRB(20, 14, 8, 14),
     child: Row(
       children: [
-        Icon(Icons.videocam_rounded, size: 16, color: scheme.primary),
+        Icon(Icons.videocam_outlined, size: 16, color: scheme.primary),
         const SizedBox(width: 8),
         Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: scheme.onSurface)),
         const SizedBox(width: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-          child: const Text('LIVE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.red)),
+          decoration: BoxDecoration(color: scheme.onSurface.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(4)),
+          child: Text('LIVE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: scheme.onSurface)),
         ),
         const Spacer(),
         IconButton(
           onPressed: () => Navigator.of(context).pop(),
-          icon: Icon(Icons.close_rounded, size: 20, color: scheme.onSurfaceVariant),
+          icon: Icon(Icons.close_outlined, size: 20, color: scheme.onSurfaceVariant),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
         ),

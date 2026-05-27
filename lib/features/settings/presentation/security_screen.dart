@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
@@ -1548,12 +1549,10 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   }
 
   Future<void> _exportAuditLogCsv() async {
-    final result = await Process.run('osascript', [
-      '-e', 'POSIX path of (choose folder with prompt "Choose export location for audit log")',
-    ]);
-    if (result.exitCode != 0) return;
-    final chosen = (result.stdout as String).trim();
-    if (chosen.isEmpty) return;
+    final chosen = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Choose export location for audit log',
+    );
+    if (chosen == null || chosen.isEmpty) return;
     final exportPath = chosen.endsWith('/') ? chosen.substring(0, chosen.length - 1) : chosen;
 
     try {

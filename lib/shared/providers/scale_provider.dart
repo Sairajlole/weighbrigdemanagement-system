@@ -55,13 +55,28 @@ final scaleServiceProvider = Provider<ScaleService>((ref) {
   final configAsync = ref.watch(scaleConfigProvider);
   final config = configAsync.valueOrNull ?? const ScaleConfig();
   final service = ScaleService(config);
+  if (configAsync.hasValue) {
+    final shouldConnect = config.connectionType == 'tcp'
+        ? config.tcpHost.isNotEmpty
+        : config.port.isNotEmpty;
+    if (shouldConnect) {
+      service.connect();
+    }
+  }
   ref.onDispose(() => service.dispose());
   return service;
 });
 
 final scaleStatusProvider = StreamProvider<ScaleConnectionStatus>((ref) {
   final service = ref.watch(scaleServiceProvider);
-  return service.statusStream;
+  return service.statusStream.transform(
+    StreamTransformer.fromBind((stream) async* {
+      yield service.status;
+      await for (final s in stream) {
+        yield s;
+      }
+    }),
+  );
 });
 
 final scaleReadingProvider = StreamProvider<ScaleReading>((ref) {

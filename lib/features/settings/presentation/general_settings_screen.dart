@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
@@ -668,14 +669,14 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
   }
 
   Future<void> _pickAndUpload(String docType) async {
-    final result = await Process.run('osascript', [
-      '-e',
-      'set theFile to choose file of type {"public.jpeg", "public.png", "com.adobe.pdf"} with prompt "Select $docType (JPEG, PNG, or PDF only)"',
-      '-e',
-      'POSIX path of theFile',
-    ]);
-    final path = (result.stdout as String).trim();
-    if (path.isEmpty) return;
+    final picked = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Select $docType (JPEG, PNG, or PDF only)',
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+    );
+    if (picked == null || picked.files.isEmpty) return;
+    final path = picked.files.single.path;
+    if (path == null || path.isEmpty) return;
 
     final file = File(path);
     if (!file.existsSync()) return;

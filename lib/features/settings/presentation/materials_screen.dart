@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -539,24 +540,14 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
   }
 
   Future<void> _pickTrainingImages(String materialId, String materialName) async {
-    final result = await Process.run('osascript', [
-      '-e',
-      'set theFiles to choose file of type {"public.image"} with prompt "Select Training Images" with multiple selections allowed',
-      '-e',
-      'set posixPaths to ""',
-      '-e',
-      'repeat with f in theFiles',
-      '-e',
-      'set posixPaths to posixPaths & POSIX path of f & linefeed',
-      '-e',
-      'end repeat',
-      '-e',
-      'posixPaths',
-    ]);
-    final output = (result.stdout as String).trim();
-    if (output.isEmpty) return;
+    final picked = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Select Training Images',
+      type: FileType.image,
+      allowMultiple: true,
+    );
+    if (picked == null || picked.files.isEmpty) return;
 
-    final paths = output.split('\n').where((p) => p.isNotEmpty).toList();
+    final paths = picked.files.map((f) => f.path).where((p) => p != null && p.isNotEmpty).cast<String>().toList();
     if (paths.isEmpty) return;
 
     final db = ref.read(firestorePathsProvider);

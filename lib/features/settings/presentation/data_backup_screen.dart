@@ -1,15 +1,43 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:encrypt/encrypt.dart' as enc;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
+
+// ─── AES-256-CBC encryption (cross-platform, replaces openssl CLI) ──────────
+
+Uint8List _encryptAes256(String plaintext, String password) {
+  // Derive 32-byte key and 16-byte IV from password using SHA-256
+  final keyBytes = crypto.sha256.convert(utf8.encode(password)).bytes;
+  final iv = enc.IV.fromLength(16); // random IV
+  final key = enc.Key(Uint8List.fromList(keyBytes));
+  final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
+  final encrypted = encrypter.encryptBytes(utf8.encode(plaintext), iv: iv);
+  // Prepend IV to ciphertext so decryption can extract it
+  return Uint8List.fromList([...iv.bytes, ...encrypted.bytes]);
+}
+
+String _decryptAes256(Uint8List data, String password) {
+  if (data.length < 17) throw const FormatException('Invalid encrypted data');
+  final ivBytes = data.sublist(0, 16);
+  final cipherBytes = data.sublist(16);
+  final keyBytes = crypto.sha256.convert(utf8.encode(password)).bytes;
+  final key = enc.Key(Uint8List.fromList(keyBytes));
+  final iv = enc.IV(Uint8List.fromList(ivBytes));
+  final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
+  return encrypter.decrypt(enc.Encrypted(cipherBytes), iv: iv);
+}
 
 // ─── Local persistence ───────────────────────────────────────────────────────
 
@@ -273,12 +301,10 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
   }
 
   Future<void> _companyBackup() async {
-    final result = await Process.run('osascript', [
-      '-e', 'POSIX path of (choose folder with prompt "Choose export location for company backup")',
-    ]);
-    if (result.exitCode != 0) return;
-    final chosen = (result.stdout as String).trim();
-    if (chosen.isEmpty) return;
+    final chosen = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Choose export location for company backup',
+    );
+    if (chosen == null || chosen.isEmpty) return;
     final basePath = chosen.endsWith('/') ? chosen.substring(0, chosen.length - 1) : chosen;
 
     final db = ref.read(firestorePathsProvider);
@@ -466,12 +492,10 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
   }
 
   Future<void> _companyRestore() async {
-    final result = await Process.run('osascript', [
-      '-e', 'POSIX path of (choose folder with prompt "Select company backup folder (contains manifest.json)")',
-    ]);
-    if (result.exitCode != 0) return;
-    final chosen = (result.stdout as String).trim();
-    if (chosen.isEmpty) return;
+    final chosen = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Select company backup folder (contains manifest.json)',
+    );
+    if (chosen == null || chosen.isEmpty) return;
     final backupDir = chosen.endsWith('/') ? chosen.substring(0, chosen.length - 1) : chosen;
 
     final manifestFile = File('$backupDir/manifest.json');
@@ -760,12 +784,10 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
   }
 
   Future<void> _exportSettings() async {
-    final result = await Process.run('osascript', [
-      '-e', 'POSIX path of (choose folder with prompt "Choose export location")',
-    ]);
-    if (result.exitCode != 0) return;
-    final chosen = (result.stdout as String).trim();
-    if (chosen.isEmpty) return;
+    final chosen = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Choose export location',
+    );
+    if (chosen == null || chosen.isEmpty) return;
     final exportPath = chosen.endsWith('/') ? chosen.substring(0, chosen.length - 1) : chosen;
 
     final dir = Directory(exportPath);
@@ -789,14 +811,13 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
 
       if (encrypt && password != null) {
         final encPath = '${dir.path}/system_settings_${DateFormat('yyyy-MM-dd_HHmmss').format(DateTime.now())}.enc';
-        final tmpFile = File('${dir.path}/.tmp_export.json');
-        await tmpFile.writeAsString(jsonStr);
-        final encResult = await Process.run('openssl', [
-          'enc', '-aes-256-cbc', '-pbkdf2', '-pass', 'pass:$password', '-in', tmpFile.path, '-out', encPath,
-        ]);
-        if (tmpFile.existsSync()) await tmpFile.delete();
-        if (encResult.exitCode != 0 && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Encryption failed: ${encResult.stderr}'), backgroundColor: Theme.of(context).colorScheme.error));
+        try {
+          final encrypted = _encryptAes256(jsonStr, password);
+          await File(encPath).writeAsBytes(encrypted);
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Encryption failed: $e'), backgroundColor: Theme.of(context).colorScheme.error));
+          }
           return;
         }
         ref.read(auditServiceProvider).log(event: 'export', description: 'Settings exported (encrypted)');
@@ -819,28 +840,29 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
   }
 
   Future<void> _importSettings() async {
-    final result = await Process.run('osascript', [
-      '-e', 'POSIX path of (choose file of type {"json", "enc"} with prompt "Select settings file (.json or .enc)")',
-    ]);
-    if (result.exitCode != 0) return;
-    final path = (result.stdout as String).trim();
-    if (path.isEmpty) return;
+    final picked = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Select settings file (.json or .enc)',
+      type: FileType.custom,
+      allowedExtensions: ['json', 'enc'],
+    );
+    if (picked == null || picked.files.isEmpty) return;
+    final path = picked.files.single.path;
+    if (path == null || path.isEmpty) return;
 
     try {
       String content;
       if (path.endsWith('.enc')) {
         final password = await _askEncryptionPassword(isExport: false);
         if (password == null) return;
-        final decResult = await Process.run('openssl', [
-          'enc', '-aes-256-cbc', '-pbkdf2', '-d', '-pass', 'pass:$password', '-in', path,
-        ]);
-        if (decResult.exitCode != 0) {
+        try {
+          final encBytes = await File(path).readAsBytes();
+          content = _decryptAes256(encBytes, password);
+        } catch (_) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Decryption failed — wrong password or corrupted file.'), backgroundColor: Theme.of(context).colorScheme.error));
           }
           return;
         }
-        content = decResult.stdout as String;
       } else {
         content = await File(path).readAsString();
       }
@@ -871,15 +893,12 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
   }
 
   Future<void> _pickFolder(String current, void Function(String) onPicked) async {
-    final result = await Process.run('osascript', [
-      '-e', 'POSIX path of (choose folder with prompt "Select folder")',
-    ]);
-    if (result.exitCode == 0) {
-      final path = (result.stdout as String).trim();
-      if (path.isNotEmpty) {
-        setState(() => onPicked(path.endsWith('/') ? path.substring(0, path.length - 1) : path));
-        _markDirty();
-      }
+    final path = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Select folder',
+    );
+    if (path != null && path.isNotEmpty) {
+      setState(() => onPicked(path.endsWith('/') ? path.substring(0, path.length - 1) : path));
+      _markDirty();
     }
   }
 

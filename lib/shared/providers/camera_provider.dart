@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 
@@ -14,7 +15,12 @@ final activeWeighbridgeCamerasProvider = FutureProvider<List<ActiveCamera>>((ref
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return [];
   try {
-    final doc = await paths.camerasAiSettings.get();
+    DocumentSnapshot<Map<String, dynamic>> doc;
+    try {
+      doc = await paths.camerasAiSettings.get(const GetOptions(source: Source.cache));
+    } catch (_) {
+      doc = await paths.camerasAiSettings.get();
+    }
     if (!doc.exists) return [];
     final data = doc.data()!;
     final cameras = data['cameras'] as Map<String, dynamic>? ?? {};
@@ -32,6 +38,22 @@ final activeWeighbridgeCamerasProvider = FutureProvider<List<ActiveCamera>>((ref
     return result;
   } catch (_) {
     return [];
+  }
+});
+
+final anprEnabledProvider = FutureProvider<bool>((ref) async {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return false;
+  try {
+    final doc = await paths.camerasAiSettings.get();
+    if (!doc.exists) return false;
+    final data = doc.data()!;
+    final cameras = data['cameras'] as Map<String, dynamic>? ?? {};
+    final hasAnyCameraEnabled = cameras.values.any((c) =>
+        c is Map<String, dynamic> && c['enabled'] == true);
+    return data['anprEnabled'] as bool? ?? hasAnyCameraEnabled;
+  } catch (_) {
+    return false;
   }
 });
 
@@ -111,5 +133,42 @@ final customerCameraConfigProvider = FutureProvider<IdentityCameraConfig>((ref) 
     );
   } catch (_) {
     return const IdentityCameraConfig();
+  }
+});
+
+final cameraPrivacyZonesProvider = FutureProvider<Map<String, List<List<double>>>>((ref) async {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return {};
+  try {
+    final doc = await paths.camerasAiSettings.get();
+    if (!doc.exists) return {};
+    final cameras = doc.data()!['cameras'] as Map<String, dynamic>? ?? {};
+    final result = <String, List<List<double>>>{};
+    for (final entry in cameras.entries) {
+      final cam = entry.value as Map<String, dynamic>? ?? {};
+      final rawZones = cam['privacyZones'] as List?;
+      if (rawZones != null && rawZones.isNotEmpty) {
+        final zones = rawZones
+            .map((z) {
+              if (z is Map) {
+                final x1 = (z['x1'] as num?)?.toDouble() ?? 0;
+                final y1 = (z['y1'] as num?)?.toDouble() ?? 0;
+                final x2 = (z['x2'] as num?)?.toDouble() ?? 0;
+                final y2 = (z['y2'] as num?)?.toDouble() ?? 0;
+                return [x1, y1, x2, y2];
+              }
+              if (z is List) {
+                return z.whereType<num>().map((n) => n.toDouble()).toList();
+              }
+              return <double>[];
+            })
+            .where((z) => z.length == 4)
+            .toList();
+        if (zones.isNotEmpty) result[entry.key] = zones;
+      }
+    }
+    return result;
+  } catch (_) {
+    return {};
   }
 });

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -253,14 +254,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _uploadProfilePic() async {
-    final result = await Process.run('osascript', [
-      '-e',
-      'set theFile to choose file of type {"public.image"} with prompt "Select profile picture"',
-      '-e',
-      'POSIX path of theFile',
-    ]);
-    final path = (result.stdout as String).trim();
-    if (path.isEmpty) return;
+    final picked = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Select profile picture',
+      type: FileType.image,
+    );
+    if (picked == null || picked.files.isEmpty) return;
+    final path = picked.files.single.path;
+    if (path == null || path.isEmpty) return;
 
     final file = File(path);
     if (!file.existsSync()) return;

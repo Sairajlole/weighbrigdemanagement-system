@@ -16,6 +16,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:weighbridgemanagement/shared/services/multi_camera_service.dart';
 import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/live_camera_feeds_provider.dart';
 import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
@@ -26,8 +27,8 @@ import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dar
 // System camera enumeration (macOS)
 // ---------------------------------------------------------------------------
 
-final _systemCamerasProvider = FutureProvider<List<String>>((ref) async {
-  if (!Platform.isMacOS) return [];
+final _systemCamerasProvider = FutureProvider.autoDispose<List<String>>((ref) async {
+  if (!Platform.isMacOS && !Platform.isWindows) return [];
   final devices = <String>{};
 
   // Primary: use MultiCameraService (same AVFoundation API as native plugin)
@@ -138,6 +139,11 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
   int _retentionDays = 30;
   bool _reverseNaming = false;
 
+  bool get _hasWeighbridgeCameras {
+    return ['cam1', 'cam2', 'cam3', 'cam4', 'cam5']
+        .any((key) => _slots[key]?.enabled == true);
+  }
+
   // Live feed state
   // media_kit for IP cameras (RTSP streaming)
   final _players = <String, Player>{};
@@ -209,21 +215,44 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
   void _applyCameraData(String key, _CameraConfig slot, Map<String, dynamic> cam) {
     slot.enabled = cam['enabled'] as bool? ?? false;
     if (slot.enabled) { _savedCameras.add(key); _testedCameras.add(key); }
-    slot.source = cam['source'] as String? ?? 'IP Camera';
+    final rawSource = cam['source'] as String? ?? 'Network Camera';
+    slot.source = (rawSource == 'IP Camera' || rawSource == 'DVR' || rawSource == 'RTSP Stream') ? 'Network Camera' : rawSource;
     slot.addressCtrl.text = cam['address'] as String? ?? '';
     slot.usernameCtrl.text = cam['username'] as String? ?? '';
     slot.passwordCtrl.text = CryptoService.decrypt(cam['password'] as String? ?? '');
     slot.portCtrl.text = '${cam['port'] ?? ''}';
+    slot.cameraBrand = cam['cameraBrand'] as String? ?? 'Hikvision';
     slot.dvrBrand = cam['dvrBrand'] as String? ?? 'Hikvision';
     slot.dvrChannel = cam['dvrChannel'] as int? ?? 1;
     slot.dvrStreamType = cam['dvrStreamType'] as String? ?? 'main';
     slot.usbDevice = cam['usbDevice'] as String? ?? '';
     slot.builtInDevice = cam['builtInDevice'] as String? ?? '';
+    slot.networkType = cam['networkType'] as String? ?? 'nvr';
+    slot.rtspPathCtrl.text = cam['rtspPath'] as String? ?? '';
     if (key != 'operator' && key != 'customer') {
       slot.grossEnabled = cam['grossEnabled'] as bool? ?? true;
       slot.grossRole = cam['grossRole'] as String? ?? 'Front';
       slot.tareEnabled = cam['tareEnabled'] as bool? ?? true;
       slot.tareRole = cam['tareRole'] as String? ?? 'Front';
+    }
+    final rawZones = cam['privacyZones'] as List?;
+    if (rawZones != null) {
+      slot.privacyZones = rawZones
+          .map((z) {
+            if (z is Map) {
+              final x1 = (z['x1'] as num?)?.toDouble() ?? 0;
+              final y1 = (z['y1'] as num?)?.toDouble() ?? 0;
+              final x2 = (z['x2'] as num?)?.toDouble() ?? 0;
+              final y2 = (z['y2'] as num?)?.toDouble() ?? 0;
+              return [x1, y1, x2, y2];
+            }
+            if (z is List) {
+              return z.whereType<num>().map((n) => n.toDouble()).toList();
+            }
+            return <double>[];
+          })
+          .where((z) => z.length == 4)
+          .toList();
     }
   }
 
@@ -280,7 +309,10 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
     await _stopFeedAsync(key);
     if (!force && !cam.enabled) return;
 
-    if (cam.source == 'IP Camera' || cam.source == 'DVR') {
+    // Skip starting a local player if global live feed already covers this camera
+    if (!force && ref.read(liveCameraFeedsProvider).feeds.containsKey(key)) return;
+
+    if (cam.source == 'Network Camera') {
       _startRtspFeed(key, cam);
     } else {
       _startLocalFeed(key, cam);
@@ -288,31 +320,60 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
   }
 
 
+  static String _encodeRtspUrl(String raw) {
+    // media_kit/mpv splits on first @ so credentials MUST be URL-encoded.
+    // Decode first to avoid double-encoding stored URLs.
+    if (!raw.startsWith('rtsp://') && !raw.startsWith('rtsps://')) return raw;
+    final schemeEnd = raw.indexOf('://') + 3;
+    final afterScheme = raw.substring(schemeEnd);
+    final lastAt = afterScheme.lastIndexOf('@');
+    if (lastAt < 0) return raw;
+    final credentials = afterScheme.substring(0, lastAt);
+    final rest = afterScheme.substring(lastAt + 1);
+    final colonIdx = credentials.indexOf(':');
+    if (colonIdx < 0) return raw;
+    final user = Uri.decodeComponent(credentials.substring(0, colonIdx));
+    final pass = Uri.decodeComponent(credentials.substring(colonIdx + 1));
+    return '${raw.substring(0, schemeEnd)}${Uri.encodeComponent(user)}:${Uri.encodeComponent(pass)}@$rest';
+  }
+
   void _startRtspFeed(String key, _CameraConfig cam) {
-    final addr = cam.addressCtrl.text.trim();
-    final port = cam.portCtrl.text.trim();
-    if (addr.isEmpty) {
-      setState(() => _feedErrors[key] = 'No IP address configured');
-      return;
+    final String rtspUrl;
+    final storedPath = cam.rtspPathCtrl.text.trim();
+    if (storedPath.startsWith('rtsp://') || storedPath.startsWith('rtsps://')) {
+      rtspUrl = _encodeRtspUrl(storedPath);
+    } else {
+      final addr = cam.addressCtrl.text.trim();
+      final port = cam.portCtrl.text.trim();
+      if (addr.isEmpty) {
+        setState(() => _feedErrors[key] = 'No IP address configured');
+        return;
+      }
+      final user = cam.usernameCtrl.text.trim();
+      final pass = cam.passwordCtrl.text.trim();
+      final auth = user.isNotEmpty ? '${Uri.encodeComponent(user)}:${Uri.encodeComponent(pass)}@' : '';
+      final path = cam.rtspPath;
+      rtspUrl = 'rtsp://$auth$addr:$port$path';
     }
 
-    final user = cam.usernameCtrl.text.trim();
-    final pass = cam.passwordCtrl.text.trim();
-    final auth = user.isNotEmpty ? '$user:$pass@' : '';
+    debugPrint('[CamSettings] $key: networkType=${cam.networkType}');
+    debugPrint('[CamSettings] $key: Opening RTSP → $rtspUrl');
 
-    final path = cam.rtspPath;
-    final rtspUrl = 'rtsp://$auth$addr:$port$path';
-
-    final player = Player();
+    final player = Player(
+      configuration: const PlayerConfiguration(
+        protocolWhitelist: ['file', 'tcp', 'tls', 'http', 'https', 'crypto', 'data', 'rtsp', 'rtp', 'udp'],
+      ),
+    );
     final controller = VideoController(player);
     _players[key] = player;
 
     player.stream.error.listen((error) {
+      debugPrint('[CamSettings] $key: Stream error → $error');
       if (mounted) setState(() => _feedErrors[key] = 'Stream error');
     });
 
-    // Only confirm feed when actual video frames are decoded (width becomes non-null)
     player.stream.width.listen((w) {
+      debugPrint('[CamSettings] $key: Width → $w');
       if (mounted && w != null && w > 0) {
         setState(() {
           _videoControllers[key] = controller;
@@ -321,11 +382,215 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
       }
     });
 
+    final native = player.platform as NativePlayer;
+    native.setProperty('rtsp-transport', 'tcp');
+    native.setProperty('profile', 'low-latency');
+    native.setProperty('untimed', 'yes');
+    native.setProperty('cache', 'no');
+    native.setProperty('cache-pause', 'no');
+    native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+fastseek');
+    native.setProperty('framedrop', 'vo');
+    native.setProperty('video-latency-hacks', 'yes');
     player.open(Media(rtspUrl), play: true);
     player.setVolume(0);
     setState(() {});
   }
 
+
+  Future<int?> _detectChannelCount(_CameraConfig cam) async {
+    final addr = cam.addressCtrl.text.trim();
+    final user = cam.usernameCtrl.text.trim();
+    final pass = cam.passwordCtrl.text.trim();
+    if (addr.isEmpty) return null;
+
+    final isDahua = ['Dahua', 'CP Plus', 'Godrej', 'Zebronics'].contains(cam.dvrBrand);
+    final ports = isDahua ? [80, 37777] : [80, 443];
+
+    for (final port in ports) {
+      final paths = _channelDetectPaths(cam.dvrBrand, addr, port, 'http');
+      for (final url in paths) {
+        try {
+          final uri = Uri.parse(url);
+          final client = HttpClient()
+            ..connectionTimeout = const Duration(seconds: 4)
+            ..badCertificateCallback = (_, __, ___) => true;
+          final request = await client.openUrl('GET', uri);
+          request.headers.set('Authorization', 'Basic ${base64Encode(utf8.encode('$user:$pass'))}');
+          final response = await request.close();
+          final body = await response.transform(utf8.decoder).join();
+
+          if (response.statusCode == 401) {
+            final wwwAuth = response.headers['www-authenticate']?.join(' ') ?? '';
+            final realmMatch = RegExp(r'realm="([^"]*)"').firstMatch(wwwAuth);
+            final realm = realmMatch?.group(1) ?? '';
+            client.close();
+
+            final digestClient = HttpClient()
+              ..connectionTimeout = const Duration(seconds: 4)
+              ..badCertificateCallback = (_, __, ___) => true;
+            digestClient.addCredentials(uri, realm, HttpClientDigestCredentials(user, pass));
+            final retryReq = await digestClient.openUrl('GET', uri);
+            final retryResp = await retryReq.close();
+            final retryBody = await retryResp.transform(utf8.decoder).join();
+            digestClient.close();
+            final count = _parseChannels(cam.dvrBrand, retryBody);
+            if (count != null && count > 0) return count;
+          } else if (response.statusCode == 200) {
+            client.close();
+            final count = _parseChannels(cam.dvrBrand, body);
+            if (count != null && count > 0) return count;
+          } else {
+            client.close();
+          }
+        } catch (_) {}
+      }
+    }
+    return null;
+  }
+
+  static List<String> _channelDetectPaths(String brand, String addr, int port, String scheme) {
+    switch (brand) {
+      case 'Hikvision':
+      case 'TVT':
+      case 'Honeywell':
+      case 'Pelco':
+      case 'D-Link':
+      case 'TP-Link VIGI':
+        return ['$scheme://$addr:$port/ISAPI/System/Video/inputs/channels'];
+      case 'Dahua':
+      case 'CP Plus':
+      case 'Godrej':
+      case 'Zebronics':
+        return [
+          '$scheme://$addr:$port/cgi-bin/magicBox.cgi?action=getProductDefinition&name=MaxVideoInputChannels',
+          '$scheme://$addr:$port/cgi-bin/configManager.cgi?action=getConfig&name=ChannelTitle',
+        ];
+      case 'Uniview':
+        return ['$scheme://$addr:$port/LAPI/V1.0/Channel/System/Video/Input'];
+      default:
+        return ['$scheme://$addr:$port/ISAPI/System/Video/inputs/channels'];
+    }
+  }
+
+  static int? _parseChannels(String brand, String body) {
+    // ChannelTitle format (Dahua/CP Plus): table.ChannelTitle[0].Name=...
+    final titleMatches = RegExp(r'table\.ChannelTitle\[\d+\]').allMatches(body);
+    if (titleMatches.isNotEmpty) return titleMatches.length;
+
+    switch (brand) {
+      case 'Hikvision':
+      case 'TVT':
+      case 'Honeywell':
+      case 'Pelco':
+      case 'D-Link':
+      case 'TP-Link VIGI':
+        final matches = RegExp(r'<VideoInputChannel>').allMatches(body);
+        if (matches.isNotEmpty) return matches.length;
+        final idMatches = RegExp(r'<id>(\d+)</id>').allMatches(body);
+        return idMatches.isNotEmpty ? idMatches.length : null;
+      case 'Dahua':
+      case 'CP Plus':
+      case 'Godrej':
+      case 'Zebronics':
+        final match = RegExp(r'(\d+)').firstMatch(body);
+        return match != null ? int.tryParse(match.group(1)!) : null;
+      case 'Uniview':
+        final matches = RegExp(r'"ID"\s*:\s*\d+').allMatches(body);
+        return matches.isNotEmpty ? matches.length : null;
+      default:
+        final matches = RegExp(r'<VideoInputChannel>').allMatches(body);
+        if (matches.isNotEmpty) return matches.length;
+        final m = RegExp(r'(\d+)').firstMatch(body);
+        return m != null ? int.tryParse(m.group(1)!) : null;
+    }
+  }
+
+  Future<ProbeResult> _autoProbeCamera(String addr, String port, String user, String pass, {void Function(String)? onStatus}) async {
+    final portNum = int.tryParse(port) ?? 554;
+    final auth = user.isNotEmpty ? '$user:$pass@' : '';
+
+    final paths = [
+      '/cam/realmonitor?channel=1&subtype=0',
+      '/Streaming/Channels/101',
+      '/h264Preview_01_main',
+      '/media/video1',
+      '/live/ch00_0',
+      '/ch1/main/av_stream',
+      '/stream1',
+      '/1',
+    ];
+
+    debugPrint('[Probe] Starting auto-probe for $addr:$portNum (auth=${user.isNotEmpty})');
+
+    for (final scheme in ['rtsp', 'rtsps']) {
+      onStatus?.call('Trying ${scheme.toUpperCase()} handshake...');
+      debugPrint('[Probe] Trying $scheme handshake...');
+      final canConnect = await _probeRtspHandshake(scheme, addr, portNum, auth);
+      if (!canConnect) {
+        debugPrint('[Probe] $scheme handshake FAILED');
+        onStatus?.call('${scheme.toUpperCase()} handshake failed, trying next...');
+        continue;
+      }
+      debugPrint('[Probe] $scheme handshake OK, probing paths...');
+      onStatus?.call('${scheme.toUpperCase()} connected! Searching stream paths...');
+
+      for (final path in paths) {
+        onStatus?.call('Trying $path ...');
+        final url = '$scheme://$auth$addr:$portNum$path';
+        debugPrint('[Probe] ffprobe → $url');
+        final result = await _probeRtspUrl(url);
+        debugPrint('[Probe] ffprobe result: $result');
+        if (result) {
+          return ProbeResult(success: true, url: url, scheme: scheme, path: path);
+        }
+      }
+    }
+    debugPrint('[Probe] All paths failed');
+    return ProbeResult(success: false, url: '', scheme: '', path: '');
+  }
+
+  Future<bool> _probeRtspHandshake(String scheme, String addr, int port, String auth) async {
+    try {
+      if (scheme == 'rtsp') {
+        final socket = await Socket.connect(addr, port, timeout: const Duration(seconds: 3));
+        final options = 'OPTIONS rtsp://$addr:$port/ RTSP/1.0\r\nCSeq: 1\r\nUser-Agent: WeighApp\r\n\r\n';
+        socket.add(utf8.encode(options));
+        final response = await socket.timeout(const Duration(seconds: 3)).first;
+        final text = utf8.decode(response);
+        await socket.close();
+        return text.contains('RTSP/1.0');
+      } else {
+        final result = await Process.run('ffprobe', [
+          '-v', 'error',
+          '-rtsp_transport', 'tcp',
+          '-i', 'rtsps://${auth}$addr:$port/',
+          '-timeout', '3000000',
+        ], stdoutEncoding: utf8, stderrEncoding: utf8);
+        // 401 or 200 means RTSPS handshake worked (TLS + RTSP)
+        return result.exitCode != 0 && !result.stderr.contains('Connection refused');
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _probeRtspUrl(String url) async {
+    try {
+      final result = await Process.run('ffprobe', [
+        '-v', 'error',
+        '-rtsp_transport', 'tcp',
+        '-i', url,
+        '-show_entries', 'stream=codec_type',
+        '-of', 'csv=p=0',
+      ], stdoutEncoding: utf8, stderrEncoding: utf8).timeout(const Duration(seconds: 8));
+      final stderr = result.stderr.toString().trim();
+      if (stderr.isNotEmpty) debugPrint('[Probe] ffprobe stderr: $stderr');
+      return result.exitCode == 0 && result.stdout.toString().contains('video');
+    } catch (e) {
+      debugPrint('[Probe] ffprobe exception: $e');
+      return false;
+    }
+  }
 
   void _startLocalFeed(String key, _CameraConfig cam) {
     final deviceName = cam.usbDevice.isNotEmpty ? cam.usbDevice : cam.builtInDevice;
@@ -377,21 +642,29 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
       'enabled': cam.enabled,
       'label': cam.label,
       'source': cam.source,
+      'networkType': cam.networkType,
       'address': cam.addressCtrl.text.trim(),
       'username': cam.usernameCtrl.text.trim(),
       'password': CryptoService.encrypt(cam.passwordCtrl.text.trim()),
-      'port': int.tryParse(cam.portCtrl.text) ?? 0,
+      'port': int.tryParse(cam.portCtrl.text) ?? 554,
+      'cameraBrand': cam.cameraBrand,
       'dvrBrand': cam.dvrBrand,
       'dvrChannel': cam.dvrChannel,
       'dvrStreamType': cam.dvrStreamType,
       'usbDevice': cam.usbDevice,
       'builtInDevice': cam.builtInDevice,
+      'rtspPath': cam.rtspPathCtrl.text.trim(),
     };
     if (key != 'operator' && key != 'customer') {
       payload['grossEnabled'] = cam.grossEnabled;
       payload['grossRole'] = cam.grossRole;
       payload['tareEnabled'] = cam.tareEnabled;
       payload['tareRole'] = cam.tareRole;
+    }
+    if (cam.privacyZones.isNotEmpty) {
+      payload['privacyZones'] = cam.privacyZones
+          .map((z) => {'x1': z[0], 'y1': z[1], 'x2': z[2], 'y2': z[3]})
+          .toList();
     }
     return payload;
   }
@@ -408,7 +681,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
       final db = ref.read(firestorePathsProvider);
       await db.camerasAiSettings.set({
         'cameras': allCamerasData,
-        'anprEnabled': isFree ? false : _anprEnabled,
+        'anprEnabled': (isFree || !_hasWeighbridgeCameras) ? false : _anprEnabled,
         'anprTopCamEnabled': _anprTopCamEnabled,
         'materialRecognition': isFree ? false : _materialRecognition,
         'operatorFaceVerification': _operatorFaceVerification,
@@ -483,7 +756,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                 _disposeAllFeeds();
                 for (final slot in _slots.values) {
                   slot.enabled = false;
-                  slot.source = 'IP Camera';
+                  slot.source = 'Network Camera';
                   slot.usbDevice = '';
                   slot.builtInDevice = '';
                   slot.grossEnabled = true;
@@ -497,6 +770,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                   slot.dvrBrand = 'Hikvision';
                   slot.dvrChannel = 1;
                   slot.dvrStreamType = 'main';
+                  slot.privacyZones = [];
                 }
                 _savedCameras.clear();
                 _testedCameras.clear();
@@ -876,7 +1150,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
     }
     // Enabled — show live feed or error state
     final hasError = _feedErrors.containsKey(key);
-    final hasFeed = _videoControllers.containsKey(key) || _nativeFeeds.containsKey(key) || _localFrames.containsKey(key);
+    final hasFeed = _videoControllers.containsKey(key) || _nativeFeeds.containsKey(key) || _localFrames.containsKey(key) || ref.read(liveCameraFeedsProvider).feeds.containsKey(key);
     if (hasError || !hasFeed) {
       return GestureDetector(
         onTap: () => _startFeed(key, cam),
@@ -934,7 +1208,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                         Container(
                           width: 5, height: 5,
                           decoration: BoxDecoration(
-                            color: (_videoControllers.containsKey(key) || _nativeFeeds.containsKey(key)) && !_feedErrors.containsKey(key) ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                            color: (_videoControllers.containsKey(key) || _nativeFeeds.containsKey(key) || ref.read(liveCameraFeedsProvider).feeds.containsKey(key)) && !_feedErrors.containsKey(key) ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -942,7 +1216,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                         Text(
                           key == 'operator' || key == 'customer'
                               ? '${cam.label} · ${cam.purpose.split(' ').first}'
-                              : '${cam.label} · G:${cam.grossRole} T:${cam.tareRole}',
+                              : '${cam.label} · CH ${cam.dvrChannel} · G:${cam.grossRole} T:${cam.tareRole}',
                           style: const TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -995,6 +1269,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
   }
 
   void _showEnlargedPreview(String key, _CameraConfig cam) {
+    final controller = _videoControllers[key] ?? ref.read(liveCameraFeedsProvider).feeds[key]?.controller;
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -1004,7 +1279,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
         return _EnlargedPreviewOverlay(
           cameraKey: key,
           cam: cam,
-          videoController: _videoControllers[key],
+          videoController: controller,
           nativeFeed: _nativeFeeds[key],
           localFrames: _localFrames,
           error: _feedErrors[key],
@@ -1033,28 +1308,41 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
       );
     }
 
-    // IP camera: use media_kit Video widget (RTSP live stream)
+    Widget? feedWidget;
+
+    // IP camera: use local settings player if started, otherwise global live feed
     final controller = _videoControllers[key];
     if (controller != null) {
-      return Video(
-        controller: controller,
-        controls: NoVideoControls,
-        fit: BoxFit.cover,
-      );
+      feedWidget = Video(controller: controller, controls: NoVideoControls, fit: BoxFit.cover);
+    }
+
+    // Fall back to global live feed (already streaming from AppShell warmup)
+    if (feedWidget == null) {
+      final globalFeed = ref.watch(liveCameraFeedsProvider).feeds[key];
+      if (globalFeed != null) {
+        feedWidget = Video(controller: globalFeed.controller, controls: NoVideoControls, fit: BoxFit.cover);
+      }
     }
 
     // Local camera: native texture via multi_camera
-    final nativeFeed = _nativeFeeds[key];
-    if (nativeFeed != null) {
-      return FittedBox(
-        fit: BoxFit.cover,
-        clipBehavior: Clip.hardEdge,
-        child: SizedBox(
-          width: nativeFeed.width.toDouble(),
-          height: nativeFeed.height.toDouble(),
-          child: Texture(textureId: nativeFeed.textureId),
-        ),
-      );
+    if (feedWidget == null) {
+      final nativeFeed = _nativeFeeds[key];
+      if (nativeFeed != null) {
+        feedWidget = FittedBox(
+          fit: BoxFit.cover,
+          clipBehavior: Clip.hardEdge,
+          child: SizedBox(
+            width: nativeFeed.width.toDouble(),
+            height: nativeFeed.height.toDouble(),
+            child: Texture(textureId: nativeFeed.textureId),
+          ),
+        );
+      }
+    }
+
+    if (feedWidget != null) {
+      if (cam.privacyZones.isEmpty) return feedWidget;
+      return _PrivacyZoneBlurOverlay(zones: cam.privacyZones, child: feedWidget);
     }
 
     return Container(
@@ -1074,15 +1362,16 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
 
   String _sourceLabel(_CameraConfig cam) {
     switch (cam.source) {
-      case 'IP Camera':
+      case 'Network Camera':
         final addr = cam.addressCtrl.text.trim();
-        final port = cam.portCtrl.text.trim();
-        if (addr.isNotEmpty) return '$addr:$port';
-        return 'IP Camera';
+        if (addr.isEmpty) return 'Network Camera';
+        if (cam.networkType == 'ip') return '${cam.dvrBrand} · $addr';
+        return '${cam.dvrBrand} · CH ${cam.dvrChannel} · $addr';
+      case 'Local Device':
       case 'USB':
-        return cam.usbDevice.isNotEmpty ? cam.usbDevice : 'USB';
       case 'Built-in':
-        return cam.builtInDevice.isNotEmpty ? cam.builtInDevice : 'Built-in';
+        final device = cam.usbDevice.isNotEmpty ? cam.usbDevice : cam.builtInDevice;
+        return device.isNotEmpty ? device : 'Local';
       default:
         return cam.source;
     }
@@ -1350,29 +1639,25 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
 
   bool _isCameraConfigured(_CameraConfig cam) {
     switch (cam.source) {
-      case 'IP Camera': return cam.addressCtrl.text.trim().isNotEmpty;
-      case 'DVR': return cam.addressCtrl.text.trim().isNotEmpty;
-      case 'USB': return cam.usbDevice.isNotEmpty;
-      case 'Built-in': return cam.builtInDevice.isNotEmpty;
-      case 'Local Device': return cam.usbDevice.isNotEmpty || cam.builtInDevice.isNotEmpty;
+      case 'Network Camera': return cam.addressCtrl.text.trim().isNotEmpty;
+      case 'Local Device':
+      case 'USB':
+      case 'Built-in':
+        return cam.usbDevice.isNotEmpty || cam.builtInDevice.isNotEmpty;
       default: return false;
     }
   }
 
   String _connectionSummary(_CameraConfig cam) {
     switch (cam.source) {
-      case 'IP Camera':
-        final addr = cam.addressCtrl.text.trim();
-        final port = cam.portCtrl.text.trim();
-        if (addr.isEmpty) return 'No address';
-        return port.isNotEmpty && port != '554' ? '$addr:$port' : addr;
-      case 'DVR':
+      case 'Network Camera':
         final addr = cam.addressCtrl.text.trim();
         if (addr.isEmpty) return 'No address';
+        if (cam.networkType == 'ip') return '${cam.dvrBrand} · $addr';
         return '${cam.dvrBrand} · CH ${cam.dvrChannel} · $addr';
+      case 'Local Device':
       case 'USB':
       case 'Built-in':
-      case 'Local Device':
         final device = cam.usbDevice.isNotEmpty ? cam.usbDevice : cam.builtInDevice;
         return device.isNotEmpty ? device : 'No device';
       default:
@@ -1626,18 +1911,49 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
 
 
   void _showCameraConfigDialog(String key, _CameraConfig cam, ColorScheme scheme, TextTheme text) {
+    ref.invalidate(_systemCamerasProvider);
     final isWb = key != 'operator' && key != 'customer';
     bool testingConnection = false;
     bool testSuccess = false;
     String? testError;
+    bool probing = false;
+    String? probeStatus;
+    ProbeResult? probeResult;
+    int? detectedChannelCount;
+    bool channelDetectionStarted = false;
 
     final isFree = ref.read(isFreeProvider);
     // Default source based on camera type when not yet configured
     if (!_isCameraConfigured(cam)) {
-      cam.source = (isWb && !isFree) ? 'IP Camera' : 'Local Device';
+      cam.source = (isWb && !isFree) ? 'Network Camera' : 'Local Device';
+      // Copy network settings from first configured WB camera for easy replication
+      if (isWb && cam.source == 'Network Camera') {
+        final ref = ['cam1', 'cam2', 'cam3', 'cam4', 'cam5']
+            .where((k) => k != key && _slots[k]!.enabled && _slots[k]!.source == 'Network Camera' && _slots[k]!.addressCtrl.text.trim().isNotEmpty)
+            .map((k) => _slots[k]!)
+            .firstOrNull;
+        if (ref != null) {
+          cam.addressCtrl.text = ref.addressCtrl.text;
+          cam.portCtrl.text = ref.portCtrl.text;
+          cam.usernameCtrl.text = ref.usernameCtrl.text;
+          cam.passwordCtrl.text = ref.passwordCtrl.text;
+          cam.dvrBrand = ref.dvrBrand;
+          cam.cameraBrand = ref.cameraBrand;
+          cam.networkType = ref.networkType;
+          cam.dvrStreamType = ref.dvrStreamType;
+          // Auto-increment channel: pick next unused channel
+          final usedChannels = ['cam1', 'cam2', 'cam3', 'cam4', 'cam5']
+              .where((k) => k != key && _slots[k]!.enabled && _slots[k]!.addressCtrl.text.trim() == ref.addressCtrl.text.trim())
+              .map((k) => _slots[k]!.dvrChannel)
+              .toSet();
+          for (int ch = 1; ch <= 32; ch++) {
+            if (!usedChannels.contains(ch)) { cam.dvrChannel = ch; break; }
+          }
+        }
+      }
     }
-    // Force to Local Device if free user has IP Camera set (e.g. downgraded)
-    if (isFree && cam.source == 'IP Camera') {
+    // Force to Local Device if free user has Network Camera set (e.g. downgraded)
+    if (isFree && cam.source == 'Network Camera') {
       cam.source = 'Local Device';
     }
 
@@ -1655,6 +1971,8 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
     final snapDvrStreamType = cam.dvrStreamType;
     final snapUsername = cam.usernameCtrl.text;
     final snapPassword = cam.passwordCtrl.text;
+    final snapWasSaved = _savedCameras.contains(key);
+    final snapWasTested = _testedCameras.contains(key);
 
     // Auto-assign first available position and sync tare with reverse setting
     if (isWb) {
@@ -1676,14 +1994,67 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           void doTestConnection() async {
             await _stopFeedAsync(key);
             _feedErrors.remove(key);
-            _startFeed(key, cam, force: true);
             setDialogState(() {
               testingConnection = true;
               testSuccess = false;
               testError = null;
+              probeStatus = null;
+              probeResult = null;
+              probing = false;
             });
+
+            // For IP Camera (standalone): probe first, then connect with discovered URL
+            if (cam.source == 'Network Camera' && cam.networkType == 'ip' && cam.addressCtrl.text.trim().isNotEmpty) {
+              setDialogState(() { probing = true; probeStatus = 'Probing protocols and stream paths...'; });
+              final result = await _autoProbeCamera(
+                cam.addressCtrl.text.trim(),
+                cam.portCtrl.text.trim().isEmpty ? '554' : cam.portCtrl.text.trim(),
+                cam.usernameCtrl.text.trim(),
+                cam.passwordCtrl.text.trim(),
+                onStatus: (s) { if (ctx.mounted) setDialogState(() => probeStatus = s); },
+              );
+              if (!ctx.mounted) return;
+              if (result.success) {
+                cam.rtspPathCtrl.text = result.url;
+                _markDirty();
+                setDialogState(() {
+                  probing = false;
+                  probeResult = result;
+                  probeStatus = 'Found: ${result.scheme == 'rtsps' ? 'TLS' : 'Plain'} RTSP · ${result.path}';
+                });
+                // Now connect with the discovered URL
+                _startFeed(key, cam, force: true);
+                int attempts = 0;
+                void pollProbed() {
+                  if (!ctx.mounted) return;
+                  attempts++;
+                  final hasFeed = _videoControllers.containsKey(key) || _nativeFeeds.containsKey(key) || _localFrames.containsKey(key);
+                  if (hasFeed) {
+                    _testedCameras.add(key);
+                    setDialogState(() { testSuccess = true; testError = null; });
+                  } else if (_feedErrors[key] != null) {
+                    setDialogState(() { testError = 'Stream found but playback failed'; testSuccess = false; });
+                  } else if (attempts < 20) {
+                    Future.delayed(const Duration(milliseconds: 500), pollProbed);
+                  } else {
+                    setDialogState(() { testError = 'Stream found but playback timed out'; testSuccess = false; });
+                  }
+                }
+                Future.delayed(const Duration(milliseconds: 500), pollProbed);
+              } else {
+                setDialogState(() {
+                  probing = false;
+                  probeResult = result;
+                  probeStatus = 'No direct stream found. This camera may only stream through its NVR/DVR — try using your recorder\'s IP address instead.';
+                  testError = 'Connection failed';
+                });
+              }
+              return;
+            }
+
+            // For DVR, RTSP Stream, Local Device: connect directly
+            _startFeed(key, cam, force: true);
             int attempts = 0;
-            const failMsg = 'Connection failed — verify IP, port, and credentials';
             void pollResult() {
               if (!ctx.mounted) return;
               attempts++;
@@ -1691,18 +2062,37 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
               final hasFeed = _videoControllers.containsKey(key) || _nativeFeeds.containsKey(key) || _localFrames.containsKey(key);
               if (error != null) {
                 _stopFeed(key);
-                setDialogState(() { testError = failMsg; testSuccess = false; });
+                setDialogState(() { testError = 'Connection failed — verify IP, port, and credentials'; testSuccess = false; });
               } else if (hasFeed) {
                 _testedCameras.add(key);
                 setDialogState(() { testSuccess = true; testError = null; });
+                if (cam.source == 'Network Camera' && detectedChannelCount == null) {
+                  _detectChannelCount(cam).then((count) {
+                    if (count != null && ctx.mounted) {
+                      detectedChannelCount = count;
+                      setDialogState(() {});
+                    }
+                  });
+                }
               } else if (attempts < 30) {
                 Future.delayed(const Duration(milliseconds: 500), pollResult);
               } else {
                 _stopFeed(key);
-                setDialogState(() { testError = failMsg; testSuccess = false; });
+                setDialogState(() { testError = 'Connection failed — verify IP, port, and credentials'; testSuccess = false; });
               }
             }
             Future.delayed(const Duration(milliseconds: 500), pollResult);
+          }
+
+          // Auto-detect channel count for NVR with configured address
+          if (!channelDetectionStarted && detectedChannelCount == null && cam.networkType == 'nvr' && cam.addressCtrl.text.trim().isNotEmpty) {
+            channelDetectionStarted = true;
+            _detectChannelCount(cam).then((count) {
+              if (count != null && ctx.mounted) {
+                detectedChannelCount = count;
+                setDialogState(() {});
+              }
+            });
           }
 
           return Dialog(
@@ -1753,6 +2143,8 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                             cam.passwordCtrl.text = snapPassword;
                           });
                           _stopFeed(key);
+                          if (snapWasSaved) _savedCameras.add(key);
+                          if (snapWasTested) _testedCameras.add(key);
                           Navigator.pop(ctx);
                         },
                         icon: const Icon(Icons.close_rounded, size: 18),
@@ -1766,22 +2158,22 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                   const SizedBox(height: 10),
                   Builder(builder: (_) {
                     final isFree = ref.read(isFreeProvider);
-                    const sources = ['IP Camera', 'DVR', 'Local Device'];
+                    const sources = ['Network Camera', 'Local Device'];
                     return Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: sources.map((src) {
-                        final selected = src == 'IP Camera' ? cam.source == 'IP Camera'
-                            : src == 'DVR' ? cam.source == 'DVR'
+                        final selected = src == 'Network Camera'
+                            ? cam.source == 'Network Camera'
                             : cam.source == 'USB' || cam.source == 'Built-in' || cam.source == 'Local Device';
-                        final isLocked = (src == 'IP Camera' || src == 'DVR') && isFree;
-                        final icon = src == 'IP Camera' ? Icons.language_rounded
-                            : src == 'DVR' ? Icons.dns_rounded
-                            : Icons.videocam_rounded;
+                        final isLocked = src == 'Network Camera' && isFree;
+                        final icon = src == 'Network Camera' ? Icons.language_rounded : Icons.videocam_rounded;
                         return GestureDetector(
                           onTap: isLocked ? null : () {
-                            setState(() => cam.source = src == 'Local Device' ? 'Local Device' : src);
-                            _testedCameras.remove(key);
+                            setState(() {
+                              cam.source = src;
+                            });
+                            _testedCameras.remove(key); _savedCameras.remove(key);
                             setDialogState(() { testingConnection = false; testSuccess = false; testError = null; });
                             _markDirty();
                           },
@@ -1819,91 +2211,58 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                       }).toList(),
                     );
                   }),
+                  if (cam.source == 'Network Camera') ...[
+                    const SizedBox(height: 14),
+                    Text('NETWORK TYPE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.8)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _NetworkTypeChip(
+                          label: 'IP Camera',
+                          subtitle: 'Standalone · auto-probes stream',
+                          icon: Icons.camera_outdoor_rounded,
+                          selected: cam.networkType == 'ip',
+                          scheme: scheme,
+                          onTap: () {
+                            setState(() => cam.networkType = 'ip');
+                            _testedCameras.remove(key); _savedCameras.remove(key);
+                            setDialogState(() { testingConnection = false; testSuccess = false; testError = null; detectedChannelCount = null; channelDetectionStarted = false; });
+                            _markDirty();
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        _NetworkTypeChip(
+                          label: 'NVR / DVR',
+                          subtitle: 'Recorder · select channel',
+                          icon: Icons.dns_rounded,
+                          selected: cam.networkType == 'nvr',
+                          scheme: scheme,
+                          onTap: () {
+                            setState(() => cam.networkType = 'nvr');
+                            _testedCameras.remove(key); _savedCameras.remove(key);
+                            setDialogState(() { testingConnection = false; testSuccess = false; testError = null; channelDetectionStarted = false; detectedChannelCount = null; });
+                            _markDirty();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 18),
                   // Connection fields
                   Text('CONNECTION DETAILS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.8)),
                   const SizedBox(height: 10),
-                  if (cam.source == 'IP Camera') ...[
+                  if (cam.source == 'Network Camera') ...[
                     TextFormField(
                       controller: cam.addressCtrl,
                       style: text.bodySmall,
                       inputFormatters: [IpInputFormatter()],
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                       validator: validateIpAddress,
-                      onChanged: (_) { _markDirty(); _testedCameras.remove(key); setDialogState(() { testingConnection = false; testSuccess = false; }); },
+                      onChanged: (_) { _markDirty(); _testedCameras.remove(key); _savedCameras.remove(key); setDialogState(() { testingConnection = false; testSuccess = false; }); },
                       decoration: InputDecoration(
                         hintText: '192.168.1.64',
                         labelText: 'IP Address / Hostname',
                         prefixIcon: const Icon(Icons.router_rounded, size: 16),
-                        prefixIconConstraints: const BoxConstraints(minWidth: 40),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 100,
-                          child: TextField(
-                            controller: cam.portCtrl,
-                            style: text.bodySmall,
-                            onChanged: (_) { _markDirty(); _testedCameras.remove(key); setDialogState(() { testingConnection = false; testSuccess = false; }); },
-                            decoration: InputDecoration(
-                              hintText: '554',
-                              labelText: 'Port',
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: cam.usernameCtrl,
-                            style: text.bodySmall,
-                            onChanged: (_) => _markDirty(),
-                            decoration: InputDecoration(
-                              hintText: 'admin',
-                              labelText: 'Username',
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: cam.passwordCtrl,
-                            style: text.bodySmall,
-                            obscureText: true,
-                            onChanged: (_) => _markDirty(),
-                            decoration: InputDecoration(
-                              hintText: '••••••',
-                              labelText: 'Password',
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else if (cam.source == 'DVR') ...[
-                    TextFormField(
-                      controller: cam.addressCtrl,
-                      style: text.bodySmall,
-                      inputFormatters: [IpInputFormatter()],
-                      autovalidateMode: AutovalidateMode.onUserInteraction,
-                      validator: validateIpAddress,
-                      onChanged: (_) { _markDirty(); _testedCameras.remove(key); setDialogState(() { testingConnection = false; testSuccess = false; }); },
-                      decoration: InputDecoration(
-                        hintText: '192.168.1.100',
-                        labelText: 'DVR IP Address',
-                        prefixIcon: const Icon(Icons.dns_rounded, size: 16),
                         prefixIconConstraints: const BoxConstraints(minWidth: 40),
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -1933,17 +2292,19 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                             onChanged: (v) {
                               if (v != null) {
                                 setState(() => cam.dvrBrand = v);
-                                _testedCameras.remove(key);
+                                _testedCameras.remove(key); _savedCameras.remove(key);
                                 setDialogState(() { testingConnection = false; testSuccess = false; });
                                 _markDirty();
                               }
                             },
                           ),
                         ),
+                        if (cam.networkType == 'nvr') ...[
                         const SizedBox(width: 12),
                         SizedBox(
                           width: 90,
                           child: DropdownButtonFormField<int>(
+                            key: ValueKey('ch_${detectedChannelCount ?? 4}_${cam.dvrChannel}'),
                             initialValue: cam.dvrChannel,
                             isDense: true,
                             decoration: InputDecoration(
@@ -1952,13 +2313,17 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            items: List.generate(32, (i) => i + 1)
+                            items: List.generate(
+                                    [detectedChannelCount ?? 4, cam.dvrChannel].reduce((a, b) => a > b ? a : b),
+                                    (i) => i + 1)
                                 .map((ch) => DropdownMenuItem(value: ch, child: Text('CH $ch', style: const TextStyle(fontSize: 12))))
                                 .toList(),
                             onChanged: (v) {
                               if (v != null) {
                                 setState(() => cam.dvrChannel = v);
-                                _testedCameras.remove(key);
+                                cam.rtspPathCtrl.text = '';
+                                _testedCameras.remove(key); _savedCameras.remove(key);
+                                _startFeed(key, cam, force: true);
                                 setDialogState(() { testingConnection = false; testSuccess = false; });
                                 _markDirty();
                               }
@@ -1984,13 +2349,16 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                             onChanged: (v) {
                               if (v != null) {
                                 setState(() => cam.dvrStreamType = v);
-                                _testedCameras.remove(key);
+                                cam.rtspPathCtrl.text = '';
+                                _testedCameras.remove(key); _savedCameras.remove(key);
+                                _startFeed(key, cam, force: true);
                                 setDialogState(() { testingConnection = false; testSuccess = false; });
                                 _markDirty();
                               }
                             },
                           ),
                         ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -2001,7 +2369,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                           child: TextField(
                             controller: cam.portCtrl,
                             style: text.bodySmall,
-                            onChanged: (_) { _markDirty(); _testedCameras.remove(key); setDialogState(() { testingConnection = false; testSuccess = false; }); },
+                            onChanged: (_) { _markDirty(); _testedCameras.remove(key); _savedCameras.remove(key); setDialogState(() { testingConnection = false; testSuccess = false; }); },
                             decoration: InputDecoration(
                               hintText: '554',
                               labelText: 'Port',
@@ -2045,42 +2413,26 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Builder(builder: (_) {
-                      return Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.info_outline_rounded, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'Path: ${cam.rtspPath}',
-                                      style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.7), fontFamily: 'monospace'),
-                                    ),
-                                  ),
-                                ],
+                    if (cam.networkType == 'ip')
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.auto_fix_high_rounded, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Will auto-probe RTSP/RTSPS stream paths on test',
+                                style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          _DvrDetectButton(
-                            cam: cam,
-                            scheme: scheme,
-                            onDetected: (channels) {
-                              setDialogState(() {});
-                              setState(() {});
-                            },
-                          ),
-                        ],
-                      );
-                    }),
+                          ],
+                        ),
+                      ),
                   ] else ...[
                     _buildDeviceDropdown(key, cam, scheme, text, onDeviceChanged: () => setDialogState(() {})),
                   ],
@@ -2100,6 +2452,45 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                     Text('POSITION ASSIGNMENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.8)),
                     const SizedBox(height: 10),
                     _buildPositionPicker(cam, scheme, currentKey: key, onChanged: () { _markDirty(); setDialogState(() {}); setState(() {}); }),
+                  ],
+                  // Privacy zones (any camera with active feed)
+                  if (_videoControllers.containsKey(key) || ref.read(liveCameraFeedsProvider).feeds.containsKey(key)) ...[
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Text('PRIVACY ZONES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.8)),
+                        const Spacer(),
+                        Text('${cam.privacyZones.length} zone${cam.privacyZones.length == 1 ? '' : 's'}',
+                          style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final result = await showDialog<List<List<double>>>(
+                          context: context,
+                          builder: (_) => _PrivacyZoneDrawer(
+                            cameraKey: key,
+                            initialZones: cam.privacyZones,
+                            feedWidget: _buildFeedWidget(key, cam, scheme),
+                          ),
+                        );
+                        if (result != null) {
+                          setDialogState(() => cam.privacyZones = result);
+                          setState(() {});
+                          _markDirty();
+                        }
+                      },
+                      icon: Icon(Icons.grid_off_outlined, size: 14, color: scheme.primary),
+                      label: Text(cam.privacyZones.isEmpty ? 'Draw Privacy Zones' : 'Edit Privacy Zones',
+                        style: TextStyle(fontSize: 11, color: scheme.primary),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+                      ),
+                    ),
                   ],
                   // Live preview tile (always visible, fixed height)
                   const SizedBox(height: 18),
@@ -2121,70 +2512,127 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                             width: testingConnection && (testSuccess || testError != null) ? 1.5 : 1,
                           ),
                         ),
-                        child: testingConnection
-                            ? Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  if (testError != null)
-                                    Container(color: const Color(0xFF1A1A2E))
-                                  else
-                                    _buildFeedWidget(key, cam, scheme),
-                                  Positioned(
-                                    top: 8,
-                                    left: 8,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: testSuccess ? Colors.green.withValues(alpha: 0.85) : testError != null ? Colors.red.withValues(alpha: 0.85) : Colors.black54,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (!testSuccess && testError == null) ...[
-                                            SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white.withValues(alpha: 0.8))),
-                                            const SizedBox(width: 6),
-                                            Text('Connecting...', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.9), fontWeight: FontWeight.w500)),
-                                          ] else if (testSuccess) ...[
-                                            const Icon(Icons.check_circle_rounded, size: 12, color: Colors.white),
-                                            const SizedBox(width: 4),
-                                            const Text('Connected', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
-                                          ] else ...[
-                                            const Icon(Icons.error_rounded, size: 12, color: Colors.white),
-                                            const SizedBox(width: 4),
-                                            Text(testError ?? 'Failed', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
-                                          ],
+                        child: () {
+                          final hasGlobalFeed = ref.read(liveCameraFeedsProvider).feeds.containsKey(key);
+                          if (testingConnection) {
+                            return Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                if (testError != null)
+                                  Container(color: const Color(0xFF1A1A2E))
+                                else
+                                  _buildFeedWidget(key, cam, scheme),
+                                Positioned(
+                                  top: 8,
+                                  left: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: testSuccess ? Colors.green.withValues(alpha: 0.85) : testError != null ? Colors.red.withValues(alpha: 0.85) : Colors.black54,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (!testSuccess && testError == null) ...[
+                                          SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white.withValues(alpha: 0.8))),
+                                          const SizedBox(width: 6),
+                                          Text('Connecting...', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.9), fontWeight: FontWeight.w500)),
+                                        ] else if (testSuccess) ...[
+                                          const Icon(Icons.check_circle_rounded, size: 12, color: Colors.white),
+                                          const SizedBox(width: 4),
+                                          const Text('Connected', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
+                                        ] else ...[
+                                          const Icon(Icons.error_rounded, size: 12, color: Colors.white),
+                                          const SizedBox(width: 4),
+                                          Text(testError ?? 'Failed', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
                                         ],
-                                      ),
+                                      ],
                                     ),
                                   ),
-                                  Positioned(
-                                    bottom: 8,
-                                    right: 8,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
-                                      child: Text(cam.label, style: const TextStyle(fontSize: 9, color: Colors.white70, fontWeight: FontWeight.w500)),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.videocam_off_rounded, size: 32, color: Colors.white.withValues(alpha: 0.2)),
-                                    const SizedBox(height: 8),
-                                    Text('Press Test Connection to preview', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.3))),
-                                  ],
                                 ),
-                              ),
+                                Positioned(
+                                  bottom: 8,
+                                  right: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
+                                    child: Text(cam.label, style: const TextStyle(fontSize: 9, color: Colors.white70, fontWeight: FontWeight.w500)),
+                                  ),
+                                ),
+                              ],
+                            );
+                          } else if (hasGlobalFeed) {
+                            return Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                _buildFeedWidget(key, cam, scheme),
+                                Positioned(
+                                  top: 8,
+                                  left: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withValues(alpha: 0.85),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.sensors_rounded, size: 12, color: Colors.white),
+                                        SizedBox(width: 4),
+                                        Text('Live', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }
+                          return Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.videocam_off_rounded, size: 32, color: Colors.white.withValues(alpha: 0.2)),
+                                const SizedBox(height: 8),
+                                Text('Press Test Connection to preview', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.3))),
+                              ],
+                            ),
+                          );
+                        }(),
                       ),
                     ),
                   ),
+                  if (probeStatus != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: probeResult?.success == true
+                            ? Colors.green.withValues(alpha: 0.1)
+                            : probing ? scheme.surfaceContainerHighest : Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: probeResult?.success == true ? Colors.green.withValues(alpha: 0.3) : probing ? scheme.outlineVariant.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          if (probing) ...[
+                            SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
+                            const SizedBox(width: 8),
+                          ] else ...[
+                            Icon(probeResult?.success == true ? Icons.check_circle_rounded : Icons.error_outline_rounded, size: 14, color: probeResult?.success == true ? Colors.green : Colors.red),
+                            const SizedBox(width: 8),
+                          ],
+                          Expanded(child: Text(probeStatus!, style: TextStyle(fontSize: 11, color: scheme.onSurface))),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   // Actions
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       OutlinedButton.icon(
                         onPressed: _isCameraConfigured(cam) && !_isDuplicate(key, cam) ? doTestConnection : null,
@@ -2196,7 +2644,6 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                       ),
-                      const SizedBox(width: 8),
                       TextButton.icon(
                         onPressed: () {
                           setState(() {
@@ -2207,7 +2654,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                             cam.dvrStreamType = 'main';
                             cam.usernameCtrl.clear();
                             cam.passwordCtrl.clear();
-                            cam.source = 'IP Camera';
+                            cam.source = 'Network Camera';
                             cam.usbDevice = '';
                             cam.builtInDevice = '';
                             // Pick first available role
@@ -2215,7 +2662,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                             final taken = _takenGrossRoles(key);
                             cam.grossRole = positions.firstWhere((p) => !taken.contains(p), orElse: () => 'Front');
                             cam.tareRole = _computeTareRole(cam.grossRole, _reverseNaming);
-                            _testedCameras.remove(key);
+                            _testedCameras.remove(key); _savedCameras.remove(key);
                             _markDirty();
                           });
                           setDialogState(() { testingConnection = false; testSuccess = false; testError = null; });
@@ -2228,7 +2675,6 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                           foregroundColor: scheme.error,
                         ),
                       ),
-                      const Spacer(),
                       TextButton(
                         onPressed: () {
                           setState(() {
@@ -2247,6 +2693,8 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                             cam.passwordCtrl.text = snapPassword;
                           });
                           _stopFeed(key);
+                          if (snapWasSaved) _savedCameras.add(key);
+                          if (snapWasTested) _testedCameras.add(key);
                           Navigator.pop(ctx);
                         },
                         style: TextButton.styleFrom(
@@ -2255,14 +2703,13 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                         ),
                         child: const Text('Cancel'),
                       ),
-                      const SizedBox(width: 8),
                       FilledButton.icon(
-                        onPressed: (testSuccess || _testedCameras.contains(key) || !_isCameraConfigured(cam))
+                        onPressed: (testSuccess || _testedCameras.contains(key) || _savedCameras.contains(key) || !_isCameraConfigured(cam))
                             && (isWb ? !_takenGrossRoles(key).contains(cam.grossRole) : true)
                             && !_isDuplicate(key, cam)
                             ? () {
                           setState(() {
-                            cam.enabled = _isCameraConfigured(cam) && (testSuccess || _testedCameras.contains(key));
+                            cam.enabled = _isCameraConfigured(cam) && (testSuccess || _testedCameras.contains(key) || _savedCameras.contains(key));
                           });
                           _stopFeed(key);
                           if (cam.enabled) _startFeed(key, cam);
@@ -2272,7 +2719,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                         icon: Icon(_isCameraConfigured(cam) ? Icons.check_rounded : Icons.save_rounded, size: 16),
                         label: Text(
                           !_isCameraConfigured(cam) ? 'Save & Disable'
-                          : (testSuccess || _testedCameras.contains(key)) ? 'Save & Enable'
+                          : (testSuccess || _testedCameras.contains(key) || _savedCameras.contains(key)) ? 'Save & Enable'
                           : 'Test first',
                         ),
                         style: FilledButton.styleFrom(
@@ -2295,48 +2742,29 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
 
   Set<String> _takenDevices(String excludeKey) {
     return _slots.entries
-        .where((e) => e.key != excludeKey && e.value.enabled && e.value.source != 'IP Camera' && e.value.source != 'DVR')
+        .where((e) => e.key != excludeKey && e.value.enabled && e.value.source != 'Network Camera')
         .map((e) => e.value.usbDevice.isNotEmpty ? e.value.usbDevice : e.value.builtInDevice)
         .where((d) => d.isNotEmpty)
         .toSet();
   }
 
-  bool _isIpDuplicate(String excludeKey, _CameraConfig cam) {
-    if (cam.source != 'IP Camera') return false;
-    final addr = cam.addressCtrl.text.trim();
-    final port = cam.portCtrl.text.trim();
-    if (addr.isEmpty) return false;
-    for (final entry in _slots.entries) {
-      if (entry.key == excludeKey || !entry.value.enabled || entry.value.source != 'IP Camera') continue;
-      if (entry.value.addressCtrl.text.trim() == addr && entry.value.portCtrl.text.trim() == port) return true;
+  bool _isDuplicate(String key, _CameraConfig cam) {
+    if (cam.source == 'Network Camera') {
+      final addr = cam.addressCtrl.text.trim();
+      if (addr.isEmpty) return false;
+      for (final entry in _slots.entries) {
+        if (entry.key == key || !entry.value.enabled || entry.value.source != 'Network Camera') continue;
+        if (entry.value.addressCtrl.text.trim() == addr && entry.value.dvrChannel == cam.dvrChannel) return true;
+      }
+      return false;
     }
-    return false;
-  }
-
-  bool _isDvrDuplicate(String excludeKey, _CameraConfig cam) {
-    if (cam.source != 'DVR') return false;
-    final addr = cam.addressCtrl.text.trim();
-    if (addr.isEmpty) return false;
-    for (final entry in _slots.entries) {
-      if (entry.key == excludeKey || !entry.value.enabled || entry.value.source != 'DVR') continue;
-      if (entry.value.addressCtrl.text.trim() == addr && entry.value.dvrChannel == cam.dvrChannel) return true;
-    }
-    return false;
-  }
-
-  bool _isDeviceDuplicate(String excludeKey, _CameraConfig cam) {
-    if (cam.source == 'IP Camera' || cam.source == 'DVR') return false;
     final device = cam.usbDevice.isNotEmpty ? cam.usbDevice : cam.builtInDevice;
     if (device.isEmpty) return false;
-    return _takenDevices(excludeKey).contains(device);
-  }
-
-  bool _isDuplicate(String key, _CameraConfig cam) {
-    return _isIpDuplicate(key, cam) || _isDvrDuplicate(key, cam) || _isDeviceDuplicate(key, cam);
+    return _takenDevices(key).contains(device);
   }
 
   Widget _buildDeviceDropdown(String key, _CameraConfig cam, ColorScheme scheme, TextTheme text, {VoidCallback? onDeviceChanged}) {
-    final cameras = (ref.read(_systemCamerasProvider).valueOrNull ?? []).toSet().toList();
+    final cameras = (ref.watch(_systemCamerasProvider).valueOrNull ?? []).toSet().toList();
 
     if (cameras.isEmpty) {
       return Container(
@@ -2379,7 +2807,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           cam.usbDevice = v ?? '';
           cam.builtInDevice = v ?? '';
         });
-        _testedCameras.remove(key);
+        _testedCameras.remove(key); _savedCameras.remove(key);
         _markDirty();
         onDeviceChanged?.call();
       },
@@ -2430,10 +2858,12 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           _FeatureToggle(
             icon: Icons.pin_rounded,
             label: 'ANPR (Number Plate Recognition)',
-            subtitle: 'Detect and read vehicle plates from front/rear cameras',
-            value: _anprEnabled,
+            subtitle: _hasWeighbridgeCameras
+                ? 'Detect and read vehicle plates from front/rear cameras'
+                : 'Requires at least one weighbridge camera to be configured',
+            value: _anprEnabled && _hasWeighbridgeCameras,
             onChanged: (v) { setState(() => _anprEnabled = v); _markDirty(); },
-            locked: isFree,
+            locked: isFree || !_hasWeighbridgeCameras,
           ),
           if (_anprEnabled) ...[
             Padding(
@@ -2717,54 +3147,54 @@ class _CameraConfig {
   final String label;
   final String purpose;
   bool enabled = false;
-  String source = 'IP Camera';
+  String source = 'Network Camera';
+  String networkType = 'nvr'; // 'ip' (standalone camera) or 'nvr' (NVR/DVR)
   String usbDevice = '';
   String builtInDevice = '';
-  // DVR-specific
+  String cameraBrand = 'Hikvision';
   String dvrBrand = 'Hikvision';
   int dvrChannel = 1;
-  String dvrStreamType = 'main'; // main or sub
-  // Per-phase assignment for weighbridge cameras
+  String dvrStreamType = 'main';
   bool grossEnabled = true;
-  String grossRole = 'Front'; // label/role during gross phase
+  String grossRole = 'Front';
   bool tareEnabled = true;
-  String tareRole = 'Front'; // label/role during tare phase
+  String tareRole = 'Front';
+  // Privacy zones: list of normalized rects [x1, y1, x2, y2] where ANPR won't scan
+  List<List<double>> privacyZones = [];
   final TextEditingController addressCtrl;
   final TextEditingController usernameCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController portCtrl;
+  final TextEditingController rtspPathCtrl;
 
   _CameraConfig({required this.label, required this.purpose})
       : addressCtrl = TextEditingController(),
         usernameCtrl = TextEditingController(),
         passwordCtrl = TextEditingController(),
-        portCtrl = TextEditingController(text: '554');
+        portCtrl = TextEditingController(text: '554'),
+        rtspPathCtrl = TextEditingController();
 
   String get rtspPath {
-    switch (source) {
-      case 'DVR':
-        return _dvrRtspPath(dvrBrand, dvrChannel, dvrStreamType);
-      default:
-        return '/stream';
-    }
+    final custom = rtspPathCtrl.text.trim();
+    if (custom.startsWith('rtsp://') || custom.startsWith('rtsps://')) return custom;
+    if (custom.isNotEmpty) return custom.startsWith('/') ? custom : '/$custom';
+    return _brandStreamPath(dvrBrand, dvrChannel, dvrStreamType);
   }
 
-  static String _dvrRtspPath(String brand, int channel, String streamType) {
+  static String _brandStreamPath(String brand, int channel, String streamType) {
     final subtype = streamType == 'sub' ? 1 : 0;
     final chMain = channel * 100 + 1;
     final chSub = channel * 100 + 2;
-    final hikvisionPath = '/Streaming/Channels/${streamType == 'sub' ? chSub : chMain}';
-    final dahuaPath = '/cam/realmonitor?channel=$channel&subtype=$subtype';
     switch (brand) {
       case 'Hikvision':
       case 'TVT':
       case 'Honeywell':
-        return hikvisionPath;
+        return '/Streaming/Channels/${streamType == 'sub' ? chSub : chMain}';
       case 'Dahua':
       case 'CP Plus':
       case 'Godrej':
       case 'Zebronics':
-        return dahuaPath;
+        return '/cam/realmonitor?channel=$channel&subtype=$subtype';
       case 'Uniview':
         return '/media/video$channel';
       case 'Bosch':
@@ -2776,13 +3206,12 @@ class _CameraConfig {
       case 'Vivotek':
         return '/live.sdp?channel=$channel&stream=${subtype + 1}';
       case 'Pelco':
+      case 'TP-Link VIGI':
         return '/stream$channel';
       case 'D-Link':
         return '/live$channel.sdp';
-      case 'TP-Link VIGI':
-        return '/stream$channel';
       default:
-        return hikvisionPath;
+        return '/Streaming/Channels/${streamType == 'sub' ? chSub : chMain}';
     }
   }
 
@@ -2832,17 +3261,46 @@ class _DvrDetectButtonState extends State<_DvrDetectButton> {
     setState(() { _detecting = true; _error = null; _detectedChannels = null; });
 
     try {
-      final httpPort = 80;
-      final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
-      final uri = _buildDetectUri(cam.dvrBrand, addr, httpPort);
+      int? channels;
+      // Try HTTP first, then HTTPS
+      for (final scheme in ['http', 'https']) {
+        final port = scheme == 'http' ? 80 : 443;
+        final client = HttpClient()
+          ..connectionTimeout = const Duration(seconds: 5)
+          ..badCertificateCallback = (_, __, ___) => true;
+        final uri = _buildDetectUri(cam.dvrBrand, addr, port, scheme: scheme);
 
-      final request = await client.openUrl('GET', uri);
-      request.headers.set('Authorization', 'Basic ${base64Encode(utf8.encode('$user:$pass'))}');
-      final response = await request.close();
-      final body = await response.transform(utf8.decoder).join();
-      client.close();
+        try {
+          final request = await client.openUrl('GET', uri);
+          request.headers.set('Authorization', 'Basic ${base64Encode(utf8.encode('$user:$pass'))}');
+          final response = await request.close();
+          final body = await response.transform(utf8.decoder).join();
+          client.close();
 
-      final channels = _parseChannelCount(cam.dvrBrand, body);
+          // Handle 401 with digest auth retry
+          if (response.statusCode == 401) {
+            final wwwAuth = response.headers['www-authenticate']?.join(' ') ?? '';
+            final realmMatch = RegExp(r'realm="([^"]*)"').firstMatch(wwwAuth);
+            final realm = realmMatch?.group(1) ?? '';
+            final digestClient = HttpClient()
+              ..connectionTimeout = const Duration(seconds: 5)
+              ..badCertificateCallback = (_, __, ___) => true;
+            digestClient.addCredentials(uri, realm, HttpClientDigestCredentials(user, pass));
+            final retryReq = await digestClient.openUrl('GET', uri);
+            final retryResp = await retryReq.close();
+            final retryBody = await retryResp.transform(utf8.decoder).join();
+            digestClient.close();
+            channels = _parseChannelCount(cam.dvrBrand, retryBody);
+          } else {
+            channels = _parseChannelCount(cam.dvrBrand, body);
+          }
+
+          if (channels != null && channels > 0) break;
+        } catch (_) {
+          client.close();
+        }
+      }
+
       if (channels != null && channels > 0) {
         setState(() { _detectedChannels = channels; _detecting = false; });
         widget.onDetected(channels);
@@ -2854,33 +3312,33 @@ class _DvrDetectButtonState extends State<_DvrDetectButton> {
     }
   }
 
-  Uri _buildDetectUri(String brand, String addr, int port) {
+  Uri _buildDetectUri(String brand, String addr, int port, {String scheme = 'http'}) {
     switch (brand) {
       case 'Hikvision':
       case 'TVT':
       case 'Honeywell':
-        return Uri.parse('http://$addr:$port/ISAPI/System/Video/inputs/channels');
+        return Uri.parse('$scheme://$addr:$port/ISAPI/System/Video/inputs/channels');
       case 'Dahua':
       case 'CP Plus':
       case 'Godrej':
       case 'Zebronics':
-        return Uri.parse('http://$addr:$port/cgi-bin/magicBox.cgi?action=getProductDefinition&name=MaxVideoInputChannels');
+        return Uri.parse('$scheme://$addr:$port/cgi-bin/magicBox.cgi?action=getProductDefinition&name=MaxVideoInputChannels');
       case 'Uniview':
-        return Uri.parse('http://$addr:$port/LAPI/V1.0/Channel/System/Video/Input');
+        return Uri.parse('$scheme://$addr:$port/LAPI/V1.0/Channel/System/Video/Input');
       case 'Bosch':
-        return Uri.parse('http://$addr:$port/rcp.xml?command=0x0a03&type=P_OCSP&direction=0&num=1');
+        return Uri.parse('$scheme://$addr:$port/rcp.xml?command=0x0a03&type=P_OCSP&direction=0&num=1');
       case 'Axis':
-        return Uri.parse('http://$addr:$port/axis-cgi/param.cgi?action=list&group=root.Properties.Image');
+        return Uri.parse('$scheme://$addr:$port/axis-cgi/param.cgi?action=list&group=root.Properties.Image');
       case 'Samsung (Hanwha)':
-        return Uri.parse('http://$addr:$port/stw-cgi/media.cgi?msubmenu=videosource&action=view');
+        return Uri.parse('$scheme://$addr:$port/stw-cgi/media.cgi?msubmenu=videosource&action=view');
       case 'Vivotek':
-        return Uri.parse('http://$addr:$port/cgi-bin/admin/getparam.cgi?capability_videoin');
+        return Uri.parse('$scheme://$addr:$port/cgi-bin/admin/getparam.cgi?capability_videoin');
       case 'Pelco':
       case 'D-Link':
       case 'TP-Link VIGI':
-        return Uri.parse('http://$addr:$port/ISAPI/System/Video/inputs/channels');
+        return Uri.parse('$scheme://$addr:$port/ISAPI/System/Video/inputs/channels');
       default:
-        return Uri.parse('http://$addr:$port/ISAPI/System/Video/inputs/channels');
+        return Uri.parse('$scheme://$addr:$port/ISAPI/System/Video/inputs/channels');
     }
   }
 
@@ -3098,25 +3556,34 @@ class _EnlargedPreviewOverlayState extends State<_EnlargedPreviewOverlay>
                               child: Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  // Live video feed
+                                  // Live video feed with privacy zone blur
                                   if (hasVideo)
-                                    Video(
-                                      controller: widget.videoController!,
-                                      controls: NoVideoControls,
-                                      fit: BoxFit.cover,
+                                    _PrivacyZoneBlurOverlay(
+                                      zones: widget.cam.privacyZones,
+                                      child: Video(
+                                        controller: widget.videoController!,
+                                        controls: NoVideoControls,
+                                        fit: BoxFit.cover,
+                                      ),
                                     )
                                   else if (hasNativeTexture)
-                                    FittedBox(
-                                      fit: BoxFit.cover,
-                                      clipBehavior: Clip.hardEdge,
-                                      child: SizedBox(
-                                        width: widget.nativeFeed!.width.toDouble(),
-                                        height: widget.nativeFeed!.height.toDouble(),
-                                        child: Texture(textureId: widget.nativeFeed!.textureId),
+                                    _PrivacyZoneBlurOverlay(
+                                      zones: widget.cam.privacyZones,
+                                      child: FittedBox(
+                                        fit: BoxFit.cover,
+                                        clipBehavior: Clip.hardEdge,
+                                        child: SizedBox(
+                                          width: widget.nativeFeed!.width.toDouble(),
+                                          height: widget.nativeFeed!.height.toDouble(),
+                                          child: Texture(textureId: widget.nativeFeed!.textureId),
+                                        ),
                                       ),
                                     )
                                   else if (hasFrame)
-                                    Image.memory(localFrame, fit: BoxFit.cover, gaplessPlayback: true)
+                                    _PrivacyZoneBlurOverlay(
+                                      zones: widget.cam.privacyZones,
+                                      child: Image.memory(localFrame, fit: BoxFit.cover, gaplessPlayback: true),
+                                    )
                                   else if (widget.error != null)
                                     Center(
                                       child: Column(
@@ -3210,6 +3677,301 @@ class _EnlargedPreviewOverlayState extends State<_EnlargedPreviewOverlay>
           ),
         );
       },
+    );
+  }
+}
+
+class _NetworkTypeChip extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final bool selected;
+  final ColorScheme scheme;
+  final VoidCallback onTap;
+
+  const _NetworkTypeChip({
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.selected,
+    required this.scheme,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? scheme.primaryContainer : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: selected ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 16, color: selected ? scheme.primary : scheme.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
+                    Text(subtitle, style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ProbeResult {
+  final bool success;
+  final String url;
+  final String scheme;
+  final String path;
+
+  const ProbeResult({required this.success, required this.url, required this.scheme, required this.path});
+}
+
+class _PrivacyZoneBlurOverlay extends StatelessWidget {
+  final List<List<double>> zones;
+  final Widget child;
+
+  const _PrivacyZoneBlurOverlay({required this.zones, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (zones.isEmpty) return child;
+    return LayoutBuilder(builder: (context, constraints) {
+      final w = constraints.maxWidth;
+      final h = constraints.maxHeight;
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          child,
+          ClipPath(
+            clipper: _MultiRectClipper(zones: zones, size: Size(w, h)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+              child: Container(color: Colors.black.withValues(alpha: 0.1)),
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _MultiRectClipper extends CustomClipper<Path> {
+  final List<List<double>> zones;
+  final Size size;
+
+  _MultiRectClipper({required this.zones, required this.size});
+
+  @override
+  Path getClip(Size _) {
+    final path = Path();
+    for (final zone in zones) {
+      path.addRect(Rect.fromLTRB(
+        zone[0] * size.width,
+        zone[1] * size.height,
+        zone[2] * size.width,
+        zone[3] * size.height,
+      ));
+    }
+    return path;
+  }
+
+  @override
+  bool shouldReclip(_MultiRectClipper oldClipper) => oldClipper.zones != zones || oldClipper.size != size;
+}
+
+class _PrivacyZoneDrawer extends StatefulWidget {
+  final String cameraKey;
+  final List<List<double>> initialZones;
+  final Widget feedWidget;
+
+  const _PrivacyZoneDrawer({
+    required this.cameraKey,
+    required this.initialZones,
+    required this.feedWidget,
+  });
+
+  @override
+  State<_PrivacyZoneDrawer> createState() => _PrivacyZoneDrawerState();
+}
+
+class _PrivacyZoneDrawerState extends State<_PrivacyZoneDrawer> {
+  late List<List<double>> _zones;
+  Offset? _dragStart;
+  Offset? _dragCurrent;
+
+  @override
+  void initState() {
+    super.initState();
+    _zones = widget.initialZones.map((z) => List<double>.from(z)).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(32),
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.8,
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A2E),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.grid_off_outlined, size: 16, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  const Text('Privacy Zones', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 12),
+                  Text('${_zones.length} zone${_zones.length == 1 ? '' : 's'}',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                  ),
+                  const Spacer(),
+                  if (_zones.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () => setState(() => _zones.clear()),
+                      icon: const Icon(Icons.delete_outline, size: 14, color: Colors.redAccent),
+                      label: const Text('Clear All', style: TextStyle(fontSize: 11, color: Colors.redAccent)),
+                    ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(null),
+                    icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Draw rectangles on areas where ANPR should not scan. Tap a zone to remove it.',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Flexible(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final w = constraints.maxWidth;
+                        final h = constraints.maxHeight;
+                        return GestureDetector(
+                          onPanStart: (d) => setState(() {
+                            _dragStart = d.localPosition;
+                            _dragCurrent = d.localPosition;
+                          }),
+                          onPanUpdate: (d) => setState(() => _dragCurrent = d.localPosition),
+                          onPanEnd: (d) {
+                            if (_dragStart != null && _dragCurrent != null) {
+                              final x1 = (_dragStart!.dx / w).clamp(0.0, 1.0);
+                              final y1 = (_dragStart!.dy / h).clamp(0.0, 1.0);
+                              final x2 = (_dragCurrent!.dx / w).clamp(0.0, 1.0);
+                              final y2 = (_dragCurrent!.dy / h).clamp(0.0, 1.0);
+                              final minX = x1 < x2 ? x1 : x2;
+                              final minY = y1 < y2 ? y1 : y2;
+                              final maxX = x1 > x2 ? x1 : x2;
+                              final maxY = y1 > y2 ? y1 : y2;
+                              if ((maxX - minX) > 0.02 && (maxY - minY) > 0.02) {
+                                setState(() => _zones.add([minX, minY, maxX, maxY]));
+                              }
+                            }
+                            setState(() { _dragStart = null; _dragCurrent = null; });
+                          },
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              widget.feedWidget,
+                              // Existing zones
+                              for (int i = 0; i < _zones.length; i++)
+                                Positioned(
+                                  left: _zones[i][0] * w,
+                                  top: _zones[i][1] * h,
+                                  width: (_zones[i][2] - _zones[i][0]) * w,
+                                  height: (_zones[i][3] - _zones[i][1]) * h,
+                                  child: GestureDetector(
+                                    onTap: () => setState(() => _zones.removeAt(i)),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.withValues(alpha: 0.3),
+                                        border: Border.all(color: Colors.redAccent, width: 1.5),
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                      child: Center(
+                                        child: Icon(Icons.close, size: 16, color: Colors.white.withValues(alpha: 0.7)),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              // Drawing in progress
+                              if (_dragStart != null && _dragCurrent != null)
+                                Positioned(
+                                  left: (_dragStart!.dx < _dragCurrent!.dx ? _dragStart!.dx : _dragCurrent!.dx),
+                                  top: (_dragStart!.dy < _dragCurrent!.dy ? _dragStart!.dy : _dragCurrent!.dy),
+                                  width: (_dragCurrent!.dx - _dragStart!.dx).abs(),
+                                  height: (_dragCurrent!.dy - _dragStart!.dy).abs(),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withValues(alpha: 0.2),
+                                      border: Border.all(color: Colors.redAccent.withValues(alpha: 0.8), width: 1.5),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(null),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(_zones),
+                    child: const Text('Save Zones'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

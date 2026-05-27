@@ -8,6 +8,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_auth
   firebase_core
   flutter_libserialport
+  media_kit_libs_windows_video
   media_kit_video
   pdfx
   printing

@@ -756,9 +756,26 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
 
         final db = ref.read(firestoreProvider);
         final companyId = ref.read(wizardCompanyIdProvider) ?? ref.read(siteContextProvider).companyId;
+        if (companyId.isEmpty) {
+          setState(() { _completing = false; });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Company not resolved. Please go back and verify your company code.')),
+            );
+          }
+          return;
+        }
         final now = Timestamp.now();
         final data = Map<String, dynamic>.from(formData);
         data['createdAt'] = now;
+        data.removeWhere((k, v) => v == null);
+
+        // Store ID doc images as Firestore Blobs (raw bytes, not base64)
+        final idDocImagesB64 = data.remove('idDocImages') as List<String>?;
+        if (idDocImagesB64 != null && idDocImagesB64.isNotEmpty) {
+          data['idDocImages'] = idDocImagesB64.map((b64) => Blob(base64Decode(b64))).toList();
+          data['hasIdDoc'] = true;
+        }
 
         final newDoc = await db.collection('companies/$companyId/operators').add(data);
 
@@ -782,14 +799,17 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
             final sidecar = ref.read(sidecarClientProvider);
             if (await sidecar.isAvailable()) {
               final frameBytes = faceFrames.map((f) => Uint8List.fromList(base64Decode(f))).toList();
-              final embedding = await sidecar.enrollFromImages(frameBytes);
-              if (embedding != null && embedding.isNotEmpty) {
-                await db.doc(newDoc.path).update({'faceEmbedding': embedding});
-                await sidecar.syncEnrollments([{
+              final result = await sidecar.enrollFromImages(frameBytes);
+              if (result != null && result.embedding.isNotEmpty) {
+                await db.doc(newDoc.path).update({
+                  'faceEmbedding': result.embedding,
+                  'faceModelVersion': 'arcface_glintr100',
+                });
+                await sidecar.syncEnrollments(operators: [{
                   'operator_id': newDoc.id,
                   'email': email,
                   'name': data['name'] as String? ?? '',
-                  'embedding': embedding,
+                  'embedding': result.embedding,
                   'is_active': true,
                 }]);
                 debugPrint('[ReviewStep] Sidecar embedding generated and cached');
@@ -825,7 +845,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
   Widget _buildPendingApprovalView(ColorScheme scheme, TextTheme text) {
     final formData = ref.read(wizardOperatorFormDataProvider);
     final faceEnrolled = ref.read(wizardFaceEnrolledProvider);
-    final docType = ref.read(wizardSubmittedDocTypeProvider);
+    final docType = ref.read(wizardSubmittedDocTypeProvider) ?? formData?['idDocType'] as String?;
     final operatorName = formData?['name'] as String? ?? '';
     final operatorEmail = formData?['email'] as String? ?? '';
     final operatorPhone = formData?['phone'] as String? ?? '';

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -4585,14 +4586,17 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
   Future<void> _pickAndParse() async {
     setState(() { _stage = _CsvStage.loading; _error = null; });
 
-    final result = await Process.run('osascript', [
-      '-e',
-      'set theFile to choose file of type {"public.comma-separated-values-text", "public.text", "public.plain-text"} with prompt "Select CSV file (Name, Phone, Address columns)"',
-      '-e',
-      'POSIX path of theFile',
-    ]);
-    final path = (result.stdout as String).trim();
-    if (path.isEmpty) {
+    final picked = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Select CSV file (Name, Phone, Address columns)',
+      type: FileType.custom,
+      allowedExtensions: ['csv', 'txt'],
+    );
+    if (picked == null || picked.files.isEmpty) {
+      setState(() => _stage = _CsvStage.guide);
+      return;
+    }
+    final path = picked.files.single.path;
+    if (path == null || path.isEmpty) {
       setState(() => _stage = _CsvStage.guide);
       return;
     }

@@ -2,15 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:weighbridgemanagement/features/weighment/application/weighment_providers.dart';
 import 'package:weighbridgemanagement/features/weighment/application/weighment_state_machine.dart';
 import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
-import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
+import 'package:weighbridgemanagement/shared/providers/live_camera_feeds_provider.dart';
 import 'package:weighbridgemanagement/shared/services/multi_camera_service.dart';
 
 final _cameraSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
@@ -18,10 +18,15 @@ final _cameraSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return {};
   try {
-    final doc = await paths.camerasAiSettings.get();
+    final doc = await paths.camerasAiSettings.get(const GetOptions(source: Source.cache));
     return doc.exists ? doc.data()! : {};
   } catch (_) {
-    return {};
+    try {
+      final doc = await paths.camerasAiSettings.get();
+      return doc.exists ? doc.data()! : {};
+    } catch (_) {
+      return {};
+    }
   }
 });
 
@@ -33,18 +38,14 @@ class WeighbridgeCamerasColumn extends ConsumerStatefulWidget {
 }
 
 class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasColumn> {
-  final _players = <String, Player>{};
-  final _videoControllers = <String, VideoController>{};
   final _nativeFeeds = <String, CameraFeed>{};
-  final _activeKeys = <String>{};
+  final _activeNativeKeys = <String>{};
+  final _activeIpKeys = <String>{};
   Timer? _snapshotTimer;
   bool _syncing = false;
 
   @override
   void dispose() {
-    for (final player in _players.values) {
-      player.dispose();
-    }
     _snapshotTimer?.cancel();
     MultiCameraService.stopAll();
     super.dispose();
@@ -54,115 +55,68 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
     if (_syncing) return;
 
     final allCams = settings['cameras'] as Map<String, dynamic>? ?? {};
-    final desiredKeys = cameras.map((c) => c.key).toSet();
 
-    // Check if there are feeds to start or remove
-    final removed = _activeKeys.difference(desiredKeys);
-    final needsStart = desiredKeys.where((k) => !_hasActiveFeed(k) && _hasDeviceConfig(k, allCams)).toSet();
-    if (removed.isEmpty && needsStart.isEmpty) return;
+    // Delegate IP feeds to the global provider (persists across navigation)
+    final ipCameras = cameras.where((c) {
+      final camData = allCams[c.key] as Map<String, dynamic>? ?? {};
+      final source = camData['source'] as String? ?? 'Local Device';
+      return source == 'Network Camera';
+    }).toList();
+    final desiredIpKeys = ipCameras.map((c) => c.key).toSet();
+    final removedIp = _activeIpKeys.difference(desiredIpKeys);
+    if (removedIp.isNotEmpty) {
+      ref.read(liveCameraFeedsProvider.notifier).removeFeeds(removedIp);
+    }
+    _activeIpKeys
+      ..clear()
+      ..addAll(desiredIpKeys);
+    ref.read(liveCameraFeedsProvider.notifier).syncFeeds(ipCameras, settings);
+
+    // Handle native (USB/built-in) feeds locally
+    final desiredNativeKeys = cameras.where((c) {
+      final camData = allCams[c.key] as Map<String, dynamic>? ?? {};
+      final source = camData['source'] as String? ?? 'Local Device';
+      return source != 'Network Camera';
+    }).map((c) => c.key).toSet();
+
+    final removed = _activeNativeKeys.difference(desiredNativeKeys);
+    final added = desiredNativeKeys.difference(_activeNativeKeys);
+
+    if (removed.isEmpty && added.isEmpty) return;
 
     _syncing = true;
 
     for (final key in removed) {
-      _players[key]?.dispose();
-      _players.remove(key);
-      _videoControllers.remove(key);
-      if (_nativeFeeds.containsKey(key)) {
-        final device = _keyToDevice[key];
-        final othersUsingDevice = _keyToDevice.entries
-            .where((e) => e.key != key && e.value == device && desiredKeys.contains(e.key))
-            .isNotEmpty;
-        if (!othersUsingDevice) {
-          await MultiCameraService.stop(key);
-          if (device != null) _deviceToFeed.remove(device);
-        }
-        _nativeFeeds.remove(key);
-        _keyToDevice.remove(key);
+      final device = _keyToDevice[key];
+      final othersUsingDevice = _keyToDevice.entries
+          .where((e) => e.key != key && e.value == device && desiredNativeKeys.contains(e.key))
+          .isNotEmpty;
+      if (!othersUsingDevice) {
+        await MultiCameraService.stop(key);
+        if (device != null) _deviceToFeed.remove(device);
       }
+      _nativeFeeds.remove(key);
+      _keyToDevice.remove(key);
     }
 
-    for (final key in needsStart) {
+    final futures = <Future<void>>[];
+    for (final key in added) {
+      if (!mounted) break;
       final camData = allCams[key] as Map<String, dynamic>? ?? {};
-      final source = camData['source'] as String? ?? 'Local Device';
-      if (source == 'IP Camera' || source == 'DVR') {
-        _startIpFeed(key, camData);
-      } else {
-        await _startNativeFeed(key, camData);
-      }
+      futures.add(_startNativeFeed(key, camData));
     }
+    if (futures.isNotEmpty) await Future.wait(futures);
 
-    _activeKeys
+    _activeNativeKeys
       ..clear()
-      ..addAll(desiredKeys);
+      ..addAll(desiredNativeKeys);
 
-    if (_snapshotTimer == null && _activeKeys.isNotEmpty) {
+    if (_snapshotTimer == null && (_activeNativeKeys.isNotEmpty || _activeIpKeys.isNotEmpty)) {
       _startSnapshotCapture();
     }
 
     _syncing = false;
     if (mounted) setState(() {});
-  }
-
-  bool _hasDeviceConfig(String key, Map<String, dynamic> allCams) {
-    final camData = allCams[key] as Map<String, dynamic>?;
-    if (camData == null) return false;
-    final source = camData['source'] as String? ?? 'Local Device';
-    if (source == 'IP Camera' || source == 'DVR') {
-      return (camData['address'] as String? ?? '').isNotEmpty;
-    }
-    final usb = camData['usbDevice'] as String? ?? '';
-    final builtIn = camData['builtInDevice'] as String? ?? '';
-    return usb.isNotEmpty || builtIn.isNotEmpty;
-  }
-
-  void _startIpFeed(String key, Map<String, dynamic> camData) {
-    final address = camData['address'] as String? ?? '';
-    if (address.isEmpty) return;
-
-    final username = camData['username'] as String? ?? '';
-    final encPassword = camData['password'] as String? ?? '';
-    final password = encPassword.isNotEmpty ? CryptoService.decrypt(encPassword) : '';
-    final port = camData['port'] as int? ?? 554;
-    final auth = username.isNotEmpty ? '$username:$password@' : '';
-    final path = _resolveStreamPath(camData);
-    final rtspUrl = 'rtsp://$auth$address:$port$path';
-
-    final player = Player();
-    final controller = VideoController(player);
-    _players[key] = player;
-    _videoControllers[key] = controller;
-
-    player.open(Media(rtspUrl), play: true);
-    player.setVolume(0);
-    if (mounted) setState(() {});
-  }
-
-  static String _resolveStreamPath(Map<String, dynamic> camData) {
-    final source = camData['source'] as String? ?? 'IP Camera';
-    if (source == 'DVR') {
-      final brand = camData['dvrBrand'] as String? ?? 'Hikvision';
-      final channel = camData['dvrChannel'] as int? ?? 1;
-      final streamType = camData['dvrStreamType'] as String? ?? 'main';
-      final chMain = channel * 100 + 1;
-      final chSub = channel * 100 + 2;
-      final subtype = streamType == 'sub' ? 1 : 0;
-      switch (brand) {
-        case 'Hikvision':
-        case 'TVT':
-        case 'Honeywell':
-          return '/Streaming/Channels/${streamType == 'sub' ? chSub : chMain}';
-        case 'Dahua':
-        case 'CP Plus':
-        case 'Godrej':
-        case 'Zebronics':
-          return '/cam/realmonitor?channel=$channel&subtype=$subtype';
-        case 'Uniview':
-          return '/media/video$channel';
-        default:
-          return '/Streaming/Channels/${streamType == 'sub' ? chSub : chMain}';
-      }
-    }
-    return '/stream';
   }
 
   // Track which physical device each session key maps to, and share feeds for same device
@@ -219,28 +173,28 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
           await File(outPath).writeAsBytes(bytes);
         }
       }
+      final liveFeeds = ref.read(liveCameraFeedsProvider).feeds;
+      for (final entry in liveFeeds.entries) {
+        try {
+          final bytes = await entry.value.player.screenshot(format: 'image/jpeg');
+          if (bytes != null) {
+            final outPath = '$home/.weighbridge/frames/live_${entry.key}.jpg';
+            await File(outPath).writeAsBytes(bytes);
+          }
+        } catch (_) {}
+      }
     }
 
     _snapshotTimer = Timer.periodic(const Duration(seconds: 3), (_) => capture());
   }
 
   void _showEnlargedCamera(ActiveCamera cam, bool isTarePhase) {
-    Widget? content;
-    if (_videoControllers.containsKey(cam.key)) {
-      content = Video(controller: _videoControllers[cam.key]!, controls: NoVideoControls, fit: BoxFit.cover);
-    } else if (_nativeFeeds.containsKey(cam.key)) {
-      final feed = _nativeFeeds[cam.key]!;
-      content = FittedBox(
-        fit: BoxFit.cover,
-        clipBehavior: Clip.hardEdge,
-        child: SizedBox(
-          width: feed.width.toDouble(),
-          height: feed.height.toDouble(),
-          child: Texture(textureId: feed.textureId),
-        ),
-      );
-    }
-    if (content == null) return;
+    final liveFeeds = ref.read(liveCameraFeedsProvider).feeds;
+    final isIp = liveFeeds.containsKey(cam.key);
+    final isNative = _nativeFeeds.containsKey(cam.key);
+    if (!isIp && !isNative) return;
+
+    final nativeFeed = isNative ? _nativeFeeds[cam.key] : null;
 
     showDialog(
       context: context,
@@ -248,13 +202,13 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
         label: cam.label,
         phaseLabel: _phaseLabel(cam, isTarePhase),
         cameraKey: cam.key,
-        child: content!,
+        nativeFeed: nativeFeed,
       ),
     );
   }
 
   String _phaseLabel(ActiveCamera cam, bool isTarePhase) {
-    return isTarePhase ? 'Tare · ${cam.tareRole}' : 'Gross · ${cam.grossRole}';
+    return 'G: ${cam.grossRole} · T: ${cam.tareRole}';
   }
 
   @override
@@ -274,48 +228,60 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
 
     _syncFeeds(cameras, settings);
 
-    return Container(
-      width: 340,
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        border: Border(left: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
-      ),
-      child: Column(
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
+    final collapsed = ref.watch(camerasPanelCollapsedProvider);
+
+    if (collapsed) {
+      return GestureDetector(
+        onTap: () => ref.read(camerasPanelCollapsedProvider.notifier).state = false,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 48,
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.videocam_rounded, size: 16, color: scheme.primary),
-                const SizedBox(width: 6),
-                Text(
-                  'Cameras',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.onSurface),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: cameras.isNotEmpty
-                        ? Colors.green.withValues(alpha: 0.1)
-                        : scheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                Icon(Icons.videocam_outlined, size: 18, color: scheme.onSurfaceVariant),
+                const SizedBox(height: 12),
+                RotatedBox(
+                  quarterTurns: 1,
                   child: Text(
-                    '${cameras.length}',
+                    'CAMERAS',
                     style: TextStyle(
                       fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: cameras.isNotEmpty ? Colors.green : scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                      color: scheme.onSurfaceVariant,
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.15)),
+        ),
+      );
+    }
 
+    return Container(
+      width: 450,
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: InkWell(
+                onTap: () => ref.read(camerasPanelCollapsedProvider.notifier).state = true,
+                borderRadius: BorderRadius.circular(4),
+                child: Icon(Icons.chevron_right, size: 18, color: scheme.onSurfaceVariant),
+              ),
+            ),
+          ),
           // Camera list
           Expanded(
             child: cameras.isEmpty
@@ -323,7 +289,7 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.videocam_off_rounded, size: 28, color: scheme.onSurfaceVariant.withValues(alpha: 0.2)),
+                        Icon(Icons.videocam_off_outlined, size: 28, color: scheme.onSurfaceVariant.withValues(alpha: 0.2)),
                         const SizedBox(height: 8),
                         Text(
                           'No cameras',
@@ -338,8 +304,6 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (_, i) {
                       final cam = cameras[i];
-                      final phaseLabel = _phaseLabel(cam, isTarePhase);
-                      final isLive = _hasActiveFeed(cam.key);
                       return GestureDetector(
                         onTap: () => _showEnlargedCamera(cam, isTarePhase),
                         child: MouseRegion(
@@ -349,10 +313,10 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
                             child: Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
                               ),
-                              clipBehavior: Clip.antiAlias,
-                              child: Stack(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Stack(
                                 fit: StackFit.expand,
                                 children: [
                                   _buildCameraContent(cam, scheme),
@@ -365,49 +329,6 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
                                       plateBgColor: unifiedBgColor,
                                       plateCropB64: anprOverlays[cam.key]!.plateCropB64,
                                     ),
-                                  // ANPR scanning indicator (below live dot)
-                                  if (isAnprScanning)
-                                    Positioned(
-                                      right: 6, top: 22,
-                                      child: _AnprScanningBadge(
-                                        hasDetection: anprOverlays[cam.key]?.hasDetection ?? false,
-                                      ),
-                                    ),
-                                  // Top-left: phase + role
-                                  Positioned(
-                                    left: 6, top: 6,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.6),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        phaseLabel,
-                                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white),
-                                      ),
-                                    ),
-                                  ),
-                                  // Top-right: live indicator
-                                  Positioned(
-                                    right: 6, top: 6,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Container(
-                                          width: 7, height: 7,
-                                          decoration: BoxDecoration(
-                                            color: isLive ? Colors.red : Colors.grey,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        if (isLive) ...[
-                                          const SizedBox(width: 3),
-                                          const Text('LIVE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.red)),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
                                   // Bottom-left: camera name
                                   Positioned(
                                     left: 6, bottom: 6,
@@ -423,7 +344,60 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
                                       ),
                                     ),
                                   ),
+                                  // Top-left: phase + role
+                                  Positioned(
+                                    left: 6, top: 6,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.6),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        _phaseLabel(cam, isTarePhase),
+                                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                  // Bottom-right: LIVE + scanning + privacy
+                                  Positioned(
+                                    right: 6, bottom: 6,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if ((ref.watch(cameraPrivacyZonesProvider).valueOrNull?[cam.key]?.isNotEmpty ?? false)) ...[
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.deepPurple.withValues(alpha: 0.8),
+                                              borderRadius: BorderRadius.circular(3),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.blur_on, size: 8, color: Colors.white),
+                                                SizedBox(width: 2),
+                                                Text('PRIVACY', style: TextStyle(fontSize: 7, fontWeight: FontWeight.w700, color: Colors.white)),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                        ],
+                                        if (isAnprScanning) ...[
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange.withValues(alpha: 0.8),
+                                              borderRadius: BorderRadius.circular(3),
+                                            ),
+                                            child: const Text('SCANNING', style: TextStyle(fontSize: 7, fontWeight: FontWeight.w700, color: Colors.white)),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
                                 ],
+                              ),
                               ),
                             ),
                           ),
@@ -437,13 +411,11 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
     );
   }
 
-  bool _hasActiveFeed(String key) {
-    return _videoControllers.containsKey(key) || _nativeFeeds.containsKey(key);
-  }
 
   Widget _buildCameraContent(ActiveCamera cam, ColorScheme scheme) {
-    if (_videoControllers.containsKey(cam.key)) {
-      return Video(controller: _videoControllers[cam.key]!, controls: NoVideoControls);
+    final liveFeeds = ref.watch(liveCameraFeedsProvider).feeds;
+    if (liveFeeds.containsKey(cam.key)) {
+      return Video(controller: liveFeeds[cam.key]!.controller, controls: NoVideoControls, fit: BoxFit.cover);
     }
 
     final feed = _nativeFeeds[cam.key];
@@ -459,13 +431,10 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
       );
     }
 
-    return Container(
-      color: scheme.surfaceContainerHighest,
-      child: Center(
-        child: SizedBox(
-          width: 14, height: 14,
-          child: CircularProgressIndicator(strokeWidth: 1.5, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
-        ),
+    return Center(
+      child: SizedBox(
+        width: 14, height: 14,
+        child: CircularProgressIndicator(strokeWidth: 1.5, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
       ),
     );
   }
@@ -594,22 +563,73 @@ class _AnprOverlayPainter extends StatelessWidget {
   }
 }
 
-class _EnlargedCameraDialog extends ConsumerWidget {
+class _EnlargedCameraDialog extends ConsumerStatefulWidget {
   final String label;
   final String phaseLabel;
   final String cameraKey;
-  final Widget child;
-  const _EnlargedCameraDialog({required this.label, required this.phaseLabel, required this.cameraKey, required this.child});
+  final CameraFeed? nativeFeed;
+  const _EnlargedCameraDialog({required this.label, required this.phaseLabel, required this.cameraKey, this.nativeFeed});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_EnlargedCameraDialog> createState() => _EnlargedCameraDialogState();
+}
+
+class _EnlargedCameraDialogState extends ConsumerState<_EnlargedCameraDialog> {
+  int _tabIndex = 0;
+  late final LiveCameraFeedsNotifier _feedsNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _feedsNotifier = ref.read(liveCameraFeedsProvider.notifier);
+  }
+
+  bool get _audioEnabled => _feedsNotifier.isAudioEnabled(widget.cameraKey);
+
+  @override
+  void dispose() {
+    _feedsNotifier.setAudio(widget.cameraKey, false);
+    super.dispose();
+  }
+
+  void _toggleAudio() {
+    final enabled = !_feedsNotifier.isAudioEnabled(widget.cameraKey);
+    _feedsNotifier.setAudio(widget.cameraKey, enabled);
+    setState(() {});
+  }
+
+  Widget _buildLiveFeed() {
+    final liveFeeds = ref.watch(liveCameraFeedsProvider).feeds;
+    if (liveFeeds.containsKey(widget.cameraKey)) {
+      return Video(controller: liveFeeds[widget.cameraKey]!.controller, controls: NoVideoControls, fit: BoxFit.cover);
+    }
+    if (widget.nativeFeed != null) {
+      final feed = widget.nativeFeed!;
+      return FittedBox(
+        fit: BoxFit.cover,
+        clipBehavior: Clip.hardEdge,
+        child: SizedBox(
+          width: feed.width.toDouble(),
+          height: feed.height.toDouble(),
+          child: Texture(textureId: feed.textureId),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final anprOverlays = ref.watch(anprDetectionOverlayProvider);
-    final camOverlay = anprOverlays[cameraKey];
+    final camOverlay = anprOverlays[widget.cameraKey];
     final isScanning = ref.watch(anprScanningProvider);
     final bestColorOverlay = anprOverlays.values.where((o) => o.hasDetection).isEmpty
         ? null
         : anprOverlays.values.where((o) => o.hasDetection).reduce((a, b) => a.confidence > b.confidence ? a : b);
     final unifiedBgColor = bestColorOverlay?.plateBgColor ?? '#FFFFFF';
+
+    final custFace = ref.watch(customerFaceProvider);
+    final hasFaceSnapshot = custFace.detected && custFace.faceCropB64 != null && custFace.faceCropB64!.isNotEmpty;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -626,69 +646,171 @@ class _EnlargedCameraDialog extends ConsumerWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                child,
-                // ANPR detection overlay (bbox + text)
-                if (camOverlay != null && (camOverlay.hasDetection || camOverlay.hasCrop))
-                  _AnprOverlayPainter(
-                    plateText: camOverlay.plateText,
-                    confidence: camOverlay.confidence,
-                    bbox: camOverlay.bbox,
-                    plateBgColor: unifiedBgColor,
-                    plateCropB64: camOverlay.plateCropB64,
-                  ),
-                // ANPR scanning indicator
-                if (isScanning)
-                  Positioned(
-                    right: 16, bottom: 16,
-                    child: _AnprScanningBadge(
-                      hasDetection: camOverlay?.hasDetection ?? false,
-                    ),
-                  ),
-                // Top-left: camera name + live dot
-                Positioned(
-                  left: 16, top: 16,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(width: 7, height: 7, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle)),
-                        const SizedBox(width: 6),
-                        Text(label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (hasFaceSnapshot)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  color: const Color(0xFF1A1A2E),
+                  child: Row(
+                    children: [
+                      _TabButton(label: 'Live Feed', icon: Icons.videocam_outlined, selected: _tabIndex == 0, onTap: () => setState(() => _tabIndex = 0)),
+                      const SizedBox(width: 8),
+                      _TabButton(label: 'Face Snapshot', icon: Icons.face_outlined, selected: _tabIndex == 1, onTap: () => setState(() => _tabIndex = 1)),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(6)),
+                          child: const Icon(Icons.close_outlined, size: 16, color: Colors.white70),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                // Top-right: close button
-                Positioned(
-                  right: 16, top: 16,
-                  child: GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.close_rounded, size: 18, color: Colors.white70),
-                    ),
-                  ),
+              Flexible(
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: _tabIndex == 0 || !hasFaceSnapshot
+                      ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            _buildLiveFeed(),
+                            if (camOverlay != null && (camOverlay.hasDetection || camOverlay.hasCrop))
+                              _AnprOverlayPainter(
+                                plateText: camOverlay.plateText,
+                                confidence: camOverlay.confidence,
+                                bbox: camOverlay.bbox,
+                                plateBgColor: unifiedBgColor,
+                                plateCropB64: camOverlay.plateCropB64,
+                              ),
+                            if (isScanning)
+                              Positioned(
+                                right: 16, bottom: 16,
+                                child: _AnprScanningBadge(hasDetection: camOverlay?.hasDetection ?? false),
+                              ),
+                            Positioned(
+                              left: 16, top: 16,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(width: 7, height: 7, decoration: const BoxDecoration(color: Colors.white70, shape: BoxShape.circle)),
+                                    const SizedBox(width: 6),
+                                    Text(widget.label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (!hasFaceSnapshot)
+                              Positioned(
+                                right: 16, top: 16,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    GestureDetector(
+                                      onTap: _toggleAudio,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
+                                        child: Icon(
+                                          _audioEnabled ? Icons.volume_up_outlined : Icons.volume_off_outlined,
+                                          size: 18, color: _audioEnabled ? Colors.white : Colors.white70,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    GestureDetector(
+                                      onTap: () => Navigator.of(context).pop(),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
+                                        child: const Icon(Icons.close_outlined, size: 18, color: Colors.white70),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            Positioned(
+                              left: 16, bottom: 16,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                                child: Text(widget.phaseLabel, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Container(
+                          color: const Color(0xFF12121F),
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.memory(
+                                    base64Decode(custFace.faceCropB64!),
+                                    height: MediaQuery.of(context).size.height * 0.45,
+                                    fit: BoxFit.contain,
+                                    gaplessPlayback: true,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                if (custFace.name != null)
+                                  Text(custFace.name!, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                                if (custFace.confidence > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      '${(custFace.confidence * 100).toInt()}% match',
+                                      style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
                 ),
-                // Bottom-left: phase/role label
-                Positioned(
-                  left: 16, bottom: 16,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
-                    child: Text(phaseLabel, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TabButton({required this.label, required this.icon, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: selected ? null : Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: selected ? Colors.white : Colors.white54),
+            const SizedBox(width: 5),
+            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? Colors.white : Colors.white54)),
+          ],
         ),
       ),
     );
@@ -727,7 +849,7 @@ class _AnprScanningBadgeState extends State<_AnprScanningBadge> with SingleTicke
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
           decoration: BoxDecoration(
-            color: (widget.hasDetection ? Colors.green : Colors.blue).withValues(alpha: 0.8),
+            color: Colors.black.withValues(alpha: 0.7),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Opacity(
@@ -736,7 +858,7 @@ class _AnprScanningBadgeState extends State<_AnprScanningBadge> with SingleTicke
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  widget.hasDetection ? Icons.check_circle_rounded : Icons.radar_rounded,
+                  widget.hasDetection ? Icons.check_circle_outlined : Icons.radar_outlined,
                   size: 10,
                   color: Colors.white,
                 ),

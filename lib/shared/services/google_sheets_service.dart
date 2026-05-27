@@ -90,12 +90,18 @@ class GoogleSheetsService {
       final privateKey = creds['private_key'] as String?;
       if (clientEmail == null || privateKey == null) return null;
 
-      // Use gcloud CLI token as bridge until googleapis_auth is added
-      final result = await Process.run('gcloud', ['auth', 'print-access-token']);
-      if (result.exitCode == 0) {
-        _accessToken = (result.stdout as String).trim();
-        _tokenExpiry = DateTime.now().add(const Duration(minutes: 55));
-        return _accessToken;
+      // Use gcloud CLI token as bridge until googleapis_auth is added.
+      // gcloud may not be installed on all platforms (especially Windows).
+      try {
+        final result = await Process.run('gcloud', ['auth', 'print-access-token']);
+        if (result.exitCode == 0) {
+          _accessToken = (result.stdout as String).trim();
+          _tokenExpiry = DateTime.now().add(const Duration(minutes: 55));
+          return _accessToken;
+        }
+      } on ProcessException {
+        // gcloud CLI not installed or not in PATH — return null gracefully
+        return null;
       }
     } catch (_) {}
     return null;

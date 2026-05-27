@@ -144,14 +144,17 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
     setState(() { _capturingFace = true; _faceError = null; });
 
     try {
-      final result = await Process.run('osascript', [
-        '-e',
-        'set theFile to choose file of type {"public.jpeg", "public.png"} with prompt "Select a clear selfie photo (JPEG or PNG)"',
-        '-e',
-        'POSIX path of theFile',
-      ]);
-      final path = (result.stdout as String).trim();
-      if (path.isEmpty) {
+      final picked = await FilePicker.platform.pickFiles(
+        dialogTitle: 'Select a clear selfie photo (JPEG or PNG)',
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png'],
+      );
+      if (picked == null || picked.files.isEmpty) {
+        if (mounted) setState(() => _capturingFace = false);
+        return;
+      }
+      final path = picked.files.single.path;
+      if (path == null || path.isEmpty) {
         if (mounted) setState(() => _capturingFace = false);
         return;
       }

@@ -239,15 +239,18 @@ final currentOperatorActiveProvider = FutureProvider<bool>((ref) async {
 
 // ─── Current Operator Name ──────────────────────────────────────────────────
 
+/// Invalidate this to force re-fetch of operator identity after a switch.
+final operatorIdentityRefreshProvider = StateProvider<int>((ref) => 0);
+
 final currentOperatorNameProvider = Provider<String>((ref) {
+  ref.watch(operatorIdentityRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return '';
-  // Read from the operator permissions provider which already fetched the doc
-  // We piggyback on the KYC provider's query result pattern
   return ref.watch(_operatorNameFutureProvider).valueOrNull ?? '';
 });
 
 final _operatorNameFutureProvider = FutureProvider<String>((ref) async {
+  ref.watch(operatorIdentityRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
   final user = FirebaseAuth.instance.currentUser;
   final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
@@ -260,6 +263,21 @@ final _operatorNameFutureProvider = FutureProvider<String>((ref) async {
     }
   } catch (_) {}
   return user?.displayName ?? email;
+});
+
+final currentOperatorProfilePicProvider = FutureProvider<String>((ref) async {
+  final paths = ref.watch(firestorePathsProvider);
+  final user = FirebaseAuth.instance.currentUser;
+  final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
+  if (email == null || email.isEmpty) return '';
+  if (!paths.isConfigured) return '';
+  try {
+    final snap = await paths.operators.where('email', isEqualTo: email).limit(1).get();
+    if (snap.docs.isNotEmpty) {
+      return snap.docs.first.data()['profilePic'] as String? ?? '';
+    }
+  } catch (_) {}
+  return '';
 });
 
 // ─── Per-Operator Permissions ───────────────────────────────────────────────
@@ -594,6 +612,7 @@ class UsbMonitorService {
 
   Future<List<String>> getExternalVolumes() async {
     if (!enabled) return [];
+    if (!Platform.isMacOS) return []; // diskutil is macOS-only
     try {
       final result = await Process.run('diskutil', ['list', 'external']);
       if (result.exitCode == 0) {
@@ -624,6 +643,7 @@ class UsbMonitorService {
 
   Future<void> ejectAll() async {
     if (!enabled) return;
+    if (!Platform.isMacOS) return; // diskutil is macOS-only
     try {
       final result = await Process.run('diskutil', ['list', 'external']);
       if (result.exitCode == 0) {

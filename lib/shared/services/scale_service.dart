@@ -321,7 +321,6 @@ class ScaleService {
     final completer = Completer<bool>();
     final ms = (_config.readTimeout * 2).clamp(3000, 8000);
 
-    // Hard wall-clock timeout
     final timer = Timer(Duration(milliseconds: ms), () {
       if (!completer.isCompleted) {
         _lastError = 'Connection timed out (${_config.tcpHost}:${_config.tcpPort})';
@@ -367,6 +366,7 @@ class ScaleService {
   }
 
   void disconnect() {
+    _reconnectTimer?.cancel();
     _stabilityTimer?.cancel();
     _readerSub?.cancel();
     _readerSub = null;
@@ -780,20 +780,37 @@ class ScaleService {
     }
   }
 
+  Timer? _reconnectTimer;
+
   void _onError(Object error) {
     _setStatus(ScaleConnectionStatus.error);
+    _scheduleReconnect();
   }
 
   void _onDone() {
     _setStatus(ScaleConnectionStatus.disconnected);
+    _scheduleReconnect();
   }
 
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    if (_config.connectionType == 'tcp' && _config.tcpHost.isNotEmpty) {
+      _reconnectTimer = Timer(const Duration(seconds: 3), () {
+        if (_status != ScaleConnectionStatus.connected) connect();
+      });
+    }
+  }
+
+  bool _disposed = false;
+
   void _setStatus(ScaleConnectionStatus status) {
+    if (_disposed) return;
     _status = status;
     _statusController.add(status);
   }
 
   void dispose() {
+    _disposed = true;
     disconnect();
     _statusController.close();
     _readingController.close();
