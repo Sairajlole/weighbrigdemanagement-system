@@ -158,20 +158,36 @@ Future<String?> _ensureMacHelper() async {
 }
 
 Future<SystemStats> _fetchWindows() async {
+  double cpu = 0;
+  double mem = 0;
+
   try {
-    final result = await Process.run('powershell', [
-      '-NoProfile', '-Command',
-      r'''$os = Get-CimInstance Win32_OperatingSystem; $mem = [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize * 100, 1); $cpu = try { [math]::Round((Get-Counter '\Processor(_Total)\% Processor Time' -ErrorAction Stop).CounterSamples[0].CookedValue, 1) } catch { try { (Get-CimInstance Win32_Processor).LoadPercentage } catch { 0 } }; Write-Output "$cpu $mem"'''
-    ]).timeout(const Duration(seconds: 12));
-    if (result.exitCode == 0) {
-      final parts = (result.stdout as String).trim().split(' ');
-      final cpu = parts.isNotEmpty ? (double.tryParse(parts[0]) ?? 0) : 0.0;
-      final mem = parts.length > 1 ? (double.tryParse(parts[1]) ?? 0) : 0.0;
-      if (cpu > 0 || mem > 0) {
-        return SystemStats(cpuPercent: cpu, memPercent: mem);
+    // CPU via wmic — lightweight, no PowerShell overhead
+    final cpuResult = await Process.run(
+      'wmic', ['cpu', 'get', 'LoadPercentage', '/value'],
+    ).timeout(const Duration(seconds: 5));
+    if (cpuResult.exitCode == 0) {
+      final match = RegExp(r'LoadPercentage=(\d+)').firstMatch(cpuResult.stdout as String);
+      if (match != null) cpu = double.tryParse(match.group(1)!) ?? 0;
+    }
+  } catch (_) {}
+
+  try {
+    // Memory via wmic
+    final memResult = await Process.run(
+      'wmic', ['OS', 'get', 'TotalVisibleMemorySize,FreePhysicalMemory', '/value'],
+    ).timeout(const Duration(seconds: 5));
+    if (memResult.exitCode == 0) {
+      final output = memResult.stdout as String;
+      final freeMatch = RegExp(r'FreePhysicalMemory=(\d+)').firstMatch(output);
+      final totalMatch = RegExp(r'TotalVisibleMemorySize=(\d+)').firstMatch(output);
+      if (freeMatch != null && totalMatch != null) {
+        final free = double.tryParse(freeMatch.group(1)!) ?? 0;
+        final total = double.tryParse(totalMatch.group(1)!) ?? 1;
+        mem = ((total - free) / total * 100).roundToDouble();
       }
     }
   } catch (_) {}
 
-  return SystemStats.zero;
+  return SystemStats(cpuPercent: cpu, memPercent: mem);
 }

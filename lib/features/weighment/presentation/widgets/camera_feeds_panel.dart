@@ -195,6 +195,12 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     native.setProperty('rtsp-transport', 'tcp');
     native.setProperty('profile', 'low-latency');
     native.setProperty('untimed', 'yes');
+    if (Platform.isWindows) {
+      native.setProperty('hwdec', 'auto-safe');
+      native.setProperty('hwdec-codecs', 'all');
+    } else {
+      native.setProperty('hwdec', 'videotoolbox');
+    }
     native.setProperty('cache', 'no');
     native.setProperty('cache-pause', 'no');
     native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+fastseek+discardcorrupt');
@@ -205,6 +211,7 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     native.setProperty('interpolation', 'no');
     native.setProperty('video-sync', 'audio');
     native.setProperty('vf', 'scale=640:-2');
+    native.setProperty('fps', '10');
     player.open(Media(rtspUrl), play: true);
     player.setVolume(0);
   }

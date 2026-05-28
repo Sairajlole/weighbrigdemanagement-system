@@ -127,7 +127,8 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
     native.setProperty('audio', 'yes');
     if (Platform.isWindows) {
       native.setProperty('ao', 'wasapi');
-      native.setProperty('hwdec', 'd3d11va');
+      native.setProperty('hwdec', 'auto-safe');
+      native.setProperty('hwdec-codecs', 'all');
     } else {
       native.setProperty('ao', 'coreaudio');
       native.setProperty('hwdec', 'videotoolbox');
@@ -144,6 +145,7 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
     native.setProperty('interpolation', 'no');
     native.setProperty('video-sync', 'audio');
     native.setProperty('vf', 'scale=640:-2');
+    native.setProperty('fps', '10');
     return player;
   }
 

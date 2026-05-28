@@ -57,8 +57,8 @@ class InlineVerificationState {
 
 class InlineVerificationNotifier extends StateNotifier<InlineVerificationState> {
   static const _channel = MethodChannel('com.weighbridge/webcam');
-  static const _burstFrames = 3;
-  static const _burstIntervalMs = 100;
+  static const _burstFrames = 2;
+  static const _burstIntervalMs = 200;
 
   final AiSidecarClient? sidecar;
   final String companyId;
