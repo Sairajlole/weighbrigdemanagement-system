@@ -132,7 +132,6 @@ class PendingQueuePanel extends ConsumerWidget {
                 );
               }
               return Scrollbar(
-                thumbVisibility: true,
                 child: ListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   itemCount: list.length,

@@ -794,7 +794,6 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             _buildTabBar(scheme, text),
             Expanded(
               child: Scrollbar(
-                thumbVisibility: true,
                 child: SingleChildScrollView(
                   key: ValueKey('tab_$_tabIndex'),
                   padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
@@ -874,7 +873,6 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           SizedBox(
             height: 320,
             child: Scrollbar(
-              thumbVisibility: true,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),

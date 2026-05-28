@@ -1898,7 +1898,6 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
             // Body
             Expanded(
               child: Scrollbar(
-                thumbVisibility: true,
                 child: ListView.builder(
                   itemCount: operators.length,
                   itemBuilder: (_, i) {
@@ -2026,7 +2025,6 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
 
   Widget _buildGridContent(List<Map<String, dynamic>> operators, ColorScheme scheme, TextTheme text) {
     return Scrollbar(
-      thumbVisibility: true,
       child: GridView.builder(
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 320,

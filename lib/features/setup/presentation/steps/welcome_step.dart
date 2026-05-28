@@ -868,6 +868,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         );
         firebaseAuthOk = true;
       } catch (_) {}
+      if (!mounted) return;
 
       final operatorSnap = await db
           .collectionGroup('operators')

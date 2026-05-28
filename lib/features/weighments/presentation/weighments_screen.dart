@@ -856,7 +856,6 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
             _buildTableHeader(scheme),
             Expanded(
               child: Scrollbar(
-                thumbVisibility: true,
                 child: ListView.builder(
                   itemCount: sorted.length,
                   itemBuilder: (_, i) => _buildTableRow(sorted[i], i, scheme, sorted.length, addressMap),

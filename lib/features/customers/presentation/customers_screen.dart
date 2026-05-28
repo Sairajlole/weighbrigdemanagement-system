@@ -875,7 +875,6 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
 
   Widget _buildGrid(List<Map<String, dynamic>> customers, ColorScheme scheme, TextTheme text, bool shouldMask) {
     return Scrollbar(
-      thumbVisibility: true,
       child: GridView.builder(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
@@ -1068,7 +1067,6 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           const Divider(height: 1),
           Expanded(
             child: Scrollbar(
-              thumbVisibility: true,
               child: ListView.separated(
                 itemCount: customers.length,
                 separatorBuilder: (_, i) => Divider(

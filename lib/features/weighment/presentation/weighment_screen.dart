@@ -1089,7 +1089,6 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final hasSession = session != null;
 
     return Scrollbar(
-      thumbVisibility: true,
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

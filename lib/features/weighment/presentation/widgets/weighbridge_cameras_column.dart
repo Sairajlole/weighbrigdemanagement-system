@@ -302,7 +302,6 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
                     ),
                   )
                 : Scrollbar(
-                    thumbVisibility: true,
                     child: ListView.separated(
                       padding: const EdgeInsets.all(10),
                       itemCount: cameras.length,
