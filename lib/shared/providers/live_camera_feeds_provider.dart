@@ -122,7 +122,7 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
       ),
     );
     final native = player.platform as NativePlayer;
-    native.setProperty('rtsp-transport', 'udp');
+    native.setProperty('rtsp-transport', 'tcp');
     native.setProperty('profile', 'low-latency');
     native.setProperty('audio', 'no');
     if (Platform.isWindows) {

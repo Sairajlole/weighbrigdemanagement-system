@@ -192,7 +192,7 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     _videoControllers[key] = controller;
 
     final native = player.platform as NativePlayer;
-    native.setProperty('rtsp-transport', 'udp');
+    native.setProperty('rtsp-transport', 'tcp');
     native.setProperty('profile', 'low-latency');
     native.setProperty('untimed', 'yes');
     if (Platform.isWindows) {
