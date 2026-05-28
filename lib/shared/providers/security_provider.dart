@@ -171,18 +171,23 @@ class SecuritySettings {
 // ─── Providers ───────────────────────────────────────────────────────────────
 
 final securitySettingsOverrideProvider = StateProvider<SecuritySettings?>((ref) => null);
+final securityRefreshProvider = StateProvider<int>((ref) => 0);
 
-final securitySettingsProvider = StreamProvider<SecuritySettings>((ref) {
+final securitySettingsProvider = FutureProvider<SecuritySettings>((ref) async {
   final override = ref.watch(securitySettingsOverrideProvider);
-  if (override != null) {
-    return Stream.value(override);
-  }
+  if (override != null) return override;
+  ref.watch(securityRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
-  if (!paths.isConfigured) return Stream.value(const SecuritySettings());
-  return paths.securitySettings.snapshots().map((snap) {
+  if (!paths.isConfigured) return const SecuritySettings();
+  try {
+    final snap = await paths.securitySettings.get(const GetOptions(source: Source.cache));
     if (snap.exists) return SecuritySettings.fromMap(snap.data()!);
-    return const SecuritySettings();
-  });
+  } catch (_) {}
+  try {
+    final snap = await paths.securitySettings.get();
+    if (snap.exists) return SecuritySettings.fromMap(snap.data()!);
+  } catch (_) {}
+  return const SecuritySettings();
 });
 
 final currentUserRoleProvider = FutureProvider<String>((ref) async {

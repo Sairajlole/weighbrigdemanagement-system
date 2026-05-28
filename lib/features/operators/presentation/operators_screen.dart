@@ -5287,7 +5287,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
   }
 
   void _startFrameCapture() {
-    _frameTimer = Timer.periodic(const Duration(milliseconds: 100), (_) async {
+    _frameTimer = Timer.periodic(const Duration(milliseconds: 250), (_) async {
       if (!_cameraReady || !mounted) return;
       try {
         final frame = await _channel.invokeMethod<Uint8List>('captureFrame');

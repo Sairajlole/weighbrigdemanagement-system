@@ -3,28 +3,54 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 
-final generalSettingsProvider = StreamProvider<Map<String, dynamic>>((ref) {
+final settingsRefreshProvider = StateProvider<int>((ref) => 0);
+
+final generalSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  ref.watch(settingsRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
-  if (!paths.isConfigured) return const Stream.empty();
-  return paths.generalSettings.snapshots().map(
-    (snap) => snap.exists ? snap.data()! : {},
-  );
+  if (!paths.isConfigured) return {};
+  try {
+    final snap = await paths.generalSettings.get(const GetOptions(source: Source.cache));
+    if (snap.exists) return snap.data()!;
+  } catch (_) {}
+  try {
+    final snap = await paths.generalSettings.get();
+    return snap.exists ? snap.data()! : {};
+  } catch (_) {
+    return {};
+  }
 });
 
-final scaleSettingsProvider = StreamProvider<Map<String, dynamic>>((ref) {
+final scaleSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  ref.watch(settingsRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
-  if (!paths.isConfigured) return const Stream.empty();
-  return paths.scaleSettings.snapshots().map(
-    (snap) => snap.exists ? snap.data()! : {},
-  );
+  if (!paths.isConfigured) return {};
+  try {
+    final snap = await paths.scaleSettings.get(const GetOptions(source: Source.cache));
+    if (snap.exists) return snap.data()!;
+  } catch (_) {}
+  try {
+    final snap = await paths.scaleSettings.get();
+    return snap.exists ? snap.data()! : {};
+  } catch (_) {
+    return {};
+  }
 });
 
-final printSettingsProvider = StreamProvider<Map<String, dynamic>>((ref) {
+final printSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  ref.watch(settingsRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
-  if (!paths.isConfigured) return const Stream.empty();
-  return paths.printingSettings.snapshots().map(
-    (snap) => snap.exists ? snap.data()! : {},
-  );
+  if (!paths.isConfigured) return {};
+  try {
+    final snap = await paths.printingSettings.get(const GetOptions(source: Source.cache));
+    if (snap.exists) return snap.data()!;
+  } catch (_) {}
+  try {
+    final snap = await paths.printingSettings.get();
+    return snap.exists ? snap.data()! : {};
+  } catch (_) {
+    return {};
+  }
 });
 
 final timeFormatProvider = Provider<String>((ref) {
