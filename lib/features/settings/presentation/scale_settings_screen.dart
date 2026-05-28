@@ -1265,46 +1265,239 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
     ref.read(scaleServiceProvider).disconnect();
     _liveReadingSub?.cancel();
     _rawDataSub?.cancel();
-    setState(() { _autoDetecting = true; _autoDetectPhase = 'Connecting...'; _detectedConfig = null; _testResult = null; _liveWeight = 0; });
+    setState(() { _autoDetecting = true; _autoDetectPhase = 'Scanning ports...'; _detectedConfig = null; _testResult = null; _liveWeight = 0; });
 
-    ScaleService.autoDetect(
-      port: _connectionType == 'serial' ? _port : null,
-      tcpHost: _connectionType == 'tcp' ? _tcpHostCtrl.text.trim() : null,
-      tcpPort: _connectionType == 'tcp' ? (int.tryParse(_tcpPortCtrl.text) ?? 3001) : null,
-      onProgress: (_, __, desc) {
-        if (mounted) setState(() => _autoDetectPhase = desc);
-      },
-      isCancelled: () => !_autoDetecting,
-    ).timeout(const Duration(seconds: 15), onTimeout: () => null).then((config) {
-      if (!mounted) return;
-      if (config != null) {
-        setState(() {
-          _detectedConfig = config;
-          _autoDetecting = false;
-          _connectionType = config.connectionType;
-          _baudRate = config.baudRate;
-          _dataBits = config.dataBits;
-          _parity = config.parity;
-          _stopBits = config.stopBits;
-          _delimiter = config.delimiter;
-          _weightRegex = config.weightRegex;
-          if (config.connectionType == 'tcp') {
+    if (_connectionType == 'tcp') {
+      // For TCP, use the original single-target autoDetect
+      ScaleService.autoDetect(
+        tcpHost: _tcpHostCtrl.text.trim(),
+        tcpPort: int.tryParse(_tcpPortCtrl.text) ?? 3001,
+        onProgress: (_, __, desc) {
+          if (mounted) setState(() => _autoDetectPhase = desc);
+        },
+        isCancelled: () => !_autoDetecting,
+      ).timeout(const Duration(seconds: 15), onTimeout: () => null).then((config) {
+        if (!mounted) return;
+        if (config != null) {
+          setState(() {
+            _detectedConfig = config;
+            _autoDetecting = false;
+            _connectionType = config.connectionType;
+            _delimiter = config.delimiter;
+            _weightRegex = config.weightRegex;
             _tcpHostCtrl.text = config.tcpHost;
             _tcpPortCtrl.text = '${config.tcpPort}';
-          }
-        });
-        _markCardDirty('connection');
+          });
+          _markCardDirty('connection');
+          _showHeaderMsg('Scale detected successfully');
+        } else {
+          setState(() { _autoDetecting = false; _detectedConfig = null; });
+          _showHeaderMsg('Detection failed — Cannot reach ${_tcpHostCtrl.text.trim()}:${_tcpPortCtrl.text}', isError: true, seconds: 6);
+        }
+      });
+      return;
+    }
+
+    // For serial: scan ALL ports across all baud rates
+    ScaleService.scanAllPorts(
+      isCancelled: () => !_autoDetecting,
+      onStatus: (s) {
+        if (mounted) setState(() => _autoDetectPhase = s);
+      },
+    ).timeout(const Duration(seconds: 60), onTimeout: () => <PortCandidate>[]).then((candidates) {
+      if (!mounted) return;
+      setState(() => _autoDetecting = false);
+
+      if (candidates.isEmpty) {
+        setState(() => _detectedConfig = null);
+        final reason = _ports.isEmpty
+            ? 'No serial ports available'
+            : 'No scale data received on any port';
+        _showHeaderMsg('Detection failed — $reason', isError: true, seconds: 6);
+      } else if (candidates.length == 1) {
+        // Single candidate — auto-apply
+        _applyCandidateSettings(candidates.first);
         _showHeaderMsg('Scale detected successfully');
       } else {
-        setState(() { _autoDetecting = false; _detectedConfig = null; });
-        final reason = _connectionType == 'tcp'
-            ? 'Cannot reach ${_tcpHostCtrl.text.trim()}:${_tcpPortCtrl.text}'
-            : _ports.isEmpty
-                ? 'No serial ports available'
-                : 'No scale data received on $_port';
-        _showHeaderMsg('Detection failed — $reason', isError: true, seconds: 6);
+        // Multiple candidates — show picker
+        _showCandidatesPicker(candidates);
       }
     });
+  }
+
+  void _applyCandidateSettings(PortCandidate candidate) {
+    setState(() {
+      _connectionType = 'serial';
+      _port = candidate.port;
+      _baudRate = candidate.baudRate;
+      _dataBits = candidate.dataBits;
+      _parity = candidate.parity;
+      _stopBits = candidate.stopBits;
+      _delimiter = candidate.delimiter;
+      _weightRegex = candidate.weightRegex;
+      _detectedConfig = ScaleConfig(
+        connectionType: 'serial',
+        port: candidate.port,
+        baudRate: candidate.baudRate,
+        dataBits: candidate.dataBits,
+        parity: candidate.parity,
+        stopBits: candidate.stopBits,
+        delimiter: candidate.delimiter,
+        weightRegex: candidate.weightRegex,
+      );
+    });
+    _markCardDirty('connection');
+    _testConnection();
+  }
+
+  void _showCandidatesPicker(List<PortCandidate> candidates) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Scale detected on ${candidates.length} ports'),
+        content: SizedBox(
+          width: 560,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: candidates.length,
+            separatorBuilder: (_, __) => Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
+            itemBuilder: (_, idx) {
+              final c = candidates[idx];
+              // Score color
+              final Color scoreColor;
+              if (c.score > 0.7) {
+                scoreColor = const Color(0xFF22C55E); // green
+              } else if (c.score > 0.4) {
+                scoreColor = const Color(0xFFF59E0B); // yellow/amber
+              } else {
+                scoreColor = const Color(0xFFEF4444); // red
+              }
+
+              // Port type label
+              String typeLabel;
+              if (c.mirrorOf != null) {
+                typeLabel = 'Mirror of ${c.mirrorOf}';
+              } else {
+                switch (c.portType) {
+                  case 'usb':
+                    typeLabel = 'USB';
+                    break;
+                  case 'virtual':
+                    typeLabel = 'Virtual';
+                    break;
+                  default:
+                    typeLabel = 'Physical';
+                }
+              }
+
+              // Sample preview (first ~30 chars, cleaned)
+              final samplePreview = c.sampleData
+                  .replaceAll('\r\n', ' ')
+                  .replaceAll('\r', ' ')
+                  .replaceAll('\n', ' ')
+                  .trim();
+              final displaySample = samplePreview.length > 30
+                  ? samplePreview.substring(0, 30)
+                  : samplePreview;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  children: [
+                    // Score dot
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: scoreColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: scoreColor.withValues(alpha: 0.4), blurRadius: 4)],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Main info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                '${c.port}  @  ${c.baudRate}',
+                                style: text.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: scheme.primaryContainer.withValues(alpha: 0.3),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  typeLabel,
+                                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.primary),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            displaySample,
+                            style: text.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                              fontSize: 10,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (c.lastWeight != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              'Parsed weight: ${c.lastWeight!.toStringAsFixed(1)} kg',
+                              style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Score text
+                    Text(
+                      '${(c.score * 100).toInt()}%',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scoreColor),
+                    ),
+                    const SizedBox(width: 12),
+                    // Use button
+                    FilledButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _applyCandidateSettings(c);
+                        _showHeaderMsg('Applied settings from ${c.port}');
+                      },
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
+                      child: const Text('Use'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
   }
 
 

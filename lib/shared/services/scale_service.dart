@@ -7,6 +7,37 @@ import 'package:flutter_libserialport/flutter_libserialport.dart';
 
 enum ScaleConnectionStatus { disconnected, connecting, connected, error }
 
+/// Represents a candidate port/baud combination found during full-port scan.
+class PortCandidate {
+  final String port;
+  final int baudRate;
+  final int dataBits;
+  final String parity;
+  final String stopBits;
+  final String portType; // 'physical', 'usb', 'virtual'
+  final String? mirrorOf; // if virtual port echoes another port's data
+  final String sampleData; // raw sample for display
+  final String delimiter;
+  final String weightRegex;
+  final double score; // higher = more confident
+  final double? lastWeight; // parsed weight from sample
+
+  PortCandidate({
+    required this.port,
+    required this.baudRate,
+    required this.dataBits,
+    required this.parity,
+    required this.stopBits,
+    required this.portType,
+    this.mirrorOf,
+    required this.sampleData,
+    required this.delimiter,
+    required this.weightRegex,
+    required this.score,
+    this.lastWeight,
+  });
+}
+
 class ScaleReading {
   final double weight;
   final bool stable;
@@ -475,6 +506,227 @@ class ScaleService {
       onProgress: onProgress,
       isCancelled: isCancelled,
     );
+  }
+
+  /// Scan ALL available serial ports across all baud rates, score them,
+  /// and return a sorted list of candidates. This is the upgraded version
+  /// of [autoDetect] that checks every port rather than a single pre-selected one.
+  static Future<List<PortCandidate>> scanAllPorts({
+    bool Function()? isCancelled,
+    void Function(String status)? onStatus,
+  }) async {
+    final ports = SerialPort.availablePorts;
+    if (ports.isEmpty) return [];
+
+    // Classify each port
+    final portTypes = <String, String>{};
+    for (final port in ports) {
+      portTypes[port] = await _classifyPort(port);
+    }
+
+    const baudRates = [9600, 2400, 4800, 19200, 115200, 38400, 57600, 1200];
+    const delimiters = [r'\r\n', r'\r', r'\n'];
+    const regexes = [
+      r'(\d+\.?\d*)',
+      r'[+-]?\s*(\d+\.?\d*)\s*[kK][gG]',
+      r'ST,GS,\s*(\d+\.?\d*)',
+      r'(\d+\.?\d*)\s*$',
+    ];
+
+    final candidates = <PortCandidate>[];
+
+    for (final port in ports) {
+      if (isCancelled?.call() == true) break;
+
+      for (final baud in baudRates) {
+        if (isCancelled?.call() == true) break;
+
+        onStatus?.call('Scanning $port at $baud...');
+
+        final config = ScaleConfig(
+          connectionType: 'serial',
+          port: port,
+          baudRate: baud,
+          dataBits: 8,
+          parity: 'None',
+          stopBits: '1',
+          readTimeout: 1500,
+        );
+
+        final rawData = await _captureRawSerial(config);
+        if (rawData == null || rawData.isEmpty) continue;
+
+        // Check if data looks like valid ASCII (>60% printable)
+        final printable = rawData.runes.where(
+          (c) => c >= 0x20 && c <= 0x7E || c == 0x0D || c == 0x0A,
+        ).length;
+        if (printable < rawData.length * 0.6) continue;
+
+        // Try to match delimiter/regex combos
+        final result = _matchFromBuffer(rawData, delimiters, regexes);
+        if (result != null) {
+          // Calculate score
+          final resolvedDelim = _resolveDelimiter(result['delimiter']!);
+          final lines = rawData.split(resolvedDelim).where((l) => l.trim().isNotEmpty).toList();
+          final re = RegExp(result['regex']!);
+          final matchCount = lines.where((l) => re.hasMatch(l.trim())).length;
+          double baseScore = lines.isNotEmpty ? matchCount / lines.length : 0;
+
+          // Port type bonus
+          final pType = portTypes[port] ?? 'physical';
+          if (pType == 'usb') {
+            baseScore += 0.2;
+          } else if (pType == 'physical') {
+            baseScore += 0.1;
+          }
+          // virtual gets no bonus
+
+          // Parse last weight to check for all-zeros penalty
+          double? lastWeight;
+          bool allZero = true;
+          for (final line in lines) {
+            final m = re.firstMatch(line.trim());
+            if (m != null) {
+              final w = double.tryParse(m.group(1) ?? '');
+              if (w != null) {
+                lastWeight = w;
+                if (w != 0) allZero = false;
+              }
+            }
+          }
+          if (allZero && lines.isNotEmpty) {
+            baseScore *= 0.5;
+          }
+
+          // Clamp score to reasonable range
+          final score = baseScore.clamp(0.0, 1.5);
+
+          candidates.add(PortCandidate(
+            port: port,
+            baudRate: baud,
+            dataBits: 8,
+            parity: 'None',
+            stopBits: '1',
+            portType: pType,
+            sampleData: rawData.length > 200 ? rawData.substring(0, 200) : rawData,
+            delimiter: result['delimiter']!,
+            weightRegex: result['regex']!,
+            score: score,
+            lastWeight: lastWeight,
+          ));
+          break; // Don't try more baud rates for this port
+        } else {
+          // Got readable data but no pattern match — include with low score
+          final pType = portTypes[port] ?? 'physical';
+          candidates.add(PortCandidate(
+            port: port,
+            baudRate: baud,
+            dataBits: 8,
+            parity: 'None',
+            stopBits: '1',
+            portType: pType,
+            sampleData: rawData.length > 200 ? rawData.substring(0, 200) : rawData,
+            delimiter: r'\r\n',
+            weightRegex: r'(\d+\.?\d*)',
+            score: 0.1,
+            lastWeight: null,
+          ));
+          break; // readable data found, no need to try other baud rates
+        }
+      }
+      // If no baud rate produced readable data for this port, skip it
+    }
+
+    // Detect mirrors: if two ports produce identical sample data (first 50 chars)
+    final mirrored = <int, String>{};
+    for (var i = 0; i < candidates.length; i++) {
+      if (mirrored.containsKey(i)) continue;
+      final sampleI = candidates[i].sampleData.substring(
+        0,
+        candidates[i].sampleData.length.clamp(0, 50),
+      );
+      for (var j = i + 1; j < candidates.length; j++) {
+        if (mirrored.containsKey(j)) continue;
+        final sampleJ = candidates[j].sampleData.substring(
+          0,
+          candidates[j].sampleData.length.clamp(0, 50),
+        );
+        if (sampleI == sampleJ && sampleI.isNotEmpty) {
+          // Mark the virtual one as mirror
+          if (candidates[j].portType == 'virtual') {
+            mirrored[j] = candidates[i].port;
+          } else if (candidates[i].portType == 'virtual') {
+            mirrored[i] = candidates[j].port;
+          } else {
+            // Both same type — mark the second one
+            mirrored[j] = candidates[i].port;
+          }
+        }
+      }
+    }
+
+    // Rebuild candidates with mirror info
+    final finalCandidates = <PortCandidate>[];
+    for (var i = 0; i < candidates.length; i++) {
+      final c = candidates[i];
+      finalCandidates.add(PortCandidate(
+        port: c.port,
+        baudRate: c.baudRate,
+        dataBits: c.dataBits,
+        parity: c.parity,
+        stopBits: c.stopBits,
+        portType: c.portType,
+        mirrorOf: mirrored[i],
+        sampleData: c.sampleData,
+        delimiter: c.delimiter,
+        weightRegex: c.weightRegex,
+        score: c.score,
+        lastWeight: c.lastWeight,
+      ));
+    }
+
+    // Sort by score descending
+    finalCandidates.sort((a, b) => b.score.compareTo(a.score));
+    return finalCandidates;
+  }
+
+  /// Classify a port as 'physical', 'usb', or 'virtual'.
+  static Future<String> _classifyPort(String port) async {
+    if (Platform.isMacOS) {
+      if (port.contains('usbserial') || port.contains('usbmodem')) {
+        return 'usb';
+      }
+      return 'physical';
+    } else if (Platform.isWindows) {
+      // Try to check Windows registry for port classification
+      try {
+        final result = await Process.run('reg', [
+          'query',
+          r'HKLM\SYSTEM\CurrentControlSet\Enum',
+          '/s',
+          '/f',
+          port.replaceAll(RegExp(r'^\\\\\.\\.\\'), ''),
+        ]);
+        final output = result.stdout.toString().toLowerCase();
+        if (output.contains('com0com') || output.contains('virtual')) {
+          return 'virtual';
+        } else if (output.contains('usb')) {
+          return 'usb';
+        }
+      } catch (_) {
+        // Registry query failed — fall back to path heuristics
+      }
+      // Fallback heuristic for Windows
+      final upper = port.toUpperCase();
+      if (upper.contains('USB')) return 'usb';
+      return 'physical';
+    } else {
+      // Linux and others
+      if (port.contains('ttyUSB') || port.contains('ttyACM')) {
+        return 'usb';
+      }
+      return 'physical';
+    }
   }
 
   /// TCP: connect once, buffer data, test combos in memory.
