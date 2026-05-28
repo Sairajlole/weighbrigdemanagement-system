@@ -37,9 +37,9 @@ from pydantic import BaseModel
 
 from anpr.consensus import add_reading, create_session, delete_session, get_result
 from anpr.detector import PlateDetector
-from anpr.ocr import run_ocr_on_crop, ParseqOCR, PaddleOCREngine
+from anpr.ocr import run_ocr_on_crop, ParseqOCR
 from anpr.preprocess import compute_sharpness, deskew
-from anpr.vehicle_describe import describe_vehicle, get_classifier, get_capture_store, VehicleClassifier
+from anpr.vehicle_describe import describe_vehicle_lite, get_capture_store
 from face import FaceRecord, get_face_index, get_face_engine
 from face.index import MAX_CENTROIDS
 
@@ -68,29 +68,20 @@ def _load_models():
     if plate_det.load():
         _models["plate_detector"] = plate_det
 
-    try:
-        from ultralytics import YOLO
+    # Material classifier: only load if site-specific trained model exists
+    site_material_path = Path.home() / ".weighbridge" / "models" / "material_classifier.pt"
+    if site_material_path.exists():
+        try:
+            from ultralytics import YOLO
+            _models["material_classifier"] = YOLO(str(site_material_path))
+            print(f"  [Models] Loaded site-trained material classifier: {site_material_path}")
+        except ImportError:
+            pass
 
-        material_path = MODEL_DIR / "material" / "yolov8m_cls.pt"
-        if material_path.exists():
-            _models["material_classifier"] = YOLO(str(material_path))
-    except ImportError:
-        pass
-
-    # OCR: PARSeq (primary) + PaddleOCR (secondary for consensus)
+    # OCR: PARSeq only (frame-consensus replaces need for secondary engine)
     parseq = ParseqOCR()
     if parseq.load():
         _models["ocr"] = parseq
-    paddle = PaddleOCREngine()
-    if paddle.load():
-        _models["ocr_secondary"] = paddle
-        if "ocr" not in _models:
-            _models["ocr"] = paddle
-
-    # Vehicle classifier: SigLIP zero-shot (+ DINOv2 if trained head exists)
-    vehicle_clf = get_classifier()
-    if vehicle_clf.load():
-        _models["vehicle_classifier_siglip"] = vehicle_clf
 
     # Face: ArcFace GlintR100 + SCRFD
     face_engine = get_face_engine()
@@ -320,8 +311,7 @@ async def detect_plate(file: UploadFile = File(...)):
             plate_crop = img[y1:y2, x1:x2]
             if plate_crop.size == 0 or not ocr:
                 continue
-            ocr_secondary = _models.get("ocr_secondary")
-            text, conf, p_type = run_ocr_on_crop(ocr, plate_crop, max_variants=_ocr_max_variants, secondary_engine=ocr_secondary)
+            text, conf, p_type = run_ocr_on_crop(ocr, plate_crop, max_variants=_ocr_max_variants)
             if not text:
                 continue
             if p_type == "unknown" and conf < 0.7:
@@ -487,8 +477,7 @@ async def anpr_session_frame(
             plate_crop = img[y1:y2, x1:x2]
             if plate_crop.size == 0 or not ocr:
                 continue
-            ocr_secondary = _models.get("ocr_secondary")
-            text, conf, p_type = run_ocr_on_crop(ocr, plate_crop, max_variants=_ocr_max_variants, secondary_engine=ocr_secondary)
+            text, conf, p_type = run_ocr_on_crop(ocr, plate_crop, max_variants=_ocr_max_variants)
             if text and (p_type != "unknown" or conf > 0.7):
                 _plate_text = text
                 _plate_type = p_type
@@ -560,101 +549,16 @@ async def anpr_session_delete(session_id: str):
 
 @app.post("/vehicle/describe")
 async def vehicle_describe(file: UploadFile = File(...)):
-    """Describe vehicle type, brand/model, and color. Uses SigLIP zero-shot + HSV color."""
+    """Describe vehicle type and color using lightweight detection (no ML classifier)."""
     img = await _read_image(file)
-    detector = _models.get("person_detector")
-    result = describe_vehicle(img, detector)
+    detector = _models.get("plate_detector")
+    result = await _run_inference(describe_vehicle_lite, img, detector)
     return result
 
 
 # =============================================================================
-# Vehicle Labeling API (for the labeling web UI)
-# =============================================================================
 
 
-@app.get("/labeler/stats")
-async def labeler_stats():
-    """Get labeling statistics."""
-    store = get_capture_store()
-    stats = store.get_stats()
-    classifier = get_classifier()
-    stats["num_classes"] = classifier.num_classes
-    return stats
-
-
-@app.get("/labeler/unlabeled")
-async def labeler_unlabeled(limit: int = 50):
-    """Get unlabeled vehicle captures with SigLIP's best guess."""
-    store = get_capture_store()
-    classifier = get_classifier()
-    items = store.get_unlabeled(limit=limit)
-
-    for item in items:
-        img_path = item.get("path")
-        if img_path and classifier.is_loaded:
-            try:
-                img = cv2.imread(img_path)
-                if img is not None:
-                    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                    result = classifier.classify(img_rgb)
-                    item["suggestion"] = result.get("predictions", [{}])[0] if result.get("predictions") else None
-                    item["suggestion_confidence"] = result.get("confidence", 0.0)
-            except Exception:
-                pass
-
-        # Include base64 thumbnail for the UI
-        if img_path:
-            try:
-                thumb = cv2.imread(img_path)
-                if thumb is not None:
-                    h, w = thumb.shape[:2]
-                    scale = min(200 / w, 150 / h)
-                    thumb = cv2.resize(thumb, (int(w * scale), int(h * scale)))
-                    _, buf = cv2.imencode(".jpg", thumb, [cv2.IMWRITE_JPEG_QUALITY, 70])
-                    item["thumbnail_b64"] = base64.b64encode(buf.tobytes()).decode("ascii")
-            except Exception:
-                pass
-
-    return {"items": items}
-
-
-@app.post("/labeler/label")
-async def labeler_label(body: dict):
-    """Label a capture with a vehicle class."""
-    capture_id = body.get("capture_id", "")
-    class_id = body.get("class_id", "")
-    if not capture_id or not class_id:
-        raise HTTPException(400, "capture_id and class_id required")
-
-    store = get_capture_store()
-    success = store.label(capture_id, class_id)
-    if not success:
-        raise HTTPException(404, "Capture not found")
-    return {"status": "labeled", "capture_id": capture_id, "class_id": class_id}
-
-
-@app.get("/labeler/classes")
-async def labeler_classes():
-    """Get all vehicle classes for the labeling dropdown."""
-    classifier = get_classifier()
-    return {"classes": classifier.classes}
-
-
-@app.post("/labeler/classes/add")
-async def labeler_add_class(body: dict):
-    """Add a new vehicle class."""
-    class_id = body.get("id", "")
-    brand = body.get("brand", "")
-    model = body.get("model", "")
-    vehicle_type = body.get("type", "")
-    prompt = body.get("prompt", "")
-
-    if not class_id or not brand or not prompt:
-        raise HTTPException(400, "id, brand, and prompt required")
-
-    classifier = get_classifier()
-    classifier.add_class(class_id, brand, model, vehicle_type, prompt)
-    return {"status": "added", "total_classes": classifier.num_classes}
 
 
 @app.post("/persons", response_model=PersonDetection)
