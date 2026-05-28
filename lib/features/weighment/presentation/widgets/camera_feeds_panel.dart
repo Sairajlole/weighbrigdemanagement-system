@@ -192,7 +192,7 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     _videoControllers[key] = controller;
 
     final native = player.platform as NativePlayer;
-    native.setProperty('rtsp-transport', 'tcp');
+    native.setProperty('rtsp-transport', 'udp');
     native.setProperty('profile', 'low-latency');
     native.setProperty('untimed', 'yes');
     if (Platform.isWindows) {
@@ -201,17 +201,18 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     } else {
       native.setProperty('hwdec', 'videotoolbox');
     }
+    native.setProperty('audio', 'no');
     native.setProperty('cache', 'no');
     native.setProperty('cache-pause', 'no');
+    native.setProperty('cache-secs', '0');
     native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+fastseek+discardcorrupt');
     native.setProperty('demuxer-readahead-secs', '0');
     native.setProperty('stream-lavf-o', 'timeout=5000000');
-    native.setProperty('framedrop', 'vo');
+    native.setProperty('framedrop', 'decoder+vo');
     native.setProperty('video-latency-hacks', 'yes');
     native.setProperty('interpolation', 'no');
-    native.setProperty('video-sync', 'audio');
+    native.setProperty('video-sync', 'desync');
     native.setProperty('vf', 'scale=640:-2');
-    native.setProperty('fps', '10');
     player.open(Media(rtspUrl), play: true);
     player.setVolume(0);
   }

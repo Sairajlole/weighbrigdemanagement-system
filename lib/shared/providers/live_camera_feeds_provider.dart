@@ -122,35 +122,32 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
       ),
     );
     final native = player.platform as NativePlayer;
-    native.setProperty('rtsp-transport', 'tcp');
+    native.setProperty('rtsp-transport', 'udp');
     native.setProperty('profile', 'low-latency');
-    native.setProperty('audio', 'yes');
+    native.setProperty('audio', 'no');
     if (Platform.isWindows) {
-      native.setProperty('ao', 'wasapi');
       native.setProperty('hwdec', 'auto-safe');
       native.setProperty('hwdec-codecs', 'all');
     } else {
-      native.setProperty('ao', 'coreaudio');
       native.setProperty('hwdec', 'videotoolbox');
     }
-    native.setProperty('audio-exclusive', 'no');
     native.setProperty('cache', 'no');
     native.setProperty('cache-pause', 'no');
+    native.setProperty('cache-secs', '0');
     native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+fastseek+discardcorrupt');
     native.setProperty('demuxer-readahead-secs', '0');
     native.setProperty('stream-lavf-o', 'timeout=5000000');
     native.setProperty('untimed', 'yes');
-    native.setProperty('framedrop', 'vo');
+    native.setProperty('framedrop', 'decoder+vo');
     native.setProperty('video-latency-hacks', 'yes');
     native.setProperty('interpolation', 'no');
-    native.setProperty('video-sync', 'audio');
+    native.setProperty('video-sync', 'desync');
     native.setProperty('vf', 'scale=640:-2');
-    native.setProperty('fps', '10');
     return player;
   }
 
   void _ensureHealthTimer() {
-    _healthTimer ??= Timer.periodic(const Duration(seconds: 30), (_) => _syncToLive());
+    _healthTimer ??= Timer.periodic(const Duration(seconds: 60), (_) => _syncToLive());
   }
 
   Future<void> _syncToLive() async {
