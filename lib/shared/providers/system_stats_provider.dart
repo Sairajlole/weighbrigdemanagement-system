@@ -158,36 +158,21 @@ Future<String?> _ensureMacHelper() async {
 }
 
 Future<SystemStats> _fetchWindows() async {
-  double cpu = 0;
-  double mem = 0;
-
   try {
-    // CPU via wmic — lightweight, no PowerShell overhead
-    final cpuResult = await Process.run(
-      'wmic', ['cpu', 'get', 'LoadPercentage', '/value'],
-    ).timeout(const Duration(seconds: 5));
-    if (cpuResult.exitCode == 0) {
-      final match = RegExp(r'LoadPercentage=(\d+)').firstMatch(cpuResult.stdout as String);
-      if (match != null) cpu = double.tryParse(match.group(1)!) ?? 0;
+    final result = await Process.run('powershell', [
+      '-NoProfile',
+      '-NoLogo',
+      '-OutputFormat', 'Text',
+      '-Command',
+      r'$p=(Get-CimInstance Win32_Processor).LoadPercentage;$o=Get-CimInstance Win32_OperatingSystem;$m=[math]::Round(($o.TotalVisibleMemorySize-$o.FreePhysicalMemory)/$o.TotalVisibleMemorySize*100,1);[Console]::Write("$p $m")',
+    ]).timeout(const Duration(seconds: 10));
+    if (result.exitCode == 0) {
+      final output = (result.stdout as String).trim();
+      final parts = output.split(RegExp(r'\s+'));
+      final cpu = parts.isNotEmpty ? (double.tryParse(parts[0]) ?? 0) : 0.0;
+      final mem = parts.length > 1 ? (double.tryParse(parts[1]) ?? 0) : 0.0;
+      return SystemStats(cpuPercent: cpu, memPercent: mem);
     }
   } catch (_) {}
-
-  try {
-    // Memory via wmic
-    final memResult = await Process.run(
-      'wmic', ['OS', 'get', 'TotalVisibleMemorySize,FreePhysicalMemory', '/value'],
-    ).timeout(const Duration(seconds: 5));
-    if (memResult.exitCode == 0) {
-      final output = memResult.stdout as String;
-      final freeMatch = RegExp(r'FreePhysicalMemory=(\d+)').firstMatch(output);
-      final totalMatch = RegExp(r'TotalVisibleMemorySize=(\d+)').firstMatch(output);
-      if (freeMatch != null && totalMatch != null) {
-        final free = double.tryParse(freeMatch.group(1)!) ?? 0;
-        final total = double.tryParse(totalMatch.group(1)!) ?? 1;
-        mem = ((total - free) / total * 100).roundToDouble();
-      }
-    }
-  } catch (_) {}
-
-  return SystemStats(cpuPercent: cpu, memPercent: mem);
+  return SystemStats.zero;
 }
