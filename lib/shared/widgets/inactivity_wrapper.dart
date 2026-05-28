@@ -17,10 +17,12 @@ class _InactivityWrapperState extends ConsumerState<InactivityWrapper> {
   InactivityService? _inactivityService;
   SecuritySettings? _lastSettings;
   bool _isLocked = false;
+  final _keyFocusNode = FocusNode();
 
   @override
   void dispose() {
     _inactivityService?.dispose();
+    _keyFocusNode.dispose();
     super.dispose();
   }
 
@@ -75,19 +77,25 @@ class _InactivityWrapperState extends ConsumerState<InactivityWrapper> {
 
     final showLock = _isLocked && !isAnonymous;
 
-    return Listener(
-      onPointerDown: (_) => _handleActivity(),
-      onPointerMove: (_) => _handleActivity(),
-      onPointerUp: (_) => _handleActivity(),
-      behavior: HitTestBehavior.translucent,
-      child: Stack(
-        children: [
-          widget.child,
-          if (showLock)
-            Positioned.fill(
-              child: LockScreen(onUnlock: _handleUnlock),
-            ),
-        ],
+    return KeyboardListener(
+      focusNode: _keyFocusNode,
+      autofocus: true,
+      onKeyEvent: (_) => _handleActivity(),
+      child: Listener(
+        onPointerDown: (_) => _handleActivity(),
+        onPointerMove: (_) => _handleActivity(),
+        onPointerUp: (_) => _handleActivity(),
+        onPointerSignal: (_) => _handleActivity(),
+        behavior: HitTestBehavior.translucent,
+        child: Stack(
+          children: [
+            widget.child,
+            if (showLock)
+              Positioned.fill(
+                child: LockScreen(onUnlock: _handleUnlock),
+              ),
+          ],
+        ),
       ),
     );
   }
