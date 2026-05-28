@@ -529,6 +529,11 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
         setState(() {
           _rawStream += data;
           if (_rawStream.length > 200) _rawStream = _rawStream.substring(_rawStream.length - 200);
+          if (_testingConnection && _testResult != 'connected') {
+            _testTimeout?.cancel();
+            _testingConnection = false;
+            _testResult = 'connected';
+          }
         });
       }
     });
@@ -548,13 +553,14 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
     });
 
     service.connect().then((success) {
-      _testTimeout?.cancel();
-      if (mounted) {
-        setState(() {
-          _testingConnection = false;
-          _testResult = success ? 'connected' : 'failed';
-        });
+      if (!success) {
+        _testTimeout?.cancel();
+        if (mounted) {
+          setState(() { _testingConnection = false; _testResult = 'failed'; });
+        }
       }
+      // If connect succeeded, wait for actual readings via readingStream listener
+      // The 10s timeout handles the case where port opens but no data arrives
     }).catchError((_) {
       _testTimeout?.cancel();
       if (mounted) {
@@ -809,9 +815,9 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
   Widget _buildHeader(ColorScheme scheme, TextTheme text) {
     final isConnected = _testResult == 'connected';
     final isFailed = _testResult == 'failed';
-    final canAutoDetect = isConnected || (!isFailed && _testResult != null && (_connectionType == 'serial'
+    final canAutoDetect = _connectionType == 'serial'
         ? _port.isNotEmpty
-        : _tcpHostCtrl.text.trim().isNotEmpty && isValidIpAddress(_tcpHostCtrl.text.trim())));
+        : _tcpHostCtrl.text.trim().isNotEmpty && isValidIpAddress(_tcpHostCtrl.text.trim());
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
@@ -1255,7 +1261,11 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
   }
 
   void _startAutoDetect() {
-    setState(() { _autoDetecting = true; _autoDetectPhase = 'Connecting...'; _detectedConfig = null; });
+    // Release serial port so auto-detect can open it
+    ref.read(scaleServiceProvider).disconnect();
+    _liveReadingSub?.cancel();
+    _rawDataSub?.cancel();
+    setState(() { _autoDetecting = true; _autoDetectPhase = 'Connecting...'; _detectedConfig = null; _testResult = null; _liveWeight = 0; });
 
     ScaleService.autoDetect(
       port: _connectionType == 'serial' ? _port : null,
