@@ -157,49 +157,21 @@ Future<String?> _ensureMacHelper() async {
   return binPath;
 }
 
-Process? _winPsProcess;
-Completer<void>? _winPsReady;
-
-const _winStatsCmd = r"$cpu = (Get-Counter '\Processor(_Total)\% Processor Time' -ErrorAction SilentlyContinue).CounterSamples[0].CookedValue; $os = Get-CimInstance Win32_OperatingSystem; $mem = [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize * 100, 1); Write-Output ('STATS:{0} {1}' -f [math]::Round($cpu,1), $mem)";
-
 Future<SystemStats> _fetchWindows() async {
   try {
-    if (_winPsProcess == null) {
-      _winPsProcess = await Process.start('powershell', ['-NoProfile', '-NoLogo', '-Command', '-']);
-      _winPsReady = Completer<void>();
-      _winPsReady!.complete();
-    }
-    await _winPsReady!.future;
-
-    final completer = Completer<String>();
-    final buffer = StringBuffer();
-    late final StreamSubscription sub;
-    sub = _winPsProcess!.stdout.transform(systemEncoding.decoder).listen((data) {
-      buffer.write(data);
-      final content = buffer.toString();
-      if (content.contains('STATS:')) {
-        sub.cancel();
-        if (!completer.isCompleted) completer.complete(content);
+    final result = await Process.run('powershell', [
+      '-NoProfile', '-Command',
+      r'''$os = Get-CimInstance Win32_OperatingSystem; $mem = [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize * 100, 1); $cpu = try { [math]::Round((Get-Counter '\Processor(_Total)\% Processor Time' -ErrorAction Stop).CounterSamples[0].CookedValue, 1) } catch { try { (Get-CimInstance Win32_Processor).LoadPercentage } catch { 0 } }; Write-Output "$cpu $mem"'''
+    ]).timeout(const Duration(seconds: 12));
+    if (result.exitCode == 0) {
+      final parts = (result.stdout as String).trim().split(' ');
+      final cpu = parts.isNotEmpty ? (double.tryParse(parts[0]) ?? 0) : 0.0;
+      final mem = parts.length > 1 ? (double.tryParse(parts[1]) ?? 0) : 0.0;
+      if (cpu > 0 || mem > 0) {
+        return SystemStats(cpuPercent: cpu, memPercent: mem);
       }
-    });
-
-    _winPsProcess!.stdin.writeln(_winStatsCmd);
-
-    final output = await completer.future.timeout(const Duration(seconds: 10), onTimeout: () {
-      sub.cancel();
-      return '';
-    });
-
-    final match = RegExp(r'STATS:([\d.]+)\s+([\d.]+)').firstMatch(output);
-    if (match != null) {
-      final cpu = double.tryParse(match.group(1)!) ?? 0;
-      final mem = double.tryParse(match.group(2)!) ?? 0;
-      return SystemStats(cpuPercent: cpu, memPercent: mem);
     }
-  } catch (_) {
-    _winPsProcess?.kill();
-    _winPsProcess = null;
-  }
+  } catch (_) {}
 
   return SystemStats.zero;
 }
