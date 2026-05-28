@@ -1,0 +1,15 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pillow>=10.3.0
+numpy>=1.26.0
+ultralytics>=8.2.0
+torch>=2.0.0
+torchvision>=0.15.0
+timm>=0.9.0
+# Face: SCRFD + ArcFace via ONNX Runtime (OpenVINO for Intel GPU acceleration)
+onnxruntime>=1.18.0
+onnxruntime-openvino>=1.18.0; platform_system=="Windows"
+python-multipart>=0.0.9
+opencv-python-headless>=4.9.0
+faiss-cpu>=1.7.4
+pytorch_lightning

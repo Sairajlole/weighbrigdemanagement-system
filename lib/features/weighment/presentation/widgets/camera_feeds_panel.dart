@@ -196,8 +196,9 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     native.setProperty('profile', 'low-latency');
     native.setProperty('untimed', 'yes');
     if (Platform.isWindows) {
-      native.setProperty('hwdec', 'auto-safe');
+      native.setProperty('hwdec', 'd3d11va-copy');
       native.setProperty('hwdec-codecs', 'all');
+      native.setProperty('gpu-context', 'd3d11');
     } else {
       native.setProperty('hwdec', 'videotoolbox');
     }
