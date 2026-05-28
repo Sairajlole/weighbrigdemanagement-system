@@ -104,7 +104,10 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
   }
 
   Future<void> _startFeed(String key, Map<String, dynamic> camData, Map<String, LiveFeed> feeds) async {
-    final rtspUrl = _buildRtspUrl(camData);
+    // Force sub-stream for live preview (lower resolution = less CPU/GPU/RAM)
+    final previewCamData = Map<String, dynamic>.from(camData);
+    previewCamData['dvrStreamType'] = 'sub';
+    final rtspUrl = _buildRtspUrl(previewCamData);
     if (rtspUrl == null) return;
 
     final player = _createPlayer(rtspUrl);
@@ -128,7 +131,6 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
     if (Platform.isWindows) {
       native.setProperty('hwdec', 'd3d11va-copy');
       native.setProperty('hwdec-codecs', 'all');
-      native.setProperty('gpu-context', 'd3d11');
     } else {
       native.setProperty('hwdec', 'videotoolbox');
     }
@@ -143,7 +145,6 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
     native.setProperty('video-latency-hacks', 'yes');
     native.setProperty('interpolation', 'no');
     native.setProperty('video-sync', 'desync');
-    native.setProperty('vf', 'scale=640:-2');
     return player;
   }
 

@@ -180,7 +180,10 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
       final port = camData['port'] as int?;
       final rtspPort = (port != null && port > 0) ? port : 554;
       final auth = username.isNotEmpty ? '${Uri.encodeComponent(username)}:${Uri.encodeComponent(password)}@' : '';
-      final path = _resolveStreamPath(camData);
+      // Force sub-stream for preview
+      final previewData = Map<String, dynamic>.from(camData);
+      previewData['dvrStreamType'] = 'sub';
+      final path = _resolveStreamPath(previewData);
       rtspUrl = 'rtsp://$auth$address:$rtspPort$path';
     }
 
@@ -198,7 +201,6 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     if (Platform.isWindows) {
       native.setProperty('hwdec', 'd3d11va-copy');
       native.setProperty('hwdec-codecs', 'all');
-      native.setProperty('gpu-context', 'd3d11');
     } else {
       native.setProperty('hwdec', 'videotoolbox');
     }
@@ -213,7 +215,6 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     native.setProperty('video-latency-hacks', 'yes');
     native.setProperty('interpolation', 'no');
     native.setProperty('video-sync', 'desync');
-    native.setProperty('vf', 'scale=640:-2');
     player.open(Media(rtspUrl), play: true);
     player.setVolume(0);
   }
