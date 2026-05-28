@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:weighbridgemanagement/features/weighment/application/weighment_providers.dart';
 import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
@@ -94,10 +95,6 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     _activeKeys
       ..clear()
       ..addAll(desiredKeys);
-
-    if (_snapshotTimer == null && _activeKeys.isNotEmpty) {
-      _startSnapshotCapture();
-    }
 
     _healthTimer ??= Timer.periodic(const Duration(seconds: 30), (_) => _seekToLive());
 
@@ -207,6 +204,7 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     native.setProperty('video-latency-hacks', 'yes');
     native.setProperty('interpolation', 'no');
     native.setProperty('video-sync', 'audio');
+    native.setProperty('vf', 'scale=640:-2');
     player.open(Media(rtspUrl), play: true);
     player.setVolume(0);
   }
@@ -263,6 +261,14 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     final cameras = ref.watch(activeWeighbridgeCamerasProvider).valueOrNull ?? [];
     final settings = ref.watch(_cameraSettingsProvider).valueOrNull ?? {};
     final scheme = Theme.of(context).colorScheme;
+    final isAnprScanning = ref.watch(anprScanningProvider);
+
+    if (isAnprScanning && _snapshotTimer == null && _activeKeys.isNotEmpty) {
+      _startSnapshotCapture();
+    } else if (!isAnprScanning && _snapshotTimer != null) {
+      _snapshotTimer?.cancel();
+      _snapshotTimer = null;
+    }
 
     if (cameras.isEmpty) {
       _syncFeeds([], settings);

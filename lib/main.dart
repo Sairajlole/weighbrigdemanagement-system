@@ -22,7 +22,7 @@ void main() async {
 
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
-    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    cacheSizeBytes: 100 * 1024 * 1024,
   );
 
   // Sign out on every cold start — user must sign in fresh

@@ -82,12 +82,7 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
     final removed = _activeNativeKeys.difference(desiredNativeKeys);
     final added = desiredNativeKeys.difference(_activeNativeKeys);
 
-    if (removed.isEmpty && added.isEmpty) {
-      if (_snapshotTimer == null && _activeIpKeys.isNotEmpty) {
-        _startSnapshotCapture();
-      }
-      return;
-    }
+    if (removed.isEmpty && added.isEmpty) return;
 
     _syncing = true;
 
@@ -115,10 +110,6 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
     _activeNativeKeys
       ..clear()
       ..addAll(desiredNativeKeys);
-
-    if (_snapshotTimer == null && (_activeNativeKeys.isNotEmpty || _activeIpKeys.isNotEmpty)) {
-      _startSnapshotCapture();
-    }
 
     _syncing = false;
     if (mounted) setState(() {});
@@ -232,6 +223,13 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
     final unifiedBgColor = bestColorOverlay?.plateBgColor ?? '#FFFFFF';
 
     _syncFeeds(cameras, settings);
+
+    if (isAnprScanning && _snapshotTimer == null && (_activeNativeKeys.isNotEmpty || _activeIpKeys.isNotEmpty)) {
+      _startSnapshotCapture();
+    } else if (!isAnprScanning && _snapshotTimer != null) {
+      _snapshotTimer?.cancel();
+      _snapshotTimer = null;
+    }
 
     final collapsed = ref.watch(camerasPanelCollapsedProvider);
 

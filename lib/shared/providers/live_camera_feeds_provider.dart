@@ -143,6 +143,7 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
     native.setProperty('video-latency-hacks', 'yes');
     native.setProperty('interpolation', 'no');
     native.setProperty('video-sync', 'audio');
+    native.setProperty('vf', 'scale=640:-2');
     return player;
   }
 

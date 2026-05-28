@@ -15,7 +15,7 @@ class SystemStats {
 
 final systemStatsProvider = StreamProvider<SystemStats>((ref) async* {
   yield await _fetchStats();
-  await for (final _ in Stream.periodic(const Duration(seconds: 5))) {
+  await for (final _ in Stream.periodic(const Duration(seconds: 15))) {
     yield await _fetchStats();
   }
 });
@@ -157,26 +157,49 @@ Future<String?> _ensureMacHelper() async {
   return binPath;
 }
 
+Process? _winPsProcess;
+Completer<void>? _winPsReady;
+
+const _winStatsCmd = r"$cpu = (Get-Counter '\Processor(_Total)\% Processor Time' -ErrorAction SilentlyContinue).CounterSamples[0].CookedValue; $os = Get-CimInstance Win32_OperatingSystem; $mem = [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize * 100, 1); Write-Output ('STATS:{0} {1}' -f [math]::Round($cpu,1), $mem)";
+
 Future<SystemStats> _fetchWindows() async {
-  double cpu = 0;
-  double mem = 0;
-  double? temp;
-
   try {
-    final result = await Process.run('powershell', [
-      '-NoProfile', '-Command',
-      r"$cpu = (Get-Counter '\Processor(_Total)\% Processor Time' -ErrorAction SilentlyContinue).CounterSamples[0].CookedValue; $os = Get-CimInstance Win32_OperatingSystem; $mem = [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize * 100, 1); $t = try { (Get-CimInstance MSAcpi_ThermalZoneTemperature -Namespace root/wmi -ErrorAction Stop | Select -First 1).CurrentTemperature } catch { $null }; Write-Output ('{0} {1} {2}' -f [math]::Round($cpu,1), $mem, $(if($t){$t}else{'_'}))"
-    ]);
-    if (result.exitCode == 0) {
-      final parts = (result.stdout as String).trim().split(' ');
-      if (parts.isNotEmpty) cpu = double.tryParse(parts[0]) ?? 0;
-      if (parts.length > 1) mem = double.tryParse(parts[1]) ?? 0;
-      if (parts.length > 2 && parts[2] != '_') {
-        final val = int.tryParse(parts[2]);
-        if (val != null && val > 0) temp = (val - 2732) / 10.0;
-      }
+    if (_winPsProcess == null) {
+      _winPsProcess = await Process.start('powershell', ['-NoProfile', '-NoLogo', '-Command', '-']);
+      _winPsReady = Completer<void>();
+      _winPsReady!.complete();
     }
-  } catch (_) {}
+    await _winPsReady!.future;
 
-  return SystemStats(cpuPercent: cpu, memPercent: mem, tempCelsius: temp);
+    final completer = Completer<String>();
+    final buffer = StringBuffer();
+    late final StreamSubscription sub;
+    sub = _winPsProcess!.stdout.transform(systemEncoding.decoder).listen((data) {
+      buffer.write(data);
+      final content = buffer.toString();
+      if (content.contains('STATS:')) {
+        sub.cancel();
+        if (!completer.isCompleted) completer.complete(content);
+      }
+    });
+
+    _winPsProcess!.stdin.writeln(_winStatsCmd);
+
+    final output = await completer.future.timeout(const Duration(seconds: 10), onTimeout: () {
+      sub.cancel();
+      return '';
+    });
+
+    final match = RegExp(r'STATS:([\d.]+)\s+([\d.]+)').firstMatch(output);
+    if (match != null) {
+      final cpu = double.tryParse(match.group(1)!) ?? 0;
+      final mem = double.tryParse(match.group(2)!) ?? 0;
+      return SystemStats(cpuPercent: cpu, memPercent: mem);
+    }
+  } catch (_) {
+    _winPsProcess?.kill();
+    _winPsProcess = null;
+  }
+
+  return SystemStats.zero;
 }
