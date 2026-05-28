@@ -89,8 +89,25 @@ def _load_models():
         _models["face"] = face_engine
 
 
+def _log_gpu_status():
+    """Log whether Intel GPU acceleration is available."""
+    try:
+        import onnxruntime as ort
+        available = ort.get_available_providers()
+        if "OpenVINOExecutionProvider" in available:
+            print("[GPU] Intel OpenVINO GPU acceleration: ACTIVE")
+        elif "DmlExecutionProvider" in available:
+            print("[GPU] DirectML GPU acceleration: ACTIVE")
+        else:
+            print(f"[GPU] No GPU acceleration available (providers: {available})")
+            print("[GPU] To enable: pip install onnxruntime-openvino && update Intel GPU driver")
+    except Exception as e:
+        print(f"[GPU] Check failed: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _log_gpu_status()
     _load_models()
     yield
 
