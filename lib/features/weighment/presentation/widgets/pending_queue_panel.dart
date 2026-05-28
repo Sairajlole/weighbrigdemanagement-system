@@ -131,12 +131,15 @@ class PendingQueuePanel extends ConsumerWidget {
                   ),
                 );
               }
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                itemCount: list.length,
-                itemBuilder: (_, i) => _PendingTile(
-                  data: list[i],
-                  onTap: () => onSelect?.call(list[i], list[i]['id'] as String),
+              return Scrollbar(
+                thumbVisibility: true,
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: list.length,
+                  itemBuilder: (_, i) => _PendingTile(
+                    data: list[i],
+                    onTap: () => onSelect?.call(list[i], list[i]['id'] as String),
+                  ),
                 ),
               );
             },

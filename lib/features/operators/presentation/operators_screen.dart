@@ -1897,9 +1897,11 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
             ),
             // Body
             Expanded(
-              child: ListView.builder(
-                itemCount: operators.length,
-                itemBuilder: (_, i) {
+              child: Scrollbar(
+                thumbVisibility: true,
+                child: ListView.builder(
+                  itemCount: operators.length,
+                  itemBuilder: (_, i) {
                   final op = operators[i];
                   final isActive = op['isActive'] == true;
                   final idStatus = op['idStatus'] as String? ?? 'not_submitted';
@@ -1995,6 +1997,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                 ),
                   );
                 },
+                ),
               ),
             ),
           ],
@@ -2022,15 +2025,18 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildGridContent(List<Map<String, dynamic>> operators, ColorScheme scheme, TextTheme text) {
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 320,
-        childAspectRatio: 0.92,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+    return Scrollbar(
+      thumbVisibility: true,
+      child: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 320,
+          childAspectRatio: 0.92,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+        ),
+        itemCount: operators.length,
+        itemBuilder: (_, i) => _buildOperatorCard(operators[i], scheme, text),
       ),
-      itemCount: operators.length,
-      itemBuilder: (_, i) => _buildOperatorCard(operators[i], scheme, text),
     );
   }
 

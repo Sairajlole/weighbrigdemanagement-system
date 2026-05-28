@@ -165,13 +165,13 @@ Future<SystemStats> _fetchWindows() async {
   try {
     final result = await Process.run('powershell', [
       '-NoProfile', '-Command',
-      r'$cpu = (Get-CimInstance Win32_Processor).LoadPercentage; $os = Get-CimInstance Win32_OperatingSystem; $mem = [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize * 100, 1); $t = (Get-CimInstance MSAcpi_ThermalZoneTemperature -Namespace root/wmi -ErrorAction SilentlyContinue | Select -First 1).CurrentTemperature; Write-Output "$cpu $mem $t"'
+      r"$cpu = (Get-Counter '\Processor(_Total)\% Processor Time' -ErrorAction SilentlyContinue).CounterSamples[0].CookedValue; $os = Get-CimInstance Win32_OperatingSystem; $mem = [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize * 100, 1); $t = try { (Get-CimInstance MSAcpi_ThermalZoneTemperature -Namespace root/wmi -ErrorAction Stop | Select -First 1).CurrentTemperature } catch { $null }; Write-Output ('{0} {1} {2}' -f [math]::Round($cpu,1), $mem, $(if($t){$t}else{'_'}))"
     ]);
     if (result.exitCode == 0) {
       final parts = (result.stdout as String).trim().split(' ');
       if (parts.isNotEmpty) cpu = double.tryParse(parts[0]) ?? 0;
       if (parts.length > 1) mem = double.tryParse(parts[1]) ?? 0;
-      if (parts.length > 2) {
+      if (parts.length > 2 && parts[2] != '_') {
         final val = int.tryParse(parts[2]);
         if (val != null && val > 0) temp = (val - 2732) / 10.0;
       }

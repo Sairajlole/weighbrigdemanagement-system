@@ -1088,12 +1088,14 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
   Widget _buildCenterContent(WeighmentMachineState machine, WeighmentSession? session, ColorScheme scheme) {
     final hasSession = session != null;
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Print search panel (works without session)
-          if (_showPrintSearch) _buildInlinePrintSearch(scheme),
+    return Scrollbar(
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Print search panel (works without session)
+            if (_showPrintSearch) _buildInlinePrintSearch(scheme),
 
 
           // Weight summary (always visible)
@@ -1144,6 +1146,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
             ),
           ],
         ],
+      ),
       ),
     );
   }

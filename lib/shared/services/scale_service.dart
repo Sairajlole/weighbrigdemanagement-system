@@ -321,26 +321,7 @@ class ScaleService {
 
       _port!.config = portConfig;
 
-      _reader = SerialPortReader(_port!, timeout: _config.readTimeout);
-      _readerSub = _reader!.stream.listen(
-        _onData,
-        onError: _onError,
-        onDone: () {
-          // On serial, onDone just means the reader timed out or stopped.
-          // Re-create the reader if port is still open.
-          if (_port?.isOpen ?? false) {
-            _readerSub?.cancel();
-            _reader = SerialPortReader(_port!, timeout: _config.readTimeout);
-            _readerSub = _reader!.stream.listen(
-              _onData,
-              onError: _onError,
-              onDone: _onDone,
-            );
-          } else {
-            _onDone();
-          }
-        },
-      );
+      _startSerialReader();
 
       _setStatus(ScaleConnectionStatus.connected);
       _startStabilityCheck();
@@ -357,6 +338,23 @@ class ScaleService {
       _setStatus(ScaleConnectionStatus.error);
       return false;
     }
+  }
+
+  void _startSerialReader() {
+    _readerSub?.cancel();
+    if (_disposed || !(_port?.isOpen ?? false)) return;
+    _reader = SerialPortReader(_port!, timeout: _config.readTimeout);
+    _readerSub = _reader!.stream.listen(
+      _onData,
+      onError: _onError,
+      onDone: () {
+        if (_port?.isOpen ?? false) {
+          _startSerialReader();
+        } else {
+          _onDone();
+        }
+      },
+    );
   }
 
   Future<bool> _connectTcp() async {

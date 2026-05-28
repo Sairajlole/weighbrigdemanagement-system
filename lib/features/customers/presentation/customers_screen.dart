@@ -874,7 +874,9 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildGrid(List<Map<String, dynamic>> customers, ColorScheme scheme, TextTheme text, bool shouldMask) {
-    return GridView.builder(
+    return Scrollbar(
+      thumbVisibility: true,
+      child: GridView.builder(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         mainAxisSpacing: 14,
@@ -916,6 +918,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           ),
         );
       },
+      ),
     );
   }
 
@@ -1064,13 +1067,15 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           ),
           const Divider(height: 1),
           Expanded(
-            child: ListView.separated(
-              itemCount: customers.length,
-              separatorBuilder: (_, i) => Divider(
-                height: 1,
-                thickness: (i + 1) % 5 == 0 ? 2 : 1,
-                color: (i + 1) % 5 == 0 ? scheme.outlineVariant.withValues(alpha: 0.6) : scheme.outlineVariant.withValues(alpha: 0.2),
-              ),
+            child: Scrollbar(
+              thumbVisibility: true,
+              child: ListView.separated(
+                itemCount: customers.length,
+                separatorBuilder: (_, i) => Divider(
+                  height: 1,
+                  thickness: (i + 1) % 5 == 0 ? 2 : 1,
+                  color: (i + 1) % 5 == 0 ? scheme.outlineVariant.withValues(alpha: 0.6) : scheme.outlineVariant.withValues(alpha: 0.2),
+                ),
               itemBuilder: (_, i) {
                 final c = customers[i];
                 final id = c['id'] as String? ?? '';
@@ -1129,6 +1134,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                   ),
                 );
               },
+              ),
             ),
           ),
         ],

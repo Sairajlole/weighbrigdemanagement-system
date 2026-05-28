@@ -178,7 +178,7 @@ class InlineVerificationNotifier extends StateNotifier<InlineVerificationState> 
           _autoTimer?.cancel();
           return;
         }
-        if (reason == 'no_face') {
+        if (reason == 'no_face' || reason == 'partial_face') {
           _scheduleRetry();
           return;
         }

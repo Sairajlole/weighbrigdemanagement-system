@@ -41,7 +41,6 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
   Timer? _healthTimer;
   final _activeKeys = <String>{};
   bool _syncing = false;
-  Map<String, dynamic> _lastSettings = {};
 
   @override
   void dispose() {
@@ -57,7 +56,6 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
   Future<void> _syncFeeds(List<ActiveCamera> cameras, Map<String, dynamic> settings) async {
     if (_syncing) return;
 
-    _lastSettings = settings;
     final allCams = settings['cameras'] as Map<String, dynamic>? ?? {};
     if (allCams.isEmpty && _activeKeys.isEmpty) return;
 
@@ -101,90 +99,22 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
       _startSnapshotCapture();
     }
 
-    _healthTimer ??= Timer.periodic(const Duration(seconds: 20), (_) => _syncToLive());
+    _healthTimer ??= Timer.periodic(const Duration(seconds: 30), (_) => _seekToLive());
 
     _syncing = false;
     if (mounted) setState(() {});
   }
 
-  Future<void> _syncToLive() async {
+  Future<void> _seekToLive() async {
     if (!mounted || _syncing) return;
-    _syncing = true;
-    final allCams = _lastSettings['cameras'] as Map<String, dynamic>? ?? {};
-
-    for (final key in _activeKeys.toList()) {
-      if (!mounted) break;
-      if (!_players.containsKey(key)) continue;
-      final camData = allCams[key] as Map<String, dynamic>? ?? {};
-      if (camData.isEmpty) continue;
-      final source = camData['source'] as String? ?? 'Local Device';
-      if (source != 'Network Camera') continue;
-      await _hotSwapFeed(key, camData);
+    for (final key in _activeKeys) {
+      final player = _players[key];
+      if (player == null) continue;
+      final native = player.platform as NativePlayer;
+      await native.command(['seek', '100', 'absolute-percent+keyframes']);
     }
-
-    _syncing = false;
   }
 
-  Future<void> _hotSwapFeed(String key, Map<String, dynamic> camData) async {
-    final oldPlayer = _players[key];
-
-    final newPlayer = Player();
-    final newController = VideoController(newPlayer);
-
-    final native = newPlayer.platform as NativePlayer;
-    native.setProperty('rtsp-transport', 'tcp');
-    native.setProperty('profile', 'low-latency');
-    native.setProperty('untimed', 'yes');
-    native.setProperty('cache', 'no');
-    native.setProperty('cache-pause', 'no');
-    native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+fastseek');
-    native.setProperty('framedrop', 'vo');
-    native.setProperty('video-latency-hacks', 'yes');
-
-    final String rtspUrl;
-    final rtspPath = camData['rtspPath'] as String? ?? '';
-    if (rtspPath.startsWith('rtsp://') || rtspPath.startsWith('rtsps://')) {
-      rtspUrl = _encodeRtspUrl(rtspPath);
-    } else {
-      final address = camData['address'] as String? ?? '';
-      if (address.isEmpty) { newPlayer.dispose(); return; }
-      final username = camData['username'] as String? ?? '';
-      final encPassword = camData['password'] as String? ?? '';
-      final password = encPassword.isNotEmpty ? CryptoService.decrypt(encPassword) : '';
-      final port = camData['port'] as int?;
-      final rtspPort = (port != null && port > 0) ? port : 554;
-      final auth = username.isNotEmpty ? '${Uri.encodeComponent(username)}:${Uri.encodeComponent(password)}@' : '';
-      final path = _resolveStreamPath(camData);
-      rtspUrl = 'rtsp://$auth$address:$rtspPort$path';
-    }
-
-    newPlayer.open(Media(rtspUrl), play: true);
-    newPlayer.setVolume(0);
-
-    // Wait for first frame (max 4s)
-    final completer = Completer<void>();
-    final sub = newPlayer.stream.width.listen((w) {
-      if ((w ?? 0) > 0 && !completer.isCompleted) completer.complete();
-    });
-    if ((newPlayer.state.width ?? 0) > 0) {
-      if (!completer.isCompleted) completer.complete();
-    }
-
-    await Future.any([completer.future, Future.delayed(const Duration(seconds: 4))]);
-    sub.cancel();
-
-    if (!mounted || !completer.isCompleted) {
-      newPlayer.dispose();
-      return;
-    }
-
-    // Atomic swap
-    _players[key] = newPlayer;
-    _videoControllers[key] = newController;
-    if (mounted) setState(() {});
-
-    oldPlayer?.dispose();
-  }
 
   static String _resolveStreamPath(Map<String, dynamic> camData) {
     final brand = camData['dvrBrand'] as String? ?? camData['cameraBrand'] as String? ?? 'Hikvision';
@@ -270,9 +200,13 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     native.setProperty('untimed', 'yes');
     native.setProperty('cache', 'no');
     native.setProperty('cache-pause', 'no');
-    native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+fastseek');
+    native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+fastseek+discardcorrupt');
+    native.setProperty('demuxer-readahead-secs', '0');
+    native.setProperty('stream-lavf-o', 'timeout=5000000');
     native.setProperty('framedrop', 'vo');
     native.setProperty('video-latency-hacks', 'yes');
+    native.setProperty('interpolation', 'no');
+    native.setProperty('video-sync', 'audio');
     player.open(Media(rtspUrl), play: true);
     player.setVolume(0);
   }

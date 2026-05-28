@@ -31,16 +31,12 @@ void main() async {
     await FirebaseAuth.instance.signOut();
   }
 
-  // On macOS, attempt anonymous sign-in so Firestore works even when
-  // keychain-based Google Sign-In fails (common in dev sandboxes).
-  // NOTE: Windows auth is handled via the normal login flow; this block
-  // intentionally only runs on macOS to avoid disrupting that path.
-  if (Platform.isMacOS && FirebaseAuth.instance.currentUser == null) {
+  // Anonymous sign-in so Firestore queries work during the login flow
+  // (security rules require some auth state for reads).
+  if (FirebaseAuth.instance.currentUser == null) {
     try {
       await FirebaseAuth.instance.signInAnonymously();
-    } catch (_) {
-      // Keychain not accessible — app works with open rules in dev
-    }
+    } catch (_) {}
   }
 
   await windowManager.waitUntilReadyToShow(null, () async {

@@ -610,10 +610,13 @@ class PrintService {
       await tmpFile.writeAsBytes(data);
 
       if (Platform.isWindows) {
+        final printerArg = (printer.isNotEmpty && printer != 'default')
+            ? '-Name "$printer"'
+            : '';
         for (var i = 0; i < copies; i++) {
           final result = await Process.run('powershell', [
             '-NoProfile', '-Command',
-            'Get-Content -Encoding Byte -ReadCount 0 "${tmpFile.path}" | Out-Printer -Name "$printer"'
+            'Get-Content -Encoding Byte -ReadCount 0 "${tmpFile.path}" | Out-Printer $printerArg'
           ]);
           if (result.exitCode != 0) {
             await tmpFile.delete().catchError((_) => tmpFile);
@@ -1307,10 +1310,11 @@ class PrintService {
       await tmpFile.writeAsBytes(pdfBytes);
 
       if (Platform.isWindows) {
-        final result = await Process.run('powershell', [
-          '-NoProfile', '-Command',
-          'Start-Process -FilePath "${tmpFile.path}" -Verb PrintTo -ArgumentList "$printer" -Wait -WindowStyle Hidden'
-        ]);
+        final useDefaultPrinter = printer.isEmpty || printer == 'default';
+        final cmd = useDefaultPrinter
+            ? '\$p = (Get-CimInstance -ClassName Win32_Printer -Filter "Default=True").Name; if (-not \$p) { throw "No default printer configured" }; Start-Process -FilePath "${tmpFile.path}" -Verb PrintTo -ArgumentList \$p -Wait -WindowStyle Hidden'
+            : 'Start-Process -FilePath "${tmpFile.path}" -Verb PrintTo -ArgumentList "$printer" -Wait -WindowStyle Hidden';
+        final result = await Process.run('powershell', ['-NoProfile', '-Command', cmd]);
         await tmpFile.delete().catchError((_) => tmpFile);
         if (result.exitCode != 0) {
           final backupResult = await _tryBackupPrinter(pdfBytes, copies);

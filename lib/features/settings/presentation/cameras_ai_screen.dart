@@ -793,17 +793,20 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             _buildPreviewStrip(scheme, text),
             _buildTabBar(scheme, text),
             Expanded(
-              child: SingleChildScrollView(
-                key: ValueKey('tab_$_tabIndex'),
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const ProFeatureBanner(feature: 'IP Cameras & AI'),
-                    _tabIndex == 0
-                        ? _buildCamerasTab(scheme, text)
-                        : _buildAiTab(scheme, text),
-                  ],
+              child: Scrollbar(
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  key: ValueKey('tab_$_tabIndex'),
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const ProFeatureBanner(feature: 'IP Cameras & AI'),
+                      _tabIndex == 0
+                          ? _buildCamerasTab(scheme, text)
+                          : _buildAiTab(scheme, text),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -870,11 +873,13 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           ),
           SizedBox(
             height: 320,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              itemCount: cards.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+            child: Scrollbar(
+              thumbVisibility: true,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                itemCount: cards.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (_, i) {
                 final card = cards[i];
                 switch (card.type) {
@@ -898,6 +903,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                     );
                 }
               },
+              ),
             ),
           ),
         ],

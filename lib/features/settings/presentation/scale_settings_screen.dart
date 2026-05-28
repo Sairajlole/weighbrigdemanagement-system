@@ -190,10 +190,8 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       if (ip.isEmpty) return 'Configure IP first';
       if (!isValidIpAddress(ip)) return 'Valid IP required';
     } else {
-      if (_port.isEmpty) return 'No port available';
+      if (_port.isEmpty && _ports.isEmpty) return 'No port available';
     }
-    if (_testResult == 'failed') return 'Host unreachable — retry';
-    if (_testResult == null) return 'Needs a working connection';
     return '';
   }
 

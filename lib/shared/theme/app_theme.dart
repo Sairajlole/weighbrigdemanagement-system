@@ -114,6 +114,16 @@ class AppTheme {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
+      scrollbarTheme: ScrollbarThemeData(
+        thickness: WidgetStateProperty.resolveWith((states) =>
+            states.contains(WidgetState.hovered) ? 8.0 : 4.0),
+        radius: const Radius.circular(4),
+        thumbColor: WidgetStateProperty.resolveWith((states) =>
+            states.contains(WidgetState.hovered)
+                ? scheme.onSurfaceVariant.withValues(alpha: 0.5)
+                : scheme.onSurfaceVariant.withValues(alpha: 0.25)),
+        minThumbLength: 48,
+      ),
     );
   }
 }

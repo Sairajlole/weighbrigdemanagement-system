@@ -12,7 +12,7 @@ class SnapshotService {
     : _framesDir = framesDir ?? _buildPath(siteId, weighbridgeId);
 
   static String _buildPath(String? siteId, String? weighbridgeId) {
-    final home = Platform.environment['HOME'] ?? '.';
+    final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
     if (siteId != null && weighbridgeId != null) {
       return '$home/.weighbridge/frames/$siteId/$weighbridgeId';
     }
@@ -20,8 +20,7 @@ class SnapshotService {
   }
 
   Future<Uint8List?> captureFrame(String cameraKey) async {
-    // Live frames are always written to the global frames dir by camera_feeds_panel
-    final home = Platform.environment['HOME'] ?? '.';
+    final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
     final path = '$home/.weighbridge/frames/live_$cameraKey.jpg';
     final file = File(path);
     if (await file.exists()) {

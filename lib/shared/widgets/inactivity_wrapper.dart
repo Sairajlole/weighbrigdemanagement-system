@@ -15,6 +15,7 @@ class InactivityWrapper extends ConsumerStatefulWidget {
 
 class _InactivityWrapperState extends ConsumerState<InactivityWrapper> {
   InactivityService? _inactivityService;
+  SecuritySettings? _lastSettings;
   bool _isLocked = false;
 
   @override
@@ -24,6 +25,15 @@ class _InactivityWrapperState extends ConsumerState<InactivityWrapper> {
   }
 
   void _setupService(SecuritySettings settings) {
+    if (_inactivityService != null &&
+        _lastSettings != null &&
+        _lastSettings!.autoLockEnabled == settings.autoLockEnabled &&
+        _lastSettings!.autoLockMinutes == settings.autoLockMinutes &&
+        _lastSettings!.autoLogoutEnabled == settings.autoLogoutEnabled &&
+        _lastSettings!.autoLogoutMinutes == settings.autoLogoutMinutes) {
+      return;
+    }
+    _lastSettings = settings;
     _inactivityService?.dispose();
     _inactivityService = InactivityService(
       settings: settings,
@@ -61,10 +71,8 @@ class _InactivityWrapperState extends ConsumerState<InactivityWrapper> {
     final user = FirebaseAuth.instance.currentUser;
     final isAnonymous = user == null || user.isAnonymous;
 
-    // Rebuild the service whenever settings change
     _setupService(settings);
 
-    // Don't lock for anonymous users — they can't reauthenticate
     final showLock = _isLocked && !isAnonymous;
 
     return Listener(

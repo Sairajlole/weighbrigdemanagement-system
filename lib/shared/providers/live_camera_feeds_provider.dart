@@ -10,16 +10,6 @@ import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.d
 import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
 import 'package:weighbridgemanagement/shared/services/multi_camera_service.dart';
 
-class _SwapResult {
-  final String key;
-  final String rtspUrl;
-  final Player? player;
-  final VideoController? controller;
-  final bool success;
-
-  _SwapResult({required this.key, required this.rtspUrl, this.player, this.controller, required this.success});
-}
-
 class LiveFeed {
   final Player player;
   final VideoController controller;
@@ -145,78 +135,34 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
     native.setProperty('audio-exclusive', 'no');
     native.setProperty('cache', 'no');
     native.setProperty('cache-pause', 'no');
-    native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+fastseek');
+    native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+fastseek+discardcorrupt');
+    native.setProperty('demuxer-readahead-secs', '0');
+    native.setProperty('stream-lavf-o', 'timeout=5000000');
+    native.setProperty('untimed', 'yes');
     native.setProperty('framedrop', 'vo');
     native.setProperty('video-latency-hacks', 'yes');
+    native.setProperty('interpolation', 'no');
+    native.setProperty('video-sync', 'audio');
     return player;
   }
 
-  int _nextSwapIndex = 0;
-
   void _ensureHealthTimer() {
-    _healthTimer ??= Timer.periodic(const Duration(seconds: 10), (_) => _syncToLive());
+    _healthTimer ??= Timer.periodic(const Duration(seconds: 30), (_) => _syncToLive());
   }
 
   Future<void> _syncToLive() async {
     if (_syncing) return;
     _syncing = true;
 
-    final newFeeds = Map<String, LiveFeed>.from(state.feeds);
-    final keys = newFeeds.keys.toList();
-    if (keys.isEmpty) {
-      _syncing = false;
-      return;
-    }
-
-    // Swap one feed per tick (round-robin) — avoids resource spike
-    final key = keys[_nextSwapIndex % keys.length];
-    _nextSwapIndex++;
-
-    final result = await _prepareSwap(key, newFeeds[key]!.rtspUrl);
-    if (result.success) {
-      newFeeds[result.key]?.dispose();
-      newFeeds[result.key] = LiveFeed(
-        player: result.player!,
-        controller: result.controller!,
-        rtspUrl: result.rtspUrl,
-      );
-      // Preserve audio state across swap
-      if (_unmutedKeys.contains(key)) {
-        result.player!.setVolume(100);
-      }
-      state = LiveCameraFeedsState(feeds: newFeeds);
-    } else {
-      result.player?.dispose();
+    final feeds = state.feeds;
+    for (final entry in feeds.entries) {
+      final player = entry.value.player;
+      final native = player.platform as NativePlayer;
+      // Seek to end of stream to jump to live edge
+      await native.command(['seek', '100', 'absolute-percent+keyframes']);
     }
 
     _syncing = false;
-  }
-
-  Future<_SwapResult> _prepareSwap(String key, String rtspUrl) async {
-    final newPlayer = _createPlayer(rtspUrl);
-    final newController = VideoController(newPlayer);
-
-    newPlayer.open(Media(rtspUrl), play: true);
-    newPlayer.setVolume(0);
-
-    final completer = Completer<void>();
-    final sub = newPlayer.stream.width.listen((w) {
-      if ((w ?? 0) > 0 && !completer.isCompleted) completer.complete();
-    });
-    if ((newPlayer.state.width ?? 0) > 0 && !completer.isCompleted) {
-      completer.complete();
-    }
-
-    await Future.any([completer.future, Future.delayed(const Duration(seconds: 4))]);
-    sub.cancel();
-
-    return _SwapResult(
-      key: key,
-      rtspUrl: rtspUrl,
-      player: newPlayer,
-      controller: newController,
-      success: completer.isCompleted,
-    );
   }
 
   void disposeAll() {

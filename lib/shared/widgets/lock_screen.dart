@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -58,7 +61,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       if (pinResult) return;
     }
 
-    // Try Firebase password
+    // On desktop, reauthenticateWithCredential is unreliable — verify via sign-in instead
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null || user.email == null) {
@@ -69,11 +72,18 @@ class _LockScreenState extends ConsumerState<LockScreen> {
         return;
       }
 
-      final credential = EmailAuthProvider.credential(
-        email: user.email!,
-        password: password,
-      );
-      await user.reauthenticateWithCredential(credential);
+      if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+        await FirebaseAuth.instance
+            .signInWithEmailAndPassword(email: user.email!, password: password)
+            .timeout(const Duration(seconds: 8));
+      } else {
+        final credential = EmailAuthProvider.credential(
+          email: user.email!,
+          password: password,
+        );
+        await user.reauthenticateWithCredential(credential)
+            .timeout(const Duration(seconds: 8));
+      }
 
       if (mounted) widget.onUnlock();
     } on FirebaseAuthException catch (e) {
@@ -104,7 +114,13 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       final snap = await paths.operators
           .where('email', isEqualTo: user!.email)
           .limit(1)
-          .get();
+          .get(const GetOptions(source: Source.cache))
+          .timeout(const Duration(seconds: 3))
+          .onError((_, __) => paths.operators
+              .where('email', isEqualTo: user.email)
+              .limit(1)
+              .get()
+              .timeout(const Duration(seconds: 5)));
 
       if (snap.docs.isEmpty) return false;
       final data = snap.docs.first.data();
@@ -145,8 +161,16 @@ class _LockScreenState extends ConsumerState<LockScreen> {
         return;
       }
 
-      final result = await sidecar.identifyFace(frame, collection: 'operator');
-      if (result != null && (result['matched'] == true || result['operator_id'] != null)) {
+      final result = await sidecar.identifyFace(frame, collection: 'operator').timeout(const Duration(seconds: 8));
+      if (result != null && result['reason'] == 'partial_face') {
+        setState(() {
+          _faceScanning = false;
+          _faceStatus = null;
+          _errorMessage = 'Please face the camera directly';
+        });
+        return;
+      }
+      if (result != null && (result['matched'] == true || result['match'] == true || result['operator_id'] != null)) {
         if (mounted) {
           final operatorId = result['operator_id'] as String? ?? '';
           final name = result['name'] as String? ?? '';

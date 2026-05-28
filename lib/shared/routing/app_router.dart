@@ -69,8 +69,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       if (siteCtx.isConfigured && wizardProgress.setupComplete && isSetupRoute) {
         final authState = ref.read(authStateProvider);
-        final isLoggedIn = authState.valueOrNull != null;
-        if (!isLoggedIn) return null;
+        final user = authState.valueOrNull;
+        if (user == null || user.isAnonymous) return null;
         return '/dashboard';
       }
 
@@ -106,7 +106,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       final authState = ref.read(authStateProvider);
-      final isLoggedIn = authState.valueOrNull != null;
+      final authUser = authState.valueOrNull;
+      final isLoggedIn = authUser != null && !authUser.isAnonymous;
       final authRoutes = ['/forgot-password', '/linkage-pending'];
       final isAuthRoute = authRoutes.contains(state.matchedLocation);
 

@@ -82,7 +82,12 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
     final removed = _activeNativeKeys.difference(desiredNativeKeys);
     final added = desiredNativeKeys.difference(_activeNativeKeys);
 
-    if (removed.isEmpty && added.isEmpty) return;
+    if (removed.isEmpty && added.isEmpty) {
+      if (_snapshotTimer == null && _activeIpKeys.isNotEmpty) {
+        _startSnapshotCapture();
+      }
+      return;
+    }
 
     _syncing = true;
 
@@ -161,7 +166,7 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
   }
 
   void _startSnapshotCapture() {
-    final home = Platform.environment['HOME'] ?? '.';
+    final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
     final dir = Directory('$home/.weighbridge/frames');
     if (!dir.existsSync()) dir.createSync(recursive: true);
 
@@ -298,10 +303,12 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
                       ],
                     ),
                   )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(10),
-                    itemCount: cameras.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                : Scrollbar(
+                    thumbVisibility: true,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(10),
+                      itemCount: cameras.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (_, i) {
                       final cam = cameras[i];
                       return GestureDetector(
@@ -404,6 +411,7 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
                         ),
                       );
                     },
+                    ),
                   ),
           ),
         ],
