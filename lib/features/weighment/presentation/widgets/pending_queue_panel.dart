@@ -15,9 +15,12 @@ class PendingQueuePanel extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final collapsed = ref.watch(pendingPanelCollapsedProvider);
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final expandedWidth = (screenWidth * 0.18).clamp(220.0, 320.0);
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: collapsed ? 48 : 280,
+      width: collapsed ? 48 : expandedWidth,
       decoration: BoxDecoration(
         border: Border(
           right: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3)),

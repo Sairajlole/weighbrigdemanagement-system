@@ -20,6 +20,14 @@ void main() async {
   await windowManager.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  // Disable keychain persistence — we sign out on every cold start anyway,
+  // and this avoids keychain-error on macOS without a valid provisioning profile.
+  // For production distribution (signed with Apple Developer ID), remove this
+  // and use proper keychain-access-groups in entitlements instead.
+  try {
+    await FirebaseAuth.instance.setPersistence(Persistence.NONE);
+  } catch (_) {}
+
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
     cacheSizeBytes: 100 * 1024 * 1024,
@@ -27,12 +35,13 @@ void main() async {
 
   // Sign out on every cold start — user must sign in fresh
   await LocalCacheService.clearCurrentUser();
-  if (FirebaseAuth.instance.currentUser != null && !FirebaseAuth.instance.currentUser!.isAnonymous) {
-    await FirebaseAuth.instance.signOut();
-  }
+  try {
+    if (FirebaseAuth.instance.currentUser != null && !FirebaseAuth.instance.currentUser!.isAnonymous) {
+      await FirebaseAuth.instance.signOut();
+    }
+  } catch (_) {}
 
   // Anonymous sign-in so Firestore queries work during the login flow
-  // (security rules require some auth state for reads).
   if (FirebaseAuth.instance.currentUser == null) {
     try {
       await FirebaseAuth.instance.signInAnonymously();

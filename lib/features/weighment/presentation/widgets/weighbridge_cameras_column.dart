@@ -267,8 +267,11 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
       );
     }
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final panelWidth = (screenWidth * 0.28).clamp(320.0, 500.0);
+
     return Container(
-      width: 450,
+      width: panelWidth,
       decoration: BoxDecoration(
         border: Border(left: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
       ),
