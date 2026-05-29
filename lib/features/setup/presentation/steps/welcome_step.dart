@@ -24,13 +24,15 @@ String _hashPassword(String password) => sha256.convert(utf8.encode(password)).t
 
 Future<void> _ensureFirebaseAuthAccount(String email, String password) async {
   try {
-    final callable = FirebaseFunctions.instance.httpsCallable('ensureFirebaseAuth');
-    await callable.call({'email': email, 'password': password});
-    // Now sign in with the (possibly just-created) Firebase Auth account
+    final callable = FirebaseFunctions.instance.httpsCallable(
+      'ensureFirebaseAuth',
+      options: HttpsCallableOptions(timeout: const Duration(seconds: 8)),
+    );
+    await callable.call({'email': email, 'password': password}).timeout(const Duration(seconds: 8));
     await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
     debugPrint('[Login] Firebase Auth sign-in succeeded after ensure');
   } catch (e) {
-    debugPrint('[Login] ensureFirebaseAuth fallback: $e');
+    debugPrint('[Login] ensureFirebaseAuth skipped: $e');
   }
 }
 
