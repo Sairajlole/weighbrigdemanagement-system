@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:weighbridgemanagement/features/weighment/application/weighment_providers.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class PendingQueuePanel extends ConsumerWidget {
   final void Function(Map<String, dynamic> data, String docId)? onSelect;
@@ -15,8 +16,7 @@ class PendingQueuePanel extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final collapsed = ref.watch(pendingPanelCollapsedProvider);
 
-    final screenWidth = MediaQuery.of(context).size.width;
-    final expandedWidth = (screenWidth * 0.18).clamp(220.0, 320.0);
+    final expandedWidth = Responsive.wp(18).clamp(200.0, 320.0);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),

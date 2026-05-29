@@ -12,6 +12,7 @@ import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/live_camera_feeds_provider.dart';
 import 'package:weighbridgemanagement/shared/services/multi_camera_service.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 final _cameraSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   ref.watch(activeWeighbridgeCamerasProvider);
@@ -267,8 +268,7 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
       );
     }
 
-    final screenWidth = MediaQuery.of(context).size.width;
-    final panelWidth = (screenWidth * 0.28).clamp(320.0, 500.0);
+    final panelWidth = Responsive.wp(28).clamp(280.0, 500.0);
 
     return Container(
       width: panelWidth,

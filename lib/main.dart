@@ -9,6 +9,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:weighbridgemanagement/firebase_options.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/version_provider.dart';
 import 'package:weighbridgemanagement/shared/routing/app_router.dart';
@@ -54,10 +55,7 @@ void main() async {
     await windowManager.focus();
   });
 
-  await Future.delayed(const Duration(milliseconds: 500));
-  final size = await windowManager.getSize();
-  await windowManager.setMinimumSize(size);
-  await windowManager.setMaximumSize(size);
+  await windowManager.setMinimumSize(const Size(1024, 600));
 
   runApp(const ProviderScope(child: WeighbridgeApp()));
 }
@@ -84,6 +82,7 @@ class WeighbridgeApp extends ConsumerWidget {
       locale: Locale(appearance.locale),
       routerConfig: router,
       builder: (context, child) {
+        Responsive.init(context);
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(
             textScaler: TextScaler.linear(appearance.fontScale),
