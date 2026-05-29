@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:weighbridgemanagement/shared/services/platform_service.dart';
+
 enum DisplayBoardStatus { disconnected, connected, error }
 
 class DisplayBoardConfig {
@@ -62,20 +64,8 @@ class DisplayBoardConnection {
         case 'modbus':
         case 'serial':
         default:
-          // Configure serial port baud rate (platform-specific)
-          if (Platform.isMacOS || Platform.isLinux) {
-            final result = await Process.run('stty', ['-f', config.port, '${config.baudRate}', 'raw']);
-            if (result.exitCode != 0) {
-              status = DisplayBoardStatus.error;
-              return false;
-            }
-          } else if (Platform.isWindows) {
-            final result = await Process.run('mode', [config.port, 'baud=${config.baudRate}', 'parity=n', 'data=8', 'stop=1']);
-            if (result.exitCode != 0) {
-              status = DisplayBoardStatus.error;
-              return false;
-            }
-          }
+          // Configure serial port baud rate
+          await PlatformService.configureSerialPort(config.port, config.baudRate);
           status = DisplayBoardStatus.connected;
           return true;
       }

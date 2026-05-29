@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -15,6 +14,7 @@ import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
+import 'package:weighbridgemanagement/shared/services/platform_service.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import '../../application/setup_wizard_provider.dart';
 import '../../application/setup_wizard_state.dart';
@@ -135,13 +135,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
   }
 
   void _playSuccessSound() {
-    try {
-      if (Platform.isMacOS) {
-        Process.run('afplay', ['/System/Library/Sounds/Glass.aiff']);
-      } else if (Platform.isWindows) {
-        Process.run('powershell', ['-c', '[System.Media.SystemSounds]::Exclamation.Play()']);
-      }
-    } catch (_) {}
+    PlatformService.playSound(SoundType.complete);
   }
 
   Future<void> _checkApprovalStatus() async {

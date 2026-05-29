@@ -18,6 +18,7 @@ import 'package:weighbridgemanagement/shared/providers/site_context_provider.dar
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
 
 
 final _operatorsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
@@ -513,9 +514,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
           return GestureDetector(
             onTap: () {
               Clipboard.setData(ClipboardData(text: code));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('System code copied'), duration: Duration(seconds: 2)),
-              );
+              AppError.success(context, 'System code copied');
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -2584,9 +2583,7 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add operator: $e')),
-        );
+        AppError.show(context, 'Failed to add operator: $e');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -3115,9 +3112,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${field == 'email' ? 'Email' : 'Phone'} updated successfully.')),
-        );
+        AppError.success(context, '${field == 'email' ? 'Email' : 'Phone'} updated successfully.');
       }
     } on FirebaseFunctionsException catch (e) {
       setState(() => _changeError = e.message ?? 'Invalid OTP.');
@@ -4214,9 +4209,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
       await db.operators.doc(widget.operator['id']).update(fields);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e')),
-        );
+        AppError.show(context, 'Failed to save: $e');
       }
     }
   }
@@ -5604,14 +5597,9 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
             _otpStage = _OtpStage.notStarted;
             _warningAccepted = false;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(wasTraining
-                  ? 'Training data added successfully'
-                  : 'Face enrolled successfully'),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-            ),
-          );
+          AppError.success(context, wasTraining
+              ? 'Training data added successfully'
+              : 'Face enrolled successfully');
           widget.onEnrollmentComplete?.call();
         }
       } else {

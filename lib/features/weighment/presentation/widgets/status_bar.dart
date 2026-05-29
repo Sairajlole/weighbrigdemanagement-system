@@ -7,6 +7,7 @@ import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
 import 'package:weighbridgemanagement/shared/services/gate_service.dart';
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/connection_badge.dart';
 
 class WeighmentStatusBar extends ConsumerWidget {
   const WeighmentStatusBar({super.key});
@@ -35,41 +36,39 @@ class WeighmentStatusBar extends ConsumerWidget {
       child: Row(
         children: [
           // Scale status
-          _StatusChip(
-            icon: Icons.scale_outlined,
-            label: scaleConnected ? 'Scale OK' : 'Scale Off',
-            active: scaleConnected,
+          ConnectionBadge(
+            status: scaleConnected ? ConnectionStatus.connected : ConnectionStatus.disconnected,
+            label: 'Scale',
+            detail: scaleConnected ? 'OK' : 'Off',
           ),
           SizedBox(width: 16.rs),
           // Gate status
           if (gatesEnabled) ...[
-            _StatusChip(
-              icon: Icons.sensor_door_outlined,
-              label: 'Entry: ${_gateLabel(entryState)}',
-              active: entryState == GateState.closed || entryState == GateState.open,
-              warning: entryState == GateState.error,
+            ConnectionBadge(
+              status: _gateConnectionStatus(entryState),
+              label: 'Entry',
+              detail: _gateLabel(entryState),
             ),
             SizedBox(width: 12.rs),
-            _StatusChip(
-              icon: Icons.sensor_door_outlined,
-              label: 'Exit: ${_gateLabel(exitState)}',
-              active: exitState == GateState.closed || exitState == GateState.open,
-              warning: exitState == GateState.error,
+            ConnectionBadge(
+              status: _gateConnectionStatus(exitState),
+              label: 'Exit',
+              detail: _gateLabel(exitState),
             ),
             SizedBox(width: 16.rs),
           ],
           // Camera count
-          _StatusChip(
-            icon: Icons.videocam_outlined,
-            label: '${cameras.length} cam${cameras.length == 1 ? '' : 's'}',
-            active: cameras.isNotEmpty,
+          ConnectionBadge(
+            status: cameras.isNotEmpty ? ConnectionStatus.connected : ConnectionStatus.disconnected,
+            label: 'Cameras',
+            detail: '${cameras.length}',
           ),
           SizedBox(width: 16.rs),
           // AI sidecar
-          _StatusChip(
-            icon: Icons.memory_outlined,
-            label: aiAvailable ? 'AI On' : 'AI Off',
-            active: aiAvailable,
+          ConnectionBadge(
+            status: aiAvailable ? ConnectionStatus.connected : ConnectionStatus.disconnected,
+            label: 'AI',
+            detail: aiAvailable ? 'On' : 'Off',
           ),
           const Spacer(),
           // Keyboard shortcuts hint
@@ -92,34 +91,14 @@ class WeighmentStatusBar extends ConsumerWidget {
       GateState.unknown => '—',
     };
   }
-}
 
-class _StatusChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final bool warning;
-
-  const _StatusChip({required this.icon, required this.label, this.active = false, this.warning = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = warning ? scheme.onSurfaceVariant : (active ? scheme.onSurface : scheme.onSurfaceVariant.withValues(alpha: 0.4));
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-        ),
-        SizedBox(width: 5.rs),
-        Icon(icon, size: 12, color: color),
-        SizedBox(width: 3.rs),
-        Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
-      ],
-    );
+  ConnectionStatus _gateConnectionStatus(GateState state) {
+    return switch (state) {
+      GateState.closed || GateState.open => ConnectionStatus.connected,
+      GateState.opening || GateState.closing => ConnectionStatus.connecting,
+      GateState.error => ConnectionStatus.error,
+      GateState.unknown => ConnectionStatus.disconnected,
+    };
   }
 }
+

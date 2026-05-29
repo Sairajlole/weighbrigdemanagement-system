@@ -15,6 +15,7 @@ import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.d
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
 
 // ─── AES-256-CBC encryption (cross-platform, replaces openssl CLI) ──────────
 
@@ -294,10 +295,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     ref.read(auditServiceProvider).log(event: 'export', description: 'Site-level backup created');
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Backup saved to ${dir.path}'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-      ));
+      AppError.success(context, 'Backup saved to ${dir.path}');
     }
   }
 
@@ -461,18 +459,12 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Company backup saved to ${dir.path}'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-        ));
+        AppError.success(context, 'Company backup saved to ${dir.path}');
       }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Backup failed: $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ));
+        AppError.show(context, 'Backup failed: $e');
       }
     }
   }
@@ -502,10 +494,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     final manifestFile = File('$backupDir/manifest.json');
     if (!manifestFile.existsSync()) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('Invalid backup folder — manifest.json not found'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ));
+        AppError.show(context, 'Invalid backup folder — manifest.json not found');
       }
       return;
     }
@@ -513,10 +502,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     final manifest = jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
     if (!mounted) return;
     if (manifest['scope'] != 'company') {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Not a company-level backup. Use site backup restore instead.'),
-        backgroundColor: Theme.of(context).colorScheme.error,
-      ));
+      AppError.show(context, 'Not a company-level backup. Use site backup restore instead.');
       return;
     }
 
@@ -678,18 +664,12 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('Company backup restored successfully. Restart the app to apply all changes.'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-        ));
+        AppError.success(context, 'Company backup restored successfully. Restart the app to apply all changes.');
       }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Restore failed: $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ));
+        AppError.show(context, 'Restore failed: $e');
       }
     }
   }
@@ -817,25 +797,25 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
           await File(encPath).writeAsBytes(encrypted);
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Encryption failed: $e'), backgroundColor: Theme.of(context).colorScheme.error));
+            AppError.show(context, 'Encryption failed: $e');
           }
           return;
         }
         ref.read(auditServiceProvider).log(event: 'export', description: 'Settings exported (encrypted)');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Encrypted settings exported to $encPath'), backgroundColor: Theme.of(context).colorScheme.primary));
+          AppError.success(context, 'Encrypted settings exported to $encPath');
         }
       } else {
         final path = '${dir.path}/system_settings_${DateFormat('yyyy-MM-dd_HHmmss').format(DateTime.now())}.json';
         await File(path).writeAsString(jsonStr);
         ref.read(auditServiceProvider).log(event: 'export', description: 'Settings exported (plaintext)');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Settings exported to $path'), backgroundColor: Theme.of(context).colorScheme.primary));
+          AppError.success(context, 'Settings exported to $path');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e'), backgroundColor: Theme.of(context).colorScheme.error));
+        AppError.show(context, 'Export failed: $e');
       }
     }
   }
@@ -860,7 +840,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
           content = _decryptAes256(encBytes, password);
         } catch (_) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Decryption failed — wrong password or corrupted file.'), backgroundColor: Theme.of(context).colorScheme.error));
+            AppError.show(context, 'Decryption failed — wrong password or corrupted file.');
           }
           return;
         }
@@ -873,11 +853,11 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
         await db.siteSetting(entry.key).set(entry.value as Map<String, dynamic>);
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Settings imported successfully. Restart to apply.'), backgroundColor: Theme.of(context).colorScheme.primary));
+        AppError.success(context, 'Settings imported successfully. Restart to apply.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import failed: $e'), backgroundColor: Theme.of(context).colorScheme.error));
+        AppError.show(context, 'Import failed: $e');
       }
     }
   }
@@ -889,7 +869,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     _markDirty();
     await _save();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Sync complete'), backgroundColor: Theme.of(context).colorScheme.primary));
+      AppError.success(context, 'Sync complete');
     }
   }
 
@@ -914,7 +894,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
       final dir = Directory(d);
       if (!dir.existsSync()) dir.createSync(recursive: true);
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Folder structure created'), backgroundColor: Theme.of(context).colorScheme.primary));
+    AppError.success(context, 'Folder structure created');
   }
 
   @override
@@ -1340,11 +1320,11 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
       final path = '${dir.path}/weighments_${DateFormat('yyyy-MM-dd').format(DateTime.now())}.csv';
       await File(path).writeAsString(buf.toString());
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Exported to $path'), backgroundColor: Theme.of(context).colorScheme.primary));
+        AppError.success(context, 'Exported to $path');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e'), backgroundColor: Theme.of(context).colorScheme.error));
+        AppError.show(context, 'Export failed: $e');
       }
     }
   }
@@ -1452,7 +1432,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                         await doc.reference.delete();
                       }
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('All settings reset. Restart the app.'), backgroundColor: scheme.error));
+                        AppError.show(context, 'All settings reset. Restart the app.');
                       }
                     },
                     style: FilledButton.styleFrom(backgroundColor: scheme.error),

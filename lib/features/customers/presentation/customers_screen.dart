@@ -17,6 +17,7 @@ import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
 
 final _customersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final paths = ref.watch(firestorePathsProvider);
@@ -225,9 +226,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       final msg = skipped > 0
           ? 'Deleted $deleted customer${deleted != 1 ? 's' : ''}. Skipped $skipped with weighments (use individual delete).'
           : 'Deleted $deleted customer${deleted != 1 ? 's' : ''}.';
-      ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: scheme.primary),
-      );
+      AppError.success(ctx, msg);
     }
   }
 
@@ -1469,10 +1468,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Merged ${others.length} customer(s) into $primaryName'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-      ));
+      AppError.success(context, 'Merged ${others.length} customer(s) into $primaryName');
     }
   }
 
@@ -1548,9 +1544,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
         final existing = await db.customers.where('phone', isEqualTo: newPhone).get();
         if (existing.docs.any((d) => d.id != widget.customer['id'])) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Phone $newPhone already belongs to another customer'), backgroundColor: Theme.of(context).colorScheme.error),
-            );
+            AppError.show(context, 'Phone $newPhone already belongs to another customer');
             setState(() => _saving = false);
           }
           return;
@@ -1636,9 +1630,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
                 }
               } catch (_) {
                 if (dCtx.mounted) {
-                  ScaffoldMessenger.of(dCtx).showSnackBar(
-                    SnackBar(content: const Text('Invalid password'), backgroundColor: scheme.error),
-                  );
+                  AppError.show(dCtx, 'Invalid password');
                 }
               }
             },
@@ -2269,16 +2261,12 @@ class _RecycleBinDialogState extends State<_RecycleBinDialog> {
           _deleted?.removeWhere((d) => d['id'] == id);
         });
         final suffix = wasTransferred ? ' (weighments remain with transfer target)' : '';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Restored "$customerName"$suffix'), backgroundColor: Theme.of(context).colorScheme.primary),
-        );
+        AppError.success(context, 'Restored "$customerName"$suffix');
       }
     } catch (e) {
       if (mounted) {
         setState(() => _restoring.remove(id));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Restore failed: $e'), backgroundColor: Theme.of(context).colorScheme.error),
-        );
+        AppError.show(context, 'Restore failed: $e');
       }
     }
   }
@@ -2548,16 +2536,12 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
             _merges![idx]['reverted'] = true;
           }
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Merge reverted successfully'), backgroundColor: Theme.of(context).colorScheme.primary),
-        );
+        AppError.success(context, 'Merge reverted successfully');
       }
     } catch (e) {
       if (mounted) {
         setState(() => _reverting.remove(id));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Revert failed: $e'), backgroundColor: Theme.of(context).colorScheme.error),
-        );
+        AppError.show(context, 'Revert failed: $e');
       }
     }
   }
@@ -2909,16 +2893,12 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
 
       if (mounted) {
         Navigator.pop(context, 'done');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Archived "${widget.customerName}" — ${weighments.docs.length} weighments anonymized'), backgroundColor: Theme.of(context).colorScheme.primary),
-        );
+        AppError.success(context, 'Archived "${widget.customerName}" — ${weighments.docs.length} weighments anonymized');
       }
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Archive failed: $e'), backgroundColor: Theme.of(context).colorScheme.error),
-        );
+        AppError.show(context, 'Archive failed: $e');
       }
     }
   }
@@ -2974,16 +2954,12 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
 
       if (mounted) {
         Navigator.pop(context, 'done');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Transferred ${weighments.docs.length} weighments to "$targetName" and deleted "${widget.customerName}"'), backgroundColor: Theme.of(context).colorScheme.primary),
-        );
+        AppError.success(context, 'Transferred ${weighments.docs.length} weighments to "$targetName" and deleted "${widget.customerName}"');
       }
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Transfer failed: $e'), backgroundColor: Theme.of(context).colorScheme.error),
-        );
+        AppError.show(context, 'Transfer failed: $e');
       }
     }
   }
@@ -3398,9 +3374,7 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
 
     if (mounted) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: const Text('Face captured successfully'), backgroundColor: Theme.of(context).colorScheme.primary),
-      );
+      AppError.success(context, 'Face captured successfully');
     }
   }
 
@@ -3859,9 +3833,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
     final existing = await db.customers.where('phone', isEqualTo: phone).get();
     if (existing.docs.isNotEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Phone $phone already belongs to another customer'), backgroundColor: Theme.of(context).colorScheme.error),
-        );
+        AppError.show(context, 'Phone $phone already belongs to another customer');
         setState(() => _saving = false);
       }
       return;

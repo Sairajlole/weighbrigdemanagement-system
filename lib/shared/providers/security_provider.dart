@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
+import 'package:weighbridgemanagement/shared/services/platform_service.dart';
 
 // ─── Security Settings Model ─────────────────────────────────────────────────
 
@@ -545,25 +546,8 @@ class RemoteDesktopMonitor {
   Future<void> killRemoteApps() async {
     if (!enabled) return;
     try {
-      if (Platform.isMacOS) {
-        for (final proc in _blockedProcesses) {
-          // killall is more reliable on macOS for app bundles
-          await Process.run('killall', [proc]);
-          // Also try pkill for daemon processes
-          await Process.run('pkill', ['-fi', proc]);
-        }
-        // Force-quit known app bundles
-        await Process.run('osascript', ['-e', 'tell application "AnyDesk" to quit']);
-        await Process.run('osascript', ['-e', 'tell application "TeamViewer" to quit']);
-      } else if (Platform.isWindows) {
-        for (final proc in _blockedProcesses) {
-          await Process.run('taskkill', ['/F', '/IM', '$proc.exe']);
-          await Process.run('taskkill', ['/F', '/FI', 'IMAGENAME eq *$proc*']);
-        }
-      } else {
-        for (final proc in _blockedProcesses) {
-          await Process.run('pkill', ['-f', proc]);
-        }
+      for (final proc in _blockedProcesses) {
+        await PlatformService.killProcess(proc);
       }
     } catch (_) {}
   }

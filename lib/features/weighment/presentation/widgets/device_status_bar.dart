@@ -5,6 +5,7 @@ import 'package:weighbridgemanagement/features/weighment/application/inline_veri
 import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/connection_badge.dart';
 
 class DeviceStatusBar extends ConsumerWidget {
   final Duration elapsed;
@@ -68,19 +69,19 @@ class DeviceStatusBar extends ConsumerWidget {
           SizedBox(width: 20.rs),
 
           // Cameras
-          _StatusChip(
-            icon: Icons.videocam_outlined,
-            label: '${cameras.length} cam${cameras.length == 1 ? '' : 's'}',
-            color: cameras.isNotEmpty ? scheme.onSurface : scheme.onSurfaceVariant.withValues(alpha: 0.5),
+          ConnectionBadge(
+            status: cameras.isNotEmpty ? ConnectionStatus.connected : ConnectionStatus.disconnected,
+            label: 'Cameras',
+            detail: '${cameras.length}',
           ),
 
           SizedBox(width: 20.rs),
 
           // AI
-          _StatusChip(
-            icon: Icons.memory_outlined,
-            label: aiAvailable ? 'AI Ready' : 'AI Off',
-            color: aiAvailable ? scheme.onSurface : scheme.onSurfaceVariant.withValues(alpha: 0.5),
+          ConnectionBadge(
+            status: aiAvailable ? ConnectionStatus.connected : ConnectionStatus.disconnected,
+            label: 'AI',
+            detail: aiAvailable ? 'Ready' : 'Off',
           ),
 
           // Timer

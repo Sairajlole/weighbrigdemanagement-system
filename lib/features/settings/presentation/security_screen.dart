@@ -16,6 +16,7 @@ import 'package:weighbridgemanagement/shared/providers/general_settings_provider
 import 'package:weighbridgemanagement/shared/providers/mfa_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
 
 // ─── Local persistence ───────────────────────────────────────────────────────
 
@@ -1586,17 +1587,11 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       await File(filePath).writeAsString(buffer.toString());
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Audit log exported: $filePath (${snap.docs.length} entries)'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-        ));
+        AppError.success(context, 'Audit log exported: $filePath (${snap.docs.length} entries)');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Export failed: $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ));
+        AppError.show(context, 'Export failed: $e');
       }
     }
   }

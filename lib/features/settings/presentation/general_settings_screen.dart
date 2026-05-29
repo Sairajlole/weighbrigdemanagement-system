@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:weighbridgemanagement/shared/services/platform_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:file_picker/file_picker.dart';
@@ -2530,13 +2531,7 @@ class _UploadTile extends StatelessWidget {
     final docKey = label.replaceAll(' ', '_').toLowerCase();
     final file = File('${tmpDir.path}/${docKey}_$ts.pdf');
     await file.writeAsBytes(bytes);
-    if (Platform.isMacOS) {
-      Process.run('open', [file.path]);
-    } else if (Platform.isWindows) {
-      Process.run('start', ['', file.path], runInShell: true);
-    } else {
-      Process.run('xdg-open', [file.path]);
-    }
+    PlatformService.openFile(file.path);
   }
 
   @override

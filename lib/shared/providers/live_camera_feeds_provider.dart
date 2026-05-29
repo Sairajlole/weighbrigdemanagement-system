@@ -9,6 +9,7 @@ import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
 import 'package:weighbridgemanagement/shared/services/multi_camera_service.dart';
+import 'package:weighbridgemanagement/shared/services/platform_service.dart';
 
 class LiveFeed {
   final Player player;
@@ -128,11 +129,9 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
     native.setProperty('rtsp-transport', 'tcp');
     native.setProperty('profile', 'low-latency');
     native.setProperty('audio', 'no');
+    native.setProperty('hwdec', '${PlatformService.hwDecoder}-copy');
     if (Platform.isWindows) {
-      native.setProperty('hwdec', 'd3d11va-copy');
       native.setProperty('hwdec-codecs', 'all');
-    } else {
-      native.setProperty('hwdec', 'videotoolbox');
     }
     native.setProperty('cache', 'no');
     native.setProperty('cache-pause', 'no');
