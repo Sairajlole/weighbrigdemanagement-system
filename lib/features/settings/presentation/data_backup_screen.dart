@@ -16,6 +16,7 @@ import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 // ─── AES-256-CBC encryption (cross-platform, replaces openssl CLI) ──────────
 
@@ -982,7 +983,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
           // ── Body ──
           Expanded(
             child: asyncData.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
                 padding: EdgeInsets.all(28.rs),

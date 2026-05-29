@@ -7,6 +7,7 @@ import 'package:weighbridgemanagement/shared/services/gate_service.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 class GatesStep extends ConsumerStatefulWidget {
   const GatesStep({super.key});
@@ -218,7 +219,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    if (!_loaded) return const Center(child: CircularProgressIndicator());
+    if (!_loaded) return const AppLoading();
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(40.rs),

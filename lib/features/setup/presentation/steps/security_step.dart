@@ -5,6 +5,7 @@ import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.d
 import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 class SecurityStep extends ConsumerStatefulWidget {
   const SecurityStep({super.key});
@@ -135,7 +136,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
     final text = Theme.of(context).textTheme;
     final isFree = ref.watch(isFreeProvider);
 
-    if (!_loaded) return const Center(child: CircularProgressIndicator());
+    if (!_loaded) return const AppLoading();
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(40.rs),

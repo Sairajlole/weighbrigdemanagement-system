@@ -22,6 +22,7 @@ import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 final profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
@@ -297,7 +298,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
       body: profileAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoading(),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (profile) {
           final role = profile['role'] as String? ?? 'admin';

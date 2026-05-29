@@ -14,6 +14,7 @@ import 'package:weighbridgemanagement/shared/providers/site_context_provider.dar
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 final _scaleSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
@@ -773,7 +774,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           _buildWeighbridgeContextBar(scheme, text),
           Expanded(
             child: async.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
                 padding: EdgeInsets.all(28.rs),

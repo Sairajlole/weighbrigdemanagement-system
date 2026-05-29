@@ -6,6 +6,7 @@ import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 class LicenseStep extends ConsumerStatefulWidget {
   const LicenseStep({super.key});
@@ -349,7 +350,7 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
 
           if (_loading) ...[
             SizedBox(height: 24.rs),
-            const Center(child: CircularProgressIndicator()),
+            const AppLoading(),
           ],
         ],
           ),

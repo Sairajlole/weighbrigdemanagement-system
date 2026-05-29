@@ -12,6 +12,7 @@ import 'package:weighbridgemanagement/shared/services/display_board_service.dart
 import 'package:weighbridgemanagement/shared/services/tally_service.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 // ─── Provider ────────────────────────────────────────────────────────────────
 
@@ -234,7 +235,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
       body: dataAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoading(),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (data) {
           _loadData(data);

@@ -21,6 +21,7 @@ import 'package:weighbridgemanagement/shared/providers/print_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 // ─── Providers ──────────────────────────────────────────────────────────────
 
@@ -1155,7 +1156,7 @@ if (\$bins.Count -eq 0) {
           ),
           Expanded(
             child: settingsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => Column(
                 children: [

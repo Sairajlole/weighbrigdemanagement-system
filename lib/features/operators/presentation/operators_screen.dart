@@ -19,6 +19,7 @@ import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 
 final _operatorsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
@@ -248,7 +249,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
             SizedBox(height: 16.rs),
             Expanded(
               child: operatorsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const AppLoading(),
                 error: (e, _) => Center(child: Text('Error: $e')),
                 data: (operators) {
                   // Separate archived

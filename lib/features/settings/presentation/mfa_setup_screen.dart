@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/mfa_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 class MfaSetupScreen extends ConsumerStatefulWidget {
   const MfaSetupScreen({super.key});
@@ -117,7 +118,7 @@ class _MfaSetupScreenState extends ConsumerState<MfaSetupScreen> {
       body: Padding(
         padding: EdgeInsets.all(24.rs),
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const AppLoading()
             : SingleChildScrollView(child: _buildContent(scheme, text)),
       ),
     );

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 final _customFieldsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
@@ -255,7 +256,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
           // Content
           Expanded(
             child: fieldsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => Row(
                 crossAxisAlignment: CrossAxisAlignment.start,

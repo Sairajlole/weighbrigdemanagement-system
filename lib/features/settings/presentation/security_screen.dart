@@ -17,6 +17,7 @@ import 'package:weighbridgemanagement/shared/providers/mfa_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 // ─── Local persistence ───────────────────────────────────────────────────────
 
@@ -483,7 +484,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
           // ── Body ──
           Expanded(
             child: asyncData.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
                 padding: EdgeInsets.all(28.rs),

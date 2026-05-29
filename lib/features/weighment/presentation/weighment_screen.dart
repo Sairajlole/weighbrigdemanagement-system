@@ -36,6 +36,7 @@ import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/services/gate_service.dart';
 import 'package:weighbridgemanagement/shared/services/multi_camera_service.dart';
 import 'package:weighbridgemanagement/shared/services/training_data_service.dart';
+import 'package:weighbridgemanagement/shared/utils/app_shortcuts.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class WeighmentScreen extends ConsumerStatefulWidget {
@@ -66,6 +67,35 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     super.initState();
     Future.microtask(() => ref.read(gateWeightTriggerProvider));
     Future.microtask(() => _checkSessionFaceVerification());
+    _registerShortcuts();
+  }
+
+  void _registerShortcuts() {
+    AppShortcutRegistry().registerAll([
+      AppShortcut(key: LogicalKeyboardKey.f1, label: 'New Weighment', action: () => _handleNewWeighment()),
+      AppShortcut(key: LogicalKeyboardKey.f2, label: 'New Weighment', action: () => _handleNewWeighment()),
+      AppShortcut(key: LogicalKeyboardKey.f3, label: 'Manual Entry', action: _showManualEntryDialog),
+      AppShortcut(key: LogicalKeyboardKey.f4, label: 'Save / Print', action: _handleF4),
+      AppShortcut(key: LogicalKeyboardKey.f5, label: 'Capture Weight', action: _handleCaptureWeight),
+      AppShortcut(key: LogicalKeyboardKey.f6, label: 'Open Gate', action: () => _handleOpenGate()),
+      AppShortcut(key: LogicalKeyboardKey.f7, label: 'Close Gate', action: () => _handleCloseGate()),
+      AppShortcut(key: LogicalKeyboardKey.f8, label: 'Retry Operator Verify', action: () => _handleRetryOperatorVerify()),
+      AppShortcut(key: LogicalKeyboardKey.f9, label: 'Retry Customer Verify', action: () => _handleRetryCustomerVerify()),
+      AppShortcut(key: LogicalKeyboardKey.f10, label: 'Customer Search', action: () => _handleCustomerSearch()),
+      AppShortcut(key: LogicalKeyboardKey.f11, label: 'Print Slip', action: _handlePrintSlip),
+      AppShortcut(key: LogicalKeyboardKey.escape, label: 'Cancel / Back', action: _handleEscape),
+    ]);
+  }
+
+  void _handleF4() {
+    final s = ref.read(weighmentMachineProvider).session;
+    if (s?.status == SessionStatus.completed) {
+      _handlePrintSlip();
+    } else if (s?.secondWeight != null) {
+      _handleSaveComplete();
+    } else {
+      _handleSaveFirstWeight();
+    }
   }
 
   void _rescanAnpr() {
@@ -957,38 +987,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     const printConfigured = true;
 
     return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.f1): () => _handleNewWeighment(),
-        const SingleActivator(LogicalKeyboardKey.f2): () => _handleNewWeighment(),
-        const SingleActivator(LogicalKeyboardKey.f3): _showManualEntryDialog,
-        const SingleActivator(LogicalKeyboardKey.f4): () {
-          if (machine.session?.status == SessionStatus.completed) {
-            _handlePrintSlip();
-          } else if (machine.session?.secondWeight != null) {
-            _handleSaveComplete();
-          } else {
-            _handleSaveFirstWeight();
-          }
-        },
-        const SingleActivator(LogicalKeyboardKey.f5): _handleCaptureWeight,
-        const SingleActivator(LogicalKeyboardKey.f6): () {
-          if (gateEnabled) _handleOpenGate();
-        },
-        const SingleActivator(LogicalKeyboardKey.f7): () {
-          if (gateEnabled) _handleCloseGate();
-        },
-        const SingleActivator(LogicalKeyboardKey.f8): () {
-          if (session != null) _handleRetryOperatorVerify();
-        },
-        const SingleActivator(LogicalKeyboardKey.f9): () {
-          if (session != null) _handleRetryCustomerVerify();
-        },
-        const SingleActivator(LogicalKeyboardKey.f10): () {
-          if (session != null) _handleCustomerSearch();
-        },
-        const SingleActivator(LogicalKeyboardKey.f11): _handlePrintSlip,
-        const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
-      },
+      bindings: AppShortcutRegistry().asCallbackShortcuts,
       child: Focus(
         focusNode: _screenFocusNode,
         autofocus: true,

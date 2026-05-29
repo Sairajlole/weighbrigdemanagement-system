@@ -21,6 +21,7 @@ import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 // ---------------------------------------------------------------------------
 // Local persistence helper
@@ -744,7 +745,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
       body: asyncData.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoading(),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (_) => Column(
           children: [

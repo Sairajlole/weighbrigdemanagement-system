@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 class MaterialsStep extends ConsumerStatefulWidget {
   const MaterialsStep({super.key});
@@ -120,7 +121,7 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    if (!_loaded) return const Center(child: CircularProgressIndicator());
+    if (!_loaded) return const AppLoading();
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(40.rs),

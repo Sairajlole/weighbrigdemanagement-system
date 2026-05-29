@@ -5,6 +5,7 @@ import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 class SiteStep extends ConsumerStatefulWidget {
   const SiteStep({super.key});
@@ -209,7 +210,7 @@ class _SiteStepState extends ConsumerState<SiteStep> {
               ],
 
               if (_loading) ...[
-                const Center(child: CircularProgressIndicator()),
+                const AppLoading(),
               ] else ...[
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),

@@ -10,6 +10,7 @@ import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.d
 import 'package:weighbridgemanagement/shared/widgets/pro_feature_banner.dart';
 import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 // ---------------------------------------------------------------------------
 // Local persistence helper
@@ -294,7 +295,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           ),
           Expanded(
             child: asyncData.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
                 padding: EdgeInsets.all(28.rs),

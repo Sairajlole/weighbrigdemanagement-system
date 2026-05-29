@@ -16,6 +16,7 @@ import 'package:weighbridgemanagement/shared/providers/site_context_provider.dar
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 void showWeighmentDetailDialog(BuildContext context, WidgetRef ref, Map<String, dynamic> w) {
   final state = context.findAncestorStateOfType<_WeighmentsScreenState>();
@@ -380,7 +381,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
           SizedBox(height: 16.rs),
           Expanded(
             child: weighmentsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (all) {
                 final filtered = _applyFilters(all);

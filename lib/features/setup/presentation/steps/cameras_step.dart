@@ -14,6 +14,7 @@ import 'package:weighbridgemanagement/shared/services/multi_camera_service.dart'
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 final _systemCamerasProvider = FutureProvider<List<String>>((ref) async {
   if (!Platform.isMacOS) return [];
@@ -499,7 +500,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
     final isFree = ref.watch(isFreeProvider);
     ref.watch(_systemCamerasProvider);
 
-    if (!_loaded) return const Center(child: CircularProgressIndicator());
+    if (!_loaded) return const AppLoading();
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(40.rs),

@@ -22,6 +22,7 @@ import 'package:weighbridgemanagement/shared/providers/site_context_provider.dar
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 // ─── Country Codes ──────────────────────────────────────────────────────────
 
@@ -1405,7 +1406,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
           // Content
           Expanded(
             child: settingsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
                 padding: EdgeInsets.all(28.rs),

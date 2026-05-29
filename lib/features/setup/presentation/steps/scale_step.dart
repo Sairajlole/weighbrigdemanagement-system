@@ -12,6 +12,7 @@ import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 class ScaleStep extends ConsumerStatefulWidget {
   const ScaleStep({super.key});
@@ -390,7 +391,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    if (!_loaded) return const Center(child: CircularProgressIndicator());
+    if (!_loaded) return const AppLoading();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),

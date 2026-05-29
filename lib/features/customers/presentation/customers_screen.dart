@@ -18,6 +18,7 @@ import 'package:weighbridgemanagement/shared/providers/site_context_provider.dar
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 
 final _customersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final paths = ref.watch(firestorePathsProvider);
@@ -391,7 +392,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           // Content
           Expanded(
             child: customersAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (customers) {
                 final filtered = _search.isEmpty
@@ -1995,7 +1996,7 @@ class _WeighmentHistory extends StatelessWidget {
       future: _fetchAllWbWeighments(),
       builder: (_, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const AppLoading();
         }
         if (snap.hasError) {
           return Center(
@@ -2354,7 +2355,7 @@ class _RecycleBinDialogState extends State<_RecycleBinDialog> {
             // Content
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AppLoading()
                   : (_deleted == null || _deleted!.isEmpty)
                       ? Center(
                           child: Column(
@@ -2588,7 +2589,7 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
             const Divider(height: 1),
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AppLoading()
                   : (_merges == null || _merges!.isEmpty)
                       ? Center(
                           child: Column(
@@ -3011,7 +3012,7 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
             ),
             const Divider(height: 1),
             if (_loading)
-              const Expanded(child: Center(child: CircularProgressIndicator()))
+              const Expanded(child: const AppLoading())
             else
               Expanded(
                 child: Padding(
