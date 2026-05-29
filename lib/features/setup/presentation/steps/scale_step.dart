@@ -11,6 +11,7 @@ import 'package:weighbridgemanagement/shared/services/scale_service.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import '../../application/setup_wizard_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class ScaleStep extends ConsumerStatefulWidget {
   const ScaleStep({super.key});
@@ -400,20 +401,20 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
           Text('Scale Connection', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           Text(
             'Configure how your weighbridge indicator connects to this computer.',
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24.rs),
 
           // ─── Connection Status Bar ─────────────────────────────────
           _buildStatusBar(scheme, text),
-          const SizedBox(height: 28),
+          SizedBox(height: 28.rs),
 
           // ─── Connection Type ───────────────────────────────────────
           Text('Connection Type', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           Row(
             children: [
               _ConnectionTypeCard(
@@ -423,7 +424,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                 onTap: () { setState(() { _connectionType = 'serial'; _testResult = null; }); _disconnectTest(); },
                 scheme: scheme,
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12.rs),
               _ConnectionTypeCard(
                 icon: Icons.wifi_rounded,
                 label: 'TCP/IP (Wireless)',
@@ -433,23 +434,23 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
               ),
             ],
           ),
-          const SizedBox(height: 28),
+          SizedBox(height: 28.rs),
 
           // ─── Connection Details ────────────────────────────────────
           if (_connectionType == 'serial') ..._buildSerialFields(scheme, text)
           else ..._buildTcpFields(scheme, text),
 
-          const SizedBox(height: 28),
+          SizedBox(height: 28.rs),
 
           // ─── Advanced Settings Toggle ──────────────────────────────
           _buildAdvancedSection(scheme, text),
 
-          const SizedBox(height: 28),
+          SizedBox(height: 28.rs),
 
           // ─── Weight Capture ────────────────────────────────────────
           _buildWeightCaptureSection(scheme, text),
 
-          const SizedBox(height: 28),
+          SizedBox(height: 28.rs),
 
           // ─── Raw Data Stream ───────────────────────────────────────
           if (_rawStream.isNotEmpty || _testResult == 'connected')
@@ -475,7 +476,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                 : _autoDetecting
                     ? scheme.tertiaryContainer.withValues(alpha: 0.15)
                     : scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14.rs),
         border: Border.all(
           color: isConnected
               ? AppTheme.successColor.withValues(alpha: 0.4)
@@ -500,7 +501,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                 boxShadow: isConnected ? [BoxShadow(color: AppTheme.successColor.withValues(alpha: 0.4), blurRadius: 6)] : null,
               ),
             ),
-          const SizedBox(width: 14),
+          SizedBox(width: 14.rs),
 
           // Weight display
           Expanded(
@@ -530,14 +531,14 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: (_liveStable ? AppTheme.successColor : const Color(0xFFF59E0B)).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(4.rs),
                         ),
                         child: Text(
                           _liveStable ? 'STABLE' : 'SETTLING',
                           style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: _liveStable ? AppTheme.successColor : const Color(0xFFF59E0B)),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8.rs),
                       Text(
                         _connectionType == 'tcp' ? 'tcp://${_tcpHostCtrl.text.trim()}:${_tcpPortCtrl.text}' : '$_port @ $_baudRate',
                         style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
@@ -572,7 +573,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
               ),
               child: Text(isConnected ? 'Disconnect' : isFailed ? 'Retry' : 'Test', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: 4.rs),
             Tooltip(
               message: _connectionType == 'serial'
                   ? 'Tries common baud rates and formats on the selected port'
@@ -587,7 +588,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.auto_fix_high_rounded, size: 13, color: _detectedConfig != null ? AppTheme.successColor : (_canAutoDetect ? scheme.primary : scheme.onSurfaceVariant.withValues(alpha: 0.4))),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4.rs),
                     Text(_detectedConfig != null ? 'Re-detect' : 'Auto-Detect', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                   ],
                 ),
@@ -602,21 +603,21 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
   List<Widget> _buildSerialFields(ColorScheme scheme, TextTheme text) {
     return [
       Text('Serial Settings', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 12),
+      SizedBox(height: 12.rs),
 
       if (_ports.isEmpty) ...[
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(14),
+          padding: EdgeInsets.all(14.rs),
           decoration: BoxDecoration(
             color: scheme.errorContainer.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(10.rs),
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
               Icon(Icons.usb_off_rounded, size: 18, color: scheme.onSurfaceVariant),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -630,58 +631,58 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                 onPressed: _detectPorts,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 tooltip: 'Detect available ports',
-                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 14.rs),
       ] else ...[
         Row(
           children: [
             Expanded(child: _buildDropdown('Port', _port, _ports, (v) => setState(() => _port = v!))),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             Padding(
               padding: const EdgeInsets.only(top: 18),
               child: IconButton.outlined(
                 onPressed: _detectPorts,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 tooltip: 'Refresh ports',
-                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
               ),
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: 14.rs),
             Expanded(child: _buildDropdown('Baud Rate', _baudRate.toString(), _baudRates, (v) => setState(() => _baudRate = int.parse(v!)))),
           ],
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 14.rs),
       ],
 
       Row(
         children: [
           Expanded(child: _buildDropdown('Data Bits', _dataBits.toString(), _dataBitOptions, (v) => setState(() => _dataBits = int.parse(v!)))),
-          const SizedBox(width: 14),
+          SizedBox(width: 14.rs),
           Expanded(child: _buildDropdown('Parity', _parity, _parityOptions, (v) => setState(() => _parity = v!))),
         ],
       ),
-      const SizedBox(height: 14),
+      SizedBox(height: 14.rs),
       Row(
         children: [
           Expanded(child: _buildDropdown('Stop Bits', _stopBits, _stopBitOptions, (v) => setState(() => _stopBits = v!))),
-          const SizedBox(width: 14),
+          SizedBox(width: 14.rs),
           Expanded(child: _buildDropdown('Flow Control', _flowControl, _flowControlOptions, (v) => setState(() => _flowControl = v!))),
         ],
       ),
 
       if (_port.isNotEmpty) ...[
-        const SizedBox(height: 14),
+        SizedBox(height: 14.rs),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+          decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
           child: Row(
             children: [
               Icon(Icons.terminal_rounded, size: 14, color: scheme.onSurfaceVariant),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text(
                 '$_port  $_baudRate  $_dataBits-${_parity[0]}-$_stopBits  Flow: $_flowControl',
                 style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontWeight: FontWeight.w600, color: scheme.primary),
@@ -696,7 +697,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
   List<Widget> _buildTcpFields(ColorScheme scheme, TextTheme text) {
     return [
       Text('TCP/IP Settings', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 12),
+      SizedBox(height: 12.rs),
       Row(
         children: [
           Expanded(
@@ -705,7 +706,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Host / IP Address', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 6),
+                SizedBox(height: 6.rs),
                 TextFormField(
                   controller: _tcpHostCtrl,
                   style: text.bodySmall,
@@ -718,19 +719,19 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                     prefixIconConstraints: const BoxConstraints(minWidth: 40),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: 14.rs),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Port', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 6),
+                SizedBox(height: 6.rs),
                 TextField(
                   controller: _tcpPortCtrl,
                   style: text.bodySmall,
@@ -739,7 +740,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                     hintText: '3001',
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                   ),
                 ),
               ],
@@ -747,11 +748,11 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
           ),
         ],
       ),
-      const SizedBox(height: 14),
+      SizedBox(height: 14.rs),
       Row(
         children: [
           Expanded(child: _buildDelimiterField(text, scheme)),
-          const SizedBox(width: 14),
+          SizedBox(width: 14.rs),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -759,7 +760,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                 Row(
                   children: [
                     Text('Weight Regex', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4.rs),
                     Tooltip(message: 'Pattern to extract numeric weight from raw data', child: Icon(Icons.info_outline_rounded, size: 12, color: scheme.onSurfaceVariant)),
                     const Spacer(),
                     if (_weightRegex != _defaultWeightRegex)
@@ -769,7 +770,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6.rs),
                 TextField(
                   key: ValueKey(_weightRegex),
                   controller: TextEditingController(text: _weightRegex),
@@ -779,7 +780,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                     hintText: _defaultWeightRegex,
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                   ),
                 ),
               ],
@@ -787,14 +788,14 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
           ),
         ],
       ),
-      const SizedBox(height: 14),
+      SizedBox(height: 14.rs),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+        decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
         child: Row(
           children: [
             Icon(Icons.terminal_rounded, size: 14, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             Text(
               'tcp://${_tcpHostCtrl.text.isEmpty ? '...' : _tcpHostCtrl.text}:${_tcpPortCtrl.text}',
               style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontWeight: FontWeight.w600, color: scheme.primary),
@@ -807,10 +808,10 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
 
   Widget _buildAdvancedSection(ColorScheme scheme, TextTheme text) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14.rs),
         border: Border.all(color: _showAdvanced ? scheme.primary.withValues(alpha: 0.3) : scheme.outlineVariant.withValues(alpha: 0.25)),
       ),
       child: Column(
@@ -822,7 +823,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
             child: Row(
               children: [
                 Icon(Icons.tune_rounded, size: 18, color: _showAdvanced ? scheme.primary : scheme.onSurfaceVariant),
-                const SizedBox(width: 10),
+                SizedBox(width: 10.rs),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -837,40 +838,40 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
             ),
           ),
           if (_showAdvanced) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: 16.rs),
             Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.rs),
 
             // Timeouts
             Text('Timeouts', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 10),
+            SizedBox(height: 10.rs),
             Row(
               children: [
                 Expanded(child: _buildNumberField('Read Timeout (ms)', _readTimeout, (v) => _readTimeout = v, text)),
-                const SizedBox(width: 14),
+                SizedBox(width: 14.rs),
                 Expanded(child: _buildNumberField('Write Timeout (ms)', _writeTimeout, (v) => _writeTimeout = v, text)),
               ],
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14.rs),
 
             // Buffers
             Text('Buffers', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 10),
+            SizedBox(height: 10.rs),
             Row(
               children: [
                 Expanded(child: _buildNumberField('Read Buffer (bytes)', _readBufferSize, (v) => _readBufferSize = v, text)),
-                const SizedBox(width: 14),
+                SizedBox(width: 14.rs),
                 Expanded(child: _buildNumberField('Write Buffer (bytes)', _writeBufferSize, (v) => _writeBufferSize = v, text)),
               ],
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14.rs),
 
             // Delimiter & Regex (for serial mode)
             if (_connectionType == 'serial') ...[
               Row(
                 children: [
                   Expanded(child: _buildDelimiterField(text, scheme)),
-                  const SizedBox(width: 14),
+                  SizedBox(width: 14.rs),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -886,25 +887,25 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                               ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        SizedBox(height: 6.rs),
                         TextField(
                           key: ValueKey(_weightRegex),
                           controller: TextEditingController(text: _weightRegex),
                           style: text.bodySmall?.copyWith(fontFamily: 'monospace'),
                           onChanged: (v) => setState(() => _weightRegex = v),
-                          decoration: InputDecoration(hintText: _defaultWeightRegex, isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                          decoration: InputDecoration(hintText: _defaultWeightRegex, isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs))),
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14.rs),
             ],
 
             // Control signals
             Text('Control Signals', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 10),
+            SizedBox(height: 10.rs),
             Row(
               children: [
                 Expanded(
@@ -916,7 +917,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                     scheme: scheme,
                   ),
                 ),
-                const SizedBox(width: 14),
+                SizedBox(width: 14.rs),
                 Expanded(
                   child: _SwitchRow(
                     label: 'RTS (Request To Send)',
@@ -936,10 +937,10 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
 
   Widget _buildWeightCaptureSection(ColorScheme scheme, TextTheme text) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14.rs),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
       ),
       child: Column(
@@ -948,16 +949,16 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
           Row(
             children: [
               Icon(Icons.monitor_weight_rounded, size: 18, color: scheme.primary),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Text('Weight Capture', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
             ],
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6.rs),
           Text('Stability detection and auto-capture behaviour', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
 
           Text('Uniformity Duration', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 10),
+          SizedBox(height: 10.rs),
           Row(
             children: [3, 5, 10].map((s) {
               final selected = _uniformitySeconds == s;
@@ -970,7 +971,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     decoration: BoxDecoration(
                       color: selected ? scheme.primaryContainer : scheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(10.rs),
                       border: Border.all(color: selected ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
                     ),
                     child: Column(
@@ -984,9 +985,9 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
               );
             }).toList(),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6.rs),
           Text('Weight must remain uniform for $_uniformitySeconds seconds before capture', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 11)),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
 
           _SwitchRow(
             label: 'Auto-Capture When Stable',
@@ -995,7 +996,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
             onChanged: (v) => setState(() => _autoCaptureWhenStable = v),
             scheme: scheme,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           _SwitchRow(
             label: 'Allow Manual Entry',
             subtitle: 'Operators can type weight when scale is disconnected',
@@ -1015,18 +1016,18 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
         Row(
           children: [
             Icon(Icons.data_array_rounded, size: 16, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             Text('Raw Data Stream', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.rs),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(12.rs),
           constraints: const BoxConstraints(maxHeight: 80),
           decoration: BoxDecoration(
             color: const Color(0xFF1E1E1E),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(8.rs),
           ),
           child: SingleChildScrollView(
             reverse: true,
@@ -1045,7 +1046,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Line Delimiter', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
+        SizedBox(height: 6.rs),
         DropdownButtonFormField<String>(
           initialValue: _delimiterOptions.contains(_delimiter) ? _delimiter : 'Custom',
           items: _delimiterOptions.map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall))).toList(),
@@ -1055,12 +1056,12 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             isDense: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
           ),
           icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
         ),
         if (_delimiter == 'Custom') ...[
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           TextField(
             controller: _customDelimiterCtrl,
             style: text.bodySmall?.copyWith(fontFamily: 'monospace'),
@@ -1068,7 +1069,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
               hintText: r'e.g. \x02...\x03',
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
             ),
           ),
         ],
@@ -1081,7 +1082,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
+        SizedBox(height: 6.rs),
         TextField(
           controller: TextEditingController(text: value.toString()),
           keyboardType: TextInputType.number,
@@ -1090,7 +1091,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
           decoration: InputDecoration(
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
           ),
         ),
       ],
@@ -1103,14 +1104,14 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
+        SizedBox(height: 6.rs),
         DropdownButtonFormField<String>(
           initialValue: safeValue,
           items: options.map((o) => DropdownMenuItem(value: o, child: Text(o, style: Theme.of(context).textTheme.bodySmall))).toList(),
           onChanged: onChanged,
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
             isDense: true,
           ),
           icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
@@ -1141,7 +1142,7 @@ class _ConnectionTypeCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           color: isSelected ? scheme.primary.withValues(alpha: 0.05) : scheme.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12.rs),
           border: Border.all(
             color: isSelected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4),
             width: isSelected ? 2 : 1,
@@ -1151,14 +1152,14 @@ class _ConnectionTypeCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 20, color: isSelected ? scheme.primary : scheme.onSurfaceVariant),
-            const SizedBox(width: 10),
+            SizedBox(width: 10.rs),
             Text(label, style: TextStyle(
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
             )),
             if (isSelected) ...[
-              const SizedBox(width: 6),
+              SizedBox(width: 6.rs),
               Icon(Icons.check_circle_rounded, size: 14, color: scheme.primary),
             ],
           ],

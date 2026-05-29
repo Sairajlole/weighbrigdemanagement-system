@@ -16,6 +16,7 @@ import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.d
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 final _customersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final paths = ref.watch(firestorePathsProvider);
@@ -176,7 +177,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
     final confirmed = await showDialog<bool>(
       context: ctx,
       builder: (dCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.rs)),
         icon: Icon(Icons.delete_sweep_rounded, color: scheme.error, size: 28),
         title: Text('Delete $count Customer${count > 1 ? 's' : ''}?'),
         content: Text(
@@ -300,10 +301,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             top: top,
             child: Material(
               elevation: 8,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(12.rs),
               clipBehavior: Clip.antiAlias,
               child: Container(
-                padding: const EdgeInsets.all(10),
+                padding: EdgeInsets.all(10.rs),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: pairs.map((pair) => Padding(
@@ -312,7 +313,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _sortChip(pair.$1, scheme, ctx),
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6.rs),
                         _sortChip(pair.$2, scheme, ctx),
                       ],
                     ),
@@ -338,7 +339,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: active ? scheme.primary.withValues(alpha: 0.15) : scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(6.rs),
           border: active ? Border.all(color: scheme.primary.withValues(alpha: 0.6)) : null,
         ),
         child: Text(
@@ -377,7 +378,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         children: [
           Expanded(
             child: Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24.rs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -386,7 +387,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             _buildSelectionHeader(scheme, text, customersAsync)
           else
             _buildNormalHeader(scheme, text, customersAsync),
-          const SizedBox(height: 20),
+          SizedBox(height: 20.rs),
 
           // Content
           Expanded(
@@ -409,12 +410,12 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.people_outline, size: 48, color: scheme.outlineVariant),
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8.rs),
                         Text(
                           _search.isNotEmpty ? 'No matches for "$_search"' : 'No customers yet',
                           style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4.rs),
                         Text(
                           _search.isNotEmpty ? 'Try a different search term' : 'Add your first customer to get started',
                           style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
@@ -433,7 +434,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
               },
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           _buildBottomSummary(scheme, customersAsync, weighmentsAsync),
         ],
       ),
@@ -480,23 +481,23 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(10.rs),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
           Text('${filtered.length} shown', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-          const SizedBox(width: 16),
+          SizedBox(width: 16.rs),
           _bottomPill('With Phone', '$withPhone', scheme),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.rs),
           _bottomPill('With Address', '$withAddress', scheme),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.rs),
           if (archivedCount > 0) ...[
             _bottomPill('Archived', '$archivedCount', scheme),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
           ],
           _bottomPill('Weighments', '${allWeighments.length}', scheme),
-          const SizedBox(width: 16),
+          SizedBox(width: 16.rs),
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -507,7 +508,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: scheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(4.rs),
                     ),
                     child: Text(
                       '${toTitleCase(e.key)}: ${e.value}',
@@ -528,7 +529,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(4.rs),
       ),
       child: Text.rich(
         TextSpan(children: [
@@ -566,14 +567,14 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: scheme.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(6.rs),
                   border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.swap_horiz_rounded, size: 12, color: scheme.primary),
-                    const SizedBox(width: 5),
+                    SizedBox(width: 5.rs),
                     Text('Cross-Site', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
                   ],
                 ),
@@ -583,9 +584,9 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 height: 34,
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.rs),
                 ),
-                padding: const EdgeInsets.all(3),
+                padding: EdgeInsets.all(3.rs),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -597,13 +598,13 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: !_viewAllSites ? scheme.primary : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(6.rs),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.location_on_rounded, size: 12, color: !_viewAllSites ? scheme.onPrimary : scheme.onSurfaceVariant),
-                            const SizedBox(width: 5),
+                            SizedBox(width: 5.rs),
                             FutureBuilder<String>(
                               future: ref.read(firestorePathsProvider).firestore.doc('companies/${siteCtx.companyId}/sites/${siteCtx.siteId}').get().then((d) => d.data()?['name'] as String? ?? 'This Site'),
                               builder: (_, snap) => Text(snap.data ?? 'This Site', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: !_viewAllSites ? scheme.onPrimary : scheme.onSurfaceVariant)),
@@ -612,7 +613,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 2),
+                    SizedBox(width: 2.rs),
                     GestureDetector(
                       onTap: () => setState(() => _viewAllSites = true),
                       child: Container(
@@ -621,7 +622,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: _viewAllSites ? scheme.primary : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(6.rs),
                         ),
                         child: Text('All Sites', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _viewAllSites ? scheme.onPrimary : scheme.onSurfaceVariant)),
                       ),
@@ -632,21 +633,21 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             ],
           ],
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: 20.rs),
 
         // Row 2: Stats bar
         Row(
           children: [
             _headerStatCard('Total', '${customers.length}', Icons.people_rounded, scheme.primary, scheme),
-            const SizedBox(width: 12),
+            SizedBox(width: 12.rs),
             _headerStatCard('Active', '$activeCount', Icons.check_circle_rounded, Colors.green.shade700, scheme),
-            const SizedBox(width: 12),
+            SizedBox(width: 12.rs),
             _headerStatCard('Weighments', '${allWeighments.length}', Icons.monitor_weight_rounded, Colors.deepPurple, scheme),
-            const SizedBox(width: 12),
+            SizedBox(width: 12.rs),
             _headerStatCard('New This Month', '$newThisMonth', Icons.person_add_rounded, Colors.amber.shade700, scheme),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16.rs),
 
         // Row 3: Filter/action bar
         Wrap(
@@ -668,9 +669,9 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                     filled: true,
                     fillColor: scheme.surfaceContainerHigh,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
                   ),
                   style: const TextStyle(fontSize: 12),
                 ),
@@ -684,7 +685,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
                   color: _sortOption != _SortOption.nameAsc ? scheme.primary.withValues(alpha: 0.1) : scheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(6.rs),
                   border: _sortOption != _SortOption.nameAsc ? Border.all(color: scheme.primary.withValues(alpha: 0.4)) : null,
                 ),
                 child: Row(
@@ -705,7 +706,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   color: scheme.primary,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(6.rs),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -715,12 +716,12 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             Container(
               height: 32,
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(6.rs),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -730,13 +731,13 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             _chipButton('History', scheme.onSurfaceVariant, scheme, onTap: () => _showMergeHistory(context)),
             _chipButton('Recycle Bin', scheme.onSurfaceVariant, scheme, onTap: () => _showRecycleBin(context)),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             _chipButton('Merge', scheme.primary, scheme, onTap: () => setState(() { _selectMode = true; _selectPurpose = _SelectPurpose.merge; })),
             _chipButton('Delete', scheme.error, scheme, onTap: () => setState(() { _selectMode = true; _selectPurpose = _SelectPurpose.delete; })),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             GestureDetector(
               onTap: () => _showAddDialog(context),
               child: Container(
@@ -744,7 +745,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   color: scheme.primary,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(6.rs),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -766,13 +767,13 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(10.rs),
           border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
             Icon(icon, size: 20, color: color),
-            const SizedBox(width: 10),
+            SizedBox(width: 10.rs),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -791,19 +792,19 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.rs),
         border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
           Container(
             width: 32, height: 32,
-            decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8.rs)),
             child: Center(child: Text('${_selected.length}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: scheme.primary))),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.rs),
           Text('selected', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.rs),
           Text(
             _selectPurpose == _SelectPurpose.merge ? 'Select 2 or more to merge' : 'Select customers to delete',
             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
@@ -821,7 +822,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
               style: TextButton.styleFrom(foregroundColor: scheme.primary),
               child: const Text('Merge Selected', style: TextStyle(fontSize: 13)),
             ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.rs),
           TextButton(
             onPressed: _cancelSelection,
             style: TextButton.styleFrom(foregroundColor: scheme.onSurfaceVariant),
@@ -840,7 +841,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(6.rs),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -862,7 +863,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active ? scheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(6.rs),
         ),
         child: Icon(icon, size: 16, color: active ? scheme.onPrimary : scheme.onSurfaceVariant),
       ),
@@ -907,7 +908,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                     width: 24, height: 24,
                     decoration: BoxDecoration(
                       color: isSelected ? scheme.primary : scheme.surface,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(6.rs),
                       border: Border.all(color: isSelected ? scheme.primary : scheme.outlineVariant, width: 2),
                     ),
                     child: isSelected ? Icon(Icons.check_rounded, size: 16, color: scheme.onPrimary) : null,
@@ -968,17 +969,17 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
               top: top,
               child: Material(
                 elevation: 8,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.rs),
                 clipBehavior: Clip.antiAlias,
                 child: Container(
                   width: 320,
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(12.rs),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Toggle time columns', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.rs),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -1000,7 +1001,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
                                 color: active ? scheme.primary.withValues(alpha: 0.12) : scheme.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(6),
+                                borderRadius: BorderRadius.circular(6.rs),
                                 border: active ? Border.all(color: scheme.primary.withValues(alpha: 0.5)) : null,
                               ),
                               child: Text(
@@ -1029,7 +1030,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.rs),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -1043,7 +1044,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             ),
             child: Row(
               children: [
-                if (_selectMode) const SizedBox(width: 40),
+                if (_selectMode) SizedBox(width: 40.rs),
                 SizedBox(width: 42, child: Text('#', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant))),
                 Expanded(flex: 3, child: Text('Name', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant))),
                 Expanded(flex: 2, child: Text('Phone', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant))),
@@ -1126,7 +1127,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                             width: 90,
                             child: _buildPeriodCell(name, col, allWeighments, scheme),
                           ),
-                        const SizedBox(width: 32),
+                        SizedBox(width: 32.rs),
                       ],
                     ),
                   ),
@@ -1151,7 +1152,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       child: Center(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4)),
+          decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4.rs)),
           child: Text(
             breakdown.length == 1 ? '$count (${breakdown.keys.first})' : '$count',
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onPrimaryContainer),
@@ -1220,7 +1221,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           final hasPhoneMismatch = phones.length > 1;
 
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
             child: SizedBox(
               width: 460,
               child: Column(
@@ -1236,10 +1237,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                       children: [
                         Container(
                           width: 36, height: 36,
-                          decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(10)),
+                          decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(10.rs)),
                           child: Icon(Icons.merge_rounded, size: 18, color: scheme.primary),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.rs),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1272,7 +1273,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
                                 color: isSelected ? scheme.primaryContainer.withValues(alpha: 0.3) : scheme.surface,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(10.rs),
                                 border: Border.all(
                                   color: isSelected ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3),
                                   width: isSelected ? 1.5 : 1,
@@ -1284,7 +1285,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                                     width: 32, height: 32,
                                     decoration: BoxDecoration(
                                       color: isSelected ? scheme.primary : scheme.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(8.rs),
                                     ),
                                     child: Center(
                                       child: isSelected
@@ -1292,7 +1293,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                                           : Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: 12.rs),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1302,7 +1303,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                                           children: [
                                             if (phone.isNotEmpty) ...[
                                               Text(phone, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
-                                              const SizedBox(width: 8),
+                                              SizedBox(width: 8.rs),
                                             ],
                                             Text('$weighments weighments', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
                                           ],
@@ -1313,7 +1314,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                                   if (isSelected)
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(4)),
+                                      decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(4.rs)),
                                       child: Text('PRIMARY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.primary, letterSpacing: 0.5)),
                                     ),
                                 ],
@@ -1331,13 +1332,13 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: scheme.tertiaryContainer.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(8.rs),
                           border: Border.all(color: scheme.tertiary.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.info_outline_rounded, size: 14, color: scheme.tertiary),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8.rs),
                             Expanded(
                               child: Text('Different phone numbers detected. Primary\'s phone will be kept.', style: TextStyle(fontSize: 11, color: scheme.tertiary)),
                             ),
@@ -1350,15 +1351,15 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                     child: Row(
                       children: [
                         Icon(Icons.info_outline_rounded, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6.rs),
                         Expanded(child: Text('Weighments will be reassigned to primary. This action can be reverted from History.', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)))),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.rs),
                         OutlinedButton(
                           onPressed: () => Navigator.pop(ctx),
                           style: OutlinedButton.styleFrom(foregroundColor: scheme.onSurfaceVariant, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
                           child: const Text('Cancel', style: TextStyle(fontSize: 13)),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8.rs),
                         FilledButton(
                           onPressed: primaryId == null ? null : () async {
                             if (ctx.mounted) Navigator.pop(ctx);
@@ -1590,10 +1591,10 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
     final verified = await showDialog<bool>(
       context: ctx,
       builder: (dCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.rs)),
         title: Row(children: [
           Icon(Icons.verified_user_rounded, size: 20, color: scheme.tertiary),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.rs),
           const Text('Admin Reverification'),
         ]),
         content: SizedBox(
@@ -1604,7 +1605,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
             children: [
               Text('This customer has 1 weighment. Editing requires operator/admin password to confirm.',
                   style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-              const SizedBox(height: 16),
+              SizedBox(height: 16.rs),
               TextField(
                 controller: passC,
                 obscureText: true,
@@ -1612,7 +1613,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
                 decoration: InputDecoration(
                   labelText: 'Admin Password',
                   prefixIcon: const Icon(Icons.lock_rounded, size: 18),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                   isDense: true,
                 ),
               ),
@@ -1662,24 +1663,24 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
       final confirmed = await showDialog<bool>(
         context: ctx,
         builder: (dCtx) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.rs)),
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24.rs),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
                   Icon(Icons.delete_outline_rounded, size: 20, color: scheme.error),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10.rs),
                   Text('Delete Customer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: scheme.onSurface)),
                 ]),
-                const SizedBox(height: 12),
+                SizedBox(height: 12.rs),
                 Text('Delete "$name"? This customer has no weighments and will be moved to the recycle bin.', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-                const SizedBox(height: 16),
+                SizedBox(height: 16.rs),
                 Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                   OutlinedButton(onPressed: () => Navigator.pop(dCtx, false), style: OutlinedButton.styleFrom(foregroundColor: scheme.onSurfaceVariant), child: const Text('Cancel', style: TextStyle(fontSize: 13))),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.rs),
                   FilledButton(onPressed: () => Navigator.pop(dCtx, true), style: FilledButton.styleFrom(backgroundColor: scheme.error), child: const Text('Delete', style: TextStyle(fontSize: 13))),
                 ]),
               ],
@@ -1741,7 +1742,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
 
     return Dialog(
       alignment: Alignment.topCenter,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
       child: SizedBox(
         width: 900,
@@ -1790,14 +1791,14 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
                   width: 64, height: 64,
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12.rs),
                     border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: scheme.primary)),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2.rs),
                       Icon(Icons.camera_alt_rounded, size: 13, color: scheme.primary.withValues(alpha: 0.6)),
                     ],
                   ),
@@ -1805,49 +1806,49 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
               ),
             ),
           ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10.rs),
         if (lastFace != null) ...[
           _FacePreview(facePath: lastFace, label: 'Last', scheme: scheme),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.rs),
         ],
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(name, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
+              SizedBox(height: 4.rs),
               Row(children: [
                 Icon(Icons.phone_rounded, size: 14, color: scheme.onSurfaceVariant),
-                const SizedBox(width: 6),
+                SizedBox(width: 6.rs),
                 Text(phone, style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
                 if (address.isNotEmpty) ...[
                   Text('   •   ', style: TextStyle(fontSize: 12, color: scheme.outlineVariant)),
                   Icon(Icons.location_on_rounded, size: 14, color: scheme.onSurfaceVariant),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4.rs),
                   Expanded(child: Text(address, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis)),
                 ],
                 if (address.isEmpty) const Spacer(),
               ]),
-              const SizedBox(height: 6),
+              SizedBox(height: 6.rs),
               Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(6)),
+                    decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(6.rs)),
                     child: Text('$totalWeighments weighments', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.onPrimaryContainer)),
                   ),
                   if (mergedFrom.isNotEmpty) ...[
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.rs),
                     Tooltip(
                       message: 'Merged from: ${mergedFrom.join(", ")}',
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: scheme.tertiaryContainer.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(6)),
+                        decoration: BoxDecoration(color: scheme.tertiaryContainer.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(6.rs)),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.merge_rounded, size: 11, color: scheme.tertiary),
-                            const SizedBox(width: 4),
+                            SizedBox(width: 4.rs),
                             Text('${mergedFrom.length} merged', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.tertiary)),
                           ],
                         ),
@@ -1859,7 +1860,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
             ],
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.rs),
         if (_canEditWithReverification)
           TextButton(
             onPressed: () => _requestReverification(context, () => setState(() => _editing = true)),
@@ -1872,13 +1873,13 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
             style: TextButton.styleFrom(foregroundColor: scheme.primary),
             child: const Text('Edit', style: TextStyle(fontSize: 12)),
           ),
-        const SizedBox(width: 4),
+        SizedBox(width: 4.rs),
         TextButton(
           onPressed: () => _deleteCustomer(context),
           style: TextButton.styleFrom(foregroundColor: scheme.error),
           child: const Text('Delete', style: TextStyle(fontSize: 12)),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.rs),
         IconButton(
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.close_rounded, size: 20),
@@ -1898,11 +1899,11 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
           decoration: InputDecoration(
             labelText: 'Name',
             prefixIcon: const Icon(Icons.person_rounded, size: 18),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
             isDense: true,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12.rs),
         Row(
           children: [
             Expanded(
@@ -1911,31 +1912,31 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
                 decoration: InputDecoration(
                   labelText: 'Phone',
                   prefixIcon: const Icon(Icons.phone_rounded, size: 18),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                   isDense: true,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12.rs),
             Expanded(
               child: TextField(
                 controller: _addressC,
                 decoration: InputDecoration(
                   labelText: 'Address',
                   prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                   isDense: true,
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12.rs),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             TextButton(onPressed: () => setState(() => _editing = false), child: const Text('Cancel')),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             FilledButton(
               onPressed: _saving ? null : _saveChanges,
               child: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save'),
@@ -2010,9 +2011,9 @@ class _WeighmentHistory extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.error_outline_rounded, size: 40, color: scheme.error.withValues(alpha: 0.5)),
-                const SizedBox(height: 8),
+                SizedBox(height: 8.rs),
                 Text('Failed to load history', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-                const SizedBox(height: 4),
+                SizedBox(height: 4.rs),
                 Text('${snap.error}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)), textAlign: TextAlign.center),
               ],
             ),
@@ -2026,7 +2027,7 @@ class _WeighmentHistory extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.scale_rounded, size: 40, color: scheme.outlineVariant),
-                const SizedBox(height: 8),
+                SizedBox(height: 8.rs),
                 Text('No weighment history', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
               ],
             ),
@@ -2052,10 +2053,10 @@ class _WeighmentHistory extends StatelessWidget {
               child: Row(
                 children: [
                   Text('Weighments (${docs.length})', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12.rs),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: scheme.tertiaryContainer, borderRadius: BorderRadius.circular(6)),
+                    decoration: BoxDecoration(color: scheme.tertiaryContainer, borderRadius: BorderRadius.circular(6.rs)),
                     child: Text('Net: ${(totalNet / 1000).toStringAsFixed(1)} t', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: totalNet < 0 ? scheme.error : scheme.onTertiaryContainer)),
                   ),
                 ],
@@ -2071,7 +2072,7 @@ class _WeighmentHistory extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: scheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(6.rs),
                     border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                   ),
                   child: Text('${e.key}: ${e.value}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
@@ -2091,7 +2092,7 @@ class _WeighmentHistory extends StatelessWidget {
                   Expanded(flex: 2, child: Text('Gross (kg)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant), textAlign: TextAlign.right)),
                   Expanded(flex: 2, child: Text('Tare (kg)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant), textAlign: TextAlign.right)),
                   Expanded(flex: 2, child: Text('Net (kg)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant), textAlign: TextAlign.right)),
-                  const SizedBox(width: 32),
+                  SizedBox(width: 32.rs),
                 ],
               ),
             ),
@@ -2331,7 +2332,7 @@ class _RecycleBinDialogState extends State<_RecycleBinDialog> {
     final text = Theme.of(context).textTheme;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: 550,
@@ -2345,7 +2346,7 @@ class _RecycleBinDialogState extends State<_RecycleBinDialog> {
               child: Row(
                 children: [
                   Icon(Icons.delete_sweep_rounded, size: 22, color: scheme.error),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10.rs),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2372,15 +2373,15 @@ class _RecycleBinDialogState extends State<_RecycleBinDialog> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.check_circle_outline_rounded, size: 40, color: scheme.outlineVariant),
-                              const SizedBox(height: 8),
+                              SizedBox(height: 8.rs),
                               Text('Recycle bin is empty', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
                             ],
                           ),
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(16.rs),
                           itemCount: _deleted!.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          separatorBuilder: (_, __) => SizedBox(height: 8.rs),
                           itemBuilder: (_, i) {
                             final item = _deleted![i];
                             final id = item['id'] as String;
@@ -2402,7 +2403,7 @@ class _RecycleBinDialogState extends State<_RecycleBinDialog> {
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
                                 color: scheme.surface,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(10.rs),
                                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                               ),
                               child: Row(
@@ -2411,11 +2412,11 @@ class _RecycleBinDialogState extends State<_RecycleBinDialog> {
                                     width: 36, height: 36,
                                     decoration: BoxDecoration(
                                       color: scheme.errorContainer.withValues(alpha: 0.4),
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(8.rs),
                                     ),
                                     child: Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(fontWeight: FontWeight.w700, color: scheme.error))),
                                   ),
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: 12.rs),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2436,7 +2437,7 @@ class _RecycleBinDialogState extends State<_RecycleBinDialog> {
                                       style: TextButton.styleFrom(foregroundColor: scheme.primary, minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
                                       child: const Text('Restore', style: TextStyle(fontSize: 11)),
                                     ),
-                                    const SizedBox(width: 4),
+                                    SizedBox(width: 4.rs),
                                     TextButton(
                                       onPressed: () => _permanentDelete(item),
                                       style: TextButton.styleFrom(foregroundColor: scheme.error, minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
@@ -2567,7 +2568,7 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
     final text = Theme.of(context).textTheme;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: 580,
@@ -2581,10 +2582,10 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
                 children: [
                   Container(
                     width: 36, height: 36,
-                    decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(10)),
+                    decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(10.rs)),
                     child: Icon(Icons.merge_rounded, size: 18, color: scheme.primary),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12.rs),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2610,15 +2611,15 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.merge_rounded, size: 40, color: scheme.outlineVariant),
-                              const SizedBox(height: 8),
+                              SizedBox(height: 8.rs),
                               Text('No merge history', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
                             ],
                           ),
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(16.rs),
                           itemCount: _merges!.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          separatorBuilder: (_, __) => SizedBox(height: 8.rs),
                           itemBuilder: (_, i) {
                             final merge = _merges![i];
                             final id = merge['id'] as String;
@@ -2648,7 +2649,7 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               decoration: BoxDecoration(
                                 color: isReverted ? scheme.surfaceContainerHighest.withValues(alpha: 0.3) : scheme.surface,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(10.rs),
                                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                               ),
                               child: Column(
@@ -2658,56 +2659,56 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
                                   Row(
                                     children: [
                                       Icon(Icons.person_rounded, size: 14, color: scheme.primary),
-                                      const SizedBox(width: 6),
+                                      SizedBox(width: 6.rs),
                                       Text(primaryName, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.onSurface)),
-                                      const SizedBox(width: 6),
+                                      SizedBox(width: 6.rs),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                        decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(3)),
+                                        decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(3.rs)),
                                         child: Text('PRIMARY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.primary, letterSpacing: 0.3)),
                                       ),
                                       if (primaryPhone.isNotEmpty) ...[
-                                        const SizedBox(width: 8),
+                                        SizedBox(width: 8.rs),
                                         Text(primaryPhone, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                                       ],
                                       const Spacer(),
                                       Text(dateStr, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
+                                  SizedBox(height: 8.rs),
                                   // Merged customers list
                                   ...mergedDetails.map((m) => Padding(
                                     padding: const EdgeInsets.only(bottom: 4),
                                     child: Row(
                                       children: [
                                         Icon(Icons.subdirectory_arrow_right_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.4)),
-                                        const SizedBox(width: 6),
+                                        SizedBox(width: 6.rs),
                                         Text(m['name'] as String, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: scheme.onSurface)),
                                         if ((m['phone'] as String).isNotEmpty) ...[
-                                          const SizedBox(width: 6),
+                                          SizedBox(width: 6.rs),
                                           Text(m['phone'] as String, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                                         ],
                                         if ((m['weighments'] as int) > 0) ...[
-                                          const SizedBox(width: 6),
+                                          SizedBox(width: 6.rs),
                                           Text('${m['weighments']} wt', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
                                         ],
                                       ],
                                     ),
                                   )),
-                                  const SizedBox(height: 4),
+                                  SizedBox(height: 4.rs),
                                   // Stats + revert
                                   Row(
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(4)),
+                                        decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(4.rs)),
                                         child: Text('${mergedDetails.length} merged', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
                                       ),
                                       if (reassignCount > 0) ...[
-                                        const SizedBox(width: 6),
+                                        SizedBox(width: 6.rs),
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(4)),
+                                          decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(4.rs)),
                                           child: Text('$reassignCount weighments moved', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
                                         ),
                                       ],
@@ -2715,12 +2716,12 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
                                       if (isReverted)
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(4)),
+                                          decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(4.rs)),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(Icons.undo_rounded, size: 12, color: scheme.onSurfaceVariant),
-                                              const SizedBox(width: 4),
+                                              SizedBox(width: 4.rs),
                                               Text('Reverted', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
                                             ],
                                           ),
@@ -2760,9 +2761,9 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.rs)),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(24.rs),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2770,16 +2771,16 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
               Row(
                 children: [
                   Icon(Icons.undo_rounded, size: 20, color: scheme.error),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10.rs),
                   Text('Revert Merge?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: scheme.onSurface)),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.rs),
               Text(
                 'This will restore $mergedCount customer(s) that were merged into "$primaryName" and reassign their weighments back.',
                 style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16.rs),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -2788,7 +2789,7 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
                     style: OutlinedButton.styleFrom(foregroundColor: scheme.onSurfaceVariant),
                     child: const Text('Cancel', style: TextStyle(fontSize: 13)),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.rs),
                   FilledButton(
                     onPressed: () {
                       Navigator.pop(ctx);
@@ -2999,7 +3000,7 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
     }).toList();
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
       child: SizedBox(
         width: 500,
         height: 520,
@@ -3015,10 +3016,10 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                 children: [
                   Container(
                     width: 36, height: 36,
-                    decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(10)),
+                    decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(10.rs)),
                     child: Icon(Icons.person_off_rounded, size: 18, color: scheme.error),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12.rs),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3038,30 +3039,30 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
             else
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16.rs),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Choose how to handle the weighments:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12.rs),
                       // Option 1: Archive
                       GestureDetector(
                         onTap: _archive,
                         child: Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: EdgeInsets.all(12.rs),
                           decoration: BoxDecoration(
                             color: scheme.surface,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(10.rs),
                             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
                               Container(
                                 width: 32, height: 32,
-                                decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(8)),
+                                decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(8.rs)),
                                 child: Icon(Icons.archive_rounded, size: 16, color: scheme.onSurfaceVariant),
                               ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12.rs),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3076,13 +3077,13 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.rs),
                       // Option 2: Transfer
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(12.rs),
                         decoration: BoxDecoration(
                           color: scheme.surface,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(10.rs),
                           border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                         ),
                         child: Column(
@@ -3092,10 +3093,10 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                               children: [
                                 Container(
                                   width: 32, height: 32,
-                                  decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(8)),
+                                  decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(8.rs)),
                                   child: Icon(Icons.swap_horiz_rounded, size: 16, color: scheme.primary),
                                 ),
-                                const SizedBox(width: 12),
+                                SizedBox(width: 12.rs),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -3107,7 +3108,7 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 10),
+                            SizedBox(height: 10.rs),
                             SizedBox(
                               height: 32,
                               child: TextField(
@@ -3117,13 +3118,13 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                                   hintStyle: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                                   prefixIcon: Icon(Icons.search, size: 16, color: scheme.onSurfaceVariant),
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant)),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant)),
                                   isDense: true,
                                 ),
                                 style: const TextStyle(fontSize: 12),
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: 8.rs),
                             SizedBox(
                               height: 160,
                               child: filteredCustomers == null
@@ -3132,7 +3133,7 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                                       ? Center(child: Text('No customers found', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)))
                                       : ListView.separated(
                                           itemCount: filteredCustomers.length,
-                                          separatorBuilder: (_, __) => const SizedBox(height: 4),
+                                          separatorBuilder: (_, __) => SizedBox(height: 4.rs),
                                           itemBuilder: (_, i) {
                                             final c = filteredCustomers[i];
                                             final cId = c['id'] as String;
@@ -3145,7 +3146,7 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                                 decoration: BoxDecoration(
                                                   color: isSelected ? scheme.primaryContainer.withValues(alpha: 0.3) : Colors.transparent,
-                                                  borderRadius: BorderRadius.circular(6),
+                                                  borderRadius: BorderRadius.circular(6.rs),
                                                   border: isSelected ? Border.all(color: scheme.primary.withValues(alpha: 0.4)) : null,
                                                 ),
                                                 child: Row(
@@ -3154,7 +3155,7 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                                                       Icon(Icons.check_circle_rounded, size: 14, color: scheme.primary)
                                                     else
                                                       Icon(Icons.radio_button_unchecked_rounded, size: 14, color: scheme.outlineVariant),
-                                                    const SizedBox(width: 8),
+                                                    SizedBox(width: 8.rs),
                                                     Expanded(child: Text(cName, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface))),
                                                     if (cPhone.isNotEmpty)
                                                       Text(cPhone, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
@@ -3409,7 +3410,7 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
     final text = Theme.of(context).textTheme;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: 360,
@@ -3422,7 +3423,7 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
               child: Row(
                 children: [
                   Icon(Icons.face_rounded, size: 20, color: scheme.primary),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10.rs),
                   Text('Capture Face', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                   const Spacer(),
                   IconButton(
@@ -3444,7 +3445,7 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
 
             // Actions
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.rs),
               child: _buildActions(scheme),
             ),
           ],
@@ -3456,16 +3457,16 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
   Widget _buildCameraContent(ColorScheme scheme, TextTheme text) {
     if (_showCameraPicker) {
       return Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(20.rs),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.videocam_off_rounded, size: 24, color: scheme.onSurfaceVariant),
-            const SizedBox(height: 8),
+            SizedBox(height: 8.rs),
             Text('Customer camera not configured', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
-            const SizedBox(height: 14),
+            SizedBox(height: 14.rs),
             Text('Select a camera:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
-            const SizedBox(height: 8),
+            SizedBox(height: 8.rs),
             ...List.generate(_availableCameras.length, (i) => Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: SizedBox(
@@ -3493,7 +3494,7 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
             child: Center(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6.rs)),
                 child: const Text('Preview — save or retake', style: TextStyle(fontSize: 10, color: Colors.white70)),
               ),
             ),
@@ -3513,13 +3514,13 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: (_faceDetected ? Colors.green : Colors.orange).withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(6.rs),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(_faceDetected ? Icons.face_rounded : Icons.face_retouching_off_rounded, size: 12, color: Colors.white),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4.rs),
                   Text(_faceDetected ? 'Detected' : 'Searching...', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
                 ],
               ),
@@ -3535,7 +3536,7 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
-          const SizedBox(height: 10),
+          SizedBox(height: 10.rs),
           Text(_status, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
         ],
       ),
@@ -3552,7 +3553,7 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
               child: const Text('Retake'),
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10.rs),
           Expanded(
             child: FilledButton(
               onPressed: _saving ? null : _saveFace,
@@ -3572,7 +3573,7 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
               child: const Text('Cancel'),
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10.rs),
           Expanded(
             child: FilledButton(
               onPressed: _faceDetected ? _captureFace : null,
@@ -3892,7 +3893,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
     final text = Theme.of(context).textTheme;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.rs)),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: 540,
@@ -3906,14 +3907,14 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: EdgeInsets.all(8.rs),
                     decoration: BoxDecoration(
                       color: scheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(10.rs),
                     ),
                     child: Icon(Icons.person_add_rounded, size: 20, color: scheme.primary),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12.rs),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -3939,7 +3940,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                         decoration: InputDecoration(
                           labelText: 'Site *',
                           prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                         ),
@@ -3959,7 +3960,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                       ),
                     ),
                     if (_wbs.length > 1) ...[
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12.rs),
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           initialValue: _selectedWbId,
@@ -3968,7 +3969,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                           decoration: InputDecoration(
                             labelText: 'Camera from WB',
                             prefixIcon: const Icon(Icons.videocam_rounded, size: 18),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                             isDense: true,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                           ),
@@ -3999,7 +4000,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                           width: 160,
                           height: 180,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(14.rs),
                             border: Border.all(
                               color: _capturedFace != null
                                   ? scheme.primary
@@ -4009,17 +4010,17 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                             color: scheme.surfaceContainerLow,
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(12.rs),
                             child: _buildFaceArea(scheme, text),
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        SizedBox(height: 10.rs),
                         _buildFaceActions(scheme),
                       ],
                     ),
                   ),
 
-                  const SizedBox(width: 20),
+                  SizedBox(width: 20.rs),
 
                   // Right: Form fields
                   Expanded(
@@ -4033,12 +4034,12 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                             labelText: 'Full Name *',
                             hintText: 'e.g. Rajesh Kumar',
                             prefixIcon: const Icon(Icons.person_rounded, size: 18),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                             isDense: true,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                           ),
                         ),
-                        const SizedBox(height: 14),
+                        SizedBox(height: 14.rs),
                         TextField(
                           controller: _phoneC,
                           keyboardType: TextInputType.phone,
@@ -4047,12 +4048,12 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                             labelText: 'Phone Number *',
                             hintText: 'e.g. 9876543210',
                             prefixIcon: const Icon(Icons.phone_rounded, size: 18),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                             isDense: true,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                           ),
                         ),
-                        const SizedBox(height: 14),
+                        SizedBox(height: 14.rs),
                         TextField(
                           controller: _addressC,
                           maxLines: 1,
@@ -4061,7 +4062,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                             labelText: 'Address',
                             hintText: 'Village, District, State',
                             prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                             isDense: true,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                           ),
@@ -4079,14 +4080,14 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
               child: Row(
                 children: [
                   Icon(Icons.info_outline_rounded, size: 13, color: scheme.outline),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6.rs),
                   Text('* Required fields', style: TextStyle(fontSize: 10, color: scheme.outline)),
                   const Spacer(),
                   TextButton(
                     onPressed: () { _frameTimer?.cancel(); Navigator.pop(context); },
                     child: const Text('Cancel'),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.rs),
                   FilledButton(
                     onPressed: _saving ? null : _save,
                     child: Text(_saving ? 'Saving...' : 'Add Customer'),
@@ -4122,7 +4123,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.check_circle_rounded, size: 12, color: Colors.white70),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4.rs),
                   Text('Face captured', style: TextStyle(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.w500)),
                 ],
               ),
@@ -4135,16 +4136,16 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
     // Camera picker — customer camera not configured
     if (_showCameraPicker) {
       return Padding(
-        padding: const EdgeInsets.all(10),
+        padding: EdgeInsets.all(10.rs),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.videocam_off_rounded, size: 20, color: scheme.onSurfaceVariant),
-            const SizedBox(height: 6),
+            SizedBox(height: 6.rs),
             Text('Customer camera\nnot configured', textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant, height: 1.3)),
-            const SizedBox(height: 10),
+            SizedBox(height: 10.rs),
             Text('Select camera:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
-            const SizedBox(height: 6),
+            SizedBox(height: 6.rs),
             ...List.generate(_availableCameras.length, (i) => Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: SizedBox(
@@ -4155,7 +4156,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     side: BorderSide(color: scheme.primary.withValues(alpha: 0.4)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)),
                   ),
                   child: Text(
                     _availableCameras[i],
@@ -4183,7 +4184,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8.rs),
                   Text(_status, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                 ],
               ),
@@ -4195,13 +4196,13 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
                   color: (_faceDetected ? Colors.green : Colors.orange).withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(6.rs),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(_faceDetected ? Icons.face_rounded : Icons.face_retouching_off_rounded, size: 11, color: Colors.white),
-                    const SizedBox(width: 3),
+                    SizedBox(width: 3.rs),
                     Text(
                       _faceDetected ? 'Detected' : 'Searching...',
                       style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600),
@@ -4221,16 +4222,16 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(12.rs),
           decoration: BoxDecoration(
             color: scheme.primary.withValues(alpha: 0.08),
             shape: BoxShape.circle,
           ),
           child: Icon(Icons.face_rounded, size: 28, color: scheme.primary.withValues(alpha: 0.6)),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10.rs),
         Text('Scan Face', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-        const SizedBox(height: 2),
+        SizedBox(height: 2.rs),
         Text('Optional', style: TextStyle(fontSize: 10, color: scheme.outline)),
       ],
     );
@@ -4250,7 +4251,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: 6.rs),
           Expanded(
             child: SizedBox(
               height: 30,
@@ -4278,7 +4279,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: 6.rs),
           Expanded(
             child: SizedBox(
               height: 30,
@@ -4389,7 +4390,7 @@ class _CustomerCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14.rs),
         border: Border.all(color: isSelected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.3), width: isSelected ? 2 : 1),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
       ),
@@ -4475,16 +4476,16 @@ class _FaceSlot extends StatelessWidget {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(14.rs),
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(13.rs),
                   child: SizedBox.expand(child: _buildFaceImage(facePath, name, 120, scheme)),
                 ),
               ),
             ),
-            const SizedBox(height: 3),
+            SizedBox(height: 3.rs),
             Text(label, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600)),
           ],
         ),
@@ -4509,15 +4510,15 @@ class _FacePreview extends StatelessWidget {
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(12.rs),
             border: Border.all(color: scheme.primary.withValues(alpha: 0.3), width: 2),
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(10.rs),
             child: _buildFaceFromPath(facePath),
           ),
         ),
-        const SizedBox(height: 3),
+        SizedBox(height: 3.rs),
         Text(label, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600)),
       ],
     );
@@ -4756,7 +4757,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
     final text = Theme.of(context).textTheme;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 640, maxHeight: 580),
@@ -4771,10 +4772,10 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
                 children: [
                   Container(
                     width: 34, height: 34,
-                    decoration: BoxDecoration(color: scheme.tertiaryContainer, borderRadius: BorderRadius.circular(9)),
+                    decoration: BoxDecoration(color: scheme.tertiaryContainer, borderRadius: BorderRadius.circular(9.rs)),
                     child: Icon(Icons.upload_file_rounded, size: 17, color: scheme.tertiary),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12.rs),
                   Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -4818,7 +4819,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
     return Column(
       children: [
         Expanded(child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(20.rs),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -4827,46 +4828,46 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.error.withValues(alpha: 0.3))),
+                  decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.error.withValues(alpha: 0.3))),
                   child: Row(children: [
                     Icon(Icons.error_outline_rounded, size: 14, color: scheme.error),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.rs),
                     Text(_error!, style: text.bodySmall?.copyWith(color: scheme.error, fontWeight: FontWeight.w500)),
                   ]),
                 ),
               ],
               Text('Required Columns (all 3 mandatory)', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8.rs),
               _CsvFormatRow(label: 'Name', description: 'Customer/party name', example: 'Rajesh Kumar', scheme: scheme, text: text),
               _CsvFormatRow(label: 'Phone', description: 'Mobile number (10-12 digits)', example: '9876543210', scheme: scheme, text: text),
               _CsvFormatRow(label: 'Address', description: 'Village/city/area', example: 'Vatva, Ahmedabad', scheme: scheme, text: text),
-              const SizedBox(height: 16),
+              SizedBox(height: 16.rs),
               Text('Accepted Formats', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8.rs),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: scheme.surfaceContainerHighest.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+                padding: EdgeInsets.all(12.rs),
+                decoration: BoxDecoration(color: scheme.surfaceContainerHighest.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('With header row:', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4.rs),
                     Text('Name, Phone, Address\nRajesh Kumar, 9876543210, Vatva', style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontSize: 11, color: scheme.onSurfaceVariant, height: 1.5)),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10.rs),
                     Text('Without header (columns in order):', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4.rs),
                     Text('Rajesh Kumar, 9876543210, Vatva\nSuresh Patel, 8765432109, Naroda', style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontSize: 11, color: scheme.onSurfaceVariant, height: 1.5)),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.rs),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
+                decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6.rs)),
                 child: Row(children: [
                   Icon(Icons.lightbulb_outline_rounded, size: 14, color: scheme.primary),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.rs),
                   Expanded(child: Text('Header keywords: name/party/customer, phone/mobile/contact, address/city/location. Names are auto title-cased. Non-digit characters in phone are stripped.', style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.primary))),
                 ]),
               ),
@@ -4879,7 +4880,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
             children: [
               const Spacer(),
               TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               FilledButton.icon(
                 onPressed: _pickAndParse,
                 icon: const Icon(Icons.file_open_rounded, size: 16),
@@ -4902,7 +4903,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
             alignment: Alignment.centerLeft,
             child: Row(children: [
               Icon(Icons.check_circle_rounded, size: 14, color: Colors.green.shade600),
-              const SizedBox(width: 6),
+              SizedBox(width: 6.rs),
               Text('${_rows.length} valid row${_rows.length != 1 ? 's' : ''}', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: Colors.green.shade700)),
             ]),
           ),
@@ -4910,7 +4911,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
             flex: 3,
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
               clipBehavior: Clip.antiAlias,
               child: Column(children: [
                 Container(
@@ -4955,7 +4956,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
             alignment: Alignment.centerLeft,
             child: Row(children: [
               Icon(Icons.edit_note_rounded, size: 16, color: scheme.error),
-              const SizedBox(width: 6),
+              SizedBox(width: 6.rs),
               Text('${_invalidRows.length} row${_invalidRows.length != 1 ? 's' : ''} need fixing', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.error)),
               const Spacer(),
               TextButton.icon(
@@ -4982,7 +4983,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
             ),
           ),
         ],
-        const SizedBox(height: 8),
+        SizedBox(height: 8.rs),
         // Footer
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -4995,7 +4996,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
             ),
             const Spacer(),
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             FilledButton.icon(
               onPressed: _rows.isEmpty ? null : _doImport,
               icon: const Icon(Icons.upload_rounded, size: 16),
@@ -5009,19 +5010,19 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
 
   Widget _buildDone(ColorScheme scheme, TextTheme text) {
     return Padding(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(32.rs),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.check_circle_rounded, size: 48, color: Colors.green.shade600),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
           Text('$_importedCount customer${_importedCount != 1 ? 's' : ''} imported', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
           if (_duplicateCount > 0)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text('$_duplicateCount duplicate phone${_duplicateCount != 1 ? 's' : ''} skipped', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
             ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24.rs),
           FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done')),
         ],
       ),
@@ -5089,30 +5090,30 @@ class _InvalidRowTileState extends State<_InvalidRowTile> {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8.rs),
         border: Border.all(color: scheme.error.withValues(alpha: 0.25)),
         color: scheme.errorContainer.withValues(alpha: 0.06),
       ),
       child: Column(
         children: [
           InkWell(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(8.rs),
             onTap: () => setState(() => _expanded = !_expanded),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Row(children: [
                 Icon(_expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 16, color: scheme.onSurfaceVariant),
-                const SizedBox(width: 6),
+                SizedBox(width: 6.rs),
                 Expanded(child: Text(
                   widget.row['name']?.isNotEmpty == true ? widget.row['name']! : '(empty name)',
                   style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 )),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.rs),
                 ...issues.map((code) => Container(
                   margin: const EdgeInsets.only(right: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: scheme.error.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                  decoration: BoxDecoration(color: scheme.error.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4.rs)),
                   child: Text(_issueLabel(code), style: TextStyle(fontSize: 9, color: scheme.error, fontWeight: FontWeight.w600)),
                 )),
                 IconButton(
@@ -5136,12 +5137,12 @@ class _InvalidRowTileState extends State<_InvalidRowTile> {
                     labelText: 'Name',
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs)),
                     errorText: issues.contains('name') ? '' : null,
                     errorStyle: const TextStyle(height: 0, fontSize: 0),
                   ),
                 )),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.rs),
                 Expanded(child: TextField(
                   controller: _phoneC,
                   style: const TextStyle(fontSize: 12),
@@ -5149,12 +5150,12 @@ class _InvalidRowTileState extends State<_InvalidRowTile> {
                     labelText: 'Phone',
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs)),
                     errorText: issues.any((c) => c.startsWith('phone') || c == 'dup') ? '' : null,
                     errorStyle: const TextStyle(height: 0, fontSize: 0),
                   ),
                 )),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.rs),
                 Expanded(child: TextField(
                   controller: _addressC,
                   style: const TextStyle(fontSize: 12),
@@ -5162,12 +5163,12 @@ class _InvalidRowTileState extends State<_InvalidRowTile> {
                     labelText: 'Address',
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs)),
                     errorText: issues.contains('address') ? '' : null,
                     errorStyle: const TextStyle(height: 0, fontSize: 0),
                   ),
                 )),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.rs),
                 IconButton(
                   onPressed: () => widget.onFix(widget.index, _nameC.text, _phoneC.text, _addressC.text),
                   icon: Icon(Icons.check_circle_rounded, size: 20, color: Colors.green.shade600),
@@ -5201,11 +5202,11 @@ class _CsvFormatRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(4.rs),
             ),
             child: Text(label, style: text.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.primary)),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10.rs),
           Expanded(child: Text(description, style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant))),
           Text(example, style: text.bodySmall?.copyWith(fontSize: 11, fontFamily: 'monospace', color: scheme.outline)),
         ],

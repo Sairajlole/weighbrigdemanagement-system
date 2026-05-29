@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class AiDetectionBadges extends StatelessWidget {
   final String? anprText;
@@ -28,16 +29,16 @@ class AiDetectionBadges extends StatelessWidget {
 
     if (!hasAnpr && !hasMaterial) {
       return Container(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16.rs),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHigh.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(10.rs),
           border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.15)),
         ),
         child: Row(
           children: [
             Icon(Icons.memory_outlined, size: 18, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
-            const SizedBox(width: 10),
+            SizedBox(width: 10.rs),
             Text(
               'AI detections will appear here',
               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
@@ -59,7 +60,7 @@ class AiDetectionBadges extends StatelessWidget {
           accentColor: scheme.primary,
           scheme: scheme,
         ),
-        if (hasAnpr && hasMaterial) const SizedBox(height: 8),
+        if (hasAnpr && hasMaterial) SizedBox(height: 8.rs),
         if (hasMaterial) _AiBadge(
           icon: Icons.inventory_2_outlined,
           label: 'Material',
@@ -98,10 +99,10 @@ class _AiBadge extends StatelessWidget {
     final confPercent = confidence != null ? '${(confidence! * 100).toStringAsFixed(0)}%' : '';
 
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: EdgeInsets.all(10.rs),
       decoration: BoxDecoration(
         color: accentColor.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(10.rs),
         border: Border.all(color: accentColor.withValues(alpha: 0.2)),
       ),
       child: Row(
@@ -112,7 +113,7 @@ class _AiBadge extends StatelessWidget {
               width: 64, height: 48,
               margin: const EdgeInsets.only(right: 10),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(6.rs),
                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
               ),
               clipBehavior: Clip.antiAlias,
@@ -124,7 +125,7 @@ class _AiBadge extends StatelessWidget {
               margin: const EdgeInsets.only(right: 10),
               decoration: BoxDecoration(
                 color: accentColor.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.rs),
               ),
               child: Icon(icon, size: 18, color: accentColor),
             ),
@@ -135,7 +136,7 @@ class _AiBadge extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-                const SizedBox(height: 2),
+                SizedBox(height: 2.rs),
                 Text(
                   value,
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.onSurface, letterSpacing: 0.3),
@@ -151,13 +152,13 @@ class _AiBadge extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
                 color: accentColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(4.rs),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.check_circle_outlined, size: 10, color: accentColor),
-                  const SizedBox(width: 3),
+                  SizedBox(width: 3.rs),
                   Text(confPercent, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: accentColor)),
                 ],
               ),

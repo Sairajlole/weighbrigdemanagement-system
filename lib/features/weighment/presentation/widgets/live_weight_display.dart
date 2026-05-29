@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class LiveWeightDisplay extends ConsumerWidget {
   final VoidCallback? onCapture;
@@ -68,7 +69,7 @@ class LiveWeightDisplay extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       decoration: BoxDecoration(
         color: isDark ? scheme.surfaceContainerHigh : scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.rs),
         border: Border.all(
           color: stable
               ? scheme.onSurface.withValues(alpha: 0.3)
@@ -91,7 +92,7 @@ class LiveWeightDisplay extends ConsumerWidget {
                   color: connected ? scheme.onSurface : scheme.error,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text(
                 connected ? 'SCALE CONNECTED' : 'SCALE DISCONNECTED',
                 style: TextStyle(
@@ -103,7 +104,7 @@ class LiveWeightDisplay extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
           // Weight value
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -119,7 +120,7 @@ class LiveWeightDisplay extends ConsumerWidget {
                   color: connected ? scheme.onSurface : scheme.onSurfaceVariant.withValues(alpha: 0.4),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text(
                 'kg',
                 style: TextStyle(
@@ -130,14 +131,14 @@ class LiveWeightDisplay extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           // Stability indicator
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
               color: scheme.onSurfaceVariant.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(20.rs),
               border: Border.all(
                 color: scheme.onSurfaceVariant.withValues(alpha: 0.2),
               ),
@@ -150,7 +151,7 @@ class LiveWeightDisplay extends ConsumerWidget {
                   size: 14,
                   color: scheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: 6.rs),
                 Text(
                   stable ? 'STABLE' : 'UNSTABLE',
                   style: TextStyle(
@@ -165,7 +166,7 @@ class LiveWeightDisplay extends ConsumerWidget {
           ),
           // Capture button
           if (captureEnabled && connected) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: 16.rs),
             FilledButton.icon(
               onPressed: stable ? onCapture : null,
               icon: const Icon(Icons.camera_alt_outlined, size: 18),
@@ -178,7 +179,7 @@ class LiveWeightDisplay extends ConsumerWidget {
           ],
           // Manual entry fallback
           if (captureEnabled && canManualEntry && (!connected || !stable)) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: 12.rs),
             TextButton.icon(
               onPressed: () => _showManualEntryDialog(context),
               icon: const Icon(Icons.edit_outlined, size: 16),

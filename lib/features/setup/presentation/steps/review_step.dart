@@ -18,6 +18,7 @@ import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import '../../application/setup_wizard_provider.dart';
 import '../../application/setup_wizard_state.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class ReviewStep extends ConsumerStatefulWidget {
   const ReviewStep({super.key});
@@ -243,7 +244,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(48),
+        padding: EdgeInsets.all(48.rs),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -253,28 +254,28 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
               height: 72,
               decoration: BoxDecoration(
                 color: scheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(20.rs),
                 border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
               ),
               child: Icon(Icons.rocket_launch_rounded, size: 32, color: scheme.primary),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24.rs),
             Text('Ready to Launch', style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-            const SizedBox(height: 8),
+            SizedBox(height: 8.rs),
             Text(
               'Your weighbridge system is configured and ready to go.',
               style: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
             ),
-            const SizedBox(height: 40),
+            SizedBox(height: 40.rs),
 
             // Plan & Site card
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: Container(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.all(20.rs),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(16.rs),
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                 ),
                 child: Column(
@@ -287,11 +288,11 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                           height: 40,
                           decoration: BoxDecoration(
                             color: tierColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(10.rs),
                           ),
                           child: Icon(Icons.workspace_premium_rounded, size: 20, color: tierColor),
                         ),
-                        const SizedBox(width: 14),
+                        SizedBox(width: 14.rs),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -315,11 +316,11 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                           height: 40,
                           decoration: BoxDecoration(
                             color: scheme.primary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(10.rs),
                           ),
                           child: Icon(Icons.location_on_rounded, size: 20, color: scheme.primary),
                         ),
-                        const SizedBox(width: 14),
+                        SizedBox(width: 14.rs),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -334,7 +335,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14.rs),
                     // Weighbridge row
                     Row(
                       children: [
@@ -343,11 +344,11 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                           height: 40,
                           decoration: BoxDecoration(
                             color: scheme.tertiary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(10.rs),
                           ),
                           child: Icon(Icons.scale_rounded, size: 20, color: scheme.tertiary),
                         ),
-                        const SizedBox(width: 14),
+                        SizedBox(width: 14.rs),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,7 +368,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
               ),
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: 32.rs),
 
             // Info text
             ConstrainedBox(
@@ -379,7 +380,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
               ),
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: 32.rs),
 
             // Complete button
             FilledButton.icon(
@@ -433,7 +434,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24.rs),
               FadeTransition(
                 opacity: _checkOpacity,
                 child: Text(
@@ -441,7 +442,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                   style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5),
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8.rs),
               FadeTransition(
                 opacity: _checkOpacity,
                 child: Text(
@@ -472,7 +473,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(48),
+        padding: EdgeInsets.all(48.rs),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -481,7 +482,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
               height: 72,
               decoration: BoxDecoration(
                 color: scheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(20.rs),
                 border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
               ),
               child: Icon(
@@ -490,12 +491,12 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                 color: scheme.primary,
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24.rs),
             Text(
               isInvited ? 'Ready to Go' : 'Review & Submit',
               style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8.rs),
             Text(
               isInvited
                   ? 'Your account is set up and ready to use.'
@@ -503,18 +504,18 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
               style: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: 32.rs),
 
             // Company info card
             if (_companyName.isNotEmpty)
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: EdgeInsets.all(20.rs),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
                     color: scheme.surfaceContainerLow.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(16.rs),
                     border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                   ),
                   child: Column(
@@ -523,14 +524,14 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                       Row(
                         children: [
                           Icon(Icons.business_rounded, size: 18, color: scheme.tertiary),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.rs),
                           Text('Company', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.tertiary)),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16.rs),
                       _infoRow(scheme, Icons.domain_rounded, 'Name', _companyName),
                       if (_companyGstin.isNotEmpty) ...[
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12.rs),
                         _infoRow(scheme, Icons.receipt_long_rounded, 'GSTIN', _companyGstin),
                       ],
                     ],
@@ -542,10 +543,10 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
               child: Container(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.all(20.rs),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(16.rs),
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                 ),
                 child: Column(
@@ -554,39 +555,39 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                     Row(
                       children: [
                         Icon(Icons.person_rounded, size: 18, color: scheme.primary),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8.rs),
                         Text('Your Details', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.primary)),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16.rs),
                     _infoRow(scheme, Icons.badge_rounded, 'Name', operatorName),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12.rs),
                     _infoRow(scheme, Icons.email_rounded, 'Email', operatorEmail),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12.rs),
                     _infoRow(scheme, Icons.phone_rounded, 'Phone', operatorPhone),
                     if (operatorAddress.isNotEmpty) ...[
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12.rs),
                       _infoRow(scheme, Icons.location_on_rounded, 'Address',
                         operatorAddress2.isNotEmpty ? '$operatorAddress, $operatorAddress2' : operatorAddress),
                     ],
                     if (idDocNumber.isNotEmpty) ...[
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12.rs),
                       _infoRow(scheme, Icons.credit_card_rounded, docType ?? 'ID', idDocNumber),
                     ],
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.rs),
 
             // Status card
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
               child: Container(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.all(20.rs),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(16.rs),
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                 ),
                 child: Column(
@@ -626,20 +627,20 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
             ),
 
             if (!isInvited) ...[
-              const SizedBox(height: 16),
+              SizedBox(height: 16.rs),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: EdgeInsets.all(14.rs),
                   decoration: BoxDecoration(
                     color: Colors.orange.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12.rs),
                     border: Border.all(color: Colors.orange.withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     children: [
                       Icon(Icons.info_outline_rounded, size: 18, color: Colors.orange.shade700),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12.rs),
                       Expanded(
                         child: Text(
                           'After submitting, your administrator will review and approve your registration. You can check your approval status anytime.',
@@ -652,7 +653,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
               ),
             ],
 
-            const SizedBox(height: 32),
+            SizedBox(height: 32.rs),
 
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -665,7 +666,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16.rs),
                 FilledButton.icon(
                   onPressed: _completing ? null : _completeOperator,
                   icon: _completing
@@ -694,12 +695,12 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 16, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-        const SizedBox(width: 10),
+        SizedBox(width: 10.rs),
         SizedBox(
           width: 72,
           child: Text(label, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant, fontWeight: FontWeight.w500)),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.rs),
         Expanded(
           child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: scheme.onSurface)),
         ),
@@ -715,11 +716,11 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
           height: 36,
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(8.rs),
           ),
           child: Icon(icon, size: 18, color: color),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: 12.rs),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -857,7 +858,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
           constraints: const BoxConstraints(maxWidth: 520),
           child: Column(
             children: [
-              const SizedBox(height: 24),
+              SizedBox(height: 24.rs),
               Container(
                 width: 80,
                 height: 80,
@@ -868,23 +869,23 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                 ),
                 child: Icon(Icons.hourglass_top_rounded, size: 40, color: scheme.tertiary),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24.rs),
               Text('Awaiting Admin Approval', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-              const SizedBox(height: 10),
+              SizedBox(height: 10.rs),
               Text(
                 'Your registration has been submitted successfully. An administrator will review and approve your request.',
                 style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: 28.rs),
 
               // Summary card
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.all(20.rs),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(16.rs),
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                 ),
                 child: Column(
@@ -893,35 +894,35 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                     Row(
                       children: [
                         Icon(Icons.person_rounded, size: 16, color: scheme.primary),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8.rs),
                         Text('Registration Summary', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.primary)),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16.rs),
                     if (operatorName.isNotEmpty) ...[
                       _infoRow(scheme, Icons.badge_rounded, 'Name', operatorName),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10.rs),
                     ],
                     _infoRow(scheme, Icons.email_rounded, 'Email', operatorEmail),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10.rs),
                     if (operatorPhone.isNotEmpty) ...[
                       _infoRow(scheme, Icons.phone_rounded, 'Phone', operatorPhone),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10.rs),
                     ],
                     if (_companyName.isNotEmpty)
                       _infoRow(scheme, Icons.business_rounded, 'Company', _companyName),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.rs),
 
               // Verification status
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16.rs),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(16.rs),
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                 ),
                 child: Column(
@@ -937,18 +938,18 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24.rs),
 
               if (_approvalError != null) ...[
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(12.rs),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
                     color: _rejectedReason != null
                         ? scheme.errorContainer.withValues(alpha: 0.2)
                         : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(10.rs),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -958,7 +959,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                         size: 16,
                         color: _rejectedReason != null ? scheme.error : scheme.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10.rs),
                       Expanded(
                         child: Text(
                           _approvalError!,
@@ -1008,7 +1009,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
+              SizedBox(height: 12.rs),
               TextButton.icon(
                 onPressed: () {
                   ref.read(wizardFullscreenModeProvider.notifier).state = false;

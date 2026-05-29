@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 final _weighbridgeListProvider = FutureProvider<List<WbEntry>>((ref) async {
   final ctx = ref.watch(siteContextProvider);
@@ -54,9 +55,9 @@ class WeighbridgeContextBar extends ConsumerWidget {
       child: Row(
         children: [
           Icon(Icons.scale_rounded, size: 14, color: scheme.primary),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.rs),
           Text('$label:', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.rs),
           if (hasMultiple)
             _WbDropdown(
               allWbs: allWbs,
@@ -80,7 +81,7 @@ class WeighbridgeContextBar extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: scheme.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(6.rs),
                 border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
               ),
               child: Text(
@@ -165,7 +166,7 @@ class _WbDropdownState extends State<_WbDropdown> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: _open ? scheme.primary.withValues(alpha: 0.12) : scheme.primary.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.rs),
                 border: Border.all(color: _open ? scheme.primary.withValues(alpha: 0.5) : scheme.primary.withValues(alpha: 0.2)),
               ),
               child: Row(
@@ -175,11 +176,11 @@ class _WbDropdownState extends State<_WbDropdown> {
                     width: 20, height: 20,
                     decoration: BoxDecoration(
                       color: scheme.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(5),
+                      borderRadius: BorderRadius.circular(5.rs),
                     ),
                     child: Icon(Icons.scale_rounded, size: 11, color: scheme.primary),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.rs),
                   if (current != null) ...[
                     Text(current.siteName, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w500)),
                     Padding(
@@ -189,7 +190,7 @@ class _WbDropdownState extends State<_WbDropdown> {
                     Text(current.wbName, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.primary)),
                   ] else
                     Text('Select Weighbridge', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6.rs),
                   AnimatedRotation(
                     turns: _open ? 0.5 : 0,
                     duration: const Duration(milliseconds: 200),
@@ -218,16 +219,16 @@ class _WbDropdownState extends State<_WbDropdown> {
           child: Material(
             elevation: 8,
             shadowColor: Colors.black.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(12.rs),
             color: scheme.surface,
             child: Container(
               constraints: const BoxConstraints(minWidth: 240, maxWidth: 320, maxHeight: 300),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.rs),
                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.rs),
                 child: _buildList(scheme, text),
               ),
             ),
@@ -259,7 +260,7 @@ class _WbDropdownState extends State<_WbDropdown> {
                 child: Row(
                   children: [
                     Icon(Icons.location_on_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6.rs),
                     Text(
                       grouped[siteIds[si]]!.first.siteName,
                       style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.3),
@@ -294,11 +295,11 @@ class _WbDropdownState extends State<_WbDropdown> {
               width: 26, height: 26,
               decoration: BoxDecoration(
                 color: isCurrent ? scheme.primary.withValues(alpha: 0.12) : scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(7),
+                borderRadius: BorderRadius.circular(7.rs),
               ),
               child: Icon(Icons.scale_rounded, size: 13, color: isCurrent ? scheme.primary : scheme.onSurfaceVariant),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 10.rs),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,13 +321,13 @@ class _WbDropdownState extends State<_WbDropdown> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: scheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(4.rs),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.check_circle_rounded, size: 10, color: scheme.primary),
-                    const SizedBox(width: 3),
+                    SizedBox(width: 3.rs),
                     Text('Active', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: scheme.primary)),
                   ],
                 ),

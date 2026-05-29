@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/widgets/pro_feature_banner.dart';
 import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 // ---------------------------------------------------------------------------
 // Local persistence helper
@@ -296,15 +297,15 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
-                padding: const EdgeInsets.all(28),
+                padding: EdgeInsets.all(28.rs),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const ProFeatureBanner(feature: 'Notifications & Alerts'),
                     _buildChannelsSection(scheme, text),
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24.rs),
                     _buildEventsSection(scheme, text),
-                    const SizedBox(height: 40),
+                    SizedBox(height: 40.rs),
                   ],
                 ),
               ),
@@ -334,11 +335,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               IconButton(
                 onPressed: () => context.go('/settings'),
                 icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12.rs),
               Icon(Icons.notifications_rounded, size: 20, color: scheme.primary),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -352,7 +353,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   onPressed: () { setState(() { _loaded = false; _dirty = false; }); ref.invalidate(_notificationsSettingsProvider); },
                   child: const Text('Cancel'),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.rs),
               ],
               FilledButton.icon(
                 onPressed: _dirty && !_saving ? _save : null,
@@ -362,7 +363,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 label: Text(_saving ? 'Saving...' : 'Save'),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
                 ),
               ),
             ],
@@ -375,7 +376,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.rs),
                   border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                 ),
                 child: Row(
@@ -385,7 +386,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       size: 15,
                       color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.rs),
                     Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                   ],
                 ),
@@ -409,7 +410,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           Row(
             children: [
               Icon(Icons.cell_tower_rounded, size: 18, color: scheme.primary),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -425,7 +426,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
           _FeatureToggle(
             icon: Icons.sms_rounded,
             label: 'SMS',
@@ -437,7 +438,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               _markDirty();
             },
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           _FeatureToggle(
             icon: Icons.chat_rounded,
             label: 'WhatsApp',
@@ -449,7 +450,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               _markDirty();
             },
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           _FeatureToggle(
             icon: Icons.email_rounded,
             label: 'Email',
@@ -461,7 +462,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               _markDirty();
             },
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           _FeatureToggle(
             icon: Icons.notifications_active_rounded,
             label: 'In-App',
@@ -491,7 +492,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           Row(
             children: [
               Icon(Icons.event_note_rounded, size: 18, color: scheme.primary),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -507,7 +508,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
           ..._eventDefinitions.map((def) => _buildEventCard(def, scheme, text)),
         ],
       ),
@@ -524,7 +525,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         color: state.enabled
             ? scheme.surfaceContainerLow
             : scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.rs),
         border: Border.all(
           color: state.enabled
               ? scheme.primary.withValues(alpha: 0.12)
@@ -552,14 +553,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       : scheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               if (state.enabled)
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: AppTheme.successColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(4.rs),
                   ),
                   child: Text(
                     '${state.channels.length} channel${state.channels.length == 1 ? '' : 's'}',
@@ -584,10 +585,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           ),
           children: [
             if (state.enabled) ...[
-              const SizedBox(height: 4),
+              SizedBox(height: 4.rs),
               _buildChannelDelivery(def, state, scheme, text),
               if (def.hasOperators) ...[
-                const SizedBox(height: 14),
+                SizedBox(height: 14.rs),
                 _buildOperatorSelection(def, state, scheme, text),
               ],
             ],
@@ -604,7 +605,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       children: [
         Text('Channel Delivery',
             style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.rs),
         Row(
           children: [
             _buildChannelCheckbox(
@@ -616,7 +617,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               scheme: scheme,
               text: text,
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 16.rs),
             _buildChannelCheckbox(
               label: 'WhatsApp',
               icon: Icons.chat_rounded,
@@ -626,7 +627,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               scheme: scheme,
               text: text,
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 16.rs),
             _buildChannelCheckbox(
               label: 'Email',
               icon: Icons.email_rounded,
@@ -636,7 +637,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               scheme: scheme,
               text: text,
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 16.rs),
             _buildChannelCheckbox(
               label: 'In-App',
               icon: Icons.notifications_active_rounded,
@@ -679,14 +680,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 });
                 _markDirty();
               },
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8.rs),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected && !isDisabled
                 ? scheme.primaryContainer.withValues(alpha: 0.2)
                 : scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(8.rs),
             border: Border.all(
               color: isSelected && !isDisabled
                   ? scheme.primary.withValues(alpha: 0.4)
@@ -705,9 +706,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     ? scheme.primary
                     : scheme.outlineVariant,
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6.rs),
               Icon(icon, size: 14, color: scheme.onSurfaceVariant),
-              const SizedBox(width: 4),
+              SizedBox(width: 4.rs),
               Text(
                 label,
                 style: text.bodySmall?.copyWith(
@@ -733,7 +734,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       children: [
         Text('Also Notify Operators',
             style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.rs),
         operatorsAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.all(8),
@@ -750,10 +751,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           data: (operators) {
             if (operators.isEmpty) {
               return Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(12.rs),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.rs),
                   border: Border.all(
                       color: scheme.outlineVariant.withValues(alpha: 0.2)),
                 ),
@@ -761,7 +762,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   children: [
                     Icon(Icons.info_outline_rounded,
                         size: 14, color: scheme.onSurfaceVariant),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.rs),
                     Text(
                       'No operators found in the system',
                       style: text.bodySmall
@@ -814,7 +815,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         : scheme.outlineVariant.withValues(alpha: 0.3),
                   ),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(8.rs)),
                   showCheckmark: true,
                   checkmarkColor: scheme.primary,
                 );
@@ -851,10 +852,10 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.rs),
         border:
             Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [
@@ -896,7 +897,7 @@ class _FeatureToggle extends StatelessWidget {
         color: value
             ? scheme.primaryContainer.withValues(alpha: 0.15)
             : scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(10.rs),
         border: Border.all(
           color: value
               ? scheme.primary.withValues(alpha: 0.2)
@@ -907,7 +908,7 @@ class _FeatureToggle extends StatelessWidget {
         children: [
           Icon(icon,
               size: 18, color: value ? scheme.primary : scheme.outlineVariant),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.rs),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

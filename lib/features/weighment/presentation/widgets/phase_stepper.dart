@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 /// Horizontal workflow progress indicator showing the current phase of a weighment.
 ///
@@ -107,7 +108,7 @@ class _StepChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           indicator,
-          const SizedBox(width: 4),
+          SizedBox(width: 4.rs),
           Text(
             label,
             style: textTheme.labelSmall?.copyWith(

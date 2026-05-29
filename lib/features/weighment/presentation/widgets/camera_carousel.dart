@@ -10,6 +10,7 @@ import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
 import 'package:weighbridgemanagement/shared/services/multi_camera_service.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 final _cameraSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   ref.watch(activeWeighbridgeCamerasProvider);
@@ -335,7 +336,7 @@ class _CameraCarouselState extends ConsumerState<CameraCarousel> {
                       aspectRatio: 16 / 9,
                       child: Container(
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(8.rs),
                           border: isFocused
                               ? Border.all(color: scheme.primary.withValues(alpha: 0.5), width: 2)
                               : Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
@@ -351,7 +352,7 @@ class _CameraCarouselState extends ConsumerState<CameraCarousel> {
                                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(3),
+                                  borderRadius: BorderRadius.circular(3.rs),
                                 ),
                                 child: Text(
                                   cam.label,
@@ -482,7 +483,7 @@ class _EnlargedCameraOverlayState extends State<_EnlargedCameraOverlay>
                           ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF1A1A2E),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(16.rs),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.4),
@@ -492,7 +493,7 @@ class _EnlargedCameraOverlayState extends State<_EnlargedCameraOverlay>
                             ],
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(16.rs),
                             child: AspectRatio(
                               aspectRatio: 16 / 9,
                               child: Stack(
@@ -504,7 +505,7 @@ class _EnlargedCameraOverlayState extends State<_EnlargedCameraOverlay>
                                     left: 16, top: 16,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6.rs)),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -515,7 +516,7 @@ class _EnlargedCameraOverlayState extends State<_EnlargedCameraOverlay>
                                               shape: BoxShape.circle,
                                             ),
                                           ),
-                                          const SizedBox(width: 6),
+                                          SizedBox(width: 6.rs),
                                           Text(
                                             widget.label,
                                             style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
@@ -530,8 +531,8 @@ class _EnlargedCameraOverlayState extends State<_EnlargedCameraOverlay>
                                     child: GestureDetector(
                                       onTap: _dismiss,
                                       child: Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
+                                        padding: EdgeInsets.all(8.rs),
+                                        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8.rs)),
                                         child: const Icon(Icons.close_outlined, size: 18, color: Colors.white70),
                                       ),
                                     ),
@@ -541,7 +542,7 @@ class _EnlargedCameraOverlayState extends State<_EnlargedCameraOverlay>
                                     left: 16, bottom: 16,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6.rs)),
                                       child: const Text(
                                         'Click anywhere to close',
                                         style: TextStyle(color: Colors.white38, fontSize: 10),

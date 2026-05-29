@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/features/weighment/application/inline_verification_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class DeviceStatusBar extends ConsumerWidget {
   final Duration elapsed;
@@ -64,7 +65,7 @@ class DeviceStatusBar extends ConsumerWidget {
                         : scheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
 
-          const SizedBox(width: 20),
+          SizedBox(width: 20.rs),
 
           // Cameras
           _StatusChip(
@@ -73,7 +74,7 @@ class DeviceStatusBar extends ConsumerWidget {
             color: cameras.isNotEmpty ? scheme.onSurface : scheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
 
-          const SizedBox(width: 20),
+          SizedBox(width: 20.rs),
 
           // AI
           _StatusChip(
@@ -84,7 +85,7 @@ class DeviceStatusBar extends ConsumerWidget {
 
           // Timer
           if (sessionActive) ...[
-            const SizedBox(width: 20),
+            SizedBox(width: 20.rs),
             _StatusChip(
               icon: Icons.timer_outlined,
               label: '$minutes:$seconds',
@@ -100,7 +101,7 @@ class DeviceStatusBar extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.person_outlined, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                const SizedBox(width: 4),
+                SizedBox(width: 4.rs),
                 Text(
                   user?.displayName ?? user!.email!.split('@').first,
                   style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7), fontWeight: FontWeight.w500),
@@ -129,9 +130,9 @@ class _StatusChip extends StatelessWidget {
           width: 7, height: 7,
           decoration: BoxDecoration(shape: BoxShape.circle, color: color),
         ),
-        const SizedBox(width: 5),
+        SizedBox(width: 5.rs),
         Icon(icon, size: 13, color: color),
-        const SizedBox(width: 4),
+        SizedBox(width: 4.rs),
         Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
       ],
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 enum _PrimaryAction { newSession, capture, print }
 
@@ -88,7 +89,7 @@ class WeighmentActionBar extends StatelessWidget {
   List<Widget> _buildGroup(List<_BtnDef> buttons, ColorScheme scheme, TextTheme textTheme) {
     final widgets = <Widget>[];
     for (var i = 0; i < buttons.length; i++) {
-      if (i > 0) widgets.add(const SizedBox(width: 6));
+      if (i > 0) widgets.add(SizedBox(width: 6.rs));
       widgets.add(_buildButton(buttons[i], scheme, textTheme));
     }
     return widgets;
@@ -137,7 +138,7 @@ class WeighmentActionBar extends StatelessWidget {
               def.label,
               style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6.rs),
             Text(
               def.shortcut,
               style: textTheme.labelSmall?.copyWith(

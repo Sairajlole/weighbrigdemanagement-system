@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class ProFeatureBanner extends ConsumerWidget {
   final String feature;
@@ -25,13 +26,13 @@ class ProFeatureBanner extends ConsumerWidget {
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(10.rs),
         border: Border.all(color: proColor.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
           Icon(Icons.workspace_premium_rounded, size: 20, color: proColor),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.rs),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,7 +45,7 @@ class ProFeatureBanner extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.rs),
           FilledButton.tonal(
             onPressed: () => context.go('/settings/license'),
             style: FilledButton.styleFrom(

@@ -4,6 +4,7 @@ import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 final _customFieldsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
@@ -193,11 +194,11 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                     IconButton(
                       onPressed: () => context.go('/settings'),
                       icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12.rs),
                     Icon(Icons.text_fields_rounded, size: 20, color: scheme.primary),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10.rs),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -208,7 +209,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                     const Spacer(),
                     if (_dirty) ...[
                       TextButton(onPressed: _resetDefaults, child: const Text('Cancel')),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8.rs),
                     ],
                     FilledButton.icon(
                       onPressed: _dirty && !_saving ? _save : null,
@@ -218,7 +219,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                       label: Text(_saving ? 'Saving...' : 'Save'),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
                       ),
                     ),
                   ],
@@ -231,7 +232,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(8.rs),
                         border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                       ),
                       child: Row(
@@ -241,7 +242,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                             size: 15,
                             color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.rs),
                           Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                         ],
                       ),
@@ -263,23 +264,23 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                   Expanded(
                     flex: 3,
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(28),
+                      padding: EdgeInsets.all(28.rs),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Info banner
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.all(14),
+                            padding: EdgeInsets.all(14.rs),
                             decoration: BoxDecoration(
                               color: scheme.primaryContainer.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(10.rs),
                               border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                             ),
                             child: Row(
                               children: [
                                 Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
-                                const SizedBox(width: 10),
+                                SizedBox(width: 10.rs),
                                 Expanded(
                                   child: Text(
                                     'These fields will appear in the order configured below on the Transaction Entry screen. Ensure labels are concise for best UI display.',
@@ -289,9 +290,9 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                               ],
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          SizedBox(height: 24.rs),
                           Text('Field Configuration', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 16),
+                          SizedBox(height: 16.rs),
                           ...List.generate(3, (i) => _FieldConfig(
                                 index: i,
                                 field: _fields[i],
@@ -310,11 +311,11 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                   // Live preview
                   Container(
                     width: 280,
-                    margin: const EdgeInsets.all(28),
-                    padding: const EdgeInsets.all(20),
+                    margin: EdgeInsets.all(28.rs),
+                    padding: EdgeInsets.all(20.rs),
                     decoration: BoxDecoration(
                       color: scheme.surface,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(14.rs),
                       border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
                     ),
                     child: Column(
@@ -326,18 +327,18 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
                                 color: scheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(4.rs),
                               ),
                               child: Text('LIVE PREVIEW', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: scheme.onPrimaryContainer, letterSpacing: 0.5)),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16.rs),
                         Text('Transaction Entry', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12.rs),
                         // Standard fields preview
                         _PreviewField(label: 'Vehicle Number', hint: 'MH-12-AB-1234', scheme: scheme, text: text),
-                        const SizedBox(height: 10),
+                        SizedBox(height: 10.rs),
                         // Custom fields preview
                         ..._fields.where((f) => f['enabled'] == true && (f['label'] as String).isNotEmpty).map((f) {
                           final label = f['label'] as String;
@@ -365,7 +366,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                                 height: 36,
                                 decoration: BoxDecoration(
                                   color: scheme.surfaceContainerHigh.withValues(alpha: 0.3),
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.circular(6.rs),
                                 ),
                                 child: Center(
                                   child: Icon(Icons.block_rounded, size: 14, color: scheme.outlineVariant),
@@ -379,7 +380,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                             height: 36,
                             decoration: BoxDecoration(
                               color: scheme.primary,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(8.rs),
                             ),
                             child: Center(
                               child: Text('Complete Transaction', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onPrimary)),
@@ -416,7 +417,7 @@ class _PreviewField extends StatelessWidget {
       return Row(
         children: [
           SizedBox(width: 28, height: 16, child: FittedBox(child: Switch(value: false, onChanged: null))),
-          const SizedBox(width: 6),
+          SizedBox(width: 6.rs),
           Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
         ],
       );
@@ -425,13 +426,13 @@ class _PreviewField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-        const SizedBox(height: 3),
+        SizedBox(height: 3.rs),
         Container(
           height: 30,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-            borderRadius: BorderRadius.circular(5),
+            borderRadius: BorderRadius.circular(5.rs),
           ),
           child: Row(
             children: [
@@ -444,7 +445,7 @@ class _PreviewField extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(3.rs),
                   ),
                   child: Text(suffix, style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: scheme.primary)),
                 ),
@@ -488,7 +489,7 @@ class _FieldConfig extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.rs),
         border: Border.all(
           color: expanded ? scheme.primary.withValues(alpha: 0.3) : scheme.outlineVariant.withValues(alpha: 0.25),
         ),
@@ -514,17 +515,17 @@ class _FieldConfig extends StatelessWidget {
                       child: Text('${index + 1}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.primary)),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12.rs),
                   Text(
                     'Custom Field ${index + 1}',
                     style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10.rs),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: enabled ? scheme.primaryContainer : scheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(4.rs),
                     ),
                     child: Text(
                       enabled ? 'ACTIVE' : 'DISABLED',
@@ -550,7 +551,7 @@ class _FieldConfig extends StatelessWidget {
           if (expanded) ...[
             Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.rs),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -558,7 +559,7 @@ class _FieldConfig extends StatelessWidget {
                   Row(
                     children: [
                       Text('Enable Field', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w500)),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8.rs),
                       Switch(
                         value: enabled,
                         onChanged: (v) => _update('enabled', v),
@@ -566,7 +567,7 @@ class _FieldConfig extends StatelessWidget {
                     ],
                   ),
                   if (enabled) ...[
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16.rs),
                     Row(
                       children: [
                         Expanded(
@@ -577,7 +578,7 @@ class _FieldConfig extends StatelessWidget {
                             onChanged: (v) => _update('label', v),
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        SizedBox(width: 14.rs),
                         Expanded(
                           child: _ConfigDropdown(
                             label: 'Field Type',
@@ -591,7 +592,7 @@ class _FieldConfig extends StatelessWidget {
 
                     // ── Unit config for Number type ──
                     if (field['type'] == 'Number') ...[
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14.rs),
                       Row(
                         children: [
                           Expanded(
@@ -602,7 +603,7 @@ class _FieldConfig extends StatelessWidget {
                               onChanged: (v) => _update('unit', v == '(none)' ? '' : v),
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          SizedBox(width: 14.rs),
                           SizedBox(
                             width: 100,
                             child: _ConfigField(
@@ -618,7 +619,7 @@ class _FieldConfig extends StatelessWidget {
 
                     // ── Currency config ──
                     if (field['type'] == 'Currency') ...[
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14.rs),
                       Row(
                         children: [
                           Expanded(
@@ -629,7 +630,7 @@ class _FieldConfig extends StatelessWidget {
                               onChanged: (v) => _update('currency', v.split(' ').first),
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          SizedBox(width: 14.rs),
                           SizedBox(
                             width: 100,
                             child: _ConfigField(
@@ -645,12 +646,12 @@ class _FieldConfig extends StatelessWidget {
 
                     // ── Rate config (compound unit: currency / weight unit) ──
                     if (field['type'] == 'Rate') ...[
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14.rs),
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(12.rs),
                         decoration: BoxDecoration(
                           color: scheme.primaryContainer.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(8.rs),
                           border: Border.all(color: scheme.primary.withValues(alpha: 0.15)),
                         ),
                         child: Column(
@@ -659,11 +660,11 @@ class _FieldConfig extends StatelessWidget {
                             Row(
                               children: [
                                 Icon(Icons.functions_rounded, size: 14, color: scheme.primary),
-                                const SizedBox(width: 6),
+                                SizedBox(width: 6.rs),
                                 Text('Compound Unit', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.primary)),
                               ],
                             ),
-                            const SizedBox(height: 10),
+                            SizedBox(height: 10.rs),
                             Row(
                               children: [
                                 Expanded(
@@ -678,7 +679,7 @@ class _FieldConfig extends StatelessWidget {
                                   padding: const EdgeInsets.symmetric(horizontal: 10),
                                   child: Column(
                                     children: [
-                                      const SizedBox(height: 16),
+                                      SizedBox(height: 16.rs),
                                       Text('/', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w300, color: scheme.onSurfaceVariant)),
                                     ],
                                   ),
@@ -693,7 +694,7 @@ class _FieldConfig extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: 8.rs),
                             Text(
                               _ratePreview(field),
                               style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic),
@@ -701,7 +702,7 @@ class _FieldConfig extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14.rs),
                       SizedBox(
                         width: 100,
                         child: _ConfigField(
@@ -715,7 +716,7 @@ class _FieldConfig extends StatelessWidget {
 
                     // ── Dropdown options ──
                     if (field['type'] == 'Dropdown') ...[
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14.rs),
                       _ConfigField(
                         label: 'Options (Comma separated)',
                         value: field['options'] ?? '',
@@ -724,7 +725,7 @@ class _FieldConfig extends StatelessWidget {
                       ),
                     ],
 
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14.rs),
                     Row(
                       children: [
                         Expanded(
@@ -735,7 +736,7 @@ class _FieldConfig extends StatelessWidget {
                             onChanged: (v) => _update('defaultValue', v),
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        SizedBox(width: 14.rs),
                         Expanded(
                           child: _ConfigField(
                             label: 'Placeholder Text',
@@ -746,9 +747,9 @@ class _FieldConfig extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16.rs),
                     Text('Validation', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8.rs),
                     Row(
                       children: [
                         Checkbox(
@@ -757,7 +758,7 @@ class _FieldConfig extends StatelessWidget {
                         ),
                         Text('Required Field', style: text.bodySmall),
                         if (field['type'] == 'Text') ...[
-                          const SizedBox(width: 24),
+                          SizedBox(width: 24.rs),
                           SizedBox(
                             width: 80,
                             child: _ConfigField(
@@ -767,7 +768,7 @@ class _FieldConfig extends StatelessWidget {
                               onChanged: (v) => _update('minLength', int.tryParse(v) ?? 1),
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          SizedBox(width: 14.rs),
                           SizedBox(
                             width: 80,
                             child: _ConfigField(
@@ -780,7 +781,7 @@ class _FieldConfig extends StatelessWidget {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16.rs),
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton.icon(
@@ -789,7 +790,7 @@ class _FieldConfig extends StatelessWidget {
                         label: Text('Reset Field', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.error)),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)),
                         ),
                       ),
                     ),
@@ -819,7 +820,7 @@ class _ConfigField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 5),
+        SizedBox(height: 5.rs),
         TextFormField(
           initialValue: value,
           style: text.bodySmall,
@@ -852,7 +853,7 @@ class _ConfigDropdown extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 5),
+        SizedBox(height: 5.rs),
         DropdownButtonFormField<String>(
           key: ValueKey('$label:$safeValue'),
           initialValue: safeValue,
@@ -861,7 +862,7 @@ class _ConfigDropdown extends StatelessWidget {
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             isDense: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant)),
           ),
           icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: scheme.onSurfaceVariant),
         ),

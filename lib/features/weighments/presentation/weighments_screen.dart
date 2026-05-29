@@ -15,6 +15,7 @@ import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 void showWeighmentDetailDialog(BuildContext context, WidgetRef ref, Map<String, dynamic> w) {
   final state = context.findAncestorStateOfType<_WeighmentsScreenState>();
@@ -304,7 +305,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
     final addressMap = ref.watch(_customerAddressMapProvider).valueOrNull ?? {};
 
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24.rs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -317,15 +318,15 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                   ref.invalidate(_weighmentsProvider);
                   ref.invalidate(_allWbWeighmentsProvider);
                 }),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.rs),
               ],
               Container(
                 height: 34,
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.rs),
                 ),
-                padding: const EdgeInsets.all(3),
+                padding: EdgeInsets.all(3.rs),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -337,19 +338,19 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: !_viewAllWbs ? scheme.primary : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(6.rs),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.scale_rounded, size: 12, color: !_viewAllWbs ? scheme.onPrimary : scheme.onSurfaceVariant),
-                            const SizedBox(width: 5),
+                            SizedBox(width: 5.rs),
                             _WbNameLabel(active: !_viewAllWbs, scheme: scheme),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 2),
+                    SizedBox(width: 2.rs),
                     GestureDetector(
                       onTap: () => setState(() { _viewAllWbs = true; }),
                       child: Container(
@@ -358,7 +359,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: _viewAllWbs ? scheme.primary : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(6.rs),
                         ),
                         child: Text('All Weighbridges', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _viewAllWbs ? scheme.onPrimary : scheme.onSurfaceVariant)),
                       ),
@@ -368,15 +369,15 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20.rs),
           weighmentsAsync.when(
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
             data: (all) => _buildStatsBar(all, scheme),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
           _buildFilterRow(scheme, materials),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
           Expanded(
             child: weighmentsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -391,9 +392,9 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.scale_outlined, size: 48, color: scheme.outlineVariant),
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8.rs),
                         Text('No weighments found', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4.rs),
                         Text('Try adjusting your date range or filters', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
                       ],
                     ),
@@ -403,7 +404,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                 return Column(
                   children: [
                     Expanded(child: _buildTable(sorted, scheme, addressMap)),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12.rs),
                     _buildBottomBar(sorted, scheme),
                   ],
                 );
@@ -454,11 +455,11 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
     return Row(
       children: [
         _statCard('Today', todayCount.toString(), Icons.today_rounded, scheme.primary, scheme),
-        const SizedBox(width: 12),
+        SizedBox(width: 12.rs),
         _statCard('Pending', pendingCount.toString(), Icons.hourglass_bottom_rounded, Colors.amber.shade700, scheme),
-        const SizedBox(width: 12),
+        SizedBox(width: 12.rs),
         _statCard('Today Net', '${(todayNet / 1000).toStringAsFixed(2)} T', Icons.monitor_weight_rounded, todayNet < 0 ? scheme.error : Colors.green.shade700, scheme),
-        const SizedBox(width: 12),
+        SizedBox(width: 12.rs),
         _statCard('Avg Turnaround', _formatDuration(avgTurnaround), Icons.timer_rounded, Colors.deepPurple, scheme),
       ],
     );
@@ -470,13 +471,13 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(10.rs),
           border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
             Icon(icon, size: 20, color: color),
-            const SizedBox(width: 10),
+            SizedBox(width: 10.rs),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -505,11 +506,11 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         _buildDateRangeChips(scheme),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.rs),
         _buildStatusChips(scheme),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.rs),
         _buildMaterialButton(scheme, materials),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.rs),
         SizedBox(
           width: 150,
           height: 32,
@@ -524,9 +525,9 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                 filled: true,
                 fillColor: scheme.surfaceContainerHigh,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
               ),
               style: const TextStyle(fontSize: 12),
             ),
@@ -546,9 +547,9 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                 filled: true,
                 fillColor: scheme.surfaceContainerHigh,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
               ),
               style: const TextStyle(fontSize: 12),
             ),
@@ -568,9 +569,9 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                 filled: true,
                 fillColor: scheme.surfaceContainerHigh,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
               ),
               style: const TextStyle(fontSize: 12),
             ),
@@ -606,7 +607,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
               top: top,
               child: Material(
                 elevation: 8,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.rs),
                 clipBehavior: Clip.antiAlias,
                 child: SizedBox(
                   width: dialogWidth,
@@ -675,7 +676,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             color: selected ? scheme.primary : scheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(6.rs),
           ),
           child: Text(
             range == _DateRange.custom && _dateRange == _DateRange.custom && _customRange != null
@@ -691,17 +692,17 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         chip('Today', _DateRange.today),
-        const SizedBox(width: 4),
+        SizedBox(width: 4.rs),
         chip('Week', _DateRange.thisWeek),
-        const SizedBox(width: 4),
+        SizedBox(width: 4.rs),
         chip('Month', _DateRange.thisMonth),
-        const SizedBox(width: 4),
+        SizedBox(width: 4.rs),
         chip('Year', _DateRange.thisYear),
-        const SizedBox(width: 4),
+        SizedBox(width: 4.rs),
         chip('FY ${DateTime.now().month >= 4 ? '${DateTime.now().year % 100}-${(DateTime.now().year + 1) % 100}' : '${(DateTime.now().year - 1) % 100}-${DateTime.now().year % 100}'}', _DateRange.thisFY),
-        const SizedBox(width: 4),
+        SizedBox(width: 4.rs),
         chip('All', _DateRange.all),
-        const SizedBox(width: 4),
+        SizedBox(width: 4.rs),
         chip('Custom', _DateRange.custom, key: _customChipKey),
       ],
     );
@@ -718,7 +719,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             color: selected ? scheme.primary : scheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(6.rs),
           ),
           child: Text(
             label,
@@ -732,9 +733,9 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         chip('All', _StatusFilter.all),
-        const SizedBox(width: 4),
+        SizedBox(width: 4.rs),
         chip('Completed', _StatusFilter.completed),
-        const SizedBox(width: 4),
+        SizedBox(width: 4.rs),
         chip('Pending', _StatusFilter.pending),
       ],
     );
@@ -750,7 +751,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: _selectedMaterials.isNotEmpty ? scheme.tertiaryContainer : scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(6.rs),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -784,11 +785,11 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
               top: top,
               child: Material(
                 elevation: 8,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.rs),
                 clipBehavior: Clip.antiAlias,
                 child: Container(
                   width: 280,
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(12.rs),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -804,7 +805,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                             ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.rs),
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
@@ -821,7 +822,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
                                 color: active ? scheme.tertiary.withValues(alpha: 0.15) : scheme.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(6),
+                                borderRadius: BorderRadius.circular(6.rs),
                                 border: active ? Border.all(color: scheme.tertiary.withValues(alpha: 0.6)) : null,
                               ),
                               child: Text(
@@ -847,10 +848,10 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.rs),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.rs),
         child: Column(
           children: [
             _buildTableHeader(scheme),
@@ -1009,16 +1010,16 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
               top: top,
               child: Material(
                 elevation: 8,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.rs),
                 clipBehavior: Clip.antiAlias,
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(12.rs),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Toggle columns (min 3)', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.rs),
                       for (int row = 0; row < 4; row++)
                         Padding(
                           padding: EdgeInsets.only(bottom: row < 3 ? 8 : 0),
@@ -1026,7 +1027,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               for (int i = row * perRow; i < (row + 1) * perRow && i < cols.length; i++) ...[
-                                if (i > row * perRow) const SizedBox(width: 8),
+                                if (i > row * perRow) SizedBox(width: 8.rs),
                                 GestureDetector(
                                   onTap: () {
                                     setState(() {
@@ -1044,7 +1045,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: _visibleCols.contains(cols[i]) ? scheme.primary.withValues(alpha: 0.12) : scheme.surfaceContainerHigh,
-                                      borderRadius: BorderRadius.circular(6),
+                                      borderRadius: BorderRadius.circular(6.rs),
                                       border: _visibleCols.contains(cols[i]) ? Border.all(color: scheme.primary.withValues(alpha: 0.5)) : null,
                                     ),
                                     child: Text(
@@ -1160,7 +1161,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: isCompleted ? scheme.primaryContainer.withValues(alpha: 0.5) : scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(4.rs),
       ),
       child: Text(
         isCompleted ? 'Done' : 'Pending',
@@ -1185,19 +1186,19 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(10.rs),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
           Text('${sorted.length} entries', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-          const SizedBox(width: 20),
+          SizedBox(width: 20.rs),
           _summaryPill('Gross', '${(sumGross / 1000).toStringAsFixed(1)}T', scheme, isNegative: sumGross < 0),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.rs),
           _summaryPill('Tare', '${(sumTare / 1000).toStringAsFixed(1)}T', scheme, isNegative: sumTare < 0),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.rs),
           _summaryPill('Net', '${(sumNet / 1000).toStringAsFixed(1)}T', scheme, isNegative: sumNet < 0),
-          const SizedBox(width: 20),
+          SizedBox(width: 20.rs),
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -1208,7 +1209,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: scheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(4.rs),
                     ),
                     child: Text(
                       '${toTitleCase(e.key)}: ${e.value}',
@@ -1229,7 +1230,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: isNegative ? scheme.errorContainer.withValues(alpha: 0.5) : scheme.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(4.rs),
       ),
       child: Text('$label: $value', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isNegative ? scheme.error : scheme.onPrimaryContainer)),
     );
@@ -1270,7 +1271,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
 
     return Dialog(
         alignment: Alignment.topCenter,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
         insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
         child: SizedBox(
           width: 900,
@@ -1289,16 +1290,16 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(8)),
+                        decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(8.rs)),
                         child: Text('#${w['rstNumber'] ?? '--'}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.onPrimaryContainer)),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8.rs),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                        decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(8)),
+                        decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(8.rs)),
                         child: Text(w['vehicleNumber'] as String? ?? '--', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.onSurface, letterSpacing: 0.3)),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10.rs),
                       // PDF417
                       GestureDetector(
                         onTap: () => _showEnlargedBarcode(context, w, company),
@@ -1310,7 +1311,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                       ),
                       const Spacer(),
                       _statusChip(w['status'] as String? ?? '', scheme),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10.rs),
                       if (w['status'] == 'awaitingTare') ...[
                         FilledButton(
                           onPressed: () {
@@ -1324,7 +1325,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                             style: const TextStyle(fontSize: 13),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10.rs),
                       ],
                       _QuickPrintButton(
                         weighmentId: w['id'] as String,
@@ -1335,7 +1336,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                           });
                         },
                       ),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6.rs),
                       _PrintToButton(
                         weighmentId: w['id'] as String,
                         onResult: (msg, isError) {
@@ -1345,7 +1346,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                           });
                         },
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: 4.rs),
                       IconButton(
                         onPressed: () => Navigator.pop(dialogCtx),
                         icon: const Icon(Icons.close, size: 22),
@@ -1368,7 +1369,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                         size: 16,
                         color: dialogMsgIsError ? scheme.error : const Color(0xFF2E7D32),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8.rs),
                       Text(
                         dialogMsg!,
                         style: TextStyle(
@@ -1399,7 +1400,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
                             color: scheme.primaryContainer.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(8.rs),
                             border: Border.all(color: scheme.primary.withValues(alpha: 0.1)),
                           ),
                           child: Column(
@@ -1408,27 +1409,27 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                               Row(
                                 children: [
                                   Icon(Icons.business_rounded, size: 14, color: scheme.primary),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8.rs),
                                   Text(company['companyName'] as String? ?? '--', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.onSurface)),
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: 12.rs),
                                   Expanded(child: Text('${company['address1'] ?? ''} ${company['address2'] ?? ''}'.trim(), style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis)),
                                   if (hasPhone) Text('Ph: ${company['phone']}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-                                  if (!overflowToSecondLine && hasGstin) ...[const SizedBox(width: 14), Text('GSTIN: ${company['gstin']}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant))],
-                                  if (!overflowToSecondLine && hasPan) ...[const SizedBox(width: 14), Text('PAN: ${company['pan']}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant))],
-                                  if (hasPort) ...[const SizedBox(width: 14), Text('Port: $scalePort', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant))],
+                                  if (!overflowToSecondLine && hasGstin) ...[SizedBox(width: 14.rs), Text('GSTIN: ${company['gstin']}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant))],
+                                  if (!overflowToSecondLine && hasPan) ...[SizedBox(width: 14.rs), Text('PAN: ${company['pan']}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant))],
+                                  if (hasPort) ...[SizedBox(width: 14.rs), Text('Port: $scalePort', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant))],
                                   ...[
-                                    const SizedBox(width: 14),
+                                    SizedBox(width: 14.rs),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: scheme.primary.withValues(alpha: 0.08),
-                                        borderRadius: BorderRadius.circular(4),
+                                        borderRadius: BorderRadius.circular(4.rs),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(Icons.scale_rounded, size: 10, color: scheme.primary),
-                                          const SizedBox(width: 4),
+                                          SizedBox(width: 4.rs),
                                           Text(
                                             w['weighbridgeName'] as String? ?? company['weighbridgeName'] as String? ?? '--',
                                             style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary),
@@ -1440,11 +1441,11 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                                 ],
                               ),
                               if (overflowToSecondLine) ...[
-                                const SizedBox(height: 4),
+                                SizedBox(height: 4.rs),
                                 Row(
                                   children: [
                                     if (hasGstin) Text('GSTIN: ${company['gstin']}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-                                    if (hasGstin && hasPan) const SizedBox(width: 14),
+                                    if (hasGstin && hasPan) SizedBox(width: 14.rs),
                                     if (hasPan) Text('PAN: ${company['pan']}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                                   ],
                                 ),
@@ -1453,17 +1454,17 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                           ),
                         );
                       }),
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6.rs),
                       Row(
                         children: [
                           Expanded(child: _weightBlock('GROSS', w['grossWeight'], fmtDateTime(grossDt), scheme)),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.rs),
                           Expanded(child: _weightBlock('TARE', w['tareWeight'], fmtDateTime(tareDt), scheme)),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.rs),
                           Expanded(child: _weightBlock('NET', w['netWeight'], null, scheme, highlight: true)),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.rs),
                       IntrinsicHeight(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1471,13 +1472,13 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                             Expanded(flex: 5, child: _buildCustomerCard(w, customerName, scheme, onTransferred: () {
                               Navigator.pop(dialogCtx2);
                             })),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8.rs),
                             Expanded(flex: 5, child: _buildOperatorCard(w, scheme)),
                           ],
                         ),
                       ),
                       if (hasCameras) ...[
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8.rs),
                         Expanded(
                           child: _buildVisualEvidenceSection(w, scheme, viewMode, (mode) => setDialogState(() => viewMode = mode)),
                         ),
@@ -1504,7 +1505,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: highlight ? scheme.primaryContainer.withValues(alpha: 0.35) : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8.rs),
         border: highlight ? Border.all(color: scheme.primary.withValues(alpha: 0.3), width: 1.5) : null,
       ),
       child: Row(
@@ -1513,7 +1514,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.4)),
-              const SizedBox(height: 2),
+              SizedBox(height: 2.rs),
               Text(display, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isNegative ? scheme.error : highlight ? scheme.primary : scheme.onSurface)),
             ],
           ),
@@ -1564,7 +1565,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.rs),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 2))],
       ),
@@ -1574,22 +1575,22 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
             children: [
               Container(
                 width: 22, height: 22,
-                decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(6)),
+                decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(6.rs)),
                 child: Icon(Icons.grid_view_rounded, size: 12, color: scheme.primary),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text('Visual Evidence', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.onSurface)),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text('$count cameras', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
               const Spacer(),
               if (hasTare) ...[
                 _phaseToggle('GROSS', viewMode == 'gross', scheme, () => onModeChange('gross')),
-                const SizedBox(width: 4),
+                SizedBox(width: 4.rs),
                 _phaseToggle('TARE', viewMode == 'tare', scheme, () => onModeChange('tare')),
               ],
             ],
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6.rs),
           Expanded(
             child: LayoutBuilder(
               builder: (ctx, constraints) {
@@ -1620,7 +1621,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       for (int i = 0; i < rowChildren.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 6),
+                        if (i > 0) SizedBox(width: 6.rs),
                         rowChildren[i],
                       ],
                     ],
@@ -1631,7 +1632,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     for (int i = 0; i < rowWidgets.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 6),
+                      if (i > 0) SizedBox(height: 6.rs),
                       rowWidgets[i],
                     ],
                   ],
@@ -1652,7 +1653,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
           color: active ? scheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(6.rs),
           border: Border.all(color: active ? scheme.primary : scheme.outlineVariant, width: 1.2),
         ),
         child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: active ? scheme.onPrimary : scheme.onSurfaceVariant, letterSpacing: 0.5)),
@@ -1670,10 +1671,10 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       child: MouseRegion(
         cursor: isArchived ? SystemMouseCursors.basic : SystemMouseCursors.click,
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(12.rs),
           decoration: BoxDecoration(
             color: isArchived ? scheme.surfaceContainerHighest.withValues(alpha: 0.5) : scheme.surface,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(10.rs),
             border: Border.all(color: isArchived ? scheme.outlineVariant.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.2)),
           ),
           child: Column(
@@ -1688,21 +1689,21 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                       backgroundImage: MemoryImage(_tryDecodeBase64(archivedFace) ?? Uint8List(0)),
                       onBackgroundImageError: (_, __) {},
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.rs),
                   ] else if (isArchived) ...[
                     CircleAvatar(
                       radius: 14,
                       backgroundColor: scheme.errorContainer.withValues(alpha: 0.5),
                       child: Icon(Icons.person_off_rounded, size: 14, color: scheme.error),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.rs),
                   ] else if (customerSnapUrl != null) ...[
                     CircleAvatar(
                       radius: 14,
                       backgroundImage: NetworkImage(customerSnapUrl),
                       backgroundColor: scheme.surfaceContainerHighest,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.rs),
                   ],
                   Expanded(child: Text(
                     isArchived ? '[Archived Customer]' : toTitleCase(customerName.isEmpty ? '--' : customerName),
@@ -1713,24 +1714,24 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                       message: 'Transfer to another customer',
                       child: InkWell(
                         onTap: () => _showTransferWeighmentDialog(w, onTransferred),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(6.rs),
                         child: Padding(
-                          padding: const EdgeInsets.all(4),
+                          padding: EdgeInsets.all(4.rs),
                           child: Icon(Icons.swap_horiz_rounded, size: 16, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
                         ),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: 6.rs),
               Row(
                 children: [
                   Icon(Icons.phone_outlined, size: 13, color: scheme.onSurfaceVariant),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4.rs),
                   Text(isArchived ? 'Redacted' : (w['customerPhone'] as String? ?? '--'), style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant, fontStyle: isArchived ? FontStyle.italic : null)),
-                  const SizedBox(width: 14),
+                  SizedBox(width: 14.rs),
                   Icon(Icons.inventory_2_outlined, size: 13, color: scheme.onSurfaceVariant),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4.rs),
                   Text(toTitleCase(w['material'] as String? ?? '--'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
                   const Spacer(),
                   if (!isArchived)
@@ -1762,7 +1763,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       context: context,
       builder: (ctx) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.rs)),
           child: SizedBox(
             width: 460,
             child: Column(
@@ -1782,14 +1783,14 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                           backgroundImage: NetworkImage(customerSnapUrl),
                           backgroundColor: scheme.surfaceContainerHighest,
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.rs),
                       ] else ...[
                         CircleAvatar(
                           radius: 22,
                           backgroundColor: scheme.primaryContainer,
                           child: Icon(Icons.person_rounded, size: 22, color: scheme.primary),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.rs),
                       ],
                       Expanded(
                         child: Column(
@@ -1810,7 +1811,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(10.rs),
                       child: AspectRatio(
                         aspectRatio: 16 / 9,
                         child: Image.network(customerSnapUrl, fit: BoxFit.cover),
@@ -1821,7 +1822,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                   future: db.customers.where('name', isEqualTo: customerName).limit(1).get(),
                   builder: (ctx, snap) {
                     if (snap.connectionState != ConnectionState.done || snap.data == null || snap.data!.docs.isEmpty) {
-                      return const SizedBox(height: 8);
+                      return SizedBox(height: 8.rs);
                     }
                     final cust = snap.data!.docs.first.data() as Map<String, dynamic>;
                     final address = cust['address'] as String? ?? '';
@@ -1829,22 +1830,22 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                       child: Container(
-                        padding: const EdgeInsets.all(10),
+                        padding: EdgeInsets.all(10.rs),
                         decoration: BoxDecoration(
                           color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(8.rs),
                         ),
                         child: Row(
                           children: [
                             if (address.isNotEmpty) ...[
                               Icon(Icons.location_on_outlined, size: 12, color: scheme.onSurfaceVariant),
-                              const SizedBox(width: 4),
+                              SizedBox(width: 4.rs),
                               Flexible(child: Text(address, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis)),
-                              const SizedBox(width: 14),
+                              SizedBox(width: 14.rs),
                             ],
                             const Spacer(),
                             Icon(Icons.scale_outlined, size: 12, color: scheme.onSurfaceVariant),
-                            const SizedBox(width: 4),
+                            SizedBox(width: 4.rs),
                             Text('$totalWeighments weighments', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                           ],
                         ),
@@ -1895,14 +1896,14 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                             child: Row(
                               children: [
                                 Text(date, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
-                                const SizedBox(width: 10),
+                                SizedBox(width: 10.rs),
                                 Text(vehicle, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-                                const SizedBox(width: 10),
+                                SizedBox(width: 10.rs),
                                 Text(toTitleCase(material), style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
                                 const Spacer(),
                                 if (net != null)
                                   Text('${_formatNum(net)} kg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: net is num && net < 0 ? scheme.error : scheme.primary)),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8.rs),
                                 Container(
                                   width: 6, height: 6,
                                   decoration: BoxDecoration(
@@ -1943,7 +1944,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
         return StatefulBuilder(
           builder: (ctx2, setState) {
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.rs)),
               child: SizedBox(
                 width: 440,
                 child: Column(
@@ -1958,7 +1959,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                       child: Row(
                         children: [
                           Icon(Icons.swap_horiz_rounded, size: 20, color: scheme.primary),
-                          const SizedBox(width: 10),
+                          SizedBox(width: 10.rs),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1980,16 +1981,16 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                           Text('From: ', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(6)),
+                            decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(6.rs)),
                             child: Text(toTitleCase(currentCustomer), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onErrorContainer)),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.rs),
                           Icon(Icons.arrow_forward_rounded, size: 14, color: scheme.onSurfaceVariant),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.rs),
                           if (selectedCustomerName != null)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(6)),
+                              decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(6.rs)),
                               child: Text(toTitleCase(selectedCustomerName!), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onPrimaryContainer)),
                             )
                           else
@@ -2008,7 +2009,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                           prefixIcon: Icon(Icons.search_rounded, size: 18, color: scheme.onSurfaceVariant),
                           filled: true,
                           fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs), borderSide: BorderSide.none),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
                         style: const TextStyle(fontSize: 13),
@@ -2052,12 +2053,12 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                                   selectedCustomerName = name;
                                   selectedCustomerPhone = phone;
                                 }),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(8.rs),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                   decoration: BoxDecoration(
                                     color: isSelected ? scheme.primaryContainer.withValues(alpha: 0.3) : null,
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(8.rs),
                                     border: isSelected ? Border.all(color: scheme.primary.withValues(alpha: 0.4)) : null,
                                   ),
                                   child: Row(
@@ -2069,7 +2070,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                                             ? Icon(Icons.check_rounded, size: 14, color: scheme.onPrimary)
                                             : Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
                                       ),
-                                      const SizedBox(width: 10),
+                                      SizedBox(width: 10.rs),
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2096,11 +2097,11 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                       child: Row(
                         children: [
                           Icon(Icons.info_outline_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                          const SizedBox(width: 6),
+                          SizedBox(width: 6.rs),
                           Expanded(child: Text('This updates the customer on this weighment only.', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)))),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12.rs),
                           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(fontSize: 13))),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.rs),
                           FilledButton(
                             onPressed: selectedCustomerId == null || isTransferring
                                 ? null
@@ -2146,10 +2147,10 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(12.rs),
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(10.rs),
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
           ),
           child: Column(
@@ -2163,26 +2164,26 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                       backgroundImage: NetworkImage(operatorSnapUrl),
                       backgroundColor: scheme.surfaceContainerHighest,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.rs),
                   ],
                   Expanded(child: Text(toTitleCase(w['operatorName'] as String? ?? '--'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: scheme.onSurface))),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: scheme.secondaryContainer.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(4)),
+                    decoration: BoxDecoration(color: scheme.secondaryContainer.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(4.rs)),
                     child: Text((w['operatorRole'] as String? ?? 'OPERATOR').toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSecondaryContainer, letterSpacing: 0.5)),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: 6.rs),
               Row(
                 children: [
                   Icon(Icons.computer_outlined, size: 13, color: scheme.onSurfaceVariant),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4.rs),
                   Text('${w['deviceId'] ?? '--'} / ${Platform.localHostname}', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
                   if (operatorSnapUrl != null) ...[
                     const Spacer(),
                     Icon(Icons.photo_camera_rounded, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                    const SizedBox(width: 3),
+                    SizedBox(width: 3.rs),
                     Text('Tap to view', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
                   ],
                 ],
@@ -2205,7 +2206,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       context: context,
       builder: (ctx) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.rs)),
           child: SizedBox(
             width: 460,
             child: Column(
@@ -2225,14 +2226,14 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                           backgroundImage: NetworkImage(operatorSnapUrl),
                           backgroundColor: scheme.surfaceContainerHighest,
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.rs),
                       ] else ...[
                         CircleAvatar(
                           radius: 22,
                           backgroundColor: scheme.secondaryContainer,
                           child: Icon(Icons.badge_rounded, size: 22, color: scheme.secondary),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.rs),
                       ],
                       Expanded(
                         child: Column(
@@ -2252,7 +2253,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(10.rs),
                       child: AspectRatio(
                         aspectRatio: 16 / 9,
                         child: Image.network(operatorSnapUrl, fit: BoxFit.cover),
@@ -2264,7 +2265,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                   future: operatorId.isNotEmpty ? db.operators.doc(operatorId).get() : null,
                   builder: (ctx, snap) {
                     if (snap.connectionState != ConnectionState.done || snap.data == null || !snap.data!.exists) {
-                      return const SizedBox(height: 8);
+                      return SizedBox(height: 8.rs);
                     }
                     final op = snap.data!.data() as Map<String, dynamic>;
                     final email = op['email'] as String? ?? '';
@@ -2274,33 +2275,33 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                       child: Container(
-                        padding: const EdgeInsets.all(10),
+                        padding: EdgeInsets.all(10.rs),
                         decoration: BoxDecoration(
                           color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(8.rs),
                         ),
                         child: Row(
                           children: [
                             if (email.isNotEmpty) ...[
                               Icon(Icons.email_outlined, size: 12, color: scheme.onSurfaceVariant),
-                              const SizedBox(width: 4),
+                              SizedBox(width: 4.rs),
                               Text(email, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
-                              const SizedBox(width: 14),
+                              SizedBox(width: 14.rs),
                             ],
                             if (phone.isNotEmpty) ...[
                               Icon(Icons.phone_outlined, size: 12, color: scheme.onSurfaceVariant),
-                              const SizedBox(width: 4),
+                              SizedBox(width: 4.rs),
                               Text(phone, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
                             ],
                             const Spacer(),
                             if (verified) ...[
                               Icon(Icons.verified_rounded, size: 13, color: const Color(0xFF22C55E)),
-                              const SizedBox(width: 4),
+                              SizedBox(width: 4.rs),
                               Text('Verified', style: TextStyle(fontSize: 10, color: const Color(0xFF22C55E), fontWeight: FontWeight.w600)),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12.rs),
                             ],
                             Icon(Icons.login_rounded, size: 12, color: scheme.onSurfaceVariant),
-                            const SizedBox(width: 4),
+                            SizedBox(width: 4.rs),
                             Text('$loginCount logins', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                           ],
                         ),
@@ -2353,13 +2354,13 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                             child: Row(
                               children: [
                                 Text(date, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8.rs),
                                 Text(vehicle, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8.rs),
                                 Expanded(child: Text('${toTitleCase(material)} • ${toTitleCase(customer)}', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant))),
                                 if (net != null)
                                   Text('${_formatNum(net)} kg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: net is num && net < 0 ? scheme.error : scheme.primary)),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8.rs),
                                 Container(
                                   width: 6, height: 6,
                                   decoration: BoxDecoration(
@@ -2397,7 +2398,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
     return GestureDetector(
       onTap: onTap,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8.rs),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -2409,7 +2410,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(4.rs),
                 ),
                 child: Text(label, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
               ),
@@ -2426,18 +2427,18 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(40),
+        insetPadding: EdgeInsets.all(40.rs),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               constraints: BoxConstraints(maxWidth: MediaQuery.of(ctx).size.width * 0.7),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.rs),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20)],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.rs),
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
                   child: Stack(
@@ -2449,7 +2450,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                         left: 12, top: 12,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(6)),
+                          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(6.rs)),
                           child: Text(label, style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600)),
                         ),
                       ),
@@ -2478,16 +2479,16 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(40),
+        insetPadding: EdgeInsets.all(40.rs),
         child: GestureDetector(
           onTap: () => Navigator.pop(ctx),
           child: Container(
             width: 600,
             height: 180,
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20.rs),
             decoration: BoxDecoration(
               color: scheme.surface,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(12.rs),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 16)],
             ),
             child: _buildBarcodeWidget(w, company, scheme),
@@ -2513,7 +2514,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.videocam_off_outlined, size: 22, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-          const SizedBox(height: 4),
+          SizedBox(height: 4.rs),
           Text('No capture', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5))),
         ],
       ),
@@ -2630,14 +2631,14 @@ class _WbSwitchButtonState extends ConsumerState<_WbSwitchButton> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: _open ? scheme.primary.withValues(alpha: 0.12) : scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(6.rs),
                 border: Border.all(color: _open ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.3)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.swap_horiz_rounded, size: 14, color: scheme.primary),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4.rs),
                   Text('Switch', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
                 ],
               ),
@@ -2663,12 +2664,12 @@ class _WbSwitchButtonState extends ConsumerState<_WbSwitchButton> {
           child: Material(
             elevation: 8,
             shadowColor: Colors.black.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(10.rs),
             color: scheme.surface,
             child: Container(
               constraints: const BoxConstraints(maxWidth: 220, maxHeight: 250),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(10.rs),
                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
               ),
               child: FutureBuilder<List<WbEntry>>(
@@ -2701,7 +2702,7 @@ class _WbSwitchButtonState extends ConsumerState<_WbSwitchButton> {
                             child: Row(
                               children: [
                                 Icon(Icons.scale_rounded, size: 13, color: isCurrent ? scheme.primary : scheme.onSurfaceVariant),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8.rs),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2896,7 +2897,7 @@ class _PrintToButton extends ConsumerWidget {
     return PopupMenuButton<_PrintOption>(
       onSelected: (option) => _doPrint(context, ref, option),
       offset: const Offset(0, 44),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.rs)),
       elevation: 8,
       itemBuilder: (_) => [
         ...options.map((o) => PopupMenuItem(
@@ -2909,11 +2910,11 @@ class _PrintToButton extends ConsumerWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   color: scheme.primaryContainer.withAlpha(120),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.rs),
                 ),
                 child: Icon(o.icon, size: 16, color: scheme.primary),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12.rs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2938,11 +2939,11 @@ class _PrintToButton extends ConsumerWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   color: scheme.tertiaryContainer.withAlpha(120),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.rs),
                 ),
                 child: Icon(Icons.ios_share_rounded, size: 16, color: scheme.tertiary),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12.rs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2961,7 +2962,7 @@ class _PrintToButton extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(20.rs),
         ),
         child: Text('Print to...', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant)),
       ),
@@ -3061,7 +3062,7 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
 
     return Dialog(
       alignment: Alignment.topCenter,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
       child: SizedBox(
         width: 900,
@@ -3078,16 +3079,16 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(8.rs)),
                     child: Text('#${w['rstNumber'] ?? '--'}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.onPrimaryContainer)),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.rs),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                    decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(8.rs)),
                     child: Text(w['vehicleNumber'] as String? ?? '--', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.onSurface, letterSpacing: 0.3)),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10.rs),
                   SizedBox(
                     width: 140,
                     height: 28,
@@ -3098,14 +3099,14 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: w['status'] == 'completed' ? scheme.primaryContainer.withValues(alpha: 0.5) : scheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(4.rs),
                     ),
                     child: Text(
                       w['status'] == 'completed' ? 'Done' : 'Pending',
                       style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: w['status'] == 'completed' ? scheme.primary : scheme.onSurfaceVariant),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.rs),
                   IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, size: 22)),
                 ],
               ),
@@ -3113,19 +3114,19 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
             const Divider(height: 1),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16.rs),
                 child: Column(
                   children: [
                     Row(
                       children: [
                         _standaloneWeightBlock('GROSS', w['grossWeight'], fmtDateTime(grossDt), scheme, fmtNum, false),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8.rs),
                         _standaloneWeightBlock('TARE', w['tareWeight'], fmtDateTime(tareDt), scheme, fmtNum, false),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8.rs),
                         _standaloneWeightBlock('NET', w['netWeight'], null, scheme, fmtNum, true),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10.rs),
                     IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3133,10 +3134,10 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
                           // Customer card (non-clickable, just info)
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: EdgeInsets.all(12.rs),
                               decoration: BoxDecoration(
                                 color: customerName == '[Archived]' ? scheme.surfaceContainerHighest.withValues(alpha: 0.5) : scheme.surface,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(10.rs),
                                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
                               ),
                               child: Column(
@@ -3151,10 +3152,10 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
                                           backgroundImage: MemoryImage(_tryDecodeBase64(w['archivedCustomerFace'] as String) ?? Uint8List(0)),
                                           onBackgroundImageError: (_, __) {},
                                         ),
-                                        const SizedBox(width: 8),
+                                        SizedBox(width: 8.rs),
                                       ] else ...[
                                         Icon(customerName == '[Archived]' ? Icons.person_off_rounded : Icons.person_rounded, size: 14, color: customerName == '[Archived]' ? scheme.error : scheme.onSurfaceVariant),
-                                        const SizedBox(width: 8),
+                                        SizedBox(width: 8.rs),
                                       ],
                                       Expanded(child: Text(
                                         customerName == '[Archived]' ? '[Archived Customer]' : toTitleCase(customerName),
@@ -3162,17 +3163,17 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
                                       )),
                                     ],
                                   ),
-                                  const SizedBox(height: 6),
+                                  SizedBox(height: 6.rs),
                                   Row(
                                     children: [
                                       if (customerName != '[Archived]' && (w['customerPhone'] as String? ?? '').isNotEmpty) ...[
                                         Icon(Icons.phone_outlined, size: 12, color: scheme.onSurfaceVariant),
-                                        const SizedBox(width: 4),
+                                        SizedBox(width: 4.rs),
                                         Text(w['customerPhone'] as String? ?? '', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
-                                        const SizedBox(width: 14),
+                                        SizedBox(width: 14.rs),
                                       ],
                                       Icon(Icons.inventory_2_outlined, size: 12, color: scheme.onSurfaceVariant),
-                                      const SizedBox(width: 4),
+                                      SizedBox(width: 4.rs),
                                       Text(toTitleCase(w['material'] as String? ?? '--'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurface)),
                                     ],
                                   ),
@@ -3180,7 +3181,7 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.rs),
                           // Operator card (clickable)
                           Expanded(
                             child: GestureDetector(
@@ -3188,28 +3189,28 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
                               child: MouseRegion(
                                 cursor: SystemMouseCursors.click,
                                 child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(color: scheme.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2))),
+                                  padding: EdgeInsets.all(12.rs),
+                                  decoration: BoxDecoration(color: scheme.surface, borderRadius: BorderRadius.circular(10.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2))),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
                                           Icon(Icons.badge_rounded, size: 14, color: scheme.onSurfaceVariant),
-                                          const SizedBox(width: 8),
+                                          SizedBox(width: 8.rs),
                                           Expanded(child: Text(toTitleCase(w['operatorName'] as String? ?? '--'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: scheme.onSurface))),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: scheme.secondaryContainer.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(4)),
+                                            decoration: BoxDecoration(color: scheme.secondaryContainer.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(4.rs)),
                                             child: Text((w['operatorRole'] as String? ?? 'operator').toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSecondaryContainer, letterSpacing: 0.3)),
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 6),
+                                      SizedBox(height: 6.rs),
                                       Row(
                                         children: [
                                           Icon(Icons.computer_outlined, size: 12, color: scheme.onSurfaceVariant),
-                                          const SizedBox(width: 4),
+                                          SizedBox(width: 4.rs),
                                           Text('${w['deviceId'] ?? '--'} / ${Platform.localHostname}', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
                                           const Spacer(),
                                           Icon(Icons.open_in_new_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
@@ -3225,7 +3226,7 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
                       ),
                     ),
                     if (hasCameras) ...[
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10.rs),
                       Expanded(
                         child: _StandaloneCameraGrid(snapData: snapData, hasTare: w['status'] == 'completed', scheme: scheme, grossEvidence: grossEvidence, tareEvidence: tareEvidence),
                       ),
@@ -3275,7 +3276,7 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
       context: ctx,
       builder: (dCtx) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.rs)),
           child: SizedBox(
             width: 588,
             child: Column(
@@ -3291,10 +3292,10 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
                     children: [
                       if (operatorSnapUrl != null && operatorSnapUrl.isNotEmpty) ...[
                         CircleAvatar(radius: 22, backgroundImage: NetworkImage(operatorSnapUrl), backgroundColor: scheme.surfaceContainerHighest),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.rs),
                       ] else ...[
                         CircleAvatar(radius: 22, backgroundColor: scheme.secondaryContainer, child: Icon(Icons.badge_rounded, size: 22, color: scheme.secondary)),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.rs),
                       ],
                       Expanded(
                         child: Column(
@@ -3314,14 +3315,14 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(10.rs),
                       child: AspectRatio(aspectRatio: 16 / 9, child: Image.network(operatorSnapUrl, fit: BoxFit.cover)),
                     ),
                   ),
                 FutureBuilder<DocumentSnapshot>(
                   future: operatorId.isNotEmpty ? db.operators.doc(operatorId).get() : null,
                   builder: (_, snap) {
-                    if (snap.connectionState != ConnectionState.done || snap.data == null || !snap.data!.exists) return const SizedBox(height: 8);
+                    if (snap.connectionState != ConnectionState.done || snap.data == null || !snap.data!.exists) return SizedBox(height: 8.rs);
                     final op = snap.data!.data() as Map<String, dynamic>;
                     final email = op['email'] as String? ?? '';
                     final phone = op['phone'] as String? ?? '';
@@ -3330,30 +3331,30 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                       child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(color: scheme.surfaceContainerHighest.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(8)),
+                        padding: EdgeInsets.all(10.rs),
+                        decoration: BoxDecoration(color: scheme.surfaceContainerHighest.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(8.rs)),
                         child: Row(
                           children: [
                             if (email.isNotEmpty) ...[
                               Icon(Icons.email_outlined, size: 12, color: scheme.onSurfaceVariant),
-                              const SizedBox(width: 4),
+                              SizedBox(width: 4.rs),
                               Text(email, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
-                              const SizedBox(width: 14),
+                              SizedBox(width: 14.rs),
                             ],
                             if (phone.isNotEmpty) ...[
                               Icon(Icons.phone_outlined, size: 12, color: scheme.onSurfaceVariant),
-                              const SizedBox(width: 4),
+                              SizedBox(width: 4.rs),
                               Text(phone, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
                             ],
                             const Spacer(),
                             if (verified) ...[
                               Icon(Icons.verified_rounded, size: 13, color: const Color(0xFF22C55E)),
-                              const SizedBox(width: 4),
+                              SizedBox(width: 4.rs),
                               Text('Verified', style: TextStyle(fontSize: 10, color: const Color(0xFF22C55E), fontWeight: FontWeight.w600)),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12.rs),
                             ],
                             Icon(Icons.login_rounded, size: 12, color: scheme.onSurfaceVariant),
-                            const SizedBox(width: 4),
+                            SizedBox(width: 4.rs),
                             Text('$loginCount logins', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                           ],
                         ),
@@ -3397,12 +3398,12 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
                             child: Row(
                               children: [
                                 Text(date, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8.rs),
                                 Text(vehicle, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8.rs),
                                 Expanded(child: Text('${toTitleCase(material)} • ${toTitleCase(customer)}', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant))),
                                 if (net != null) Text('$net kg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8.rs),
                                 Container(width: 6, height: 6, decoration: BoxDecoration(color: status == 'completed' ? const Color(0xFF22C55E) : const Color(0xFFF59E0B), shape: BoxShape.circle)),
                               ],
                             ),
@@ -3428,7 +3429,7 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: highlight ? scheme.primaryContainer.withValues(alpha: 0.35) : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(8.rs),
           border: highlight ? Border.all(color: scheme.primary.withValues(alpha: 0.3), width: 1.5) : null,
         ),
         child: Row(
@@ -3437,7 +3438,7 @@ class _StandaloneWeighmentDetailState extends ConsumerState<_StandaloneWeighment
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.4)),
-                const SizedBox(height: 2),
+                SizedBox(height: 2.rs),
                 Text(display, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isNegative ? scheme.error : highlight ? scheme.primary : scheme.onSurface)),
               ],
             ),
@@ -3502,7 +3503,7 @@ class _StandaloneCameraGridState extends State<_StandaloneCameraGrid> {
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.rs),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
       ),
       child: Column(
@@ -3510,19 +3511,19 @@ class _StandaloneCameraGridState extends State<_StandaloneCameraGrid> {
           Row(
             children: [
               Icon(Icons.grid_view_rounded, size: 12, color: scheme.primary),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text('Visual Evidence', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.onSurface)),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text('$count cameras', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
               const Spacer(),
               if (widget.hasTare) ...[
                 _toggle('GROSS', _viewMode == 'gross', () => setState(() => _viewMode = 'gross'), scheme),
-                const SizedBox(width: 4),
+                SizedBox(width: 4.rs),
                 _toggle('TARE', _viewMode == 'tare', () => setState(() => _viewMode = 'tare'), scheme),
               ],
             ],
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6.rs),
           Expanded(
             child: LayoutBuilder(
               builder: (ctx, constraints) {
@@ -3547,7 +3548,7 @@ class _StandaloneCameraGridState extends State<_StandaloneCameraGrid> {
                       width: tileW,
                       height: tileH,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(8.rs),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
@@ -3557,7 +3558,7 @@ class _StandaloneCameraGridState extends State<_StandaloneCameraGrid> {
                               left: 5, top: 5,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4)),
+                                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4.rs)),
                                 child: Text(tile.key, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
                               ),
                             ),
@@ -3568,12 +3569,12 @@ class _StandaloneCameraGridState extends State<_StandaloneCameraGrid> {
                   }
                   rowWidgets.add(Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [for (int i = 0; i < rowChildren.length; i++) ...[if (i > 0) const SizedBox(width: 6), rowChildren[i]]],
+                    children: [for (int i = 0; i < rowChildren.length; i++) ...[if (i > 0) SizedBox(width: 6.rs), rowChildren[i]]],
                   ));
                 }
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: [for (int i = 0; i < rowWidgets.length; i++) ...[if (i > 0) const SizedBox(height: 6), rowWidgets[i]]],
+                  children: [for (int i = 0; i < rowWidgets.length; i++) ...[if (i > 0) SizedBox(height: 6.rs), rowWidgets[i]]],
                 );
               },
             ),
@@ -3590,7 +3591,7 @@ class _StandaloneCameraGridState extends State<_StandaloneCameraGrid> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
           color: active ? scheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(6.rs),
           border: Border.all(color: active ? scheme.primary : scheme.outlineVariant, width: 1.2),
         ),
         child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: active ? scheme.onPrimary : scheme.onSurfaceVariant, letterSpacing: 0.5)),

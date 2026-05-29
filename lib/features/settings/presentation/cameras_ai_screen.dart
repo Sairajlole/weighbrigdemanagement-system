@@ -20,6 +20,7 @@ import 'package:weighbridgemanagement/shared/providers/live_camera_feeds_provide
 import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 // ---------------------------------------------------------------------------
 // Local persistence helper
@@ -857,9 +858,9 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                     width: 7, height: 7,
                     decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle),
                   ),
-                  const SizedBox(width: 5),
+                  SizedBox(width: 5.rs),
                   const Text('LIVE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFFEF4444), letterSpacing: 1)),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10.rs),
                 ],
                 Text('$enabledCount/${_slots.length} cameras', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                 const Spacer(),
@@ -877,7 +878,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 itemCount: cards.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, __) => SizedBox(width: 8.rs),
               itemBuilder: (_, i) {
                 final card = cards[i];
                 switch (card.type) {
@@ -917,7 +918,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
         child: Container(
           decoration: BoxDecoration(
             color: scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(10.rs),
             border: Border.all(color: scheme.primary.withValues(alpha: 0.3), style: BorderStyle.solid),
           ),
           child: Center(
@@ -925,16 +926,16 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: EdgeInsets.all(10.rs),
                   decoration: BoxDecoration(
                     color: scheme.primary.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.add_rounded, size: 22, color: scheme.primary),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8.rs),
                 Text('Add Camera', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
-                const SizedBox(height: 3),
+                SizedBox(height: 3.rs),
                 Text(cam.label, style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.5))),
               ],
             ),
@@ -953,7 +954,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
         child: Container(
           decoration: BoxDecoration(
             color: scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(10.rs),
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
           ),
           child: Center(
@@ -961,28 +962,28 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: EdgeInsets.all(10.rs),
                   decoration: BoxDecoration(
                     color: scheme.secondaryContainer.withValues(alpha: 0.4),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(icon, size: 20, color: scheme.secondary),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8.rs),
                 Text(cam.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-                const SizedBox(height: 8),
+                SizedBox(height: 8.rs),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: scheme.secondary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(6.rs),
                     border: Border.all(color: scheme.secondary.withValues(alpha: 0.25)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.settings_rounded, size: 12, color: scheme.secondary),
-                      const SizedBox(width: 4),
+                      SizedBox(width: 4.rs),
                       Text('Configure', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.secondary)),
                     ],
                   ),
@@ -1009,12 +1010,12 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                 },
                 icon: const Icon(Icons.arrow_back_rounded, size: 18),
                 style: IconButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Icon(Icons.videocam_rounded, size: 20, color: scheme.primary),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1032,7 +1033,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.rs),
                   border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                 ),
                 child: Row(
@@ -1041,7 +1042,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                       _headerMsgIsError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
                       size: 14, color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.rs),
                     Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                   ],
                 ),
@@ -1055,10 +1056,10 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
   Widget _buildTabBar(ColorScheme scheme, TextTheme text) {
     return Container(
       margin: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-      padding: const EdgeInsets.all(4),
+      padding: EdgeInsets.all(4.rs),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(10.rs),
       ),
       child: Row(
         children: [
@@ -1078,14 +1079,14 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: selected ? scheme.surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(8.rs),
             boxShadow: selected ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 1))] : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 15, color: selected ? scheme.primary : scheme.onSurfaceVariant),
-              const SizedBox(width: 6),
+              SizedBox(width: 6.rs),
               Text(label, style: TextStyle(fontSize: 12, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
             ],
           ),
@@ -1100,7 +1101,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(child: _buildWeighbridgeCamerasCard(scheme, text)),
-          const SizedBox(width: 20),
+          SizedBox(width: 20.rs),
           Expanded(child: _buildIdentityCamerasCard(scheme, text)),
         ],
       ),
@@ -1113,7 +1114,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(child: _buildFeatures(scheme, text)),
-          const SizedBox(width: 20),
+          SizedBox(width: 20.rs),
           Expanded(child: _buildRecording(scheme, text)),
         ],
       ),
@@ -1133,7 +1134,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(8.rs),
               border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
             ),
             child: Center(
@@ -1141,9 +1142,9 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.videocam_off_rounded, size: 20, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
-                  const SizedBox(height: 5),
+                  SizedBox(height: 5.rs),
                   Text(cam.label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2.rs),
                   Text(cam.enabled ? 'Not saved' : 'Tap to configure', style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.4))),
                 ],
               ),
@@ -1161,19 +1162,19 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
         child: Container(
           decoration: BoxDecoration(
             color: scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(10.rs),
           ),
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(hasError ? Icons.error_outline_rounded : Icons.hourglass_top_rounded, size: 20, color: hasError ? scheme.error : scheme.onSurfaceVariant.withValues(alpha: 0.4)),
-                const SizedBox(height: 6),
+                SizedBox(height: 6.rs),
                 Text(cam.label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-                const SizedBox(height: 2),
+                SizedBox(height: 2.rs),
                 Text(hasError ? 'Connection failed' : 'Connecting...', style: TextStyle(fontSize: 9, color: hasError ? scheme.error.withValues(alpha: 0.7) : scheme.onSurfaceVariant.withValues(alpha: 0.4))),
                 if (hasError) ...[
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6.rs),
                   Text('Tap to retry', style: TextStyle(fontSize: 8, color: scheme.onSurfaceVariant.withValues(alpha: 0.35))),
                 ],
               ],
@@ -1193,10 +1194,10 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
         child: Container(
           decoration: BoxDecoration(
             color: scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(10.rs),
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(10.rs),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -1205,7 +1206,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                   left: 8, top: 8,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4.rs)),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -1216,7 +1217,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                             shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4.rs),
                         Text(
                           key == 'operator' || key == 'customer'
                               ? '${cam.label} · ${cam.purpose.split(' ').first}'
@@ -1231,7 +1232,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                   right: 8, bottom: 8,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4.rs)),
                     child: Text(_sourceLabel(cam), style: const TextStyle(color: Colors.white54, fontSize: 8, fontWeight: FontWeight.w500)),
                   ),
                 ),
@@ -1244,21 +1245,21 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                         onTap: () => _showCameraConfigDialog(key, cam, scheme, text),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(6)),
+                          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(6.rs)),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.settings_rounded, size: 13, color: Colors.white.withValues(alpha: 0.9)),
-                              const SizedBox(width: 4),
+                              SizedBox(width: 4.rs),
                               Text('Settings', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.9))),
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(width: 5),
+                      SizedBox(width: 5.rs),
                       Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(color: Colors.black38, borderRadius: BorderRadius.circular(4)),
+                        padding: EdgeInsets.all(4.rs),
+                        decoration: BoxDecoration(color: Colors.black38, borderRadius: BorderRadius.circular(4.rs)),
                         child: Icon(Icons.fullscreen_rounded, size: 12, color: Colors.white.withValues(alpha: 0.7)),
                       ),
                     ],
@@ -1304,7 +1305,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.warning_rounded, size: 20, color: Colors.amber.withValues(alpha: 0.6)),
-              const SizedBox(height: 4),
+              SizedBox(height: 4.rs),
               Text(error, style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.5))),
             ],
           ),
@@ -1356,7 +1357,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white.withValues(alpha: 0.3))),
-            const SizedBox(height: 6),
+            SizedBox(height: 6.rs),
             Text('Connecting...', style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.4))),
           ],
         ),
@@ -1397,7 +1398,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           Row(
             children: [
               Icon(Icons.linked_camera_rounded, size: 18, color: scheme.primary),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1412,7 +1413,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppTheme.proColor.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(6.rs),
                   ),
                   child: const Text('1 cam only', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF7C3AED))),
                 ),
@@ -1422,7 +1423,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text('Reverse', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _reverseNaming ? scheme.primary : scheme.onSurfaceVariant)),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4.rs),
                     SizedBox(
                       height: 28,
                       child: Switch(
@@ -1441,14 +1442,14 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           _buildInfoRow(
             isFree
                 ? 'Free plan: 1 USB/built-in camera for weighment evidence. Upgrade to Pro for up to 5 IP cameras with multi-position assignment.'
                 : 'Up to 5 IP cameras for weighment evidence. Assign each camera a phase role (Gross/Tare). Use "Reverse" to swap front/rear positions between phases.',
             scheme, text,
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14.rs),
           ...wbCams.map((entry) => Padding(
             padding: EdgeInsets.only(bottom: entry.key != wbCams.last.key ? 10 : 0),
             child: _buildWbCameraCard(entry.key, entry.value, scheme, text),
@@ -1469,7 +1470,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           Row(
             children: [
               Icon(Icons.face_rounded, size: 18, color: scheme.tertiary),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1479,9 +1480,9 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           _buildInfoRow('These cameras are local to this device. Operator camera verifies who is operating the console. Customer camera identifies visitors at the counter.', scheme, text),
-          const SizedBox(height: 14),
+          SizedBox(height: 14.rs),
           ...idCams.map((entry) => Padding(
             padding: EdgeInsets.only(bottom: entry.key != idCams.last.key ? 12 : 0),
             child: _buildIdentityCard(entry.key, entry.value, scheme, text),
@@ -1504,10 +1505,10 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 100),
           child: Container(
-            padding: const EdgeInsets.all(14),
+            padding: EdgeInsets.all(14.rs),
             decoration: BoxDecoration(
               color: cam.enabled ? scheme.surfaceContainerLow : scheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(12.rs),
               border: Border.all(color: cam.enabled ? scheme.primary.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.2)),
             ),
             child: Column(
@@ -1516,7 +1517,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                 Row(
                   children: [
                     Icon(Icons.videocam_rounded, size: 18, color: cam.enabled ? scheme.primary : scheme.outlineVariant),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.rs),
                     Expanded(
                       child: Text(cam.label, style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w700, color: cam.enabled ? scheme.onSurface : scheme.onSurfaceVariant)),
                     ),
@@ -1526,7 +1527,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                         margin: const EdgeInsets.only(right: 8),
                         decoration: BoxDecoration(
                           color: AppTheme.proColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(4.rs),
                         ),
                         child: const Text('PRO', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF7C3AED))),
                       ),
@@ -1560,20 +1561,20 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                   ],
                 ),
               if (cam.enabled) ...[
-                const SizedBox(height: 10),
+                SizedBox(height: 10.rs),
                 _buildPhaseRoleSummary(cam, scheme),
-                const SizedBox(height: 10),
+                SizedBox(height: 10.rs),
                 Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: scheme.primaryContainer.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(4.rs),
                       ),
                       child: Text(cam.source, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.rs),
                     Expanded(
                       child: Text(
                         _connectionSummary(cam),
@@ -1585,14 +1586,14 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: scheme.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(6.rs),
                         border: Border.all(color: scheme.primary.withValues(alpha: 0.25)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.settings_rounded, size: 12, color: scheme.primary),
-                          const SizedBox(width: 4),
+                          SizedBox(width: 4.rs),
                           Text('Settings', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
                         ],
                       ),
@@ -1621,7 +1622,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
             decoration: BoxDecoration(
               color: scheme.tertiaryContainer.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(4.rs),
             ),
             child: Text('G · ${cam.grossRole}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.tertiary)),
           ),
@@ -1631,7 +1632,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
             decoration: BoxDecoration(
               color: scheme.secondaryContainer.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(4.rs),
             ),
             child: Text('T · ${cam.tareRole}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.secondary)),
           ),
@@ -1726,16 +1727,16 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             onChanged();
           },
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.rs),
         _buildSegmentedRow('Tare', cam.tareRole, positions, scheme.secondary, scheme, locked: true,
           onSelect: (_) {},
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: 6.rs),
         Row(
           children: [
-            const SizedBox(width: 42),
+            SizedBox(width: 42.rs),
             Icon(Icons.lock_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.4)),
-            const SizedBox(width: 4),
+            SizedBox(width: 4.rs),
             Text(
               _reverseNaming ? 'Auto-reversed from gross' : 'Same as gross',
               style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
@@ -1761,7 +1762,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.rs),
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
                 ),
                 child: Row(
@@ -1775,7 +1776,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 7),
                           decoration: BoxDecoration(
                             color: isSelected ? accent : isDisabled ? scheme.surfaceContainerHighest.withValues(alpha: 0.4) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(7),
+                            borderRadius: BorderRadius.circular(7.rs),
                           ),
                           child: Center(
                             child: Row(
@@ -1783,7 +1784,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                               children: [
                                 if (isDisabled) ...[
                                   Icon(Icons.lock_rounded, size: 8, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
-                                  const SizedBox(width: 2),
+                                  SizedBox(width: 2.rs),
                                 ],
                                 Text(
                                   pos.replaceFirst('Side-', 'S-'),
@@ -1814,10 +1815,10 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
       child: ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 100),
       child: Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14.rs),
       decoration: BoxDecoration(
         color: cam.enabled && !isCustomerLocked ? scheme.surfaceContainerLow : scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.rs),
         border: Border.all(color: cam.enabled && !isCustomerLocked ? scheme.tertiary.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.2)),
       ),
       child: Column(
@@ -1827,18 +1828,18 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           Row(
             children: [
               Icon(_slotIcon(key), size: 18, color: cam.enabled && !isCustomerLocked ? scheme.tertiary : scheme.outlineVariant),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Expanded(
                 child: Row(
                   children: [
                     Text(cam.label, style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w700, color: cam.enabled && !isCustomerLocked ? scheme.onSurface : scheme.onSurfaceVariant)),
                     if (isCustomerLocked) ...[
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6.rs),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
                           color: AppTheme.proColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(4.rs),
                         ),
                         child: const Text('PRO', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF7C3AED))),
                       ),
@@ -1867,18 +1868,18 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             ],
           ),
           if (cam.enabled) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: 10.rs),
             Row(
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: scheme.tertiaryContainer.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(4.rs),
                   ),
                   child: Text(cam.source, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.tertiary)),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.rs),
                 Expanded(child: Text(cam.purpose, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant))),
                 GestureDetector(
                   onTap: () => _showCameraConfigDialog(key, cam, scheme, text),
@@ -1886,14 +1887,14 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: scheme.tertiary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(6.rs),
                       border: Border.all(color: scheme.tertiary.withValues(alpha: 0.25)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.settings_rounded, size: 12, color: scheme.tertiary),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4.rs),
                         Text('Settings', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.tertiary)),
                       ],
                     ),
@@ -2100,10 +2101,10 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           }
 
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
             child: Container(
               width: 520,
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(24.rs),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2112,14 +2113,14 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: EdgeInsets.all(8.rs),
                         decoration: BoxDecoration(
                           color: scheme.primaryContainer.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(8.rs),
                         ),
                         child: Icon(Icons.videocam_rounded, size: 18, color: scheme.primary),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12.rs),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2152,14 +2153,14 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                           Navigator.pop(ctx);
                         },
                         icon: const Icon(Icons.close_rounded, size: 18),
-                        style: IconButton.styleFrom(backgroundColor: scheme.surfaceContainerHigh, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                        style: IconButton.styleFrom(backgroundColor: scheme.surfaceContainerHigh, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20.rs),
                   // Source selector
                   Text('CONNECTION SOURCE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.8)),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10.rs),
                   Builder(builder: (_) {
                     final isFree = ref.read(isFreeProvider);
                     const sources = ['Network Camera', 'Local Device'];
@@ -2187,22 +2188,22 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
                               decoration: BoxDecoration(
                                 color: selected && !isLocked ? scheme.primaryContainer : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(8.rs),
                                 border: Border.all(color: selected && !isLocked ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(icon, size: 14, color: isLocked ? scheme.onSurfaceVariant.withValues(alpha: 0.4) : selected ? scheme.primary : scheme.onSurfaceVariant),
-                                  const SizedBox(width: 6),
+                                  SizedBox(width: 6.rs),
                                   Text(src, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isLocked ? scheme.onSurfaceVariant.withValues(alpha: 0.4) : selected ? scheme.primary : scheme.onSurfaceVariant)),
                                   if (isLocked) ...[
-                                    const SizedBox(width: 4),
+                                    SizedBox(width: 4.rs),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                       decoration: BoxDecoration(
                                         color: AppTheme.proColor.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(3),
+                                        borderRadius: BorderRadius.circular(3.rs),
                                       ),
                                       child: const Text('PRO', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Color(0xFF7C3AED))),
                                     ),
@@ -2216,9 +2217,9 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                     );
                   }),
                   if (cam.source == 'Network Camera') ...[
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14.rs),
                     Text('NETWORK TYPE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.8)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8.rs),
                     Row(
                       children: [
                         _NetworkTypeChip(
@@ -2234,7 +2235,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                             _markDirty();
                           },
                         ),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10.rs),
                         _NetworkTypeChip(
                           label: 'NVR / DVR',
                           subtitle: 'Recorder · select channel',
@@ -2251,10 +2252,10 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                       ],
                     ),
                   ],
-                  const SizedBox(height: 18),
+                  SizedBox(height: 18.rs),
                   // Connection fields
                   Text('CONNECTION DETAILS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.8)),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10.rs),
                   if (cam.source == 'Network Camera') ...[
                     TextFormField(
                       controller: cam.addressCtrl,
@@ -2270,10 +2271,10 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                         prefixIconConstraints: const BoxConstraints(minWidth: 40),
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12.rs),
                     Row(
                       children: [
                         Expanded(
@@ -2284,7 +2285,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                               labelText: 'Brand',
                               isDense: true,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
                             ),
                             items: const [
                               'Hikvision', 'Dahua', 'CP Plus', 'TVT', 'Uniview',
@@ -2304,7 +2305,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                           ),
                         ),
                         if (cam.networkType == 'nvr') ...[
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.rs),
                         SizedBox(
                           width: 90,
                           child: DropdownButtonFormField<int>(
@@ -2315,7 +2316,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                               labelText: 'Channel',
                               isDense: true,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
                             ),
                             items: List.generate(
                                     [detectedChannelCount ?? 4, cam.dvrChannel].reduce((a, b) => a > b ? a : b),
@@ -2334,7 +2335,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.rs),
                         SizedBox(
                           width: 90,
                           child: DropdownButtonFormField<String>(
@@ -2344,7 +2345,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                               labelText: 'Quality',
                               isDense: true,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
                             ),
                             items: const [
                               DropdownMenuItem(value: 'main', child: Text('Main', style: TextStyle(fontSize: 12))),
@@ -2365,7 +2366,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12.rs),
                     Row(
                       children: [
                         SizedBox(
@@ -2379,11 +2380,11 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                               labelText: 'Port',
                               isDense: true,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.rs),
                         Expanded(
                           child: TextField(
                             controller: cam.usernameCtrl,
@@ -2394,11 +2395,11 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                               labelText: 'Username',
                               isDense: true,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.rs),
                         Expanded(
                           child: TextField(
                             controller: cam.passwordCtrl,
@@ -2410,24 +2411,24 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                               labelText: 'Password',
                               isDense: true,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8.rs),
                     if (cam.networkType == 'ip')
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(6.rs),
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.auto_fix_high_rounded, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                            const SizedBox(width: 6),
+                            SizedBox(width: 6.rs),
                             Expanded(
                               child: Text(
                                 'Will auto-probe RTSP/RTSPS stream paths on test',
@@ -2441,25 +2442,25 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                     _buildDeviceDropdown(key, cam, scheme, text, onDeviceChanged: () => setDialogState(() {})),
                   ],
                   if (_isDuplicate(key, cam)) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8.rs),
                     Row(
                       children: [
                         Icon(Icons.warning_amber_rounded, size: 14, color: scheme.error),
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6.rs),
                         Text('This camera is already in use by another slot', style: TextStyle(fontSize: 11, color: scheme.error, fontWeight: FontWeight.w500)),
                       ],
                     ),
                   ],
                   // Phase & position assignment for weighbridge cameras (always required)
                   if (isWb) ...[
-                    const SizedBox(height: 18),
+                    SizedBox(height: 18.rs),
                     Text('POSITION ASSIGNMENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.8)),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10.rs),
                     _buildPositionPicker(cam, scheme, currentKey: key, onChanged: () { _markDirty(); setDialogState(() {}); setState(() {}); }),
                   ],
                   // Privacy zones (any camera with active feed)
                   if (_videoControllers.containsKey(key) || ref.read(liveCameraFeedsProvider).feeds.containsKey(key)) ...[
-                    const SizedBox(height: 18),
+                    SizedBox(height: 18.rs),
                     Row(
                       children: [
                         Text('PRIVACY ZONES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.8)),
@@ -2469,7 +2470,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8.rs),
                     OutlinedButton.icon(
                       onPressed: () async {
                         final result = await showDialog<List<List<double>>>(
@@ -2497,18 +2498,18 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                     ),
                   ],
                   // Live preview tile (always visible, fixed height)
-                  const SizedBox(height: 18),
+                  SizedBox(height: 18.rs),
                   Text('LIVE PREVIEW', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.8)),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10.rs),
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(10.rs),
                     child: SizedBox(
                       width: double.infinity,
                       height: 220,
                       child: Container(
                         decoration: BoxDecoration(
                           color: const Color(0xFF1A1A2E),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(10.rs),
                           border: Border.all(
                             color: testingConnection
                                 ? (testSuccess ? Colors.green.withValues(alpha: 0.6) : testError != null ? Colors.red.withValues(alpha: 0.6) : scheme.outlineVariant.withValues(alpha: 0.3))
@@ -2533,22 +2534,22 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: testSuccess ? Colors.green.withValues(alpha: 0.85) : testError != null ? Colors.red.withValues(alpha: 0.85) : Colors.black54,
-                                      borderRadius: BorderRadius.circular(6),
+                                      borderRadius: BorderRadius.circular(6.rs),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         if (!testSuccess && testError == null) ...[
                                           SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white.withValues(alpha: 0.8))),
-                                          const SizedBox(width: 6),
+                                          SizedBox(width: 6.rs),
                                           Text('Connecting...', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.9), fontWeight: FontWeight.w500)),
                                         ] else if (testSuccess) ...[
                                           const Icon(Icons.check_circle_rounded, size: 12, color: Colors.white),
-                                          const SizedBox(width: 4),
+                                          SizedBox(width: 4.rs),
                                           const Text('Connected', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
                                         ] else ...[
                                           const Icon(Icons.error_rounded, size: 12, color: Colors.white),
-                                          const SizedBox(width: 4),
+                                          SizedBox(width: 4.rs),
                                           Text(testError ?? 'Failed', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
                                         ],
                                       ],
@@ -2560,7 +2561,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                                   right: 8,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
+                                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4.rs)),
                                     child: Text(cam.label, style: const TextStyle(fontSize: 9, color: Colors.white70, fontWeight: FontWeight.w500)),
                                   ),
                                 ),
@@ -2578,7 +2579,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: Colors.green.withValues(alpha: 0.85),
-                                      borderRadius: BorderRadius.circular(6),
+                                      borderRadius: BorderRadius.circular(6.rs),
                                     ),
                                     child: const Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -2598,7 +2599,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.videocam_off_rounded, size: 32, color: Colors.white.withValues(alpha: 0.2)),
-                                const SizedBox(height: 8),
+                                SizedBox(height: 8.rs),
                                 Text('Press Test Connection to preview', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.3))),
                               ],
                             ),
@@ -2608,31 +2609,31 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                     ),
                   ),
                   if (probeStatus != null) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8.rs),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: probeResult?.success == true
                             ? Colors.green.withValues(alpha: 0.1)
                             : probing ? scheme.surfaceContainerHighest : Colors.red.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(8.rs),
                         border: Border.all(color: probeResult?.success == true ? Colors.green.withValues(alpha: 0.3) : probing ? scheme.outlineVariant.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [
                           if (probing) ...[
                             SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8.rs),
                           ] else ...[
                             Icon(probeResult?.success == true ? Icons.check_circle_rounded : Icons.error_outline_rounded, size: 14, color: probeResult?.success == true ? Colors.green : Colors.red),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8.rs),
                           ],
                           Expanded(child: Text(probeStatus!, style: TextStyle(fontSize: 11, color: scheme.onSurface))),
                         ],
                       ),
                     ),
                   ],
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20.rs),
                   // Actions
                   Wrap(
                     spacing: 8,
@@ -2645,7 +2646,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
                         ),
                       ),
                       TextButton.icon(
@@ -2729,7 +2730,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
                         ),
                       ),
                     ],
@@ -2772,15 +2773,15 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
 
     if (cameras.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12.rs),
         decoration: BoxDecoration(
           color: scheme.errorContainer.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(8.rs),
         ),
         child: Row(
           children: [
             Icon(Icons.warning_rounded, size: 16, color: scheme.error),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             Text('No cameras detected on this device', style: text.bodySmall?.copyWith(color: scheme.error)),
           ],
         ),
@@ -2823,7 +2824,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(8.rs),
           borderSide: BorderSide(color: scheme.outlineVariant),
         ),
       ),
@@ -2846,7 +2847,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           Row(
             children: [
               Icon(Icons.auto_awesome_rounded, size: 18, color: scheme.primary),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2856,9 +2857,9 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           _buildInfoRow('AI features run on captured frames. ANPR requires front or rear camera. Material recognition needs a top-view camera. Face verification uses the operator/customer cameras.', scheme, text),
-          const SizedBox(height: 14),
+          SizedBox(height: 14.rs),
           _FeatureToggle(
             icon: Icons.pin_rounded,
             label: 'ANPR (Number Plate Recognition)',
@@ -2881,7 +2882,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           _FeatureToggle(
             icon: Icons.inventory_2_rounded,
             label: 'Material Recognition',
@@ -2890,7 +2891,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             onChanged: (v) { setState(() => _materialRecognition = v); _markDirty(); },
             locked: isFree,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           _FeatureToggle(
             icon: Icons.face_rounded,
             label: 'Operator Face Verification',
@@ -2898,7 +2899,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             value: _operatorFaceVerification,
             onChanged: (v) { setState(() => _operatorFaceVerification = v); _markDirty(); },
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           _FeatureToggle(
             icon: Icons.person_pin_circle_rounded,
             label: 'Driver Assist',
@@ -2907,7 +2908,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             onChanged: (v) { setState(() => _driverAssist = v); _markDirty(); },
             locked: isFree,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           _FeatureToggle(
             icon: Icons.person_search_rounded,
             label: 'Customer Recognition',
@@ -2934,7 +2935,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
           Row(
             children: [
               Icon(Icons.fiber_manual_record_rounded, size: 18, color: scheme.error),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2944,9 +2945,9 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           _buildInfoRow('Recordings are stored locally and auto-deleted after the retention period. Snapshot events create timestamped still images linked to each weighment.', scheme, text),
-          const SizedBox(height: 14),
+          SizedBox(height: 14.rs),
           _FeatureToggle(
             icon: Icons.videocam_rounded,
             label: 'Record During Weighment',
@@ -2954,7 +2955,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             value: _recordDuringWeighment,
             onChanged: (v) { setState(() => _recordDuringWeighment = v); _markDirty(); },
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           _FeatureToggle(
             icon: Icons.camera_alt_rounded,
             label: 'Snapshot On Event',
@@ -2962,11 +2963,11 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             value: _snapshotOnEvent,
             onChanged: (v) { setState(() => _snapshotOnEvent = v); _markDirty(); },
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14.rs),
           Row(
             children: [
               Text('Retention Period', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(width: 14),
+              SizedBox(width: 14.rs),
               SizedBox(
                 width: 160,
                 child: DropdownButtonFormField<int>(
@@ -2999,7 +3000,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(6.rs),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3008,7 +3009,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             padding: const EdgeInsets.only(top: 1),
             child: Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary.withValues(alpha: 0.6)),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.rs),
           Expanded(child: Text(infoText, style: textTheme.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant, height: 1.4))),
         ],
       ),
@@ -3047,10 +3048,10 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.rs),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [
           BoxShadow(
@@ -3093,7 +3094,7 @@ class _FeatureToggle extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: locked ? scheme.surfaceContainerLow : value ? scheme.primaryContainer.withValues(alpha: 0.15) : scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(10.rs),
           border: Border.all(
             color: locked ? scheme.outlineVariant.withValues(alpha: 0.15) : value ? scheme.primary.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.15),
           ),
@@ -3101,7 +3102,7 @@ class _FeatureToggle extends StatelessWidget {
         child: Row(
           children: [
             Icon(icon, size: 18, color: locked ? scheme.outlineVariant : value ? scheme.primary : scheme.outlineVariant),
-            const SizedBox(width: 12),
+            SizedBox(width: 12.rs),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3110,12 +3111,12 @@ class _FeatureToggle extends StatelessWidget {
                     children: [
                       Flexible(child: Text(label, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600))),
                       if (locked) ...[
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6.rs),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
                             color: AppTheme.proColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(4.rs),
                           ),
                           child: const Text('PRO', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF7C3AED))),
                         ),
@@ -3391,7 +3392,7 @@ class _DvrDetectButtonState extends State<_DvrDetectButton> {
     final scheme = widget.scheme;
     return InkWell(
       onTap: _detecting ? null : _detect,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(6.rs),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
@@ -3400,7 +3401,7 @@ class _DvrDetectButtonState extends State<_DvrDetectButton> {
               : _error != null
                   ? scheme.errorContainer.withValues(alpha: 0.3)
                   : scheme.primaryContainer.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(6.rs),
           border: Border.all(
             color: _detectedChannels != null
                 ? Colors.green.withValues(alpha: 0.4)
@@ -3420,7 +3421,7 @@ class _DvrDetectButtonState extends State<_DvrDetectButton> {
               Icon(Icons.warning_amber_rounded, size: 12, color: scheme.error)
             else
               Icon(Icons.search_rounded, size: 12, color: scheme.primary),
-            const SizedBox(width: 5),
+            SizedBox(width: 5.rs),
             Text(
               _detecting ? 'Detecting...'
                   : _detectedChannels != null ? '$_detectedChannels CH'
@@ -3544,7 +3545,7 @@ class _EnlargedPreviewOverlayState extends State<_EnlargedPreviewOverlay>
                           ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF1A1A2E),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(16.rs),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.4),
@@ -3554,7 +3555,7 @@ class _EnlargedPreviewOverlayState extends State<_EnlargedPreviewOverlay>
                             ],
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(16.rs),
                             child: AspectRatio(
                               aspectRatio: 16 / 9,
                               child: Stack(
@@ -3594,7 +3595,7 @@ class _EnlargedPreviewOverlayState extends State<_EnlargedPreviewOverlay>
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(Icons.warning_rounded, size: 36, color: Colors.amber.withValues(alpha: 0.6)),
-                                          const SizedBox(height: 8),
+                                          SizedBox(height: 8.rs),
                                           Text(widget.error!, style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6))),
                                         ],
                                       ),
@@ -3611,7 +3612,7 @@ class _EnlargedPreviewOverlayState extends State<_EnlargedPreviewOverlay>
                                     left: 16, top: 16,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6.rs)),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -3622,7 +3623,7 @@ class _EnlargedPreviewOverlayState extends State<_EnlargedPreviewOverlay>
                                               shape: BoxShape.circle,
                                             ),
                                           ),
-                                          const SizedBox(width: 6),
+                                          SizedBox(width: 6.rs),
                                           Text(
                                             widget.cam.label,
                                             style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
@@ -3637,8 +3638,8 @@ class _EnlargedPreviewOverlayState extends State<_EnlargedPreviewOverlay>
                                     child: GestureDetector(
                                       onTap: _dismiss,
                                       child: Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
+                                        padding: EdgeInsets.all(8.rs),
+                                        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8.rs)),
                                         child: const Icon(Icons.close_rounded, size: 18, color: Colors.white70),
                                       ),
                                     ),
@@ -3648,7 +3649,7 @@ class _EnlargedPreviewOverlayState extends State<_EnlargedPreviewOverlay>
                                     right: 16, bottom: 16,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6.rs)),
                                       child: Text(
                                         widget.sourceLabel,
                                         style: const TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w500),
@@ -3660,7 +3661,7 @@ class _EnlargedPreviewOverlayState extends State<_EnlargedPreviewOverlay>
                                     left: 16, bottom: 16,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6.rs)),
                                       child: const Text(
                                         'Click anywhere to close',
                                         style: TextStyle(color: Colors.white38, fontSize: 10),
@@ -3711,13 +3712,13 @@ class _NetworkTypeChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: selected ? scheme.primaryContainer : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(8.rs),
             border: Border.all(color: selected ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
               Icon(icon, size: 16, color: selected ? scheme.primary : scheme.onSurfaceVariant),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3829,7 +3830,7 @@ class _PrivacyZoneDrawerState extends State<_PrivacyZoneDrawer> {
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(32),
+      insetPadding: EdgeInsets.all(32.rs),
       child: Container(
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.8,
@@ -3837,7 +3838,7 @@ class _PrivacyZoneDrawerState extends State<_PrivacyZoneDrawer> {
         ),
         decoration: BoxDecoration(
           color: const Color(0xFF1A1A2E),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16.rs),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -3847,9 +3848,9 @@ class _PrivacyZoneDrawerState extends State<_PrivacyZoneDrawer> {
               child: Row(
                 children: [
                   Icon(Icons.grid_off_outlined, size: 16, color: scheme.primary),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.rs),
                   const Text('Privacy Zones', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12.rs),
                   Text('${_zones.length} zone${_zones.length == 1 ? '' : 's'}',
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
                   ),
@@ -3874,12 +3875,12 @@ class _PrivacyZoneDrawerState extends State<_PrivacyZoneDrawer> {
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
               ),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10.rs),
             Flexible(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(10.rs),
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
                     child: LayoutBuilder(
@@ -3957,7 +3958,7 @@ class _PrivacyZoneDrawerState extends State<_PrivacyZoneDrawer> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12.rs),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -3965,7 +3966,7 @@ class _PrivacyZoneDrawerState extends State<_PrivacyZoneDrawer> {
                     onPressed: () => Navigator.of(context).pop(null),
                     child: const Text('Cancel'),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.rs),
                   FilledButton(
                     onPressed: () => Navigator.of(context).pop(_zones),
                     child: const Text('Save Zones'),

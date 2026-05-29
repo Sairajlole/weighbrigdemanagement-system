@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart';
 import '../../application/setup_wizard_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 const _accentColors = <Color>[
   Color(0xFF059669), // Emerald
@@ -85,39 +86,39 @@ class _AppearanceStepState extends ConsumerState<AppearanceStep> {
     final text = Theme.of(context).textTheme;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(40),
+      padding: EdgeInsets.all(40.rs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Appearance', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           Text(
             'Personalize the look and feel of your weighbridge application.',
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: 32.rs),
 
           // Theme mode
           Text('Theme', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           Row(
             children: [
               _ThemeCard(icon: Icons.light_mode_rounded, label: 'Light', isSelected: _themeMode == ThemeMode.light,
                   onTap: () => setState(() => _themeMode = ThemeMode.light), scheme: scheme),
-              const SizedBox(width: 12),
+              SizedBox(width: 12.rs),
               _ThemeCard(icon: Icons.dark_mode_rounded, label: 'Dark', isSelected: _themeMode == ThemeMode.dark,
                   onTap: () => setState(() => _themeMode = ThemeMode.dark), scheme: scheme),
-              const SizedBox(width: 12),
+              SizedBox(width: 12.rs),
               _ThemeCard(icon: Icons.brightness_auto_rounded, label: 'System', isSelected: _themeMode == ThemeMode.system,
                   onTap: () => setState(() => _themeMode = ThemeMode.system), scheme: scheme),
             ],
           ),
 
-          const SizedBox(height: 32),
+          SizedBox(height: 32.rs),
 
           // Accent color
           Text('Accent Color', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -152,11 +153,11 @@ class _AppearanceStepState extends ConsumerState<AppearanceStep> {
             }),
           ),
 
-          const SizedBox(height: 32),
+          SizedBox(height: 32.rs),
 
           // Font scale
           Text('Font Size', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           Row(
             children: [
               Text('Aa', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
@@ -178,11 +179,11 @@ class _AppearanceStepState extends ConsumerState<AppearanceStep> {
                 style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
           ),
 
-          const SizedBox(height: 32),
+          SizedBox(height: 32.rs),
 
           // Language
           Text('Language', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           Row(
             children: [
               _LangChip(label: 'English', value: 'en', isSelected: _locale == 'en',
@@ -190,17 +191,17 @@ class _AppearanceStepState extends ConsumerState<AppearanceStep> {
             ],
           ),
 
-          const SizedBox(height: 24),
+          SizedBox(height: 24.rs),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12.rs),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(8.rs),
             ),
             child: Row(
               children: [
                 Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.rs),
                 Expanded(
                   child: Text(
                     'Background art and additional display options are available in Settings.',
@@ -237,7 +238,7 @@ class _ThemeCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         decoration: BoxDecoration(
           color: isSelected ? scheme.primary.withValues(alpha: 0.05) : scheme.surface,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(10.rs),
           border: Border.all(
             color: isSelected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4),
             width: isSelected ? 2 : 1,
@@ -246,7 +247,7 @@ class _ThemeCard extends StatelessWidget {
         child: Column(
           children: [
             Icon(icon, size: 24, color: isSelected ? scheme.primary : scheme.onSurfaceVariant),
-            const SizedBox(height: 6),
+            SizedBox(height: 6.rs),
             Text(label, style: TextStyle(
               fontSize: 12, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
@@ -278,7 +279,7 @@ class _LangChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected ? scheme.primary.withValues(alpha: 0.08) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(8.rs),
           border: Border.all(
             color: isSelected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4),
             width: isSelected ? 2 : 1,

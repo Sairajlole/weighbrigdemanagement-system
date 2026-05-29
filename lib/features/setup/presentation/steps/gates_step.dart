@@ -6,6 +6,7 @@ import 'package:weighbridgemanagement/shared/providers/gate_provider.dart';
 import 'package:weighbridgemanagement/shared/services/gate_service.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import '../../application/setup_wizard_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class GatesStep extends ConsumerStatefulWidget {
   const GatesStep({super.key});
@@ -220,7 +221,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
     if (!_loaded) return const Center(child: CircularProgressIndicator());
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(40),
+      padding: EdgeInsets.all(40.rs),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 620),
@@ -228,35 +229,35 @@ class _GatesStepState extends ConsumerState<GatesStep> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
           Text('Gate Control', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           Text(
             'Configure automatic barrier gates and RFID scanners. Gate control is enabled automatically when a connection test passes.',
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: 32.rs),
 
           // Entry gate
           _buildGateSection('Entry Gate', Icons.login_rounded, true, scheme, text),
-          const SizedBox(height: 20),
+          SizedBox(height: 20.rs),
 
           // Exit gate
           _buildGateSection('Exit Gate', Icons.logout_rounded, false, scheme, text),
-          const SizedBox(height: 24),
+          SizedBox(height: 24.rs),
 
           // RFID
           _buildRfidSection(scheme, text),
-          const SizedBox(height: 24),
+          SizedBox(height: 24.rs),
 
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12.rs),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(8.rs),
             ),
             child: Row(
               children: [
                 Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.rs),
                 Expanded(
                   child: Text(
                     'Safety & protection settings can be configured in Settings after setup.',
@@ -287,10 +288,10 @@ class _GatesStepState extends ConsumerState<GatesStep> {
     final testResult = isEntry ? _entryTestResult : _exitTestResult;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.rs),
       decoration: BoxDecoration(
         border: Border.all(color: enabled ? scheme.primary.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.rs),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,7 +299,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
           Row(
             children: [
               Icon(icon, size: 18, color: enabled ? scheme.primary : scheme.onSurfaceVariant),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,7 +311,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
                           width: 6, height: 6,
                           decoration: BoxDecoration(shape: BoxShape.circle, color: testResult == 'ok' ? const Color(0xFF059669) : scheme.error),
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4.rs),
                         Text(testResult == 'ok' ? 'Connected' : 'Unreachable',
                             style: TextStyle(fontSize: 10, color: testResult == 'ok' ? const Color(0xFF059669) : scheme.error, fontWeight: FontWeight.w500)),
                       ]),
@@ -321,42 +322,42 @@ class _GatesStepState extends ConsumerState<GatesStep> {
             ],
           ),
           if (enabled) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: 16.rs),
             Row(
               children: [
                 Expanded(child: _buildDropdown('Protocol', protocol, _protocols, (v) => setState(() { if (isEntry) _entryProtocol = v!; else _exitProtocol = v!; }), scheme, text)),
-                const SizedBox(width: 12),
+                SizedBox(width: 12.rs),
                 Expanded(child: _buildIpField('IP Address', ipCtrl, isEntry ? '192.168.1.150' : '192.168.1.151', scheme, text)),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12.rs),
             Row(
               children: [
                 Expanded(child: _buildDropdown('Channel', channel, _channels, (v) => setState(() { if (isEntry) _entryChannel = v!; else _exitChannel = v!; }), scheme, text)),
-                const SizedBox(width: 12),
+                SizedBox(width: 12.rs),
                 Expanded(child: _buildDropdown('Trigger', trigger, triggers, (v) => setState(() { if (isEntry) _entryTrigger = v!; else _exitTrigger = v!; }), scheme, text)),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12.rs),
             Row(
               children: [
                 SizedBox(
                   width: 120,
                   child: _buildField('Duration (s)', durationCtrl, '30', scheme, text),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12.rs),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text('Auto-close', style: TextStyle(fontSize: 12)),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4.rs),
                     Switch(value: autoClose, onChanged: (v) => setState(() { if (isEntry) _entryAutoClose = v; else _exitAutoClose = v; })),
                   ],
                 ),
                 const Spacer(),
                 FilledButton.tonal(
                   onPressed: (testing || ipCtrl.text.trim().isEmpty || !isValidHostOrIp(ipCtrl.text.trim())) ? null : () => _testGate(isEntry ? GateId.entry : GateId.exit),
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -364,7 +365,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
                         SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: scheme.primary))
                       else
                         Icon(Icons.wifi_tethering_rounded, size: 14, color: scheme.primary),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6.rs),
                       Text(testing ? 'Testing...' : 'Test', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                     ],
                   ),
@@ -379,10 +380,10 @@ class _GatesStepState extends ConsumerState<GatesStep> {
 
   Widget _buildRfidSection(ColorScheme scheme, TextTheme text) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.rs),
       decoration: BoxDecoration(
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.rs),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -390,7 +391,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
           Row(
             children: [
               Icon(Icons.nfc_rounded, size: 18, color: scheme.secondary),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -404,17 +405,17 @@ class _GatesStepState extends ConsumerState<GatesStep> {
             ],
           ),
           if (_rfidEnabled) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: 16.rs),
             Row(
               children: [
                 Expanded(child: _buildDropdown('Scanner Protocol', _rfidProtocol, _rfidProtocols, (v) => setState(() => _rfidProtocol = v!), scheme, text)),
-                const SizedBox(width: 12),
+                SizedBox(width: 12.rs),
                 Expanded(child: _buildIpField('Scanner IP', _rfidIp, '192.168.1.200', scheme, text)),
-                const SizedBox(width: 12),
+                SizedBox(width: 12.rs),
                 SizedBox(width: 100, child: _buildField('Timeout (s)', _rfidTimeout, '10', scheme, text)),
               ],
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8.rs),
             Text(
               'RFID tags on vehicles are scanned at the gate to auto-identify them.',
               style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant),
@@ -439,7 +440,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-        const SizedBox(height: 5),
+        SizedBox(height: 5.rs),
         DropdownButtonFormField<String>(
           initialValue: items.contains(value) ? value : items.first,
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12)))).toList(),
@@ -447,8 +448,8 @@ class _GatesStepState extends ConsumerState<GatesStep> {
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             isDense: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
           ),
           icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: scheme.onSurfaceVariant),
         ),
@@ -461,7 +462,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-        const SizedBox(height: 5),
+        SizedBox(height: 5.rs),
         TextField(
           controller: ctrl,
           style: const TextStyle(fontSize: 13),
@@ -470,8 +471,8 @@ class _GatesStepState extends ConsumerState<GatesStep> {
             hintText: hint,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             isDense: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
           ),
         ),
       ],
@@ -485,7 +486,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-        const SizedBox(height: 5),
+        SizedBox(height: 5.rs),
         TextField(
           controller: ctrl,
           style: const TextStyle(fontSize: 13),
@@ -504,9 +505,9 @@ class _GatesStepState extends ConsumerState<GatesStep> {
               ),
             ),
             prefixIconConstraints: const BoxConstraints(minWidth: 30),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(8.rs),
               borderSide: BorderSide(color: hasValue && !valid ? scheme.error.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.5)),
             ),
             errorText: hasValue && !valid ? 'Invalid IP' : null,

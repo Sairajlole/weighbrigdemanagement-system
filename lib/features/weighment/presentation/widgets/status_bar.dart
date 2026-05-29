@@ -6,6 +6,7 @@ import 'package:weighbridgemanagement/shared/providers/gate_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
 import 'package:weighbridgemanagement/shared/services/gate_service.dart';
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class WeighmentStatusBar extends ConsumerWidget {
   const WeighmentStatusBar({super.key});
@@ -39,7 +40,7 @@ class WeighmentStatusBar extends ConsumerWidget {
             label: scaleConnected ? 'Scale OK' : 'Scale Off',
             active: scaleConnected,
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16.rs),
           // Gate status
           if (gatesEnabled) ...[
             _StatusChip(
@@ -48,14 +49,14 @@ class WeighmentStatusBar extends ConsumerWidget {
               active: entryState == GateState.closed || entryState == GateState.open,
               warning: entryState == GateState.error,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12.rs),
             _StatusChip(
               icon: Icons.sensor_door_outlined,
               label: 'Exit: ${_gateLabel(exitState)}',
               active: exitState == GateState.closed || exitState == GateState.open,
               warning: exitState == GateState.error,
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 16.rs),
           ],
           // Camera count
           _StatusChip(
@@ -63,7 +64,7 @@ class WeighmentStatusBar extends ConsumerWidget {
             label: '${cameras.length} cam${cameras.length == 1 ? '' : 's'}',
             active: cameras.isNotEmpty,
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16.rs),
           // AI sidecar
           _StatusChip(
             icon: Icons.memory_outlined,
@@ -114,9 +115,9 @@ class _StatusChip extends StatelessWidget {
           height: 6,
           decoration: BoxDecoration(shape: BoxShape.circle, color: color),
         ),
-        const SizedBox(width: 5),
+        SizedBox(width: 5.rs),
         Icon(icon, size: 12, color: color),
-        const SizedBox(width: 3),
+        SizedBox(width: 3.rs),
         Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
       ],
     );

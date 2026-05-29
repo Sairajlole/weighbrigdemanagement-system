@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class AiConfirmationResult {
   final String confirmedValue;
@@ -59,11 +60,11 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
             : scheme.error;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(24.rs),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,31 +72,31 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
               Row(
                 children: [
                   Icon(Icons.memory_outlined, size: 20, color: scheme.primary),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.rs),
                   Text(widget.title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: scheme.onSurface)),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: confColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(4.rs),
                     ),
                     child: Text('$confPercent%', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: confColor)),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16.rs),
 
               if (widget.frame != null) ...[
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.rs),
                   child: Image.memory(widget.frame!, height: 140, width: double.infinity, fit: BoxFit.cover),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16.rs),
               ],
 
               Text(widget.fieldLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-              const SizedBox(height: 6),
+              SizedBox(height: 6.rs),
 
               if (!_editing) ...[
                 Container(
@@ -103,7 +104,7 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(8.rs),
                     border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                   ),
                   child: Text(
@@ -120,11 +121,11 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
                   decoration: InputDecoration(
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
                   ),
                 ),
               ],
-              const SizedBox(height: 8),
+              SizedBox(height: 8.rs),
 
               if (widget.suggestions != null && widget.suggestions!.isNotEmpty) ...[
                 Wrap(
@@ -138,10 +139,10 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
                     visualDensity: VisualDensity.compact,
                   )).toList(),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12.rs),
               ],
 
-              const SizedBox(height: 16),
+              SizedBox(height: 16.rs),
               Row(
                 children: [
                   TextButton(
@@ -155,7 +156,7 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
                       icon: const Icon(Icons.edit_outlined, size: 14),
                       label: const Text('Correct'),
                     ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.rs),
                   FilledButton.icon(
                     onPressed: () {
                       final value = _editing ? _controller.text.trim() : widget.prediction;

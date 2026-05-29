@@ -10,6 +10,7 @@ import 'package:weighbridgemanagement/features/profile/presentation/profile_scre
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 // ─── Providers ─────────────────────────────────────────────────────────────────
 
@@ -104,7 +105,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       child: Container(
         color: scheme.surfaceContainerLowest,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(28.rs),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -117,7 +118,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   onNewWeighment: () => context.go('/weighment'),
                 ),
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: 28.rs),
 
               // ─── Metric Cards ──────────────────────────────────────
               _SlideIn(
@@ -136,7 +137,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         pulseController: _pulseController,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16.rs),
                     Expanded(
                       child: _MetricCard(
                         title: 'Pending',
@@ -149,7 +150,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         alert: pending.length > 3,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16.rs),
                     Expanded(
                       child: _MetricCard(
                         title: "Today's Throughput",
@@ -162,7 +163,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         valueColor: todayNetWeight < 0 ? scheme.error : null,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16.rs),
                     Expanded(
                       child: _MetricCard(
                         title: 'Total Processed',
@@ -181,7 +182,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24.rs),
 
               // ─── Main Content Grid ─────────────────────────────────
               _SlideIn(
@@ -201,7 +202,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           shimmerController: _shimmerController,
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      SizedBox(width: 16.rs),
                       // Material Breakdown
                       Expanded(
                         flex: 2,
@@ -215,7 +216,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24.rs),
 
               // ─── Bottom Section ────────────────────────────────────
               _SlideIn(
@@ -234,7 +235,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           text: text,
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      SizedBox(width: 16.rs),
                       // Pending Queue
                       Expanded(
                         flex: 2,
@@ -244,7 +245,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           text: text,
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      SizedBox(width: 16.rs),
                       // Top Customers
                       Expanded(
                         flex: 2,
@@ -386,7 +387,7 @@ class _DashboardHeaderState extends ConsumerState<_DashboardHeader> {
                   letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4.rs),
               Row(
                 children: [
                   Container(
@@ -404,7 +405,7 @@ class _DashboardHeaderState extends ConsumerState<_DashboardHeader> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.rs),
                   Text(
                     'Live',
                     style: text.labelMedium?.copyWith(
@@ -412,7 +413,7 @@ class _DashboardHeaderState extends ConsumerState<_DashboardHeader> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12.rs),
                   Text(
                     '${DateFormat('EEEE, d MMMM yyyy').format(_now)}  •  ${getTimeFormatter(ref.watch(timeFormatProvider)).format(_now)}',
                     style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -476,7 +477,7 @@ class _GlowButtonState extends State<_GlowButton> with SingleTickerProviderState
           scale: 1.0 + (_controller.value * 0.03),
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(12.rs),
               boxShadow: [
                 BoxShadow(
                   color: scheme.primary.withValues(alpha: 0.3 * _controller.value),
@@ -493,8 +494,8 @@ class _GlowButtonState extends State<_GlowButton> with SingleTickerProviderState
           icon: Icon(widget.icon, size: 18),
           label: Text(widget.label),
           style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: EdgeInsets.symmetric(horizontal: 20.rs, vertical: 14.rs),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.rs)),
           ),
         ),
       ),
@@ -562,10 +563,10 @@ class _MetricCardState extends State<_MetricCard> with SingleTickerProviderState
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
         transform: Matrix4.translationValues(0.0, _hovered ? -4.0 : 0.0, 0.0),
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(20.rs),
         decoration: BoxDecoration(
           color: scheme.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16.rs),
           border: Border.all(
             color: _hovered
                 ? widget.gradient[0].withValues(alpha: 0.4)
@@ -587,15 +588,15 @@ class _MetricCardState extends State<_MetricCard> with SingleTickerProviderState
             Row(
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: 36.rs,
+                  height: 36.rs,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: widget.gradient,
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(10.rs),
                     boxShadow: [
                       BoxShadow(
                         color: widget.gradient[0].withValues(alpha: 0.3),
@@ -630,7 +631,7 @@ class _MetricCardState extends State<_MetricCard> with SingleTickerProviderState
                   ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.rs),
             AnimatedBuilder(
               animation: CurvedAnimation(parent: _countController, curve: Curves.easeOutExpo),
               builder: (context, _) {
@@ -645,7 +646,7 @@ class _MetricCardState extends State<_MetricCard> with SingleTickerProviderState
                 );
               },
             ),
-            const SizedBox(height: 2),
+            SizedBox(height: 2.rs),
             Text(
               widget.title,
               style: text.bodySmall?.copyWith(
@@ -660,9 +661,9 @@ class _MetricCardState extends State<_MetricCard> with SingleTickerProviderState
               ),
             ),
             if (widget.sparkData.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              SizedBox(height: 12.rs),
               SizedBox(
-                height: 32,
+                height: 32.rs,
                 child: CustomPaint(
                   size: const Size(double.infinity, 32),
                   painter: _SparklinePainter(
@@ -788,10 +789,10 @@ class _ThroughputChartState extends State<_ThroughputChart>
     });
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24.rs),
       decoration: BoxDecoration(
         color: widget.scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.rs),
         border: Border.all(color: widget.scheme.outlineVariant.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
@@ -807,17 +808,17 @@ class _ThroughputChartState extends State<_ThroughputChart>
           Row(
             children: [
               Icon(Icons.show_chart_rounded, size: 18, color: widget.scheme.primary),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text(
                 'Weekly Throughput',
                 style: widget.text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: EdgeInsets.symmetric(horizontal: 10.rs, vertical: 5.rs),
                 decoration: BoxDecoration(
                   color: widget.scheme.primaryContainer.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(20.rs),
                 ),
                 child: Text(
                   '${NumberFormat('#,###').format(widget.weeklyData.fold(0.0, (a, b) => a + b).round())} kg',
@@ -829,7 +830,7 @@ class _ThroughputChartState extends State<_ThroughputChart>
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24.rs),
           Expanded(
             child: AnimatedBuilder(
               animation: CurvedAnimation(parent: _chartAnim, curve: Curves.easeOutCubic),
@@ -970,10 +971,10 @@ class _MaterialBreakdownCard extends StatelessWidget {
     final entries = data.entries.toList();
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.rs),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
@@ -989,14 +990,14 @@ class _MaterialBreakdownCard extends StatelessWidget {
           Row(
             children: [
               Icon(Icons.donut_small_rounded, size: 18, color: scheme.secondary),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text(
                 'Materials',
                 style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20.rs),
           if (entries.isEmpty)
             Expanded(
               child: Center(
@@ -1009,7 +1010,7 @@ class _MaterialBreakdownCard extends StatelessWidget {
           else ...[
             // Donut-style stacked bar
             ClipRRect(
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(6.rs),
               child: SizedBox(
                 height: 12,
                 child: Row(
@@ -1023,11 +1024,11 @@ class _MaterialBreakdownCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20.rs),
             Expanded(
               child: ListView.separated(
                 itemCount: entries.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                separatorBuilder: (_, __) => SizedBox(height: 10.rs),
                 itemBuilder: (context, i) {
                   final pct = total > 0 ? (entries[i].value / total * 100) : 0.0;
                   return Row(
@@ -1037,10 +1038,10 @@ class _MaterialBreakdownCard extends StatelessWidget {
                         height: 10,
                         decoration: BoxDecoration(
                           color: _colors[i % _colors.length],
-                          borderRadius: BorderRadius.circular(3),
+                          borderRadius: BorderRadius.circular(3.rs),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10.rs),
                       Expanded(
                         child: Text(
                           entries[i].key,
@@ -1055,7 +1056,7 @@ class _MaterialBreakdownCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8.rs),
                       Text(
                         '${NumberFormat.compact().format(entries[i].value)} kg',
                         style: text.labelSmall?.copyWith(
@@ -1090,10 +1091,10 @@ class _LiveActivityFeed extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.rs),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
@@ -1122,7 +1123,7 @@ class _LiveActivityFeed extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text(
                 'Live Activity',
                 style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -1134,7 +1135,7 @@ class _LiveActivityFeed extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
           Expanded(
             child: weighments.isEmpty
                 ? Center(
@@ -1142,7 +1143,7 @@ class _LiveActivityFeed extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.pending_actions_rounded, size: 32, color: scheme.outlineVariant),
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8.rs),
                         Text(
                           'No activity yet',
                           style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -1220,15 +1221,15 @@ class _ActivityItem extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 12.rs, vertical: 10.rs),
         decoration: BoxDecoration(
           color: isFirst ? scheme.primaryContainer.withValues(alpha: 0.08) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(10.rs),
         ),
         child: Row(
           children: [
             Icon(icon, size: 16, color: color),
-            const SizedBox(width: 10),
+            SizedBox(width: 10.rs),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1239,7 +1240,7 @@ class _ActivityItem extends StatelessWidget {
                         vehicle,
                         style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700),
                       ),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6.rs),
                       Text(
                         '• $material',
                         style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -1295,10 +1296,10 @@ class _AwaitingTareQueue extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.rs),
         border: Border.all(
           color: items.isNotEmpty
               ? scheme.tertiary.withValues(alpha: 0.3)
@@ -1318,7 +1319,7 @@ class _AwaitingTareQueue extends StatelessWidget {
           Row(
             children: [
               Icon(Icons.queue_rounded, size: 18, color: scheme.tertiary),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text(
                 'Pending Queue',
                 style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -1329,7 +1330,7 @@ class _AwaitingTareQueue extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: scheme.tertiaryContainer,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12.rs),
                   ),
                   child: Text(
                     '${items.length}',
@@ -1341,7 +1342,7 @@ class _AwaitingTareQueue extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
           Expanded(
             child: items.isEmpty
                 ? Center(
@@ -1349,7 +1350,7 @@ class _AwaitingTareQueue extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.check_circle_outline_rounded, size: 36, color: scheme.primary.withValues(alpha: 0.4)),
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8.rs),
                         Text(
                           'All clear!',
                           style: text.bodySmall?.copyWith(
@@ -1366,7 +1367,7 @@ class _AwaitingTareQueue extends StatelessWidget {
                   )
                 : ListView.separated(
                     itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, __) => SizedBox(height: 8.rs),
                     itemBuilder: (context, i) {
                       final w = items[i];
                       final ts = w['createdAt'] as Timestamp?;
@@ -1375,10 +1376,10 @@ class _AwaitingTareQueue extends StatelessWidget {
                           : '';
 
                       return Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(12.rs),
                         decoration: BoxDecoration(
                           color: scheme.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(10.rs),
                           border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
                         ),
                         child: Row(
@@ -1388,7 +1389,7 @@ class _AwaitingTareQueue extends StatelessWidget {
                               height: 32,
                               decoration: BoxDecoration(
                                 color: scheme.tertiaryContainer.withValues(alpha: 0.5),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(8.rs),
                               ),
                               child: Center(
                                 child: Text(
@@ -1400,7 +1401,7 @@ class _AwaitingTareQueue extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: 12.rs),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1431,7 +1432,7 @@ class _AwaitingTareQueue extends StatelessWidget {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
+                                SizedBox(height: 2.rs),
                                 Text(
                                   'waiting',
                                   style: text.labelSmall?.copyWith(
@@ -1475,10 +1476,10 @@ class _TopCustomersCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.rs),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
@@ -1494,14 +1495,14 @@ class _TopCustomersCard extends StatelessWidget {
           Row(
             children: [
               Icon(Icons.people_rounded, size: 18, color: AppTheme.proColor),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text(
                 'Top Customers',
                 style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
           Expanded(
             child: customers.isEmpty
                 ? Center(
@@ -1512,7 +1513,7 @@ class _TopCustomersCard extends StatelessWidget {
                   )
                 : ListView.separated(
                     itemCount: customers.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    separatorBuilder: (_, __) => SizedBox(height: 6.rs),
                     itemBuilder: (context, i) {
                       final c = customers[i];
                       final name = c['name'] ?? 'Unknown';
@@ -1524,9 +1525,9 @@ class _TopCustomersCard extends StatelessWidget {
                       final fraction = maxKg > 0 ? totalKg.toDouble() / maxKg : 0.0;
 
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: EdgeInsets.symmetric(horizontal: 12.rs, vertical: 10.rs),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(8.rs),
                           color: i == 0
                               ? AppTheme.proColor.withValues(alpha: 0.05)
                               : Colors.transparent,
@@ -1538,7 +1539,7 @@ class _TopCustomersCard extends StatelessWidget {
                               height: 28,
                               decoration: BoxDecoration(
                                 color: _avatarColor(i).withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(7),
+                                borderRadius: BorderRadius.circular(7.rs),
                               ),
                               child: Center(
                                 child: Text(
@@ -1550,7 +1551,7 @@ class _TopCustomersCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            SizedBox(width: 10.rs),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1560,7 +1561,7 @@ class _TopCustomersCard extends StatelessWidget {
                                     style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600),
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 3),
+                                  SizedBox(height: 3.rs),
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(2),
                                     child: LinearProgressIndicator(
@@ -1573,7 +1574,7 @@ class _TopCustomersCard extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            SizedBox(width: 10.rs),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [

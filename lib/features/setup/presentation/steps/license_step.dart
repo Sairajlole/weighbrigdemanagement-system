@@ -5,6 +5,7 @@ import 'package:weighbridgemanagement/shared/providers/connectivity_provider.dar
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
 import '../../application/setup_wizard_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class LicenseStep extends ConsumerStatefulWidget {
   const LicenseStep({super.key});
@@ -119,7 +120,7 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
       child: Row(
         children: [
           Icon(icon, size: 12, color: color),
-          const SizedBox(width: 6),
+          SizedBox(width: 6.rs),
           Expanded(child: Text(label, style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.85)))),
         ],
       ),
@@ -140,13 +141,13 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text('Your Plan', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8.rs),
               Text(
                 'Start with a 30-day Pro trial — all features unlocked. Or enter a license key.',
                 style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 36),
+              SizedBox(height: 36.rs),
 
               // Plan cards — Pro first (recommended)
               IntrinsicHeight(
@@ -168,7 +169,7 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
                       scheme: scheme,
                       text: text,
                     )),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16.rs),
                     Expanded(child: _TierCard(
                       title: 'Pro Trial',
                       price: 'Free for 30 days',
@@ -190,7 +191,7 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              SizedBox(height: 24.rs),
 
               // Animated content below cards
               AnimatedCrossFade(
@@ -200,10 +201,10 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
                     ? CrossFadeState.showFirst
                     : CrossFadeState.showSecond,
                 firstChild: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16.rs),
                   decoration: BoxDecoration(
                     color: scheme.surfaceContainerLow.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12.rs),
                     border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                   ),
                   child: Column(
@@ -212,23 +213,23 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
                       Row(
                         children: [
                           Icon(Icons.vpn_key_rounded, size: 16, color: scheme.primary),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.rs),
                           Text('License Key', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4.rs),
                       Text(
                         'Cost is based on the number of weighbridges you operate.',
                         style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12.rs),
                       TextField(
                         controller: _keyController,
                         decoration: InputDecoration(
                           hintText: 'XXXX-XXXX-XXXX-XXXX',
                           prefixIcon: const Icon(Icons.vpn_key_rounded, size: 18),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                         ),
                         textCapitalization: TextCapitalization.characters,
                       ),
@@ -238,16 +239,16 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
                 secondChild: Column(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: EdgeInsets.all(14.rs),
                       decoration: BoxDecoration(
                         color: scheme.primaryContainer.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(10.rs),
                         border: Border.all(color: scheme.primary.withValues(alpha: 0.15)),
                       ),
                       child: Row(
                         children: [
                           Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
-                          const SizedBox(width: 10),
+                          SizedBox(width: 10.rs),
                           Expanded(
                             child: Text(
                               'Your 30-day trial activates after completing the setup wizard. No credit card required.',
@@ -257,12 +258,12 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16.rs),
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.all(16.rs),
                       decoration: BoxDecoration(
                         color: scheme.surfaceContainerLow.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(12.rs),
                         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                       ),
                       child: Column(
@@ -271,16 +272,16 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
                           Row(
                             children: [
                               Icon(Icons.timelapse_rounded, size: 16, color: scheme.onSurfaceVariant),
-                              const SizedBox(width: 8),
+                              SizedBox(width: 8.rs),
                               Text('After 30 days — Free plan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.onSurface)),
                             ],
                           ),
-                          const SizedBox(height: 10),
+                          SizedBox(height: 10.rs),
                           Text(
                             'If you don\'t upgrade to Pro, your account moves to the Free plan:',
                             style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
                           ),
-                          const SizedBox(height: 12),
+                          SizedBox(height: 12.rs),
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -289,7 +290,7 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('KEPT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: const Color(0xFF16A34A), letterSpacing: 0.5)),
-                                    const SizedBox(height: 6),
+                                    SizedBox(height: 6.rs),
                                     _buildFreeItem(Icons.check_rounded, 'Basic weighments', const Color(0xFF16A34A)),
                                     _buildFreeItem(Icons.check_rounded, '1 weighbridge', const Color(0xFF16A34A)),
                                     _buildFreeItem(Icons.check_rounded, 'Manual capture only', const Color(0xFF16A34A)),
@@ -298,13 +299,13 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              SizedBox(width: 16.rs),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('LOCKED', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: scheme.error, letterSpacing: 0.5)),
-                                    const SizedBox(height: 6),
+                                    SizedBox(height: 6.rs),
                                     _buildFreeItem(Icons.lock_rounded, 'ANPR & cameras', scheme.error),
                                     _buildFreeItem(Icons.lock_rounded, 'Gate automation', scheme.error),
                                     _buildFreeItem(Icons.lock_rounded, 'Face verification', scheme.error),
@@ -316,7 +317,7 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
+                          SizedBox(height: 10.rs),
                           Text(
                             'Upgrade to Pro anytime from Settings.',
                             style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic),
@@ -329,17 +330,17 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
               ),
 
           if (_error != null) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: 16.rs),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12.rs),
               decoration: BoxDecoration(
                 color: scheme.errorContainer.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.rs),
               ),
               child: Row(
                 children: [
                   Icon(Icons.error_outline_rounded, size: 16, color: scheme.error),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.rs),
                   Expanded(child: Text(_error!, style: text.bodySmall?.copyWith(color: scheme.error))),
                 ],
               ),
@@ -347,7 +348,7 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
           ],
 
           if (_loading) ...[
-            const SizedBox(height: 24),
+            SizedBox(height: 24.rs),
             const Center(child: CircularProgressIndicator()),
           ],
         ],
@@ -395,10 +396,10 @@ class _TierCard extends StatelessWidget {
       onTap: onSelect,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(22),
+        padding: EdgeInsets.all(22.rs),
         decoration: BoxDecoration(
           color: isSelected ? scheme.primary.withValues(alpha: 0.04) : scheme.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16.rs),
           border: Border.all(
             color: isSelected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4),
             width: isSelected ? 2 : 1,
@@ -418,7 +419,7 @@ class _TierCard extends StatelessWidget {
                   height: 36,
                   decoration: BoxDecoration(
                     color: isSelected ? scheme.primary.withValues(alpha: 0.12) : scheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(10.rs),
                   ),
                   child: Icon(
                     badge != null ? Icons.workspace_premium_rounded : Icons.rocket_launch_rounded,
@@ -426,7 +427,7 @@ class _TierCard extends StatelessWidget {
                     color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12.rs),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,12 +436,12 @@ class _TierCard extends StatelessWidget {
                         children: [
                           Text(title, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                           if (badge != null) ...[
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8.rs),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                               decoration: BoxDecoration(
                                 color: scheme.primary,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(10.rs),
                               ),
                               child: Text(badge!, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: scheme.onPrimary)),
                             ),
@@ -472,7 +473,7 @@ class _TierCard extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.rs),
 
             // Limits chips
             Wrap(
@@ -482,12 +483,12 @@ class _TierCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: isSelected ? scheme.primaryContainer.withValues(alpha: 0.3) : scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(6.rs),
                 ),
                 child: Text(l, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: isSelected ? scheme.primary : scheme.onSurfaceVariant)),
               )).toList(),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18.rs),
 
             // Feature groups
             ...featureGroups.map((group) => Padding(
@@ -498,11 +499,11 @@ class _TierCard extends StatelessWidget {
                   Row(
                     children: [
                       Icon(group.icon, size: 14, color: isSelected ? scheme.primary : scheme.onSurfaceVariant.withValues(alpha: 0.7)),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6.rs),
                       Text(group.title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.onSurface)),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6.rs),
                   ...group.items.map((item) => Padding(
                     padding: const EdgeInsets.only(left: 20, bottom: 3),
                     child: Row(
@@ -519,7 +520,7 @@ class _TierCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8.rs),
                         Expanded(
                           child: Text(item, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant, height: 1.3)),
                         ),

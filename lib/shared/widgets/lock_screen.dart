@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class LockScreen extends ConsumerStatefulWidget {
   final VoidCallback onUnlock;
@@ -221,7 +222,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(20.rs),
                   boxShadow: [
                     BoxShadow(
                       color: scheme.primary.withValues(alpha: 0.25),
@@ -232,19 +233,19 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 ),
                 child: Icon(Icons.lock_rounded, color: scheme.onPrimary, size: 36),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24.rs),
 
               Text(
                 'Session Locked',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: scheme.onSurface),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8.rs),
 
               Text(
                 user?.email ?? 'Enter password or PIN to unlock',
                 style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: 32.rs),
 
               // Face scan button
               if (hasFaceCamera) ...[
@@ -258,11 +259,11 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                         : Icon(Icons.face_rounded, size: 20),
                     label: Text(_faceScanning ? (_faceStatus ?? 'Scanning...') : 'Unlock with Face'),
                     style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.rs)),
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12.rs),
                 Row(
                   children: [
                     Expanded(child: Divider(color: scheme.outlineVariant)),
@@ -273,7 +274,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     Expanded(child: Divider(color: scheme.outlineVariant)),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12.rs),
               ],
 
               // Password/PIN field
@@ -294,11 +295,11 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     ),
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.rs)),
                   errorText: _errorMessage,
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.rs),
 
               SizedBox(
                 width: double.infinity,
@@ -306,7 +307,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 child: FilledButton(
                   onPressed: _isLoading ? null : _unlock,
                   style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.rs)),
                   ),
                   child: _isLoading
                       ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.onPrimary))

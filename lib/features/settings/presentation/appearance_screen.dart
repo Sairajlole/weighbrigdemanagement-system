@@ -3,6 +3,7 @@ import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 const _accentColors = <Color>[
   Color(0xFF059669), // Emerald (default)
@@ -97,20 +98,20 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
 
   Widget _buildContent(ColorScheme scheme, TextTheme text) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(28.rs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildThemeSection(scheme, text),
-          const SizedBox(height: 24),
+          SizedBox(height: 24.rs),
           _buildAccentSection(scheme, text),
-          const SizedBox(height: 24),
+          SizedBox(height: 24.rs),
           _buildBackgroundSection(scheme, text),
-          const SizedBox(height: 24),
+          SizedBox(height: 24.rs),
           _buildFontSection(scheme, text),
-          const SizedBox(height: 24),
+          SizedBox(height: 24.rs),
           _buildLanguageSection(scheme, text),
-          const SizedBox(height: 40),
+          SizedBox(height: 40.rs),
         ],
       ),
     );
@@ -143,11 +144,11 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                         context.go('/settings');
                       },
                       icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12.rs),
                     Icon(Icons.palette_rounded, size: 20, color: scheme.primary),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10.rs),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -171,7 +172,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                         },
                         child: const Text('Cancel'),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8.rs),
                     ],
                     FilledButton.icon(
                       onPressed: _dirty && !_saving ? _save : null,
@@ -181,7 +182,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                       label: Text(_saving ? 'Saving...' : 'Save'),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
                       ),
                     ),
                   ],
@@ -194,7 +195,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(8.rs),
                         border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                       ),
                       child: Row(
@@ -204,7 +205,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                             size: 15,
                             color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.rs),
                           Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                         ],
                       ),
@@ -239,7 +240,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
               onTap: () { setState(() => _themeMode = ThemeMode.light); _markDirty(); },
               scheme: scheme, text: text,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12.rs),
             _ThemeOption(
               label: 'Dark',
               icon: Icons.dark_mode_rounded,
@@ -247,7 +248,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
               onTap: () { setState(() => _themeMode = ThemeMode.dark); _markDirty(); },
               scheme: scheme, text: text,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12.rs),
             _ThemeOption(
               label: 'System',
               icon: Icons.settings_brightness_rounded,
@@ -283,7 +284,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                   height: 40,
                   decoration: BoxDecoration(
                     color: color,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(10.rs),
                     border: Border.all(
                       color: selected ? scheme.onSurface : Colors.transparent,
                       width: selected ? 2.5 : 0,
@@ -320,7 +321,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(10.rs),
                   border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4), width: selected ? 2 : 1),
                 ),
                 child: Stack(
@@ -362,20 +363,20 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
         Row(
           children: [
             _FontOption(label: 'Small', scale: 0.85, selected: _fontScale == 0.85, onTap: () { setState(() => _fontScale = 0.85); _markDirty(); }, scheme: scheme, text: text),
-            const SizedBox(width: 10),
+            SizedBox(width: 10.rs),
             _FontOption(label: 'Default', scale: 1.0, selected: _fontScale == 1.0, onTap: () { setState(() => _fontScale = 1.0); _markDirty(); }, scheme: scheme, text: text),
-            const SizedBox(width: 10),
+            SizedBox(width: 10.rs),
             _FontOption(label: 'Large', scale: 1.15, selected: _fontScale == 1.15, onTap: () { setState(() => _fontScale = 1.15); _markDirty(); }, scheme: scheme, text: text),
-            const SizedBox(width: 10),
+            SizedBox(width: 10.rs),
             _FontOption(label: 'Extra Large', scale: 1.3, selected: _fontScale == 1.3, onTap: () { setState(() => _fontScale = 1.3); _markDirty(); }, scheme: scheme, text: text),
           ],
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 14.rs),
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(12.rs),
           decoration: BoxDecoration(
             color: scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(8.rs),
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
           ),
           child: Text(
@@ -429,7 +430,7 @@ class _Section extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.rs),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
@@ -447,10 +448,10 @@ class _Section extends StatelessWidget {
               children: [
                 Container(
                   width: 28, height: 28,
-                  decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(7)),
+                  decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(7.rs)),
                   child: Icon(icon, size: 15, color: scheme.primary),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10.rs),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -462,7 +463,7 @@ class _Section extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24.rs),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
           ),
         ],
@@ -490,13 +491,13 @@ class _ThemeOption extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
           decoration: BoxDecoration(
             color: selected ? scheme.primaryContainer.withValues(alpha: 0.4) : scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(12.rs),
             border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4), width: selected ? 2 : 1),
           ),
           child: Column(
             children: [
               Icon(icon, size: 24, color: selected ? scheme.primary : scheme.onSurfaceVariant),
-              const SizedBox(height: 8),
+              SizedBox(height: 8.rs),
               Text(label, style: text.labelMedium?.copyWith(fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
             ],
           ),
@@ -525,13 +526,13 @@ class _FontOption extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
           decoration: BoxDecoration(
             color: selected ? scheme.primaryContainer.withValues(alpha: 0.4) : scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(10.rs),
             border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4), width: selected ? 2 : 1),
           ),
           child: Column(
             children: [
               Text('Aa', style: TextStyle(fontSize: 14 * scale, fontWeight: FontWeight.w700, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
-              const SizedBox(height: 4),
+              SizedBox(height: 4.rs),
               Text(label, style: text.labelSmall?.copyWith(fontSize: 10, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
             ],
           ),
@@ -561,14 +562,14 @@ class _LangOption extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
           decoration: BoxDecoration(
             color: selected ? scheme.primaryContainer.withValues(alpha: 0.4) : scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(12.rs),
             border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4), width: selected ? 2 : 1),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(native, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text('($label)', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
             ],
           ),
@@ -587,7 +588,7 @@ class _ArtPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(8.rs),
       child: CustomPaint(
         size: const Size(90, 50),
         painter: _ArtPainter(art, color),

@@ -13,6 +13,7 @@ import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 final _scaleSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
@@ -662,14 +663,14 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       child: Row(
         children: [
           Icon(Icons.scale_rounded, size: 14, color: scheme.primary),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.rs),
           Text('Configuring:', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-          const SizedBox(width: 6),
+          SizedBox(width: 6.rs),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: scheme.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(6.rs),
               border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
             ),
             child: Text(
@@ -678,21 +679,21 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
             ),
           ),
           if (hasMultiple) ...[
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             PopupMenuButton<int>(
               tooltip: 'Switch weighbridge',
               offset: const Offset(0, 32),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(6.rs),
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.swap_horiz_rounded, size: 13, color: scheme.onSurfaceVariant),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4.rs),
                     Text('Switch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
                   ],
                 ),
@@ -718,10 +719,10 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                     child: Row(
                       children: [
                         Icon(Icons.scale_rounded, size: 13, color: isCurrent ? scheme.primary : scheme.onSurfaceVariant),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8.rs),
                         Text(wb.wbName, style: TextStyle(fontSize: 12, fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500, color: isCurrent ? scheme.primary : scheme.onSurface)),
                         if (isCurrent) ...[
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.rs),
                           Icon(Icons.check_rounded, size: 13, color: scheme.primary),
                         ],
                       ],
@@ -775,30 +776,30 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
-                padding: const EdgeInsets.all(28),
+                padding: EdgeInsets.all(28.rs),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Connection (type + details merged)
                     _buildConnectionCard(scheme, text),
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24.rs),
                     // Advanced config (merged toggle + details)
                     _buildAdvancedConfig(scheme, text),
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24.rs),
                     // Row 3: Weight Capture + Manual Entry
                     IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(child: _buildWeightCapture(scheme, text)),
-                          const SizedBox(width: 24),
+                          SizedBox(width: 24.rs),
                           Expanded(child: _buildManualEntry(scheme, text)),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24.rs),
                     _buildWeighmentModeCard(scheme, text),
-                    const SizedBox(height: 40),
+                    SizedBox(height: 40.rs),
                   ],
                 ),
               ),
@@ -822,10 +823,10 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       decoration: BoxDecoration(color: scheme.surface, border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2)))),
       child: Row(
         children: [
-          IconButton(onPressed: () async { final ok = await _onWillPop(); if (ok && mounted) { context.go('/settings'); } }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
-          const SizedBox(width: 10),
+          IconButton(onPressed: () async { final ok = await _onWillPop(); if (ok && mounted) { context.go('/settings'); } }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)))),
+          SizedBox(width: 10.rs),
           Icon(Icons.scale_rounded, size: 20, color: scheme.primary),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.rs),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -833,7 +834,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               Text('Scale and indicator setup', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
             ],
           ),
-          const SizedBox(width: 24),
+          SizedBox(width: 24.rs),
           // Live weight / status display
           Container(
             constraints: const BoxConstraints(minWidth: 160),
@@ -846,7 +847,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                       : _autoDetecting
                           ? scheme.tertiaryContainer.withValues(alpha: 0.2)
                           : scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(10.rs),
               border: Border.all(
                 color: isConnected
                     ? scheme.primary.withValues(alpha: 0.4)
@@ -871,7 +872,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                       boxShadow: isConnected ? [BoxShadow(color: AppTheme.successColor.withValues(alpha: 0.4), blurRadius: 6)] : null,
                     ),
                   ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10.rs),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -914,12 +915,12 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                   ],
                 ),
                 if (isConnected) ...[
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10.rs),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: (_liveStable ? AppTheme.successColor : const Color(0xFFF59E0B)).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(4.rs),
                     ),
                     child: Text(
                       _liveStable ? 'STABLE' : 'SETTLING',
@@ -930,18 +931,18 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.rs),
           // Test connection button
           TextButton(
             onPressed: _testingConnection ? null : isConnected ? _disconnectTest : _testConnection,
             style: TextButton.styleFrom(
               foregroundColor: isConnected ? scheme.error : scheme.primary,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
             ),
             child: Text(isConnected ? 'Disconnect' : isFailed ? 'Retry' : 'Test Connection', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4.rs),
           // Auto-detect button with hint
           if (_autoDetecting)
             TextButton(
@@ -949,7 +950,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               style: TextButton.styleFrom(
                 foregroundColor: scheme.error,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
               ),
               child: const Text('Cancel Detection', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             )
@@ -962,7 +963,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                   style: TextButton.styleFrom(
                     foregroundColor: _detectedConfig != null ? AppTheme.successColor : scheme.primary,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
                   ),
                   child: Text(
                     _detectedConfig != null ? 'Re-detect' : 'Auto-Detect',
@@ -977,12 +978,12 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               ],
             ),
           if (_headerMsg != null) ...[
-            const SizedBox(width: 12),
+            SizedBox(width: 12.rs),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: (_headerMsgIsError ? scheme.error : AppTheme.successColor).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(6.rs),
                 border: Border.all(color: (_headerMsgIsError ? scheme.error : AppTheme.successColor).withValues(alpha: 0.3)),
               ),
               child: Row(
@@ -993,7 +994,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                     size: 14,
                     color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                   ),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6.rs),
                   Text(
                     _headerMsg!,
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _headerMsgIsError ? scheme.error : AppTheme.successColor),
@@ -1008,7 +1009,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
             style: TextButton.styleFrom(
               foregroundColor: scheme.onSurfaceVariant,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
             ),
             child: const Text('Reset All to Defaults', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ),
@@ -1028,9 +1029,9 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       onResetDefault: _isAtDefaults('capture') ? null : () => _resetCardToDefaults('capture'),
       children: [
         _buildInfoRow('Scale readings fluctuate — uniformity duration ensures the weight is truly settled before capture.', scheme, text),
-        const SizedBox(height: 12),
+        SizedBox(height: 12.rs),
         Text('Uniformity Duration', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 10),
+        SizedBox(height: 10.rs),
         Row(
           children: [3, 5, 10].map((s) {
             final selected = _uniformitySeconds == s;
@@ -1043,7 +1044,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
                   decoration: BoxDecoration(
                     color: selected ? scheme.primaryContainer : scheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(10.rs),
                     border: Border.all(color: selected ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
                   ),
                   child: Column(
@@ -1057,9 +1058,9 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
             );
           }).toList(),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.rs),
         Text('Weight must remain uniform for $_uniformitySeconds seconds before considered stable', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-        const SizedBox(height: 16),
+        SizedBox(height: 16.rs),
         _SwitchRow(label: 'Auto-Capture When Stable', subtitle: 'Automatically record weight once uniformity is achieved', value: _autoCaptureWhenStable, onChanged: (v) { setState(() => _autoCaptureWhenStable = v); _markCardDirty('capture'); }),
       ],
     );
@@ -1076,12 +1077,12 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       onResetDefault: _isAtDefaults('manual') ? null : () => _resetCardToDefaults('manual'),
       children: [
         _buildInfoRow('Use when the scale is unavailable or for manual corrections. Protected by password to prevent misuse.', scheme, text),
-        const SizedBox(height: 12),
+        SizedBox(height: 12.rs),
         _SwitchRow(label: 'Allow Manual Weight Entry', subtitle: 'Operators can type weight manually when enabled', value: _allowManualEntry, onChanged: (v) { setState(() => _allowManualEntry = v); _markCardDirty('manual'); }),
         if (_allowManualEntry) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           Text('Manual Entry Password', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
+          SizedBox(height: 6.rs),
           TextField(
             controller: _manualPasswordCtrl,
             obscureText: true,
@@ -1089,9 +1090,9 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
             onChanged: (_) => _markCardDirty('manual'),
             decoration: const InputDecoration(hintText: 'Admin-set password for manual entry', prefixIcon: Icon(Icons.lock_rounded, size: 16), prefixIconConstraints: BoxConstraints(minWidth: 40), isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4.rs),
           Text('Operators must enter this password to use manual entry.', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           _SwitchRow(label: 'Require Face Verification', subtitle: 'Operator must pass face ID during verification step', value: _requireFaceVerification, onChanged: (v) { setState(() => _requireFaceVerification = v); _markCardDirty('manual'); }),
         ],
       ],
@@ -1110,18 +1111,18 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       onResetDefault: _isAtDefaults('connection') ? null : () => _resetCardToDefaults('connection'),
       children: [
         _buildInfoRow('Serial is standard for most weighbridges. Use TCP for Wi-Fi indicators or remote scales.', scheme, text),
-        const SizedBox(height: 12),
+        SizedBox(height: 12.rs),
         // Type selector
         Row(
           children: [
             Expanded(child: _buildConnectionTypeChip('serial', 'Serial / USB', Icons.usb_rounded, scheme)),
-            const SizedBox(width: 10),
+            SizedBox(width: 10.rs),
             Expanded(child: _buildConnectionTypeChip('tcp', 'Wireless / TCP', Icons.wifi_rounded, scheme)),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16.rs),
         Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-        const SizedBox(height: 16),
+        SizedBox(height: 16.rs),
         // Connection details
         if (_connectionType == 'serial') ..._buildSerialFields(scheme, text)
         else ..._buildTcpFields(scheme, text),
@@ -1138,16 +1139,16 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: selected ? scheme.primaryContainer.withValues(alpha: 0.5) : scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(10.rs),
           border: Border.all(color: selected ? scheme.primary.withValues(alpha: 0.6) : scheme.outlineVariant.withValues(alpha: 0.3), width: selected ? 1.5 : 1),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 18, color: selected ? scheme.primary : scheme.onSurfaceVariant),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: selected ? scheme.primary : scheme.onSurface)),
-            if (selected) ...[const SizedBox(width: 6), Icon(Icons.check_circle_rounded, size: 14, color: scheme.primary)],
+            if (selected) ...[SizedBox(width: 6.rs), Icon(Icons.check_circle_rounded, size: 14, color: scheme.primary)],
           ],
         ),
       ),
@@ -1157,7 +1158,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
   List<Widget> _buildTcpFields(ColorScheme scheme, TextTheme text) {
     return [
       _buildInfoRow('Enter the IP address and port of your wireless scale or TCP-to-serial converter.', scheme, text),
-      const SizedBox(height: 10),
+      SizedBox(height: 10.rs),
       Row(
         children: [
           Expanded(
@@ -1166,7 +1167,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Host / IP Address', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 5),
+                SizedBox(height: 5.rs),
                 TextFormField(
                   controller: _tcpHostCtrl,
                   style: text.bodySmall,
@@ -1180,19 +1181,19 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                     prefixIconConstraints: const BoxConstraints(minWidth: 40),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: 14.rs),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Port', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 5),
+                SizedBox(height: 5.rs),
                 TextField(
                   controller: _tcpPortCtrl,
                   style: text.bodySmall,
@@ -1202,7 +1203,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                     hintText: '3001',
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
                   ),
                 ),
               ],
@@ -1210,13 +1211,13 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           ),
         ],
       ),
-      const SizedBox(height: 14),
+      SizedBox(height: 14.rs),
       _buildInfoRow('Delimiter marks where each weight reading ends. Regex extracts the numeric value.', scheme, text),
-      const SizedBox(height: 10),
+      SizedBox(height: 10.rs),
       Row(
         children: [
           Expanded(child: _buildDelimiterField('connection', text, scheme)),
-          const SizedBox(width: 14),
+          SizedBox(width: 14.rs),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1224,30 +1225,30 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                 Row(
                   children: [
                     Text('Weight Regex', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4.rs),
                     Tooltip(message: 'Pattern to extract numeric weight from raw data.\nDefault works for most scales outputting plain numbers.', child: Icon(Icons.info_outline_rounded, size: 12, color: scheme.onSurfaceVariant)),
                   ],
                 ),
-                const SizedBox(height: 5),
+                SizedBox(height: 5.rs),
                 TextField(
                   controller: TextEditingController(text: _weightRegex),
                   style: text.bodySmall?.copyWith(fontFamily: 'monospace'),
                   onChanged: (v) { _weightRegex = v; _markCardDirty('connection'); },
-                  decoration: InputDecoration(hintText: r'(\d+\.?\d*)', isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                  decoration: InputDecoration(hintText: r'(\d+\.?\d*)', isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs))),
                 ),
               ],
             ),
           ),
         ],
       ),
-      const SizedBox(height: 14),
+      SizedBox(height: 14.rs),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+        decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
         child: Row(
           children: [
             Icon(Icons.terminal_rounded, size: 14, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             Text(
               'tcp://${_tcpHostCtrl.text.isEmpty ? '...' : _tcpHostCtrl.text}:${_tcpPortCtrl.text}',
               style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontWeight: FontWeight.w600, color: scheme.primary),
@@ -1415,7 +1416,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                         boxShadow: [BoxShadow(color: scoreColor.withValues(alpha: 0.4), blurRadius: 4)],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12.rs),
                     // Main info
                     Expanded(
                       child: Column(
@@ -1427,12 +1428,12 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                                 '${c.port}  @  ${c.baudRate}',
                                 style: text.bodySmall?.copyWith(fontWeight: FontWeight.w700),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: 8.rs),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: scheme.primaryContainer.withValues(alpha: 0.3),
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(4.rs),
                                 ),
                                 child: Text(
                                   typeLabel,
@@ -1441,7 +1442,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4.rs),
                           Text(
                             displaySample,
                             style: text.bodySmall?.copyWith(
@@ -1452,7 +1453,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           if (c.lastWeight != null) ...[
-                            const SizedBox(height: 2),
+                            SizedBox(height: 2.rs),
                             Text(
                               'Parsed weight: ${c.lastWeight!.toStringAsFixed(1)} kg',
                               style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
@@ -1461,13 +1462,13 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.rs),
                     // Score text
                     Text(
                       '${(c.score * 100).toInt()}%',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scoreColor),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12.rs),
                     // Use button
                     FilledButton(
                       onPressed: () {
@@ -1477,7 +1478,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                       },
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)),
                         textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                       ),
                       child: const Text('Use'),
@@ -1504,22 +1505,22 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       if (_ports.isEmpty) ...[
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16.rs),
           decoration: BoxDecoration(
             color: scheme.errorContainer.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(10.rs),
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
               Icon(Icons.usb_off_rounded, size: 20, color: scheme.onSurfaceVariant),
-              const SizedBox(width: 12),
+              SizedBox(width: 12.rs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('No serial ports detected', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2.rs),
                     Text('Connect a USB-to-Serial adapter and tap refresh', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                   ],
                 ),
@@ -1528,60 +1529,60 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                 onPressed: _detectPorts,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 tooltip: 'Detect available ports',
-                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 14.rs),
       ] else ...[
         _buildInfoRow('Select the COM port your scale is connected to and match the baud rate from your scale manual.', scheme, text),
-        const SizedBox(height: 10),
+        SizedBox(height: 10.rs),
         Row(
           children: [
             Expanded(child: _buildDropdown('Port', _port, _ports, (v) { setState(() => _port = v!); _markCardDirty('connection'); }, text)),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             Padding(
               padding: const EdgeInsets.only(top: 18),
               child: IconButton.outlined(
                 onPressed: _detectPorts,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 tooltip: 'Detect available ports',
-                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
               ),
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: 14.rs),
             Expanded(child: _buildDropdown('Baud Rate', _baudRate.toString(), _baudRates, (v) { setState(() => _baudRate = int.parse(v!)); _markCardDirty('connection'); }, text)),
           ],
         ),
       ],
-      const SizedBox(height: 14),
+      SizedBox(height: 14.rs),
       _buildInfoRow('Data format settings must match your scale. Most scales use 8-N-1 (8 data bits, no parity, 1 stop bit).', scheme, text),
-      const SizedBox(height: 10),
+      SizedBox(height: 10.rs),
       Row(
         children: [
           Expanded(child: _buildDropdown('Data Bits', _dataBits.toString(), _dataBitOptions, (v) { setState(() => _dataBits = int.parse(v!)); _markCardDirty('connection'); }, text)),
-          const SizedBox(width: 14),
+          SizedBox(width: 14.rs),
           Expanded(child: _buildDropdown('Parity', _parity, _parityOptions, (v) { setState(() => _parity = v!); _markCardDirty('connection'); }, text)),
         ],
       ),
-      const SizedBox(height: 14),
+      SizedBox(height: 14.rs),
       Row(
         children: [
           Expanded(child: _buildDropdown('Stop Bits', _stopBits, _stopBitOptions, (v) { setState(() => _stopBits = v!); _markCardDirty('connection'); }, text)),
-          const SizedBox(width: 14),
+          SizedBox(width: 14.rs),
           Expanded(child: _buildDropdown('Flow Control', _flowControl, _flowControlOptions, (v) { setState(() => _flowControl = v!); _markCardDirty('connection'); }, text)),
         ],
       ),
       if (_port.isNotEmpty) ...[
-        const SizedBox(height: 14),
+        SizedBox(height: 14.rs),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+          decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
           child: Row(
             children: [
               Icon(Icons.terminal_rounded, size: 14, color: scheme.onSurfaceVariant),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text(
                 '$_port  $_baudRate  $_dataBits-${_parity[0]}-$_stopBits  Flow: $_flowControl',
                 style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontWeight: FontWeight.w600, color: scheme.primary),
@@ -1597,10 +1598,10 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
     final isDirty = _dirtyCards.contains('advanced');
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.rs),
         border: Border.all(color: isDirty ? scheme.primary.withValues(alpha: 0.4) : _advancedMode ? scheme.primary.withValues(alpha: 0.25) : scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
@@ -1611,7 +1612,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           Row(
             children: [
               Icon(Icons.tune_rounded, size: 18, color: _advancedMode ? scheme.primary : scheme.onSurfaceVariant),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1629,18 +1630,18 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               if (!_isAtDefaults('advanced'))
                 TextButton(
                   onPressed: () => _resetCardToDefaults('advanced'),
-                  style: TextButton.styleFrom(foregroundColor: scheme.onSurfaceVariant, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))),
+                  style: TextButton.styleFrom(foregroundColor: scheme.onSurfaceVariant, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs))),
                   child: const Text('Reset to Default', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                 ),
               if (isDirty) ...[
-                const SizedBox(width: 6),
+                SizedBox(width: 6.rs),
                 FilledButton(
                   onPressed: _saving ? null : () => _saveCard('advanced'),
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)), textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)), textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                   child: const Text('Save'),
                 ),
               ],
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Switch(
                 value: _advancedMode,
                 onChanged: (v) {
@@ -1653,35 +1654,35 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
             ],
           ),
           if (_advancedMode) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: 16.rs),
             Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.rs),
             _buildInfoRow('Timeouts control how long to wait for data before giving up.', scheme, text),
-            const SizedBox(height: 10),
+            SizedBox(height: 10.rs),
             Row(
               children: [
                 Expanded(child: _buildNumberFieldWithInfo('Read Timeout (ms)', _readTimeout, 'How long to wait for incoming data before timeout', (v) { _readTimeout = v; _markCardDirty('advanced'); }, text, scheme)),
-                const SizedBox(width: 14),
+                SizedBox(width: 14.rs),
                 Expanded(child: _buildNumberFieldWithInfo('Write Timeout (ms)', _writeTimeout, 'How long to wait for outgoing data to be sent', (v) { _writeTimeout = v; _markCardDirty('advanced'); }, text, scheme)),
               ],
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14.rs),
             _buildInfoRow('Buffers store incoming/outgoing bytes. Increase if data is being lost.', scheme, text),
-            const SizedBox(height: 10),
+            SizedBox(height: 10.rs),
             Row(
               children: [
                 Expanded(child: _buildNumberFieldWithInfo('Read Buffer (bytes)', _readBufferSize, 'Size of incoming data buffer — increase for high-speed scales', (v) { _readBufferSize = v; _markCardDirty('advanced'); }, text, scheme)),
-                const SizedBox(width: 14),
+                SizedBox(width: 14.rs),
                 Expanded(child: _buildNumberFieldWithInfo('Write Buffer (bytes)', _writeBufferSize, 'Size of outgoing command buffer', (v) { _writeBufferSize = v; _markCardDirty('advanced'); }, text, scheme)),
               ],
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14.rs),
             _buildInfoRow('Delimiter marks where each weight reading ends. Regex extracts the number.', scheme, text),
-            const SizedBox(height: 10),
+            SizedBox(height: 10.rs),
             Row(
               children: [
                 Expanded(child: _buildDelimiterField('advanced', text, scheme)),
-                const SizedBox(width: 14),
+                SizedBox(width: 14.rs),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1689,11 +1690,11 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                       Row(
                         children: [
                           Text('Weight Regex', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                          const SizedBox(width: 4),
+                          SizedBox(width: 4.rs),
                           Tooltip(message: 'Pattern to extract numeric weight from raw data.\nDefault works for most scales outputting plain numbers.', child: Icon(Icons.info_outline_rounded, size: 12, color: scheme.onSurfaceVariant)),
                         ],
                       ),
-                      const SizedBox(height: 5),
+                      SizedBox(height: 5.rs),
                       TextField(
                         controller: TextEditingController(text: _weightRegex),
                         style: text.bodySmall?.copyWith(fontFamily: 'monospace'),
@@ -1705,13 +1706,13 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14.rs),
             _buildInfoRow('Control signals power some older scale indicators. Enable only if required.', scheme, text),
-            const SizedBox(height: 10),
+            SizedBox(height: 10.rs),
             Row(
               children: [
                 Expanded(child: _SwitchRow(label: 'DTR (Data Terminal Ready)', subtitle: 'Powers indicator via serial pin', value: _dtrEnable, onChanged: (v) { setState(() => _dtrEnable = v); _markCardDirty('advanced'); })),
-                const SizedBox(width: 14),
+                SizedBox(width: 14.rs),
                 Expanded(child: _SwitchRow(label: 'RTS (Request To Send)', subtitle: 'Flow control signal for older scales', value: _rtsEnable, onChanged: (v) { setState(() => _rtsEnable = v); _markCardDirty('advanced'); })),
               ],
             ),
@@ -1730,7 +1731,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(6.rs),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1739,7 +1740,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
             padding: const EdgeInsets.only(top: 1),
             child: Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary.withValues(alpha: 0.6)),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.rs),
           Expanded(child: Text(text, style: textTheme.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant, height: 1.4))),
         ],
       ),
@@ -1753,11 +1754,11 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
         Row(
           children: [
             Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(width: 4),
+            SizedBox(width: 4.rs),
             Tooltip(message: tooltip, child: Icon(Icons.info_outline_rounded, size: 12, color: scheme.onSurfaceVariant)),
           ],
         ),
-        const SizedBox(height: 5),
+        SizedBox(height: 5.rs),
         TextField(
           controller: TextEditingController(text: value.toString()),
           keyboardType: TextInputType.number,
@@ -1775,7 +1776,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Line Delimiter', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 5),
+        SizedBox(height: 5.rs),
         DropdownButtonFormField<String>(
           initialValue: _delimiterOptions.contains(_delimiter) ? _delimiter : 'Custom',
           items: _delimiterOptions.map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall))).toList(),
@@ -1789,7 +1790,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
         ),
         if (_delimiter == 'Custom') ...[
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           TextField(
             controller: _customDelimiterCtrl,
             style: text.bodySmall?.copyWith(fontFamily: 'monospace'),
@@ -1799,7 +1800,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               hintStyle: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
             ),
           ),
         ],
@@ -1813,7 +1814,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 5),
+        SizedBox(height: 5.rs),
         DropdownButtonFormField<String>(
           initialValue: safeValue,
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: text.bodySmall))).toList(),
@@ -1829,10 +1830,10 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
 
   Widget _buildWeighmentModeCard(ColorScheme scheme, TextTheme text) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.rs),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
       ),
       child: Column(
@@ -1841,7 +1842,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           Row(
             children: [
               Icon(Icons.route_rounded, size: 18, color: scheme.primary),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.rs),
               Text('Weighment Mode', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
               const Spacer(),
               FilledButton.tonal(
@@ -1854,14 +1855,14 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6.rs),
           Text(
             'Controls whether both weights must happen in a single session or can be split across entries.',
             style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20.rs),
           Text('Entry mode', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           SegmentedButton<String>(
             segments: const [
               ButtonSegment(value: 'singleEntry', label: Text('Single Entry'), icon: Icon(Icons.looks_one_rounded, size: 16)),
@@ -1875,14 +1876,14 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               });
             },
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           Text(
             _weighmentEntryMode == 'singleEntry'
                 ? 'Both gross and tare must be captured in a single session. No "Save & Wait" option.'
                 : 'First weight can be saved and the vehicle returns later for the second weight.',
             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20.rs),
           Opacity(
             opacity: _weighmentEntryMode == 'multiEntry' ? 1.0 : 0.4,
             child: _SwitchRow(
@@ -1899,7 +1900,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
             ),
           ),
           if (_weighmentEntryMode == 'multiEntry') ...[
-            const SizedBox(height: 20),
+            SizedBox(height: 20.rs),
             _SwitchRow(
               label: 'Lock fields on second weighment',
               subtitle: 'Prevent editing vehicle, customer, and material details when completing a pending weighment.',
@@ -1913,14 +1914,14 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
             ),
           ],
           if (_weighmentEntryMode == 'singleEntry') ...[
-            const SizedBox(height: 20),
+            SizedBox(height: 20.rs),
             Text('Minimum weight difference (kg)', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
+            SizedBox(height: 4.rs),
             Text(
               'Reject second weight if |gross − tare| is below this threshold. Set 0 to disable.',
               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8.rs),
             SizedBox(
               width: 160,
               child: TextField(
@@ -1931,7 +1932,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                   suffixText: 'kg',
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
                 ),
                 onChanged: (v) {
                   _minWeightDiff = double.tryParse(v) ?? 0;
@@ -1963,10 +1964,10 @@ class _Section extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.rs),
         border: Border.all(color: isDirty ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
@@ -1977,7 +1978,7 @@ class _Section extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 18, color: scheme.primary),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1993,17 +1994,17 @@ class _Section extends StatelessWidget {
                   style: TextButton.styleFrom(
                     foregroundColor: scheme.onSurfaceVariant,
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)),
                   ),
                   child: const Text('Reset to Default', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                 ),
               if (isDirty && onSave != null) ...[
-                const SizedBox(width: 6),
+                SizedBox(width: 6.rs),
                 FilledButton(
                   onPressed: onSave,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)),
                     textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                   ),
                   child: const Text('Save'),
@@ -2011,7 +2012,7 @@ class _Section extends StatelessWidget {
               ],
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
           ...children,
         ],
       ),

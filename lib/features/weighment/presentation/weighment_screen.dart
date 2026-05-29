@@ -36,6 +36,7 @@ import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/services/gate_service.dart';
 import 'package:weighbridgemanagement/shared/services/multi_camera_service.dart';
 import 'package:weighbridgemanagement/shared/services/training_data_service.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class WeighmentScreen extends ConsumerStatefulWidget {
   const WeighmentScreen({super.key});
@@ -504,7 +505,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
         content: Row(
           children: [
             Icon(Icons.directions_car_outlined, color: scheme.onInverseSurface, size: 18),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             Expanded(
               child: Text(
                 'No plate found. Vehicle: ${desc.descriptor}',
@@ -1006,7 +1007,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
                   // CENTER: Scale + Form + Identity cameras
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.all(16.rs),
                       child: Column(
                         children: [
                           // Scale reading banner
@@ -1015,14 +1016,14 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
                             canManualEntry: ref.watch(permissionServiceProvider).canManualWeight,
                             onManualSubmit: _handleManualWeight,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: 16.rs),
 
                           // Data zone: Form + AI detections
                           Expanded(
                             child: _buildCenterContent(machine, session, scheme),
                           ),
 
-                          const SizedBox(height: 12),
+                          SizedBox(height: 12.rs),
 
                           // Hidden: keeps webcam + customer camera + face scanning alive
                           // Keyed to WB so it fully re-inits on WB change
@@ -1115,7 +1116,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
                     }
                   : null,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.rs),
           ],
 
           // Vehicle form — always visible, locked until verified / session started
@@ -1126,17 +1127,17 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
 
           // Error message
           if (machine.error != null) ...[
-            const SizedBox(height: 14),
+            SizedBox(height: 14.rs),
             Card(
               elevation: 0,
               color: scheme.errorContainer,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.rs)),
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(12.rs),
                 child: Row(
                   children: [
                     Icon(Icons.error_outline, size: 18, color: scheme.onErrorContainer),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10.rs),
                     Expanded(child: Text(
                       machine.error!,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onErrorContainer),
@@ -1166,7 +1167,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
         Row(
           children: [
             Icon(Icons.person_search_outlined, size: 18, color: scheme.primary),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             Text('Customer Search', style: textTheme.titleSmall),
             const Spacer(),
             IconButton.filledTonal(
@@ -1176,7 +1177,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.rs),
         SearchBar(
           controller: _customerSearchController,
           hintText: 'Type customer name...',
@@ -1185,7 +1186,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
           onChanged: (_) => setState(() {}),
           autoFocus: true,
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.rs),
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 250),
           child: ListView.separated(
@@ -1203,7 +1204,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
                   style: textTheme.labelSmall?.copyWith(color: scheme.onPrimaryContainer),
                 ),
               ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
               onTap: () {
                 ref.read(weighmentMachineProvider.notifier).updateSession(
                   (s) => s.copyWith(customerName: filtered[i]),
@@ -1225,7 +1226,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
         Row(
           children: [
             Icon(Icons.print_outlined, size: 18, color: scheme.primary),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             Text('Print Weighment', style: textTheme.titleSmall),
             const Spacer(),
             IconButton.filledTonal(
@@ -1235,7 +1236,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.rs),
         SearchBar(
           controller: _printSearchController,
           hintText: 'Search by RST, vehicle, customer, phone...',
@@ -1244,13 +1245,13 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
           onChanged: (_) => _runPrintSearch(),
           autoFocus: true,
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10.rs),
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 300),
           child: _printSearchResults.isEmpty
               ? Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.all(24.rs),
                     child: Text(
                       _printSearchController.text.isEmpty ? 'Enter RST number, vehicle, customer name, or phone' : 'No results found',
                       style: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
@@ -1272,7 +1273,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
 
                     return ListTile(
                       dense: true,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
                       leading: CircleAvatar(
                         radius: 16,
                         backgroundColor: scheme.primaryContainer,

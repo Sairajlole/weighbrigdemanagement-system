@@ -10,6 +10,7 @@ import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
 import 'package:weighbridgemanagement/shared/services/multi_camera_service.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 final _cameraSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   // Depend on activeWeighbridgeCamerasProvider so we re-fetch when settings change
@@ -293,7 +294,7 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.videocam_off_outlined, size: 28, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8.rs),
               Text('No cameras', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5))),
             ],
           ),
@@ -312,11 +313,11 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12.rs),
             child: Row(
               children: [
                 Icon(Icons.videocam_outlined, size: 16, color: scheme.primary),
-                const SizedBox(width: 6),
+                SizedBox(width: 6.rs),
                 Text('Cameras', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.onSurface)),
               ],
             ),
@@ -324,7 +325,7 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
           Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(8),
+              padding: EdgeInsets.all(8.rs),
               itemCount: cameras.length,
               itemBuilder: (_, i) {
                 final cam = cameras[i];
@@ -350,7 +351,7 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
                     child: Container(
                       decoration: BoxDecoration(
                         color: scheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(8.rs),
                       ),
                       child: Center(
                         child: SizedBox(
@@ -404,7 +405,7 @@ class _IpCameraTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(camera.label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-          const SizedBox(height: 4),
+          SizedBox(height: 4.rs),
           GestureDetector(
             onTap: onTap,
             child: AspectRatio(
@@ -412,7 +413,7 @@ class _IpCameraTile extends StatelessWidget {
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.rs),
                   child: Video(controller: controller, controls: NoVideoControls),
                 ),
               ),
@@ -448,7 +449,7 @@ class _NativeCameraTile extends StatelessWidget {
               Container(width: 6, height: 6, decoration: BoxDecoration(color: scheme.onSurface.withValues(alpha: 0.6), shape: BoxShape.circle)),
             ],
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4.rs),
           GestureDetector(
             onTap: onTap,
             child: AspectRatio(
@@ -456,7 +457,7 @@ class _NativeCameraTile extends StatelessWidget {
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.rs),
                   child: FittedBox(
                     fit: BoxFit.cover,
                     clipBehavior: Clip.hardEdge,
@@ -491,10 +492,10 @@ class _EnlargedIpDialog extends StatelessWidget {
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(40),
+      insetPadding: EdgeInsets.all(40.rs),
       child: Container(
         constraints: BoxConstraints(maxWidth: size.width * 0.7, maxHeight: size.height * 0.8),
-        decoration: BoxDecoration(color: scheme.surface, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: scheme.surface, borderRadius: BorderRadius.circular(12.rs)),
         clipBehavior: Clip.antiAlias,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -523,10 +524,10 @@ class _EnlargedNativeDialog extends StatelessWidget {
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(40),
+      insetPadding: EdgeInsets.all(40.rs),
       child: Container(
         constraints: BoxConstraints(maxWidth: size.width * 0.7, maxHeight: size.height * 0.8),
-        decoration: BoxDecoration(color: scheme.surface, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: scheme.surface, borderRadius: BorderRadius.circular(12.rs)),
         clipBehavior: Clip.antiAlias,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -557,12 +558,12 @@ Widget _dialogHeader(BuildContext context, String label, ColorScheme scheme) {
     child: Row(
       children: [
         Icon(Icons.videocam_outlined, size: 16, color: scheme.primary),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.rs),
         Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.rs),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(color: scheme.onSurface.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(4)),
+          decoration: BoxDecoration(color: scheme.onSurface.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(4.rs)),
           child: Text('LIVE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: scheme.onSurface)),
         ),
         const Spacer(),

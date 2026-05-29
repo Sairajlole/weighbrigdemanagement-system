@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/mfa_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class MfaSetupScreen extends ConsumerStatefulWidget {
   const MfaSetupScreen({super.key});
@@ -114,7 +115,7 @@ class _MfaSetupScreenState extends ConsumerState<MfaSetupScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Two-Factor Authentication')),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24.rs),
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(child: _buildContent(scheme, text)),
@@ -127,10 +128,10 @@ class _MfaSetupScreenState extends ConsumerState<MfaSetupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(20.rs),
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16.rs),
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
           ),
           child: Row(
@@ -139,20 +140,20 @@ class _MfaSetupScreenState extends ConsumerState<MfaSetupScreen> {
                 width: 48, height: 48,
                 decoration: BoxDecoration(
                   color: _factors.isNotEmpty ? const Color(0xFFE8F5E9) : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12.rs),
                 ),
                 child: Icon(
                   _factors.isNotEmpty ? Icons.verified_user_rounded : Icons.shield_outlined,
                   color: _factors.isNotEmpty ? const Color(0xFF2E7D32) : Colors.grey.shade500,
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: 16.rs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Status', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2.rs),
                     Text(
                       _factors.isNotEmpty ? 'MFA Enabled' : 'MFA Not Enabled',
                       style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
@@ -169,57 +170,57 @@ class _MfaSetupScreenState extends ConsumerState<MfaSetupScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: 20.rs),
 
         if (_error != null) ...[
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12.rs),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFEBEE), borderRadius: BorderRadius.circular(10),
+              color: const Color(0xFFFFEBEE), borderRadius: BorderRadius.circular(10.rs),
               border: Border.all(color: const Color(0xFFEF9A9A).withValues(alpha: 0.5)),
             ),
             child: Row(children: [
               const Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFE53935)),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Expanded(child: Text(_error!, style: const TextStyle(fontSize: 13, color: Color(0xFFC62828)))),
             ]),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
         ],
 
         if (_success != null) ...[
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12.rs),
             decoration: BoxDecoration(
-              color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(10),
+              color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(10.rs),
               border: Border.all(color: const Color(0xFFA5D6A7)),
             ),
             child: Row(children: [
               const Icon(Icons.check_circle, size: 18, color: Color(0xFF2E7D32)),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.rs),
               Expanded(child: Text(_success!, style: const TextStyle(fontSize: 13, color: Color(0xFF1B5E20)))),
             ]),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
         ],
 
         if (_totpSecret != null) _buildEnrollmentCard(scheme, text),
 
         if (_factors.isNotEmpty) ...[
           Text('Enrolled Factors', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           ..._factors.map((f) => Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: scheme.surface,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(12.rs),
               border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
             ),
             child: Row(
               children: [
                 const Icon(Icons.security, size: 20, color: Color(0xFF2E7D32)),
-                const SizedBox(width: 12),
+                SizedBox(width: 12.rs),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,29 +252,29 @@ class _MfaSetupScreenState extends ConsumerState<MfaSetupScreen> {
     final secretKey = _totpSecret!.secretKey;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20.rs),
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.rs),
         border: Border.all(color: const Color(0xFF43A047).withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Set Up Authenticator', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           Text('Open your authenticator app (Google Authenticator, Authy, etc.) and add a new account.',
             style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
 
           Text('Manual Entry Key:', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
+          SizedBox(height: 6.rs),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(8.rs),
             ),
             child: Row(
               children: [
@@ -293,12 +294,12 @@ class _MfaSetupScreenState extends ConsumerState<MfaSetupScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           SelectableText('URI: $uri', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 11)),
-          const SizedBox(height: 20),
+          SizedBox(height: 20.rs),
 
           Text('Enter the 6-digit code from your app:', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           Row(
             children: [
               SizedBox(
@@ -311,12 +312,12 @@ class _MfaSetupScreenState extends ConsumerState<MfaSetupScreen> {
                   decoration: InputDecoration(
                     hintText: '000000',
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF43A047), width: 2)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs), borderSide: const BorderSide(color: Color(0xFF43A047), width: 2)),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12.rs),
               FilledButton(
                 onPressed: _enrolling ? null : _finalizeEnrollment,
                 child: _enrolling
@@ -325,7 +326,7 @@ class _MfaSetupScreenState extends ConsumerState<MfaSetupScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           TextButton(
             onPressed: () => setState(() { _totpSecret = null; _error = null; }),
             child: const Text('Cancel', style: TextStyle(color: Colors.red)),

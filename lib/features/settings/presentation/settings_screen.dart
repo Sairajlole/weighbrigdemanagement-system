@@ -5,6 +5,7 @@ import 'package:weighbridgemanagement/shared/l10n/app_strings.dart';
 import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -45,12 +46,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         .toList();
 
     return Padding(
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(28.rs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(strings.settings, style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 24),
+          SizedBox(height: 24.rs),
           Expanded(
             child: SingleChildScrollView(
               child: Column(
@@ -71,7 +72,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(section.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.5)),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           Wrap(
             spacing: 14,
             runSpacing: 14,
@@ -260,7 +261,7 @@ class _SettingsTileState extends State<_SettingsTile> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.rs)),
         contentPadding: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
         content: SizedBox(
@@ -289,11 +290,11 @@ class _SettingsTileState extends State<_SettingsTile> {
                           width: 44, height: 44,
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(12.rs),
                           ),
                           child: Icon(widget.item.icon, color: Colors.white, size: 22),
                         ),
-                        const SizedBox(width: 14),
+                        SizedBox(width: 14.rs),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,7 +303,7 @@ class _SettingsTileState extends State<_SettingsTile> {
                                 widget.item.title,
                                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white),
                               ),
-                              const SizedBox(height: 2),
+                              SizedBox(height: 2.rs),
                               Text(
                                 widget.item.subtitle,
                                 style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7)),
@@ -314,7 +315,7 @@ class _SettingsTileState extends State<_SettingsTile> {
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(20.rs),
                             border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                           ),
                           child: const Row(
@@ -333,7 +334,7 @@ class _SettingsTileState extends State<_SettingsTile> {
               ),
               // Body
               Container(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(24.rs),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -342,14 +343,14 @@ class _SettingsTileState extends State<_SettingsTile> {
                         widget.item.proDescription!,
                         style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.6),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20.rs),
                     ],
                     // Feature comparison
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: isDark ? scheme.surfaceContainerHigh : const Color(0xFFF9FAFB),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(12.rs),
                         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                       ),
                       child: Column(
@@ -368,7 +369,7 @@ class _SettingsTileState extends State<_SettingsTile> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20.rs),
                     // CTA
                     Row(
                       children: [
@@ -382,7 +383,7 @@ class _SettingsTileState extends State<_SettingsTile> {
                             child: const Text('Maybe Later'),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.rs),
                         Expanded(
                           flex: 2,
                           child: FilledButton.icon(
@@ -393,7 +394,7 @@ class _SettingsTileState extends State<_SettingsTile> {
                             style: FilledButton.styleFrom(
                               backgroundColor: _proColor,
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.rs)),
                             ),
                             icon: const Icon(Icons.rocket_launch_rounded, size: 16),
                             label: const Text('Upgrade to Pro', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -474,12 +475,12 @@ class _SettingsTileState extends State<_SettingsTile> {
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeOut,
           width: 240,
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(20.rs),
           decoration: BoxDecoration(
             color: locked
                 ? _proColor.withValues(alpha: _hovered ? 0.06 : 0.02)
                 : (_hovered ? accent.withValues(alpha: 0.04) : scheme.surface),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(12.rs),
             border: Border.all(
               color: locked
                   ? _proColor.withValues(alpha: _hovered ? 0.4 : 0.2)
@@ -501,7 +502,7 @@ class _SettingsTileState extends State<_SettingsTile> {
                         gradient: const LinearGradient(
                           colors: [Color(0xFF7C3AED), Color(0xFF4F46E5)],
                         ),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(4.rs),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
@@ -515,12 +516,12 @@ class _SettingsTileState extends State<_SettingsTile> {
                   ],
                 ],
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14.rs),
               Text(widget.item.title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: locked ? scheme.onSurface.withValues(alpha: 0.6) : scheme.onSurface)),
-              const SizedBox(height: 4),
+              SizedBox(height: 4.rs),
               Text(widget.item.subtitle, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant), maxLines: 2, overflow: TextOverflow.ellipsis),
               if (locked) ...[
-                const SizedBox(height: 10),
+                SizedBox(height: 10.rs),
                 Text('Tap to learn more', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _proColor.withValues(alpha: 0.7))),
               ],
             ],

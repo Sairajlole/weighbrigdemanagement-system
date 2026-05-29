@@ -26,6 +26,7 @@ import 'package:weighbridgemanagement/shared/providers/system_stats_provider.dar
 import 'package:weighbridgemanagement/shared/widgets/background_art.dart';
 import 'package:weighbridgemanagement/shared/widgets/inactivity_wrapper.dart';
 import 'package:weighbridgemanagement/shared/widgets/security_overlay.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 final sidebarCollapsedProvider = StateProvider<bool>((ref) => false);
 
@@ -130,7 +131,7 @@ class AppShell extends ConsumerWidget {
                     child: Row(
                       children: [
                         Icon(Icons.block_rounded, size: 16, color: Theme.of(context).colorScheme.error),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8.rs),
                         Text(
                           'Your account has been deactivated. You cannot perform weighments. Contact your administrator.',
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onErrorContainer),
@@ -181,7 +182,7 @@ class _SidebarState extends ConsumerState<_Sidebar> {
       ),
       child: Column(
         children: [
-          const SizedBox(height: 16),
+          SizedBox(height: 16.rs),
           Container(
             width: 36,
             height: 36,
@@ -191,14 +192,14 @@ class _SidebarState extends ConsumerState<_Sidebar> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(10.rs),
               boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 2))],
             ),
             child: Icon(Icons.scale_rounded, color: scheme.onPrimary, size: 18),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
           Divider(height: 1, indent: 14, endIndent: 14, color: scheme.outlineVariant.withValues(alpha: 0.15)),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -225,7 +226,7 @@ class _SidebarState extends ConsumerState<_Sidebar> {
             ),
           ),
           Divider(height: 1, indent: 14, endIndent: 14, color: scheme.outlineVariant.withValues(alpha: 0.15)),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: _ProfileTile(
@@ -234,7 +235,7 @@ class _SidebarState extends ConsumerState<_Sidebar> {
               profile: profile,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4.rs),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: _NavTile(
@@ -263,9 +264,9 @@ class _SidebarState extends ConsumerState<_Sidebar> {
               },
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           _ConnectivityDot(ref: ref),
-          const SizedBox(height: 14),
+          SizedBox(height: 14.rs),
         ],
       ),
     );
@@ -314,7 +315,7 @@ class _NavTileState extends State<_NavTile> {
             : _hovered
                 ? scheme.surfaceContainerHighest.withValues(alpha: 0.5)
                 : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(10.rs),
       ),
       child: Stack(
         clipBehavior: Clip.none,
@@ -328,7 +329,7 @@ class _NavTileState extends State<_NavTile> {
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
                   color: scheme.error,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.rs),
                   border: Border.all(color: scheme.surface, width: 1.5),
                 ),
                 alignment: Alignment.center,
@@ -402,7 +403,7 @@ class _ProfileTileState extends State<_ProfileTile> {
             : _hovered
                 ? scheme.surfaceContainerHighest.withValues(alpha: 0.5)
                 : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(10.rs),
       ),
       child: avatar,
     );
@@ -545,7 +546,7 @@ class _ConnectivityDotState extends State<_ConnectivityDot> {
                     padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                     decoration: BoxDecoration(
                       color: alertCount > 0 ? scheme.error : scheme.tertiary,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(6.rs),
                     ),
                     child: Text(
                       badgeCount > 9 ? '9+' : '$badgeCount',
@@ -604,18 +605,18 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
         child: Material(
           elevation: 8,
           shadowColor: Colors.black26,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(14.rs),
           color: scheme.surface,
           surfaceTintColor: scheme.surfaceTint,
           child: Container(
             width: 300,
             constraints: const BoxConstraints(maxHeight: 460),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(14.rs),
               border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
             ),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.rs),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -626,38 +627,38 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                         width: 10, height: 10,
                         decoration: BoxDecoration(shape: BoxShape.circle, color: isOnline ? AppTheme.successColor : scheme.error),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10.rs),
                       Text(isOnline ? 'Online' : 'Offline', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12.rs),
                   Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12.rs),
 
                   if (_pendingCount == 0)
                     Row(
                       children: [
                         Icon(Icons.check_circle_rounded, size: 16, color: AppTheme.successColor),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8.rs),
                         Text('All data synced', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                       ],
                     )
                   else ...[
                     Text('Pending sync', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8.rs),
                     ..._breakdown.entries.map((e) => Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Row(
                         children: [
                           Icon(_iconForType(e.key), size: 14, color: scheme.onSurfaceVariant),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.rs),
                           Text(_labelForType(e.key), style: text.bodySmall),
                           const Spacer(),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: scheme.primaryContainer.withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(10.rs),
                             ),
                             child: Text('${e.value}', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700)),
                           ),
@@ -676,7 +677,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                             size: 14,
                             color: queue.lastSyncSuccess ? scheme.onSurfaceVariant : scheme.error,
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.rs),
                           Text(
                             'Last sync: ${_formatTime(queue.lastSyncAt!)}',
                             style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -686,7 +687,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                     ),
 
                   if (_pendingCount > 0) ...[
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12.rs),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
@@ -701,7 +702,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                         label: Text(queue.isSyncing ? 'Syncing...' : 'Sync Now'),
                         style: FilledButton.styleFrom(
                           textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.rs)),
                         ),
                       ),
                     ),
@@ -724,13 +725,13 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: 14),
+                          SizedBox(height: 14.rs),
                           Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-                          const SizedBox(height: 12),
+                          SizedBox(height: 12.rs),
                           Row(
                             children: [
                               Icon(Icons.shield_rounded, size: 14, color: scheme.error),
-                              const SizedBox(width: 6),
+                              SizedBox(width: 6.rs),
                               Text('Alerts', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
                               const Spacer(),
                               GestureDetector(
@@ -742,7 +743,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: 8.rs),
                           ...items.take(5).map((n) {
                             final title = n['title'] as String? ?? '';
                             final body = n['body'] as String? ?? '';
@@ -753,10 +754,10 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                             }
                             return Container(
                               margin: const EdgeInsets.only(bottom: 6),
-                              padding: const EdgeInsets.all(10),
+                              padding: EdgeInsets.all(10.rs),
                               decoration: BoxDecoration(
                                 color: scheme.errorContainer.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(8.rs),
                                 border: Border.all(color: scheme.error.withValues(alpha: 0.1)),
                               ),
                               child: Column(
@@ -769,7 +770,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                                     ],
                                   ),
                                   if (body.isNotEmpty) ...[
-                                    const SizedBox(height: 2),
+                                    SizedBox(height: 2.rs),
                                     Text(body, style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant)),
                                   ],
                                 ],
@@ -793,16 +794,16 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: 14),
+                          SizedBox(height: 14.rs),
                           Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-                          const SizedBox(height: 12),
+                          SizedBox(height: 12.rs),
                           Text('Device', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 10),
+                          SizedBox(height: 10.rs),
                           _DeviceStatRow(label: 'CPU', percent: stats.cpuPercent, scheme: scheme),
-                          const SizedBox(height: 8),
+                          SizedBox(height: 8.rs),
                           _DeviceStatRow(label: 'RAM', percent: stats.memPercent, scheme: scheme),
                           if (stats.tempCelsius != null) ...[
-                            const SizedBox(height: 8),
+                            SizedBox(height: 8.rs),
                             _DeviceStatRow(label: 'TEMP', percent: stats.tempCelsius!, maxVal: 100, suffix: '°C', scheme: scheme),
                           ],
                         ],
@@ -875,7 +876,7 @@ class _DeviceStatRow extends StatelessWidget {
             height: 6,
             decoration: BoxDecoration(
               color: scheme.onSurfaceVariant.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(3.rs),
             ),
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
@@ -883,13 +884,13 @@ class _DeviceStatRow extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   color: color,
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(3.rs),
                 ),
               ),
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.rs),
         SizedBox(
           width: 32,
           child: Text(displayVal, textAlign: TextAlign.right, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),

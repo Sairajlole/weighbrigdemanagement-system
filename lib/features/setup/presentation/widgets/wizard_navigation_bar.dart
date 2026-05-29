@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/setup_wizard_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class WizardNavigationBar extends ConsumerStatefulWidget {
   final bool canProceed;
@@ -100,7 +101,7 @@ class _WizardNavigationBarState extends ConsumerState<WizardNavigationBar> {
               label: const Text('Back'),
             )
           else
-            const SizedBox(width: 80),
+            SizedBox(width: 80.rs),
 
           const Spacer(),
 

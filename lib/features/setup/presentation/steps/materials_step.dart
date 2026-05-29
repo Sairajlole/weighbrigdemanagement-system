@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import '../../application/setup_wizard_provider.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class MaterialsStep extends ConsumerStatefulWidget {
   const MaterialsStep({super.key});
@@ -122,7 +123,7 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
     if (!_loaded) return const Center(child: CircularProgressIndicator());
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(40),
+      padding: EdgeInsets.all(40.rs),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
@@ -130,12 +131,12 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
           Text('Materials', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.rs),
           Text(
             'Define the materials your weighbridge handles. These appear in the weighment form.',
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: 32.rs),
 
           // Add material
           Row(
@@ -146,12 +147,12 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
                   decoration: InputDecoration(
                     hintText: 'Material name (e.g. Sand, Gravel)',
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                   ),
                   onSubmitted: _addMaterial,
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12.rs),
               FilledButton.icon(
                 onPressed: _adding ? null : () => _addMaterial(_nameCtrl.text),
                 icon: const Icon(Icons.add_rounded, size: 16),
@@ -159,16 +160,16 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.rs),
 
 
           // Material list
           if (_materials.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: 8.rs),
             Container(
               decoration: BoxDecoration(
                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(10.rs),
               ),
               child: Column(
                 children: [
@@ -191,7 +192,7 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20.rs),
           ],
 
           // Allow Other toggle
@@ -199,7 +200,7 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHigh.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(10.rs),
             ),
             child: Row(
               children: [
@@ -220,17 +221,17 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
             ),
           ),
 
-          const SizedBox(height: 24),
+          SizedBox(height: 24.rs),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12.rs),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(8.rs),
             ),
             child: Row(
               children: [
                 Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.rs),
                 Expanded(
                   child: Text(
                     'You can reorder, rename, and manage AI training for materials in Settings later.',

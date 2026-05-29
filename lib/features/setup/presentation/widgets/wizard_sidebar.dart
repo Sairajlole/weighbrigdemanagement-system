@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/setup_wizard_provider.dart';
 import '../../application/setup_wizard_state.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
 class WizardSidebar extends ConsumerWidget {
   const WizardSidebar({super.key});
@@ -43,7 +44,7 @@ class WizardSidebar extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          const SizedBox(height: 24),
+          SizedBox(height: 24.rs),
           // Logo + title
           Container(
             width: 40,
@@ -54,23 +55,23 @@ class WizardSidebar extends ConsumerWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(11.rs),
               boxShadow: [
                 BoxShadow(color: scheme.primary.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 2)),
               ],
             ),
             child: Icon(Icons.scale_rounded, color: scheme.onPrimary, size: 20),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10.rs),
           Text('Setup', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-          const SizedBox(height: 4),
+          SizedBox(height: 4.rs),
           // Progress
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Column(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(3.rs),
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 4,
@@ -78,7 +79,7 @@ class WizardSidebar extends ConsumerWidget {
                     color: scheme.primary,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4.rs),
                 Text(
                   '$completedCount of ${visible.length}',
                   style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
@@ -86,7 +87,7 @@ class WizardSidebar extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20.rs),
           // Steps
           Expanded(
             child: ListView.builder(
@@ -138,7 +139,7 @@ class WizardSidebar extends ConsumerWidget {
               label: Text('Exit Setup', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
               ),
             ),
           ),
@@ -203,7 +204,7 @@ class _StepTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.rs),
             // Content
             Expanded(
               child: AnimatedContainer(
@@ -212,7 +213,7 @@ class _StepTile extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: isCurrent ? scheme.primary.withValues(alpha: 0.07) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.rs),
                 ),
                 child: Row(
                   children: [
@@ -225,7 +226,7 @@ class _StepTile extends StatelessWidget {
                               ? scheme.primary.withValues(alpha: 0.6)
                               : scheme.onSurfaceVariant.withValues(alpha: 0.4),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.rs),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,7 +261,7 @@ class _StepTile extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(
                           color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(4.rs),
                         ),
                         child: Text(
                           'opt',
