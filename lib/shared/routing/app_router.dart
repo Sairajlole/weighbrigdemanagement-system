@@ -107,7 +107,8 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final authState = ref.read(authStateProvider);
       final authUser = authState.valueOrNull;
-      final isLoggedIn = authUser != null && !authUser.isAnonymous;
+      final isLoggedIn = (authUser != null && !authUser.isAnonymous) ||
+          (siteCtx.isConfigured && wizardProgress.setupComplete);
       final authRoutes = ['/forgot-password', '/linkage-pending'];
       final isAuthRoute = authRoutes.contains(state.matchedLocation);
 

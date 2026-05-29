@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -847,6 +848,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
     try {
       final db = ref.read(firestoreProvider);
       final email = _email.text.trim();
+      debugPrint('[Login] Starting for $email');
 
       bool firebaseAuthOk = false;
       try {
@@ -855,21 +857,32 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
           password: _password.text,
         );
         firebaseAuthOk = true;
-      } catch (_) {}
-      if (!mounted) return;
+        debugPrint('[Login] Firebase auth OK');
+      } catch (e) {
+        debugPrint('[Login] Firebase auth failed: $e');
+      }
+      if (!mounted) { debugPrint('[Login] Not mounted after auth'); return; }
 
+      debugPrint('[Login] Querying operators...');
       final operatorSnap = await db
           .collectionGroup('operators')
           .where('email', isEqualTo: email)
           .limit(1)
-          .get();
+          .get()
+          .timeout(const Duration(seconds: 8), onTimeout: () {
+            debugPrint('[Login] Operator query timed out');
+            throw TimeoutException('Query timed out');
+          });
+      debugPrint('[Login] Got ${operatorSnap.docs.length} operator docs');
 
       if (operatorSnap.docs.isEmpty) {
+        debugPrint('[Login] No operator, checking companies...');
         final companySnap = await db
             .collection('companies')
             .where('email', isEqualTo: email)
             .limit(1)
             .get();
+        debugPrint('[Login] Got ${companySnap.docs.length} company docs');
 
         if (companySnap.docs.isEmpty) {
           setState(() { _error = 'No account found with this email.'; _loading = false; });
@@ -880,36 +893,45 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         if (!firebaseAuthOk) {
           final companyData = companySnap.docs.first.data();
           final storedHash = companyData['passwordHash'] as String?;
+          debugPrint('[Login] storedHash=${storedHash != null ? "exists" : "null"}, firebaseAuthOk=$firebaseAuthOk');
           if (storedHash != null && storedHash != _hashPassword(_password.text)) {
+            debugPrint('[Login] Hash mismatch — wrong password');
             setState(() { _error = 'Invalid email or password.'; _loading = false; });
             return;
           }
           if (storedHash == null) {
+            debugPrint('[Login] No hash stored, saving one');
             companySnap.docs.first.reference.update({'passwordHash': _hashPassword(_password.text)});
           }
         }
 
+        debugPrint('[Login] Password OK, configuring site...');
         await LocalCacheService.cacheCurrentUserEmail(email);
         final companyId = companySnap.docs.first.id;
 
         final sitesSnap = await db.collection('companies/$companyId/sites').get();
+        debugPrint('[Login] Sites: ${sitesSnap.docs.length}');
 
         final companyDoc = await db.doc('companies/$companyId').get();
         final firstLoginDone = companyDoc.data()?['firstLoginComplete'] == true;
+        debugPrint('[Login] firstLoginDone=$firstLoginDone');
 
         for (final site in sitesSnap.docs) {
           final wbSnap = await db
               .collection('companies/$companyId/sites/${site.id}/weighbridges')
               .limit(1)
               .get();
+          debugPrint('[Login] Site ${site.id}: ${wbSnap.docs.length} weighbridges');
           if (wbSnap.docs.isNotEmpty) {
             await ref.read(siteContextProvider.notifier).configure(
               companyId: companyId,
               siteId: site.id,
               weighbridgeId: wbSnap.docs.first.id,
             );
+            debugPrint('[Login] Site configured. firstLoginDone=$firstLoginDone');
             if (!firstLoginDone) {
               if (!mounted) return;
+              debugPrint('[Login] Going to wizard (first login not done)');
               ref.read(wizardCompanyIdProvider.notifier).state = companyId;
               final siteStepIndex = wizardSteps.indexWhere((s) => s.id == WizardStepId.site);
               final resumed = ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
@@ -919,8 +941,10 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
               }
               return;
             }
+            debugPrint('[Login] Marking wizard complete, going to dashboard...');
             await ref.read(wizardProgressProvider.notifier).markComplete();
             final allowed = await _runPostLoginChecks(ref, email);
+            debugPrint('[Login] postLoginChecks allowed=$allowed');
             if (!allowed) return;
             if (mounted) context.go('/dashboard');
             return;
