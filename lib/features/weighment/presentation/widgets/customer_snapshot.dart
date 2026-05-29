@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class CustomerSnapshot extends StatelessWidget {
   final Uint8List? snapshot;
@@ -50,11 +51,11 @@ class CustomerSnapshot extends StatelessWidget {
                 ),
             ],
           ),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Center(
             child: snapshot != null
                 ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8.rs),
+                    borderRadius: AppRadius.button,
                     child: Image.memory(
                       snapshot!,
                       width: 80,
@@ -67,14 +68,14 @@ class CustomerSnapshot extends StatelessWidget {
                     width: 80, height: 100,
                     decoration: BoxDecoration(
                       color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(8.rs),
+                      borderRadius: AppRadius.button,
                       border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.person_outline_outlined, size: 24, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
-                        SizedBox(height: 4.rs),
+                        SizedBox(height: AppSpacing.xs),
                         Text('No photo', style: TextStyle(fontSize: 8, color: scheme.onSurfaceVariant.withValues(alpha: 0.4))),
                       ],
                     ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class LockdownScreen extends StatelessWidget {
   const LockdownScreen({super.key});
@@ -15,7 +16,7 @@ class LockdownScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.lock_outline_rounded, size: 64, color: scheme.error),
-            SizedBox(height: 24.rs),
+            SizedBox(height: AppSpacing.xl),
             Text(
               'System Lockdown',
               style: text.headlineMedium?.copyWith(
@@ -23,7 +24,7 @@ class LockdownScreen extends StatelessWidget {
                 color: scheme.error,
               ),
             ),
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             Text(
               'This system has been placed in emergency lockdown mode.\nPlease contact your administrator.',
               textAlign: TextAlign.center,

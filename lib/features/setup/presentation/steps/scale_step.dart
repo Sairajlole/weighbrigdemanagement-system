@@ -13,6 +13,7 @@ import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class ScaleStep extends ConsumerStatefulWidget {
   const ScaleStep({super.key});
@@ -402,12 +403,12 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
           Text('Scale Connection', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Text(
             'Configure how your weighbridge indicator connects to this computer.',
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
 
           // ─── Connection Status Bar ─────────────────────────────────
           _buildStatusBar(scheme, text),
@@ -415,7 +416,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
 
           // ─── Connection Type ───────────────────────────────────────
           Text('Connection Type', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Row(
             children: [
               _ConnectionTypeCard(
@@ -425,7 +426,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                 onTap: () { setState(() { _connectionType = 'serial'; _testResult = null; }); _disconnectTest(); },
                 scheme: scheme,
               ),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               _ConnectionTypeCard(
                 icon: Icons.wifi_rounded,
                 label: 'TCP/IP (Wireless)',
@@ -539,7 +540,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                           style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: _liveStable ? AppTheme.successColor : const Color(0xFFF59E0B)),
                         ),
                       ),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       Text(
                         _connectionType == 'tcp' ? 'tcp://${_tcpHostCtrl.text.trim()}:${_tcpPortCtrl.text}' : '$_port @ $_baudRate',
                         style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
@@ -574,7 +575,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
               ),
               child: Text(isConnected ? 'Disconnect' : isFailed ? 'Retry' : 'Test', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             ),
-            SizedBox(width: 4.rs),
+            SizedBox(width: AppSpacing.xs),
             Tooltip(
               message: _connectionType == 'serial'
                   ? 'Tries common baud rates and formats on the selected port'
@@ -589,7 +590,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.auto_fix_high_rounded, size: 13, color: _detectedConfig != null ? AppTheme.successColor : (_canAutoDetect ? scheme.primary : scheme.onSurfaceVariant.withValues(alpha: 0.4))),
-                    SizedBox(width: 4.rs),
+                    SizedBox(width: AppSpacing.xs),
                     Text(_detectedConfig != null ? 'Re-detect' : 'Auto-Detect', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                   ],
                 ),
@@ -604,7 +605,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
   List<Widget> _buildSerialFields(ColorScheme scheme, TextTheme text) {
     return [
       Text('Serial Settings', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-      SizedBox(height: 12.rs),
+      SizedBox(height: AppSpacing.md),
 
       if (_ports.isEmpty) ...[
         Container(
@@ -632,7 +633,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                 onPressed: _detectPorts,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 tooltip: 'Detect available ports',
-                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
               ),
             ],
           ),
@@ -642,14 +643,14 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
         Row(
           children: [
             Expanded(child: _buildDropdown('Port', _port, _ports, (v) => setState(() => _port = v!))),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Padding(
               padding: const EdgeInsets.only(top: 18),
               child: IconButton.outlined(
                 onPressed: _detectPorts,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 tooltip: 'Refresh ports',
-                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
               ),
             ),
             SizedBox(width: 14.rs),
@@ -679,11 +680,11 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
         SizedBox(height: 14.rs),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+          decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: AppRadius.button, border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
           child: Row(
             children: [
               Icon(Icons.terminal_rounded, size: 14, color: scheme.onSurfaceVariant),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text(
                 '$_port  $_baudRate  $_dataBits-${_parity[0]}-$_stopBits  Flow: $_flowControl',
                 style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontWeight: FontWeight.w600, color: scheme.primary),
@@ -698,7 +699,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
   List<Widget> _buildTcpFields(ColorScheme scheme, TextTheme text) {
     return [
       Text('TCP/IP Settings', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-      SizedBox(height: 12.rs),
+      SizedBox(height: AppSpacing.md),
       Row(
         children: [
           Expanded(
@@ -761,7 +762,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
                 Row(
                   children: [
                     Text('Weight Regex', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    SizedBox(width: 4.rs),
+                    SizedBox(width: AppSpacing.xs),
                     Tooltip(message: 'Pattern to extract numeric weight from raw data', child: Icon(Icons.info_outline_rounded, size: 12, color: scheme.onSurfaceVariant)),
                     const Spacer(),
                     if (_weightRegex != _defaultWeightRegex)
@@ -792,11 +793,11 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
       SizedBox(height: 14.rs),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+        decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: AppRadius.button, border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
         child: Row(
           children: [
             Icon(Icons.terminal_rounded, size: 14, color: scheme.onSurfaceVariant),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text(
               'tcp://${_tcpHostCtrl.text.isEmpty ? '...' : _tcpHostCtrl.text}:${_tcpPortCtrl.text}',
               style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontWeight: FontWeight.w600, color: scheme.primary),
@@ -839,9 +840,9 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
             ),
           ),
           if (_showAdvanced) ...[
-            SizedBox(height: 16.rs),
+            SizedBox(height: AppSpacing.lg),
             Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-            SizedBox(height: 16.rs),
+            SizedBox(height: AppSpacing.lg),
 
             // Timeouts
             Text('Timeouts', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
@@ -956,7 +957,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
           ),
           SizedBox(height: 6.rs),
           Text('Stability detection and auto-capture behaviour', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
 
           Text('Uniformity Duration', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
           SizedBox(height: 10.rs),
@@ -988,7 +989,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
           ),
           SizedBox(height: 6.rs),
           Text('Weight must remain uniform for $_uniformitySeconds seconds before capture', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 11)),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
 
           _SwitchRow(
             label: 'Auto-Capture When Stable',
@@ -997,7 +998,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
             onChanged: (v) => setState(() => _autoCaptureWhenStable = v),
             scheme: scheme,
           ),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           _SwitchRow(
             label: 'Allow Manual Entry',
             subtitle: 'Operators can type weight when scale is disconnected',
@@ -1017,18 +1018,18 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
         Row(
           children: [
             Icon(Icons.data_array_rounded, size: 16, color: scheme.onSurfaceVariant),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('Raw Data Stream', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
           ],
         ),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Container(
           width: double.infinity,
           padding: EdgeInsets.all(12.rs),
           constraints: const BoxConstraints(maxHeight: 80),
           decoration: BoxDecoration(
             color: const Color(0xFF1E1E1E),
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
           ),
           child: SingleChildScrollView(
             reverse: true,
@@ -1062,7 +1063,7 @@ class _ScaleStepState extends ConsumerState<ScaleStep> {
           icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
         ),
         if (_delimiter == 'Custom') ...[
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _customDelimiterCtrl,
             style: text.bodySmall?.copyWith(fontFamily: 'monospace'),
@@ -1143,7 +1144,7 @@ class _ConnectionTypeCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           color: isSelected ? scheme.primary.withValues(alpha: 0.05) : scheme.surface,
-          borderRadius: BorderRadius.circular(12.rs),
+          borderRadius: AppRadius.card,
           border: Border.all(
             color: isSelected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4),
             width: isSelected ? 2 : 1,

@@ -14,6 +14,7 @@ import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 String _generateLinkageCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -494,14 +495,14 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                 height: 56,
                 decoration: BoxDecoration(
                   color: scheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16.rs),
+                  borderRadius: AppRadius.dialog,
                   border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                 ),
                 child: Icon(Icons.assignment_ind_rounded, size: 28, color: scheme.primary),
               ),
               SizedBox(height: 20.rs),
               Text('Company Verification', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               Text(
                 'Enter your GSTIN — we\'ll fetch and verify your company details from the GST portal.',
                 style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -511,7 +512,7 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
 
               if (_error != null) ...[
                 _ErrorBanner(message: _error!, scheme: scheme),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
               ],
 
               // GSTIN input card
@@ -519,7 +520,7 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                 padding: EdgeInsets.all(20.rs),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(16.rs),
+                  borderRadius: AppRadius.dialog,
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                 ),
                 child: Column(
@@ -550,15 +551,15 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                         fillColor: scheme.surface,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.rs),
+                          borderRadius: AppRadius.card,
                           borderSide: BorderSide(color: scheme.outlineVariant),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.rs),
+                          borderRadius: AppRadius.card,
                           borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.rs),
+                          borderRadius: AppRadius.card,
                           borderSide: BorderSide(color: scheme.primary, width: 2),
                         ),
                         suffixIcon: _lookingUp
@@ -586,7 +587,7 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                       ),
                     ],
                     if (_lookupResult != null) ...[
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -648,10 +649,10 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
 
               // Company details (progressive reveal after lookup)
               if (_lookupResult != null || _companyName.text.isNotEmpty) ...[
-                SizedBox(height: 24.rs),
+                SizedBox(height: AppSpacing.xl),
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.all(16.rs),
+                  padding: AppSpacing.cardPadding,
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14.rs),
@@ -697,7 +698,7 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                     children: [
                       Text('Registered Address *', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
                       if (_lookupResult?['address'] != null && (_lookupResult!['address'] as String).isNotEmpty) ...[
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
@@ -710,14 +711,14 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                     ],
                   ),
                 ),
-                SizedBox(height: 8.rs),
+                SizedBox(height: AppSpacing.sm),
                 TextField(
                   controller: _address1,
                   readOnly: _existingCompanyId != null,
                   decoration: InputDecoration(
                     hintText: 'Street, Area, Locality',
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.rs)),
+                    border: OutlineInputBorder(borderRadius: AppRadius.card),
                     filled: _existingCompanyId != null,
                     fillColor: _existingCompanyId != null ? scheme.surfaceContainerHigh.withValues(alpha: 0.3) : null,
                     suffixIcon: _existingCompanyId != null ? Icon(Icons.lock_outline_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)) : null,
@@ -732,7 +733,7 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                   decoration: InputDecoration(
                     hintText: 'City, State, PIN (optional)',
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.rs)),
+                    border: OutlineInputBorder(borderRadius: AppRadius.card),
                     filled: _existingCompanyId != null,
                     fillColor: _existingCompanyId != null ? scheme.surfaceContainerHigh.withValues(alpha: 0.3) : null,
                     suffixIcon: _existingCompanyId != null ? Icon(Icons.lock_outline_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)) : null,
@@ -740,7 +741,7 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                 ),
 
                 // Document verification
-                SizedBox(height: 24.rs),
+                SizedBox(height: AppSpacing.xl),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text('Verify Ownership *', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
@@ -751,7 +752,7 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                   style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 11),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 12.rs),
+                SizedBox(height: AppSpacing.md),
                 Row(
                   children: [
                     Expanded(
@@ -768,7 +769,7 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                         text: text,
                       ),
                     ),
-                    SizedBox(width: 12.rs),
+                    SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: _DocUploadTile(
                         label: 'PAN Card',
@@ -786,7 +787,7 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                   ],
                 ),
                 if (_pan.isNotEmpty) ...[
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -798,7 +799,7 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                 ],
               ],
 
-              SizedBox(height: 32.rs),
+              SizedBox(height: AppSpacing.xxl),
             ],
           ),
         ),
@@ -825,7 +826,7 @@ class _ErrorBanner extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           Expanded(child: Text(message, style: TextStyle(fontSize: 12, color: scheme.error))),
         ],
       ),
@@ -846,13 +847,13 @@ class _Chip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(6.rs),
+        borderRadius: AppRadius.chip,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: scheme.onSurfaceVariant),
-          SizedBox(width: 4.rs),
+          SizedBox(width: AppSpacing.xs),
           Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant)),
         ],
       ),
@@ -931,7 +932,7 @@ class _DocUploadTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
             color: _bgColor,
-            borderRadius: BorderRadius.circular(12.rs),
+            borderRadius: AppRadius.card,
             border: Border.all(color: _borderColor),
           ),
           child: Row(

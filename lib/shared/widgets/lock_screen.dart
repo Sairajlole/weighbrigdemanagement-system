@@ -9,6 +9,7 @@ import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class LockScreen extends ConsumerStatefulWidget {
   final VoidCallback onUnlock;
@@ -233,19 +234,19 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 ),
                 child: Icon(Icons.lock_rounded, color: scheme.onPrimary, size: 36),
               ),
-              SizedBox(height: 24.rs),
+              SizedBox(height: AppSpacing.xl),
 
               Text(
                 'Session Locked',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: scheme.onSurface),
               ),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
 
               Text(
                 user?.email ?? 'Enter password or PIN to unlock',
                 style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
               ),
-              SizedBox(height: 32.rs),
+              SizedBox(height: AppSpacing.xxl),
 
               // Face scan button
               if (hasFaceCamera) ...[
@@ -259,11 +260,11 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                         : Icon(Icons.face_rounded, size: 20),
                     label: Text(_faceScanning ? (_faceStatus ?? 'Scanning...') : 'Unlock with Face'),
                     style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.rs)),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadius.card),
                     ),
                   ),
                 ),
-                SizedBox(height: 12.rs),
+                SizedBox(height: AppSpacing.md),
                 Row(
                   children: [
                     Expanded(child: Divider(color: scheme.outlineVariant)),
@@ -274,7 +275,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     Expanded(child: Divider(color: scheme.outlineVariant)),
                   ],
                 ),
-                SizedBox(height: 12.rs),
+                SizedBox(height: AppSpacing.md),
               ],
 
               // Password/PIN field
@@ -295,7 +296,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     ),
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.rs)),
+                  border: OutlineInputBorder(borderRadius: AppRadius.card),
                   errorText: _errorMessage,
                 ),
               ),
@@ -307,7 +308,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 child: FilledButton(
                   onPressed: _isLoading ? null : _unlock,
                   style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.rs)),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.card),
                   ),
                   child: _isLoading
                       ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.onPrimary))

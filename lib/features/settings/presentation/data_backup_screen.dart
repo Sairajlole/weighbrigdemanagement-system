@@ -17,6 +17,7 @@ import 'package:weighbridgemanagement/shared/providers/general_settings_provider
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 // ─── AES-256-CBC encryption (cross-platform, replaces openssl CLI) ──────────
 
@@ -325,7 +326,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
             content: Row(
               children: [
                 const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
-                SizedBox(width: 16.rs),
+                SizedBox(width: AppSpacing.lg),
                 Expanded(child: Text(msg, style: const TextStyle(fontSize: 13))),
               ],
             ),
@@ -513,7 +514,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
       builder: (ctx) => AlertDialog(
         title: Row(children: [
           Icon(Icons.warning_rounded, color: scheme.error),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           const Text('Restore Company Backup'),
         ]),
         content: SizedBox(
@@ -523,10 +524,10 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('This will OVERWRITE existing data with the backup contents.', style: TextStyle(fontWeight: FontWeight.w600, color: scheme.error)),
-              SizedBox(height: 12.rs),
+              SizedBox(height: AppSpacing.md),
               Text('Backup from: ${manifest['timestamp'] ?? 'Unknown'}'),
               Text('Sites: ${manifest['siteCount'] ?? '?'}'),
-              SizedBox(height: 12.rs),
+              SizedBox(height: AppSpacing.md),
               const Text('Existing records with the same ID will be replaced. New records from the backup will be added.'),
             ],
           ),
@@ -558,7 +559,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
             content: Row(
               children: [
                 const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
-                SizedBox(width: 16.rs),
+                SizedBox(width: AppSpacing.lg),
                 Expanded(child: Text(msg, style: const TextStyle(fontSize: 13))),
               ],
             ),
@@ -706,7 +707,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
         builder: (ctx, setSt) => AlertDialog(
           title: Row(children: [
             Icon(Icons.lock_rounded, size: 20, color: scheme.primary),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text(isExport ? 'Encrypt Backup' : 'Decrypt Backup'),
           ]),
           content: SizedBox(
@@ -716,14 +717,14 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(isExport ? 'Choose a password to encrypt the backup file.' : 'Enter the password used during export.', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: ctrl,
                   obscureText: true,
                   decoration: const InputDecoration(labelText: 'Password', isDense: true),
                 ),
                 if (isExport) ...[
-                  SizedBox(height: 12.rs),
+                  SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: confirmCtrl,
                     obscureText: true,
@@ -731,7 +732,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                   ),
                 ],
                 if (error != null) ...[
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   Text(error!, style: TextStyle(fontSize: 11, color: scheme.error)),
                 ],
               ],
@@ -925,9 +926,9 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                     IconButton(
                       icon: const Icon(Icons.arrow_back_rounded, size: 20),
                       onPressed: () => context.go('/settings'),
-                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                     ),
-                    SizedBox(width: 12.rs),
+                    SizedBox(width: AppSpacing.md),
                     Icon(Icons.backup_rounded, size: 20, color: scheme.primary),
                     SizedBox(width: 10.rs),
                     Column(
@@ -943,13 +944,13 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                         onPressed: () { setState(() { _loaded = false; _dirty = false; }); ref.invalidate(_dataBackupProvider); },
                         child: const Text('Cancel'),
                       ),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                     ],
                     FilledButton.icon(
                       onPressed: _dirty && !_saving ? _save : null,
                       icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
                       label: Text(_saving ? 'Saving...' : 'Save'),
-                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                     ),
                   ],
                 ),
@@ -961,7 +962,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8.rs),
+                        borderRadius: AppRadius.button,
                         border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                       ),
                       child: Row(
@@ -971,7 +972,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                             size: 15,
                             color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                           ),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                         ],
                       ),
@@ -986,7 +987,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
               loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
-                padding: EdgeInsets.all(28.rs),
+                padding: AppSpacing.pagePadding,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -996,36 +997,36 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(child: _buildBackupSection(scheme, text)),
-                          SizedBox(width: 16.rs),
+                          SizedBox(width: AppSpacing.lg),
                           Expanded(child: _buildCctvStorageSection(scheme, text)),
                         ],
                       ),
                     ),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     // ═══ Row 2: Folder Structure + Data Retention ═══
                     IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(child: _buildFolderStructureSection(scheme, text)),
-                          SizedBox(width: 16.rs),
+                          SizedBox(width: AppSpacing.lg),
                           Expanded(child: _buildDataRetentionSection(scheme, text)),
                         ],
                       ),
                     ),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     // ═══ Row 3: Cloud Sync + System Settings ═══
                     IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(child: _buildCloudSyncSection(scheme, text)),
-                          SizedBox(width: 16.rs),
+                          SizedBox(width: AppSpacing.lg),
                           Expanded(child: _buildSystemSettingsSection(scheme, text)),
                         ],
                       ),
                     ),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     // ═══ Row 4: Company Backup ═══
                     _buildCompanyBackupSection(scheme, text),
                   ],
@@ -1070,7 +1071,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(6.rs), border: Border.all(color: scheme.outlineVariant)),
+              decoration: BoxDecoration(borderRadius: AppRadius.chip, border: Border.all(color: scheme.outlineVariant)),
               child: Text(_backupTime, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
             ),
           )),
@@ -1081,14 +1082,14 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
             onTap: () => _pickFolder(_basePath, (v) => _basePath = v),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(6.rs), color: scheme.surfaceContainerLow),
+              decoration: BoxDecoration(borderRadius: AppRadius.chip, color: scheme.surfaceContainerLow),
               child: Text(_basePath, style: text.bodySmall, overflow: TextOverflow.ellipsis),
             ),
           ),
         )),
         SizedBox(height: 14.rs),
         Text('Include in backup:', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Wrap(
           spacing: 6,
           runSpacing: 6,
@@ -1131,7 +1132,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
             onTap: () => _pickFolder(_cctvPath, (v) => _cctvPath = v),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(6.rs), color: scheme.surfaceContainerLow),
+              decoration: BoxDecoration(borderRadius: AppRadius.chip, color: scheme.surfaceContainerLow),
               child: Text(_cctvPath, style: text.bodySmall, overflow: TextOverflow.ellipsis),
             ),
           ),
@@ -1169,7 +1170,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
         _buildRow('File Naming', scheme, text, child: Expanded(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(6.rs), color: scheme.surfaceContainerLow),
+            decoration: BoxDecoration(borderRadius: AppRadius.chip, color: scheme.surfaceContainerLow),
             child: Text(_cctvNamingFormat, style: text.bodySmall?.copyWith(fontFamily: 'Courier', fontSize: 11)),
           ),
         )),
@@ -1195,14 +1196,14 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
           padding: EdgeInsets.all(12.rs),
           decoration: BoxDecoration(
             color: const Color(0xFF1E1E2E),
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
           ),
           child: Text(
             _folderPreview,
             style: const TextStyle(fontFamily: 'Courier', fontSize: 10.5, height: 1.5, color: Color(0xFFCDD6F4)),
           ),
         ),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
         Row(
           children: [
             OutlinedButton.icon(
@@ -1254,7 +1255,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                 child: Switch(value: _autoPurgeArchived, onChanged: (v) { setState(() => _autoPurgeArchived = v); _markDirty(); }),
               ),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('Auto-purge archived records', style: text.bodySmall),
           ],
         ),
@@ -1366,7 +1367,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                 child: Switch(value: _offlineMode, onChanged: (v) { setState(() => _offlineMode = v); _markDirty(); }),
               ),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('Offline Mode', style: text.bodySmall),
             SizedBox(width: 6.rs),
             Text('(queue writes when no internet)', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
@@ -1420,7 +1421,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
             showDialog(
               context: context,
               builder: (ctx) => AlertDialog(
-                title: Row(children: [Icon(Icons.warning_rounded, color: scheme.error), SizedBox(width: 8.rs), const Text('Reset All Settings')]),
+                title: Row(children: [Icon(Icons.warning_rounded, color: scheme.error), SizedBox(width: AppSpacing.sm), const Text('Reset All Settings')]),
                 content: const Text('This will reset ALL system settings to factory defaults. This action cannot be undone.'),
                 actions: [
                   TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
@@ -1470,7 +1471,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
           'Export or restore the entire company — all sites, weighbridges, settings, operators, customers, vehicles, weighments, and audit logs. Use for full disaster recovery or migrating to a new system.',
           style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
         Row(
           children: [
             Icon(Icons.info_outline_rounded, size: 14, color: scheme.primary),
@@ -1483,7 +1484,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
             ),
           ],
         ),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -1545,7 +1546,7 @@ class _SectionCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
@@ -1576,7 +1577,7 @@ class _SectionCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: EdgeInsets.all(24.rs),
+            padding: AppSpacing.pagePadding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: children,
@@ -1610,7 +1611,7 @@ class _ChipGroup extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: selected ? scheme.primaryContainer : Colors.transparent,
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
                 border: Border.all(color: selected ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.4)),
               ),
               child: Text(opt, style: TextStyle(fontSize: 11, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
@@ -1638,7 +1639,7 @@ class _ToggleChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: value ? scheme.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           border: Border.all(color: value ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.4)),
         ),
         child: Row(

@@ -8,6 +8,7 @@ import 'package:weighbridgemanagement/shared/services/gate_service.dart';
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/connection_badge.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class WeighmentStatusBar extends ConsumerWidget {
   const WeighmentStatusBar({super.key});
@@ -41,7 +42,7 @@ class WeighmentStatusBar extends ConsumerWidget {
             label: 'Scale',
             detail: scaleConnected ? 'OK' : 'Off',
           ),
-          SizedBox(width: 16.rs),
+          SizedBox(width: AppSpacing.lg),
           // Gate status
           if (gatesEnabled) ...[
             ConnectionBadge(
@@ -49,13 +50,13 @@ class WeighmentStatusBar extends ConsumerWidget {
               label: 'Entry',
               detail: _gateLabel(entryState),
             ),
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             ConnectionBadge(
               status: _gateConnectionStatus(exitState),
               label: 'Exit',
               detail: _gateLabel(exitState),
             ),
-            SizedBox(width: 16.rs),
+            SizedBox(width: AppSpacing.lg),
           ],
           // Camera count
           ConnectionBadge(
@@ -63,7 +64,7 @@ class WeighmentStatusBar extends ConsumerWidget {
             label: 'Cameras',
             detail: '${cameras.length}',
           ),
-          SizedBox(width: 16.rs),
+          SizedBox(width: AppSpacing.lg),
           // AI sidecar
           ConnectionBadge(
             status: aiAvailable ? ConnectionStatus.connected : ConnectionStatus.disconnected,

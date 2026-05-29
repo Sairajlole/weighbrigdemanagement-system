@@ -13,6 +13,7 @@ import 'package:weighbridgemanagement/shared/services/tally_service.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 // ─── Provider ────────────────────────────────────────────────────────────────
 
@@ -257,9 +258,9 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                           onPressed: () => context.go('/settings'),
                           icon: Icon(Icons.arrow_back_rounded, size: 20, color: scheme.onSurface),
                           tooltip: 'Back',
-                          style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                          style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                         ),
-                        SizedBox(width: 12.rs),
+                        SizedBox(width: AppSpacing.md),
                         Icon(Icons.hub_rounded, size: 20, color: scheme.primary),
                         SizedBox(width: 10.rs),
                         Column(
@@ -275,7 +276,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                             onPressed: () { setState(() { _loaded = false; _savedSnapshot = ''; }); ref.invalidate(_integrationsProvider); },
                             child: const Text('Cancel'),
                           ),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                         ],
                         FilledButton.icon(
                           onPressed: _dirty && !_saving ? _save : null,
@@ -285,7 +286,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                           label: Text(_saving ? 'Saving...' : 'Save'),
                           style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                            shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                           ),
                         ),
                       ],
@@ -298,7 +299,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
                             color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8.rs),
+                            borderRadius: AppRadius.button,
                             border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                           ),
                           child: Row(
@@ -308,7 +309,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                                 size: 15,
                                 color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                               ),
-                              SizedBox(width: 8.rs),
+                              SizedBox(width: AppSpacing.sm),
                               Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                             ],
                           ),
@@ -320,13 +321,13 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
               // Content
               Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.all(28.rs),
+                  padding: AppSpacing.pagePadding,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const ProFeatureBanner(feature: 'Integrations'),
                       _buildErpSection(scheme, text),
-                      SizedBox(height: 24.rs),
+                      SizedBox(height: AppSpacing.xl),
                       _buildInfraSection(scheme, text),
                       SizedBox(height: 40.rs),
                     ],
@@ -352,7 +353,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
       text: text,
       children: [
         _buildInfoRow('Connect to accounting and ERP systems to automatically sync weighment data, customers, and materials.', scheme, text),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
         _buildTallyContent(scheme, text),
         SizedBox(height: 20.rs),
         const Divider(height: 1),
@@ -370,7 +371,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
       text: text,
       children: [
         _buildInfoRow('LED display boards and cloud backup configuration.', scheme, text),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
         _buildHardwareContent(scheme, text),
         SizedBox(height: 20.rs),
         const Divider(height: 1),
@@ -386,10 +387,10 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _subHeader('Tally ERP', Icons.account_balance_rounded, scheme, text),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         _toggleRow('Enable Tally sync', _tallyEnabled, (v) { setState(() => _tallyEnabled = v); _markDirty(); }, scheme, text),
         if (_tallyEnabled) ...[
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Expanded(child: _ipField('Host / IP', _tallyHost, hint: '192.168.1.100', scheme: scheme, text: text)),
@@ -403,7 +404,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
           _dropdownRow('Sync Mode', _tallySyncMode, ['auto', 'manual', 'scheduled'], (v) { setState(() => _tallySyncMode = v); _markDirty(); }, scheme, text),
           SizedBox(height: 14.rs),
           Text('Data to Push', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           _toggleRow('Push weighment vouchers', _tallyPushVouchers, (v) { setState(() => _tallyPushVouchers = v); _markDirty(); }, scheme, text),
           _toggleRow('Push customer ledgers', _tallyPushLedgers, (v) { setState(() => _tallyPushLedgers = v); _markDirty(); }, scheme, text),
           _toggleRow('Map materials to stock items', _tallyMapMaterials, (v) { setState(() => _tallyMapMaterials = v); _markDirty(); }, scheme, text),
@@ -415,19 +416,19 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                 icon: const Icon(Icons.wifi_tethering_rounded, size: 16),
                 label: const Text('Test Connection'),
               ),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               if (_tallyStatus == 'testing')
                 const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
               else if (_tallyStatus == 'connected')
                 Row(children: [
                   const Icon(Icons.check_circle_rounded, size: 16, color: Colors.green),
-                  SizedBox(width: 4.rs),
+                  SizedBox(width: AppSpacing.xs),
                   Text('Connected', style: text.labelSmall?.copyWith(color: Colors.green, fontWeight: FontWeight.w600)),
                 ])
               else if (_tallyStatus == 'failed')
                 Row(children: [
                   Icon(Icons.error_rounded, size: 16, color: scheme.error),
-                  SizedBox(width: 4.rs),
+                  SizedBox(width: AppSpacing.xs),
                   Text('Connection failed', style: text.labelSmall?.copyWith(color: scheme.error, fontWeight: FontWeight.w600)),
                 ]),
             ],
@@ -475,7 +476,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _subHeader('Oracle ERP', Icons.business_rounded, scheme, text),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         _toggleRow('Enable Oracle ERP export', _oracleEnabled, (v) { setState(() => _oracleEnabled = v); _markDirty(); }, scheme, text),
         if (_oracleEnabled) ...[
           SizedBox(height: 14.rs),
@@ -494,7 +495,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
           _field('Password', _oraclePassword, hint: '••••••••', obscure: true, scheme: scheme, text: text, onChanged: (_) => _markDirty()),
           SizedBox(height: 14.rs),
           Text('Data Export', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           _toggleRow('Push weighments', _oraclePushWeighments, (v) { setState(() => _oraclePushWeighments = v); _markDirty(); }, scheme, text),
           SizedBox(height: 6.rs),
           _toggleRow('Push customers (as trading partners)', _oraclePushCustomers, (v) { setState(() => _oraclePushCustomers = v); _markDirty(); }, scheme, text),
@@ -511,7 +512,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                 label: Text(_oracleStatus == 'testing' ? 'Testing...' : 'Test Connection', style: const TextStyle(fontSize: 12)),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                 ),
               ),
               SizedBox(width: 10.rs),
@@ -522,7 +523,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                   label: const Text('Export Now', style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                   ),
                 ),
             ],
@@ -545,9 +546,9 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.refresh_rounded, size: 18),
               tooltip: 'Scan available ports',
-              style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+              style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
             ),
-            SizedBox(width: 4.rs),
+            SizedBox(width: AppSpacing.xs),
             FilledButton.tonalIcon(
               onPressed: () {
                 setState(() {
@@ -570,7 +571,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
             ),
           ],
         ),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
         if (_availablePorts.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -612,7 +613,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                   Row(
                     children: [
                       Icon(Icons.tv_rounded, size: 16, color: (board['enabled'] == true) ? scheme.primary : scheme.outlineVariant),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: TextField(
                           controller: TextEditingController(text: board['name'] as String? ?? ''),
@@ -626,7 +627,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                         onChanged: (v) { setState(() => board['enabled'] = v); _markDirty(); },
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      SizedBox(width: 4.rs),
+                      SizedBox(width: AppSpacing.xs),
                       IconButton(
                         onPressed: () { setState(() => _displayBoards.removeAt(i)); _markDirty(); },
                         icon: Icon(Icons.delete_outline_rounded, size: 16, color: scheme.error),
@@ -648,9 +649,9 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                             scheme, text,
                           ),
                         ),
-                        SizedBox(width: 12.rs),
+                        SizedBox(width: AppSpacing.md),
                         SizedBox(width: 120, child: _dropdownRow('Protocol', board['protocol'] as String? ?? 'serial', ['serial', 'tcp', 'modbus'], (v) { setState(() => board['protocol'] = v); _markDirty(); }, scheme, text)),
-                        SizedBox(width: 12.rs),
+                        SizedBox(width: AppSpacing.md),
                         SizedBox(width: 110, child: _dropdownRow('Baud', '${board['baudRate'] ?? 9600}', ['9600', '19200', '38400', '115200'], (v) { setState(() => board['baudRate'] = int.parse(v)); _markDirty(); }, scheme, text)),
                       ],
                     ),
@@ -668,7 +669,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _subHeader('Google Drive Backup', Icons.add_to_drive_rounded, scheme, text),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         _toggleRow('Enable Google Drive backup', _gdriveEnabled, (v) { setState(() => _gdriveEnabled = v); _markDirty(); }, scheme, text),
         if (_gdriveEnabled) ...[
           SizedBox(height: 10.rs),
@@ -743,7 +744,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
           decoration: InputDecoration(
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant)),
+            border: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant)),
           ),
           style: text.bodySmall,
           icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: scheme.onSurfaceVariant),
@@ -768,7 +769,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     return Row(
       children: [
         Icon(icon, size: 16, color: scheme.primary),
-        SizedBox(width: 8.rs),
+        SizedBox(width: AppSpacing.sm),
         Text(title, style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
       ],
     );
@@ -779,7 +780,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6.rs),
+        borderRadius: AppRadius.chip,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -788,7 +789,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
             padding: const EdgeInsets.only(top: 1),
             child: Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary.withValues(alpha: 0.6)),
           ),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           Expanded(child: Text(infoText, style: textTheme.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant, height: 1.4))),
         ],
       ),
@@ -812,7 +813,7 @@ class _Section extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
@@ -832,7 +833,7 @@ class _Section extends StatelessWidget {
                   width: 32, height: 32,
                   decoration: BoxDecoration(
                     color: scheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8.rs),
+                    borderRadius: AppRadius.button,
                   ),
                   child: Icon(icon, size: 16, color: scheme.primary),
                 ),
@@ -842,7 +843,7 @@ class _Section extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: EdgeInsets.all(24.rs),
+            padding: AppSpacing.pagePadding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: children,

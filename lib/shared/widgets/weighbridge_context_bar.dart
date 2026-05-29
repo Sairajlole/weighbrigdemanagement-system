@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 final _weighbridgeListProvider = FutureProvider<List<WbEntry>>((ref) async {
   final ctx = ref.watch(siteContextProvider);
@@ -55,9 +56,9 @@ class WeighbridgeContextBar extends ConsumerWidget {
       child: Row(
         children: [
           Icon(Icons.scale_rounded, size: 14, color: scheme.primary),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           Text('$label:', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           if (hasMultiple)
             _WbDropdown(
               allWbs: allWbs,
@@ -81,7 +82,7 @@ class WeighbridgeContextBar extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: scheme.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
                 border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
               ),
               child: Text(
@@ -166,7 +167,7 @@ class _WbDropdownState extends State<_WbDropdown> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: _open ? scheme.primary.withValues(alpha: 0.12) : scheme.primary.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(8.rs),
+                borderRadius: AppRadius.button,
                 border: Border.all(color: _open ? scheme.primary.withValues(alpha: 0.5) : scheme.primary.withValues(alpha: 0.2)),
               ),
               child: Row(
@@ -180,7 +181,7 @@ class _WbDropdownState extends State<_WbDropdown> {
                     ),
                     child: Icon(Icons.scale_rounded, size: 11, color: scheme.primary),
                   ),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   if (current != null) ...[
                     Text(current.siteName, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w500)),
                     Padding(
@@ -219,16 +220,16 @@ class _WbDropdownState extends State<_WbDropdown> {
           child: Material(
             elevation: 8,
             shadowColor: Colors.black.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12.rs),
+            borderRadius: AppRadius.card,
             color: scheme.surface,
             child: Container(
               constraints: const BoxConstraints(minWidth: 240, maxWidth: 320, maxHeight: 300),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12.rs),
+                borderRadius: AppRadius.card,
                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12.rs),
+                borderRadius: AppRadius.card,
                 child: _buildList(scheme, text),
               ),
             ),

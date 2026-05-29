@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class AiConfirmationResult {
   final String confirmedValue;
@@ -60,11 +61,11 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
             : scheme.error;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
         child: Padding(
-          padding: EdgeInsets.all(24.rs),
+          padding: AppSpacing.pagePadding,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,7 +73,7 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
               Row(
                 children: [
                   Icon(Icons.memory_outlined, size: 20, color: scheme.primary),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   Text(widget.title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: scheme.onSurface)),
                   const Spacer(),
                   Container(
@@ -85,14 +86,14 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
                   ),
                 ],
               ),
-              SizedBox(height: 16.rs),
+              SizedBox(height: AppSpacing.lg),
 
               if (widget.frame != null) ...[
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   child: Image.memory(widget.frame!, height: 140, width: double.infinity, fit: BoxFit.cover),
                 ),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
               ],
 
               Text(widget.fieldLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
@@ -104,7 +105,7 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(8.rs),
+                    borderRadius: AppRadius.button,
                     border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                   ),
                   child: Text(
@@ -121,11 +122,11 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
                   decoration: InputDecoration(
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                    border: OutlineInputBorder(borderRadius: AppRadius.button),
                   ),
                 ),
               ],
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
 
               if (widget.suggestions != null && widget.suggestions!.isNotEmpty) ...[
                 Wrap(
@@ -139,10 +140,10 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
                     visualDensity: VisualDensity.compact,
                   )).toList(),
                 ),
-                SizedBox(height: 12.rs),
+                SizedBox(height: AppSpacing.md),
               ],
 
-              SizedBox(height: 16.rs),
+              SizedBox(height: AppSpacing.lg),
               Row(
                 children: [
                   TextButton(
@@ -156,7 +157,7 @@ class _AiConfirmationDialogState extends State<AiConfirmationDialog> {
                       icon: const Icon(Icons.edit_outlined, size: 14),
                       label: const Text('Correct'),
                     ),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   FilledButton.icon(
                     onPressed: () {
                       final value = _editing ? _controller.text.trim() : widget.prediction;

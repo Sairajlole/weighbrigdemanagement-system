@@ -27,6 +27,7 @@ import 'package:weighbridgemanagement/shared/widgets/background_art.dart';
 import 'package:weighbridgemanagement/shared/widgets/inactivity_wrapper.dart';
 import 'package:weighbridgemanagement/shared/widgets/security_overlay.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 final sidebarCollapsedProvider = StateProvider<bool>((ref) => false);
 
@@ -131,7 +132,7 @@ class AppShell extends ConsumerWidget {
                     child: Row(
                       children: [
                         Icon(Icons.block_rounded, size: 16, color: Theme.of(context).colorScheme.error),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         Text(
                           'Your account has been deactivated. You cannot perform weighments. Contact your administrator.',
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onErrorContainer),
@@ -182,7 +183,7 @@ class _SidebarState extends ConsumerState<_Sidebar> {
       ),
       child: Column(
         children: [
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           Container(
             width: 36,
             height: 36,
@@ -197,9 +198,9 @@ class _SidebarState extends ConsumerState<_Sidebar> {
             ),
             child: Icon(Icons.scale_rounded, color: scheme.onPrimary, size: 18),
           ),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Divider(height: 1, indent: 14, endIndent: 14, color: scheme.outlineVariant.withValues(alpha: 0.15)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -226,7 +227,7 @@ class _SidebarState extends ConsumerState<_Sidebar> {
             ),
           ),
           Divider(height: 1, indent: 14, endIndent: 14, color: scheme.outlineVariant.withValues(alpha: 0.15)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: _ProfileTile(
@@ -235,7 +236,7 @@ class _SidebarState extends ConsumerState<_Sidebar> {
               profile: profile,
             ),
           ),
-          SizedBox(height: 4.rs),
+          SizedBox(height: AppSpacing.xs),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: _NavTile(
@@ -264,7 +265,7 @@ class _SidebarState extends ConsumerState<_Sidebar> {
               },
             ),
           ),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           _ConnectivityDot(ref: ref),
           SizedBox(height: 14.rs),
         ],
@@ -329,7 +330,7 @@ class _NavTileState extends State<_NavTile> {
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
                   color: scheme.error,
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(color: scheme.surface, width: 1.5),
                 ),
                 alignment: Alignment.center,
@@ -546,7 +547,7 @@ class _ConnectivityDotState extends State<_ConnectivityDot> {
                     padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                     decoration: BoxDecoration(
                       color: alertCount > 0 ? scheme.error : scheme.tertiary,
-                      borderRadius: BorderRadius.circular(6.rs),
+                      borderRadius: AppRadius.chip,
                     ),
                     child: Text(
                       badgeCount > 9 ? '9+' : '$badgeCount',
@@ -616,7 +617,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
               border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
             ),
             child: SingleChildScrollView(
-              padding: EdgeInsets.all(16.rs),
+              padding: AppSpacing.cardPadding,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,27 +632,27 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                       Text(isOnline ? 'Online' : 'Offline', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                     ],
                   ),
-                  SizedBox(height: 12.rs),
+                  SizedBox(height: AppSpacing.md),
                   Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-                  SizedBox(height: 12.rs),
+                  SizedBox(height: AppSpacing.md),
 
                   if (_pendingCount == 0)
                     Row(
                       children: [
                         Icon(Icons.check_circle_rounded, size: 16, color: AppTheme.successColor),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         Text('All data synced', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                       ],
                     )
                   else ...[
                     Text('Pending sync', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    SizedBox(height: 8.rs),
+                    SizedBox(height: AppSpacing.sm),
                     ..._breakdown.entries.map((e) => Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Row(
                         children: [
                           Icon(_iconForType(e.key), size: 14, color: scheme.onSurfaceVariant),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Text(_labelForType(e.key), style: text.bodySmall),
                           const Spacer(),
                           Container(
@@ -677,7 +678,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                             size: 14,
                             color: queue.lastSyncSuccess ? scheme.onSurfaceVariant : scheme.error,
                           ),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Text(
                             'Last sync: ${_formatTime(queue.lastSyncAt!)}',
                             style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -687,7 +688,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                     ),
 
                   if (_pendingCount > 0) ...[
-                    SizedBox(height: 12.rs),
+                    SizedBox(height: AppSpacing.md),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
@@ -727,7 +728,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                         children: [
                           SizedBox(height: 14.rs),
                           Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-                          SizedBox(height: 12.rs),
+                          SizedBox(height: AppSpacing.md),
                           Row(
                             children: [
                               Icon(Icons.shield_rounded, size: 14, color: scheme.error),
@@ -743,7 +744,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                               ),
                             ],
                           ),
-                          SizedBox(height: 8.rs),
+                          SizedBox(height: AppSpacing.sm),
                           ...items.take(5).map((n) {
                             final title = n['title'] as String? ?? '';
                             final body = n['body'] as String? ?? '';
@@ -757,7 +758,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                               padding: EdgeInsets.all(10.rs),
                               decoration: BoxDecoration(
                                 color: scheme.errorContainer.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8.rs),
+                                borderRadius: AppRadius.button,
                                 border: Border.all(color: scheme.error.withValues(alpha: 0.1)),
                               ),
                               child: Column(
@@ -796,14 +797,14 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                         children: [
                           SizedBox(height: 14.rs),
                           Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-                          SizedBox(height: 12.rs),
+                          SizedBox(height: AppSpacing.md),
                           Text('Device', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
                           SizedBox(height: 10.rs),
                           _DeviceStatRow(label: 'CPU', percent: stats.cpuPercent, scheme: scheme),
-                          SizedBox(height: 8.rs),
+                          SizedBox(height: AppSpacing.sm),
                           _DeviceStatRow(label: 'RAM', percent: stats.memPercent, scheme: scheme),
                           if (stats.tempCelsius != null) ...[
-                            SizedBox(height: 8.rs),
+                            SizedBox(height: AppSpacing.sm),
                             _DeviceStatRow(label: 'TEMP', percent: stats.tempCelsius!, maxVal: 100, suffix: '°C', scheme: scheme),
                           ],
                         ],
@@ -890,7 +891,7 @@ class _DeviceStatRow extends StatelessWidget {
             ),
           ),
         ),
-        SizedBox(width: 8.rs),
+        SizedBox(width: AppSpacing.sm),
         SizedBox(
           width: 32,
           child: Text(displayVal, textAlign: TextAlign.right, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),

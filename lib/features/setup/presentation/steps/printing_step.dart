@@ -8,6 +8,7 @@ import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.d
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class PrintingStep extends ConsumerStatefulWidget {
   const PrintingStep({super.key});
@@ -340,12 +341,12 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Printing', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Text(
             'Configure printers and docket printing rules for weighment records.',
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          SizedBox(height: 32.rs),
+          SizedBox(height: AppSpacing.xxl),
 
           // Row 1: Printers + Assignment side by side
           Row(
@@ -355,12 +356,12 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
               Expanded(
                 child: _buildCard(scheme, children: [
                   _buildSectionHeader('Detected Printers', Icons.print_rounded, scheme, text),
-                  SizedBox(height: 12.rs),
+                  SizedBox(height: AppSpacing.md),
                   if (_printers.isEmpty)
                     _buildEmptyState('No printers detected.', scheme, text)
                   else
                     ..._printers.asMap().entries.map((e) => _buildPrinterCard(e.key, e.value, scheme, text)),
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   OutlinedButton.icon(
                     onPressed: _detectPrinters,
                     icon: const Icon(Icons.refresh_rounded, size: 14),
@@ -368,7 +369,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                     ),
                   ),
                 ]),
@@ -381,7 +382,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
                   children: [
                     _buildCard(scheme, children: [
                       _buildSectionHeader('Printer Assignment', Icons.swap_horiz_rounded, scheme, text),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       _buildAssignmentRowWithTray('1st Weighment:', _grossPrinter, _grossTray,
                         (v) => setState(() { _grossPrinter = v; _grossTray = ''; }),
                         (v) => setState(() => _grossTray = v), scheme, text),
@@ -393,24 +394,24 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
                       Row(
                         children: [
                           Text('Backup:', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           SizedBox(height: 28, child: Switch(value: _backupEnabled, onChanged: (v) => setState(() => _backupEnabled = v))),
                           if (_backupEnabled) ...[
-                            SizedBox(width: 8.rs),
+                            SizedBox(width: AppSpacing.sm),
                             Flexible(child: _buildPrinterDropdown(_backupPrinter, _printerNames.where((n) => n != _grossPrinter || n != _tarePrinter).toList(),
                                 (v) => setState(() { _backupPrinter = v; _backupTray = ''; }), scheme)),
                             if (_getTraysForPrinter(_backupPrinter).isNotEmpty) ...[
-                              SizedBox(width: 8.rs),
+                              SizedBox(width: AppSpacing.sm),
                               _buildTrayDropdown(_backupTray, _getTraysForPrinter(_backupPrinter), (v) => setState(() => _backupTray = v), scheme),
                             ],
                           ],
                         ],
                       ),
                     ]),
-                    SizedBox(height: 16.rs),
+                    SizedBox(height: AppSpacing.lg),
                     _buildCard(scheme, children: [
                       _buildSectionHeader('Print Rules', Icons.tune_rounded, scheme, text),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Wrap(
                         spacing: 16,
                         runSpacing: 10,
@@ -431,7 +432,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
             ],
           ),
 
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
 
           // Row 2: Show config only for printer types that exist in detected printers
           if (_detectedTypes.isNotEmpty)
@@ -442,7 +443,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
                   Expanded(
                     child: _buildCard(scheme, children: [
                       _buildSectionHeader('Page Printer', Icons.description_rounded, scheme, text),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Text('Content', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
                       SizedBox(height: 6.rs),
                       Wrap(
@@ -455,13 +456,13 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
                         ],
                       ),
                       if (_normalPdf417) ...[
-                        SizedBox(height: 8.rs),
+                        SizedBox(height: AppSpacing.sm),
                         Row(
                           children: [
                             Text('PDF417:', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
                             SizedBox(width: 6.rs),
                             _buildSelectChip('Top', _normalPdf417Position == 'top', () => setState(() => _normalPdf417Position = 'top'), scheme),
-                            SizedBox(width: 4.rs),
+                            SizedBox(width: AppSpacing.xs),
                             _buildSelectChip('Bottom', _normalPdf417Position == 'bottom', () => setState(() => _normalPdf417Position = 'bottom'), scheme),
                           ],
                         ),
@@ -470,12 +471,12 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
                   ),
                 ],
                 if (_detectedTypes.contains('normal') && (_detectedTypes.contains('thermal') || _detectedTypes.contains('dotMatrix')))
-                  SizedBox(width: 16.rs),
+                  SizedBox(width: AppSpacing.lg),
                 if (_detectedTypes.contains('thermal')) ...[
                   Expanded(
                     child: _buildCard(scheme, children: [
                       _buildSectionHeader('Thermal', Icons.receipt_long_rounded, scheme, text),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Text('Content', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
                       SizedBox(height: 6.rs),
                       Wrap(
@@ -486,7 +487,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
                           _buildToggleChip('PDF417', _thermalPdf417, (v) => setState(() => _thermalPdf417 = v), scheme),
                         ],
                       ),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Text('Cut Mode', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
                       SizedBox(height: 6.rs),
                       Wrap(
@@ -499,12 +500,12 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
                   ),
                 ],
                 if (_detectedTypes.contains('thermal') && _detectedTypes.contains('dotMatrix'))
-                  SizedBox(width: 16.rs),
+                  SizedBox(width: AppSpacing.lg),
                 if (_detectedTypes.contains('dotMatrix')) ...[
                   Expanded(
                     child: _buildCard(scheme, children: [
                       _buildSectionHeader('Dot Matrix', Icons.grid_on_rounded, scheme, text),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Text('Paper Width', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
                       SizedBox(height: 6.rs),
                       Row(
@@ -522,7 +523,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
                           Text('${_dmPaperWidth.toStringAsFixed(1)}″', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
                         ],
                       ),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Text('Content', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
                       SizedBox(height: 6.rs),
                       Wrap(
@@ -539,12 +540,12 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
               ],
             ),
 
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
             ),
             child: Row(
@@ -576,7 +577,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
       padding: EdgeInsets.all(10.rs),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(6.rs),
+        borderRadius: AppRadius.chip,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -599,14 +600,14 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
             child: Column(
               children: [
                 Container(height: 2, width: double.infinity, color: Colors.black87),
-                SizedBox(height: 4.rs),
+                SizedBox(height: AppSpacing.xs),
                 _buildDocketLine('Ticket No:', 'WB-00142', scheme),
                 _buildDocketLine('Vehicle:', 'MH-04-AB-1234', scheme),
                 _buildDocketLine('Material:', 'Sand', scheme),
                 _buildDocketLine('Gross:', '24,500 kg', scheme),
                 _buildDocketLine('Tare:', '8,200 kg', scheme),
                 _buildDocketLine('Net:', '16,300 kg', scheme),
-                SizedBox(height: 4.rs),
+                SizedBox(height: AppSpacing.xs),
                 Container(height: 1, width: double.infinity, color: Colors.black26),
               ],
             ),
@@ -674,10 +675,10 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
 
   Widget _buildCard(ColorScheme scheme, {required List<Widget> children}) {
     return Container(
-      padding: EdgeInsets.all(16.rs),
+      padding: AppSpacing.cardPadding,
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLow.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -691,7 +692,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
     return Row(
       children: [
         Icon(icon, size: 18, color: scheme.primary),
-        SizedBox(width: 8.rs),
+        SizedBox(width: AppSpacing.sm),
         Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
       ],
     );
@@ -699,7 +700,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
 
   Widget _buildEmptyState(String message, ColorScheme scheme, TextTheme text) {
     return Container(
-      padding: EdgeInsets.all(16.rs),
+      padding: AppSpacing.cardPadding,
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(10.rs),
@@ -771,7 +772,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6.rs),
+                  borderRadius: AppRadius.chip,
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
                 ),
                 child: DropdownButton<String>(
@@ -785,7 +786,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(typeIcons[e.key], size: 12, color: scheme.onSurfaceVariant),
-                        SizedBox(width: 4.rs),
+                        SizedBox(width: AppSpacing.xs),
                         Text(e.value, style: const TextStyle(fontSize: 11)),
                       ],
                     ),
@@ -795,10 +796,10 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
                   },
                 ),
               ),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               InkWell(
                 onTap: () => _removePrinter(index),
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
                 child: Padding(
                   padding: EdgeInsets.all(4.rs),
                   child: Icon(Icons.close_rounded, size: 14, color: scheme.error),
@@ -808,12 +809,12 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
           ),
           // Page printer: tray → paper size mapping (or single paper size if no trays)
           if (type == 'normal' && trays.isNotEmpty) ...[
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             Container(
               padding: EdgeInsets.all(8.rs),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8.rs),
+                borderRadius: AppRadius.button,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -830,7 +831,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: scheme.primaryContainer.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(6.rs),
+                          borderRadius: AppRadius.chip,
                           border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
                         ),
                         child: Row(
@@ -839,7 +840,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
                             Text(tray, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: scheme.onSurface)),
                             SizedBox(width: 6.rs),
                             Icon(Icons.arrow_forward_rounded, size: 10, color: scheme.onSurfaceVariant),
-                            SizedBox(width: 4.rs),
+                            SizedBox(width: AppSpacing.xs),
                             SizedBox(
                               height: 22,
                               child: DropdownButton<String>(
@@ -869,11 +870,11 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
           ],
           // Page printer without trays: single paper size
           if (type == 'normal' && trays.isEmpty) ...[
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             Row(
               children: [
                 Text('Paper:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 ...['A4', 'A5', 'Letter', 'Legal'].map((size) => Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: _buildSelectChip(size, (printer['paperSize'] as String? ?? _normalPaperSize) == size, () {
@@ -885,11 +886,11 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
           ],
           // Thermal: width selection per printer
           if (type == 'thermal') ...[
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             Row(
               children: [
                 Text('Width:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 ...['58mm', '80mm'].map((w) => Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: _buildSelectChip(w, (printer['thermalWidth'] as String? ?? _thermalWidth) == w, () {
@@ -911,7 +912,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
         SizedBox(width: 120, child: Text(label, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600))),
         Flexible(child: _buildPrinterDropdown(printer, _printerNames, onPrinterChanged, scheme)),
         if (trays.isNotEmpty) ...[
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           _buildTrayDropdown(tray, trays, onTrayChanged, scheme),
         ],
       ],
@@ -931,25 +932,25 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             decoration: BoxDecoration(
               color: isAuto ? scheme.tertiary.withValues(alpha: 0.12) : Colors.transparent,
-              borderRadius: BorderRadius.circular(6.rs),
+              borderRadius: AppRadius.chip,
               border: Border.all(color: isAuto ? scheme.tertiary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.4)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.auto_mode_rounded, size: 11, color: isAuto ? scheme.tertiary : scheme.onSurfaceVariant),
-                SizedBox(width: 4.rs),
+                SizedBox(width: AppSpacing.xs),
                 Text('Auto', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isAuto ? scheme.tertiary : scheme.onSurfaceVariant)),
               ],
             ),
           ),
         ),
-        SizedBox(width: 4.rs),
+        SizedBox(width: AppSpacing.xs),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             color: !isAuto ? scheme.tertiary.withValues(alpha: 0.12) : Colors.transparent,
-            borderRadius: BorderRadius.circular(6.rs),
+            borderRadius: AppRadius.chip,
             border: Border.all(color: !isAuto ? scheme.tertiary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.4)),
           ),
           child: DropdownButton<String>(
@@ -973,7 +974,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(6.rs),
+        borderRadius: AppRadius.chip,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
       ),
       child: DropdownButton<String>(
@@ -996,7 +997,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
         Container(
           decoration: BoxDecoration(
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
-            borderRadius: BorderRadius.circular(6.rs),
+            borderRadius: AppRadius.chip,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1034,7 +1035,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: value ? scheme.primary.withValues(alpha: 0.08) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8.rs),
+          borderRadius: AppRadius.button,
           border: Border.all(color: value ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.4)),
         ),
         child: Row(
@@ -1056,7 +1057,7 @@ class _PrintingStepState extends ConsumerState<PrintingStep> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? scheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4)),
         ),
         child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? scheme.surface : scheme.onSurfaceVariant)),

@@ -6,6 +6,7 @@ import 'package:weighbridgemanagement/shared/providers/site_context_provider.dar
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class SiteStep extends ConsumerStatefulWidget {
   const SiteStep({super.key});
@@ -151,9 +152,9 @@ class _SiteStepState extends ConsumerState<SiteStep> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.error_outline_rounded, size: 40, color: scheme.error),
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             Text('No company configured. Go back to the Company step.', style: text.bodyMedium),
-            SizedBox(height: 16.rs),
+            SizedBox(height: AppSpacing.lg),
             TextButton.icon(
               onPressed: () => ref.read(setupWizardProvider.notifier).previousStep(),
               icon: const Icon(Icons.arrow_back_rounded, size: 16),
@@ -173,16 +174,16 @@ class _SiteStepState extends ConsumerState<SiteStep> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Site & Weighbridge', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               Text(
                 'Configure the physical location and weighbridge for this device.',
                 style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
               ),
-              SizedBox(height: 24.rs),
+              SizedBox(height: AppSpacing.xl),
 
               // Progress stepper
               _StepIndicator(currentStep: _subStep, scheme: scheme, text: text),
-              SizedBox(height: 32.rs),
+              SizedBox(height: AppSpacing.xxl),
 
               // Error
               if (_error != null) ...[
@@ -196,7 +197,7 @@ class _SiteStepState extends ConsumerState<SiteStep> {
                   child: Row(
                     children: [
                       Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       Expanded(child: Text(_error!, style: TextStyle(fontSize: 12, color: scheme.error))),
                       IconButton(
                         icon: Icon(Icons.close, size: 14, color: scheme.error),
@@ -269,7 +270,7 @@ class _SiteStepState extends ConsumerState<SiteStep> {
                   child: Row(
                     children: [
                       Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       Text('Maximum $_maxSites site allowed. Remove to add a different one.',
                           style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
                     ],
@@ -277,17 +278,17 @@ class _SiteStepState extends ConsumerState<SiteStep> {
                 );
               }
               return Container(
-                padding: EdgeInsets.all(16.rs),
+                padding: AppSpacing.cardPadding,
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHigh.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(12.rs),
+                  borderRadius: AppRadius.card,
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Create new site', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
-                    SizedBox(height: 12.rs),
+                    SizedBox(height: AppSpacing.md),
                     _StyledTextField(
                       controller: _newSiteCtrl,
                       label: 'Site Name',
@@ -302,7 +303,7 @@ class _SiteStepState extends ConsumerState<SiteStep> {
                       hint: 'e.g. Mumbai, Maharashtra',
                       icon: Icons.map_outlined,
                     ),
-                    SizedBox(height: 12.rs),
+                    SizedBox(height: AppSpacing.md),
                     FilledButton.tonalIcon(
                       onPressed: _newSiteCtrl.text.trim().isNotEmpty && !_loading
                           ? () async {
@@ -328,7 +329,7 @@ class _SiteStepState extends ConsumerState<SiteStep> {
             },
           ),
 
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -384,16 +385,16 @@ class _SiteStepState extends ConsumerState<SiteStep> {
                       Row(
                         children: [
                           Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Expanded(child: Text('1 weighbridge configured. All scale settings in this wizard will apply to it.',
                               style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant))),
                         ],
                       ),
-                      SizedBox(height: 8.rs),
+                      SizedBox(height: AppSpacing.sm),
                       Row(
                         children: [
                           Icon(Icons.add_circle_outline_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Expanded(child: Text('Additional weighbridges can be added in Settings later, as per your license.',
                               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)))),
                         ],
@@ -403,17 +404,17 @@ class _SiteStepState extends ConsumerState<SiteStep> {
                 );
               }
               return Container(
-                padding: EdgeInsets.all(16.rs),
+                padding: AppSpacing.cardPadding,
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHigh.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(12.rs),
+                  borderRadius: AppRadius.card,
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Create new weighbridge', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
-                    SizedBox(height: 12.rs),
+                    SizedBox(height: AppSpacing.md),
                     _StyledTextField(
                       controller: _newWeighbridgeCtrl,
                       label: 'Weighbridge Name',
@@ -421,7 +422,7 @@ class _SiteStepState extends ConsumerState<SiteStep> {
                       icon: Icons.scale_outlined,
                       onChanged: (_) { _clearError(); setState(() {}); },
                     ),
-                    SizedBox(height: 12.rs),
+                    SizedBox(height: AppSpacing.md),
                     FilledButton.tonalIcon(
                       onPressed: _newWeighbridgeCtrl.text.trim().isNotEmpty && !_loading
                           ? () async {
@@ -446,7 +447,7 @@ class _SiteStepState extends ConsumerState<SiteStep> {
             },
           ),
 
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -507,7 +508,7 @@ class _StepIndicator extends StatelessWidget {
                         )),
                 ),
               ),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text(labels[i], style: TextStyle(
                 fontSize: 12,
                 fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
@@ -544,10 +545,10 @@ class _SubStepCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(24.rs),
+      padding: AppSpacing.pagePadding,
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [
           BoxShadow(color: scheme.shadow.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4)),
@@ -567,7 +568,7 @@ class _SubStepCard extends StatelessWidget {
                 ),
                 child: Icon(icon, size: 18, color: scheme.primary),
               ),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -577,7 +578,7 @@ class _SubStepCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           child,
         ],
       ),
@@ -641,7 +642,7 @@ class _CollectionSelector extends StatelessWidget {
         final docs = snap.data!.docs;
         if (docs.isEmpty) {
           return Container(
-            padding: EdgeInsets.all(16.rs),
+            padding: AppSpacing.cardPadding,
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHigh.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(10.rs),
@@ -649,7 +650,7 @@ class _CollectionSelector extends StatelessWidget {
             child: Row(
               children: [
                 Icon(Icons.info_outline, size: 16, color: scheme.onSurfaceVariant),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Text(emptyText, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
               ],
             ),
@@ -684,7 +685,7 @@ class _CollectionSelector extends StatelessWidget {
 
     return InkWell(
       onTap: () => onSelected(doc.id),
-      borderRadius: BorderRadius.circular(8.rs),
+      borderRadius: AppRadius.button,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
@@ -697,9 +698,9 @@ class _CollectionSelector extends StatelessWidget {
               size: 18,
               color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
             ),
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             Icon(icon, size: 16, color: isSelected ? scheme.primary : scheme.onSurfaceVariant),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

@@ -6,6 +6,7 @@ import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -46,12 +47,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         .toList();
 
     return Padding(
-      padding: EdgeInsets.all(28.rs),
+      padding: AppSpacing.pagePadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(strings.settings, style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           Expanded(
             child: SingleChildScrollView(
               child: Column(
@@ -72,7 +73,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(section.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.5)),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Wrap(
             spacing: 14,
             runSpacing: 14,
@@ -290,7 +291,7 @@ class _SettingsTileState extends State<_SettingsTile> {
                           width: 44, height: 44,
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12.rs),
+                            borderRadius: AppRadius.card,
                           ),
                           child: Icon(widget.item.icon, color: Colors.white, size: 22),
                         ),
@@ -334,7 +335,7 @@ class _SettingsTileState extends State<_SettingsTile> {
               ),
               // Body
               Container(
-                padding: EdgeInsets.all(24.rs),
+                padding: AppSpacing.pagePadding,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -350,7 +351,7 @@ class _SettingsTileState extends State<_SettingsTile> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: isDark ? scheme.surfaceContainerHigh : const Color(0xFFF9FAFB),
-                        borderRadius: BorderRadius.circular(12.rs),
+                        borderRadius: AppRadius.card,
                         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                       ),
                       child: Column(
@@ -383,7 +384,7 @@ class _SettingsTileState extends State<_SettingsTile> {
                             child: const Text('Maybe Later'),
                           ),
                         ),
-                        SizedBox(width: 12.rs),
+                        SizedBox(width: AppSpacing.md),
                         Expanded(
                           flex: 2,
                           child: FilledButton.icon(
@@ -480,7 +481,7 @@ class _SettingsTileState extends State<_SettingsTile> {
             color: locked
                 ? _proColor.withValues(alpha: _hovered ? 0.06 : 0.02)
                 : (_hovered ? accent.withValues(alpha: 0.04) : scheme.surface),
-            borderRadius: BorderRadius.circular(12.rs),
+            borderRadius: AppRadius.card,
             border: Border.all(
               color: locked
                   ? _proColor.withValues(alpha: _hovered ? 0.4 : 0.2)
@@ -518,7 +519,7 @@ class _SettingsTileState extends State<_SettingsTile> {
               ),
               SizedBox(height: 14.rs),
               Text(widget.item.title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: locked ? scheme.onSurface.withValues(alpha: 0.6) : scheme.onSurface)),
-              SizedBox(height: 4.rs),
+              SizedBox(height: AppSpacing.xs),
               Text(widget.item.subtitle, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant), maxLines: 2, overflow: TextOverflow.ellipsis),
               if (locked) ...[
                 SizedBox(height: 10.rs),

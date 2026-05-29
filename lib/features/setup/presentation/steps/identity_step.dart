@@ -10,6 +10,7 @@ import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class IdentityStep extends ConsumerStatefulWidget {
   const IdentityStep({super.key});
@@ -205,20 +206,20 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
                 height: 56,
                 decoration: BoxDecoration(
                   color: scheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16.rs),
+                  borderRadius: AppRadius.dialog,
                   border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                 ),
                 child: Icon(Icons.fingerprint_rounded, size: 28, color: scheme.primary),
               ),
               SizedBox(height: 20.rs),
               Text('Identity Verification', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               Text(
                 'Upload a government ID and a selfie to verify your identity.',
                 style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 32.rs),
+              SizedBox(height: AppSpacing.xxl),
 
               // ID Document Section
               Container(
@@ -226,7 +227,7 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
                 padding: EdgeInsets.all(20.rs),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(16.rs),
+                  borderRadius: AppRadius.dialog,
                   border: Border.all(color: _idVerified
                       ? AppTheme.successColor.withValues(alpha: 0.4)
                       : scheme.outlineVariant.withValues(alpha: 0.3)),
@@ -253,20 +254,20 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: AppTheme.successColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6.rs),
+                              borderRadius: AppRadius.chip,
                             ),
                             child: Text('Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
                           ),
                       ],
                     ),
-                    SizedBox(height: 4.rs),
+                    SizedBox(height: AppSpacing.xs),
                     Text(
                       'Any one: Aadhaar, PAN, Driving License, or Passport',
                       style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
                     ),
 
                     if (!_idVerified) ...[
-                      SizedBox(height: 16.rs),
+                      SizedBox(height: AppSpacing.lg),
                       // Document type selector
                       Wrap(
                         spacing: 8,
@@ -279,7 +280,7 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
                                 color: selected ? scheme.primary.withValues(alpha: 0.1) : scheme.surface,
-                                borderRadius: BorderRadius.circular(8.rs),
+                                borderRadius: AppRadius.button,
                                 border: Border.all(
                                   color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4),
                                   width: selected ? 1.5 : 1,
@@ -315,17 +316,17 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
                         padding: EdgeInsets.all(10.rs),
                         decoration: BoxDecoration(
                           color: scheme.primaryContainer.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8.rs),
+                          borderRadius: AppRadius.button,
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary),
-                            SizedBox(width: 8.rs),
+                            SizedBox(width: AppSpacing.sm),
                             Expanded(child: Text(_uploadHint, style: TextStyle(fontSize: 10, color: scheme.primary))),
                           ],
                         ),
                       ),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
 
                       // Upload button
                       SizedBox(
@@ -353,7 +354,7 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
 
                     // Verified result
                     if (_idVerified) ...[
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Container(
                         width: double.infinity,
                         padding: EdgeInsets.all(12.rs),
@@ -368,7 +369,7 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
                             Row(
                               children: [
                                 Icon(Icons.check_circle_rounded, size: 14, color: AppTheme.successColor),
-                                SizedBox(width: 8.rs),
+                                SizedBox(width: AppSpacing.sm),
                                 Text(_selectedDocType, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
                               ],
                             ),
@@ -387,17 +388,17 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
 
                     // Error
                     if (_error != null) ...[
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Container(
                         padding: EdgeInsets.all(10.rs),
                         decoration: BoxDecoration(
                           color: scheme.errorContainer.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8.rs),
+                          borderRadius: AppRadius.button,
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.warning_amber_rounded, size: 14, color: scheme.error),
-                            SizedBox(width: 8.rs),
+                            SizedBox(width: AppSpacing.sm),
                             Expanded(child: Text(_error!, style: TextStyle(fontSize: 11, color: scheme.error))),
                           ],
                         ),
@@ -415,7 +416,7 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
                 padding: EdgeInsets.all(20.rs),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(16.rs),
+                  borderRadius: AppRadius.dialog,
                   border: Border.all(color: _faceEnrolled
                       ? AppTheme.successColor.withValues(alpha: 0.4)
                       : scheme.outlineVariant.withValues(alpha: 0.3)),
@@ -442,20 +443,20 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: AppTheme.successColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6.rs),
+                              borderRadius: AppRadius.chip,
                             ),
                             child: Text('Enrolled', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
                           ),
                       ],
                     ),
-                    SizedBox(height: 4.rs),
+                    SizedBox(height: AppSpacing.xs),
                     Text(
                       'A clear photo of your face for attendance and security.',
                       style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
                     ),
 
                     if (!_faceEnrolled) ...[
-                      SizedBox(height: 16.rs),
+                      SizedBox(height: AppSpacing.lg),
                       // Face capture area
                       GestureDetector(
                         onTap: _capturingFace ? null : _captureFacePhoto,
@@ -464,7 +465,7 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
                           height: 140,
                           decoration: BoxDecoration(
                             color: scheme.surface,
-                            borderRadius: BorderRadius.circular(12.rs),
+                            borderRadius: AppRadius.card,
                             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4), style: BorderStyle.solid),
                           ),
                           child: _capturingFace
@@ -493,7 +494,7 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
                                       ),
                                       SizedBox(height: 10.rs),
                                       Text('Tap to upload selfie', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.primary)),
-                                      SizedBox(height: 4.rs),
+                                      SizedBox(height: AppSpacing.xs),
                                       Text('Clear, front-facing, good lighting', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
                                     ],
                                   ),
@@ -504,7 +505,7 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
 
                     // Enrolled result
                     if (_faceEnrolled && _faceImageUri != null) ...[
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Row(
                         children: [
                           Container(
@@ -531,7 +532,7 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
                                     Text('Face enrolled', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
                                   ],
                                 ),
-                                SizedBox(height: 4.rs),
+                                SizedBox(height: AppSpacing.xs),
                                 GestureDetector(
                                   onTap: () => setState(() { _faceEnrolled = false; _faceImageUri = null; _updateHasData(); }),
                                   child: Text('Retake photo', style: TextStyle(fontSize: 11, color: scheme.primary, fontWeight: FontWeight.w500)),
@@ -545,17 +546,17 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
 
                     // Face error
                     if (_faceError != null) ...[
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Container(
                         padding: EdgeInsets.all(10.rs),
                         decoration: BoxDecoration(
                           color: scheme.errorContainer.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8.rs),
+                          borderRadius: AppRadius.button,
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.warning_amber_rounded, size: 14, color: scheme.error),
-                            SizedBox(width: 8.rs),
+                            SizedBox(width: AppSpacing.sm),
                             Expanded(child: Text(_faceError!, style: TextStyle(fontSize: 11, color: scheme.error))),
                           ],
                         ),
@@ -565,7 +566,7 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
                 ),
               ),
 
-              SizedBox(height: 32.rs),
+              SizedBox(height: AppSpacing.xxl),
             ],
           ),
         ),

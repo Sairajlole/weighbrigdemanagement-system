@@ -10,6 +10,7 @@ import 'package:weighbridgemanagement/features/profile/presentation/profile_scre
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class SecurityOverlay extends ConsumerStatefulWidget {
   final Widget child;
@@ -157,7 +158,7 @@ class _SecurityOverlayState extends ConsumerState<SecurityOverlay> with WidgetsB
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.lock_rounded, size: 48, color: Colors.white.withValues(alpha: 0.5)),
-                    SizedBox(height: 12.rs),
+                    SizedBox(height: AppSpacing.md),
                     Text(
                       settings.preventScreenshots ? 'Screen capture blocked' : 'Content hidden',
                       style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),

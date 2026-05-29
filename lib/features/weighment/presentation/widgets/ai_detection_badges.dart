@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class AiDetectionBadges extends StatelessWidget {
   final String? anprText;
@@ -29,7 +30,7 @@ class AiDetectionBadges extends StatelessWidget {
 
     if (!hasAnpr && !hasMaterial) {
       return Container(
-        padding: EdgeInsets.all(16.rs),
+        padding: AppSpacing.cardPadding,
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHigh.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(10.rs),
@@ -60,7 +61,7 @@ class AiDetectionBadges extends StatelessWidget {
           accentColor: scheme.primary,
           scheme: scheme,
         ),
-        if (hasAnpr && hasMaterial) SizedBox(height: 8.rs),
+        if (hasAnpr && hasMaterial) SizedBox(height: AppSpacing.sm),
         if (hasMaterial) _AiBadge(
           icon: Icons.inventory_2_outlined,
           label: 'Material',
@@ -113,7 +114,7 @@ class _AiBadge extends StatelessWidget {
               width: 64, height: 48,
               margin: const EdgeInsets.only(right: 10),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
               ),
               clipBehavior: Clip.antiAlias,
@@ -125,7 +126,7 @@ class _AiBadge extends StatelessWidget {
               margin: const EdgeInsets.only(right: 10),
               decoration: BoxDecoration(
                 color: accentColor.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8.rs),
+                borderRadius: AppRadius.button,
               ),
               child: Icon(icon, size: 18, color: accentColor),
             ),

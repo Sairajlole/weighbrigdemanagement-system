@@ -23,6 +23,7 @@ import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 // ─── Country Codes ──────────────────────────────────────────────────────────
 
@@ -478,7 +479,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
             title: Row(
               children: [
                 Icon(Icons.shield_rounded, size: 18, color: scheme.primary),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Text('Verify to View System Code', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
               ],
             ),
@@ -488,7 +489,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
               children: [
                 if (!otpSent) ...[
                   Text('Send verification code via:', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                  SizedBox(height: 12.rs),
+                  SizedBox(height: AppSpacing.md),
                   if (phone.isNotEmpty && email.isNotEmpty)
                     Row(
                       children: [
@@ -499,13 +500,13 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                               decoration: BoxDecoration(
                                 color: verifyVia == 'phone' ? scheme.primary.withValues(alpha: 0.1) : scheme.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(8.rs),
+                                borderRadius: AppRadius.button,
                                 border: Border.all(color: verifyVia == 'phone' ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
                               ),
                               child: Column(
                                 children: [
                                   Icon(Icons.phone_rounded, size: 16, color: verifyVia == 'phone' ? scheme.primary : scheme.onSurfaceVariant),
-                                  SizedBox(height: 4.rs),
+                                  SizedBox(height: AppSpacing.xs),
                                   Text('Phone', style: TextStyle(fontSize: 11, fontWeight: verifyVia == 'phone' ? FontWeight.w700 : FontWeight.w500, color: verifyVia == 'phone' ? scheme.primary : scheme.onSurfaceVariant)),
                                   Text(phone, style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis),
                                 ],
@@ -521,13 +522,13 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                               decoration: BoxDecoration(
                                 color: verifyVia == 'email' ? scheme.primary.withValues(alpha: 0.1) : scheme.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(8.rs),
+                                borderRadius: AppRadius.button,
                                 border: Border.all(color: verifyVia == 'email' ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
                               ),
                               child: Column(
                                 children: [
                                   Icon(Icons.email_rounded, size: 16, color: verifyVia == 'email' ? scheme.primary : scheme.onSurfaceVariant),
-                                  SizedBox(height: 4.rs),
+                                  SizedBox(height: AppSpacing.xs),
                                   Text('Email', style: TextStyle(fontSize: 11, fontWeight: verifyVia == 'email' ? FontWeight.w700 : FontWeight.w500, color: verifyVia == 'email' ? scheme.primary : scheme.onSurfaceVariant)),
                                   Text(email, style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis),
                                 ],
@@ -544,7 +545,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: scheme.primaryContainer.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6.rs),
+                      borderRadius: AppRadius.chip,
                     ),
                     child: Row(
                       children: [
@@ -571,12 +572,12 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                       hintText: '000000',
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                      border: OutlineInputBorder(borderRadius: AppRadius.button),
                     ),
                   ),
                 ],
                 if (error != null) ...[
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   Text(error!, style: TextStyle(fontSize: 11, color: scheme.error)),
                 ],
               ],
@@ -1039,11 +1040,11 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
           }
 
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
               child: Padding(
-                padding: EdgeInsets.all(24.rs),
+                padding: AppSpacing.pagePadding,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1060,7 +1061,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 16.rs),
+                    SizedBox(height: AppSpacing.lg),
                     buildStepIndicator(),
                     SizedBox(height: 6.rs),
                     Row(
@@ -1092,7 +1093,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                             prefixIconConstraints: const BoxConstraints(minWidth: 40),
                             isDense: true,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                            border: OutlineInputBorder(borderRadius: AppRadius.button),
                           ),
                         )
                       else
@@ -1112,7 +1113,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                                   decoration: InputDecoration(
                                     isDense: true,
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                                    border: OutlineInputBorder(borderRadius: AppRadius.button),
                                   ),
                                   icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 14),
                                 ),
@@ -1129,7 +1130,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                                   hintText: '9876543210',
                                   isDense: true,
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                                  border: OutlineInputBorder(borderRadius: AppRadius.button),
                                 ),
                               ),
                             ),
@@ -1138,7 +1139,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                       if (hasPhone && hasEmail) ...[
                         SizedBox(height: 18.rs),
                         Text('Verify identity via', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
-                        SizedBox(height: 8.rs),
+                        SizedBox(height: AppSpacing.sm),
                         Row(
                           children: [
                             Expanded(
@@ -1175,13 +1176,13 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: scheme.primaryContainer.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8.rs),
+                          borderRadius: AppRadius.button,
                           border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.security_rounded, size: 14, color: scheme.primary),
-                            SizedBox(width: 8.rs),
+                            SizedBox(width: AppSpacing.sm),
                             Expanded(
                               child: Text(
                                 'A code was sent to your ${verifyVia == 'email' ? 'email' : 'phone'}: ${getVerifyTarget()}',
@@ -1191,7 +1192,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                           ],
                         ),
                       ),
-                      SizedBox(height: 16.rs),
+                      SizedBox(height: AppSpacing.lg),
                       TextField(
                         controller: currentOtpCtrl,
                         style: text.titleMedium?.copyWith(letterSpacing: 8, fontWeight: FontWeight.w700),
@@ -1204,7 +1205,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                           counterText: '',
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                          border: OutlineInputBorder(borderRadius: AppRadius.button),
                         ),
                       ),
                     ],
@@ -1215,13 +1216,13 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: AppTheme.successColor.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8.rs),
+                          borderRadius: AppRadius.button,
                           border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.2)),
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.check_circle_outline_rounded, size: 14, color: AppTheme.successColor),
-                            SizedBox(width: 8.rs),
+                            SizedBox(width: AppSpacing.sm),
                             Expanded(
                               child: Text(
                                 'Current ${isEmail ? 'email' : 'phone'} verified. Code sent to: ${getNewValue()}',
@@ -1231,7 +1232,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                           ],
                         ),
                       ),
-                      SizedBox(height: 16.rs),
+                      SizedBox(height: AppSpacing.lg),
                       TextField(
                         controller: newOtpCtrl,
                         style: text.titleMedium?.copyWith(letterSpacing: 8, fontWeight: FontWeight.w700),
@@ -1244,18 +1245,18 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                           counterText: '',
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                          border: OutlineInputBorder(borderRadius: AppRadius.button),
                         ),
                       ),
                     ],
 
                     if (error != null) ...[
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: scheme.errorContainer.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(6.rs),
+                          borderRadius: AppRadius.chip,
                         ),
                         child: Row(
                           children: [
@@ -1274,7 +1275,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                           onPressed: () => Navigator.pop(ctx),
                           child: const Text('Cancel'),
                         ),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         FilledButton.icon(
                           onPressed: (sending || verifying)
                               ? null
@@ -1293,7 +1294,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                           ),
                           style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                            shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                           ),
                         ),
                       ],
@@ -1338,10 +1339,10 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                       },
                       icon: const Icon(Icons.arrow_back_rounded, size: 20),
                       style: IconButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                       ),
                     ),
-                    SizedBox(width: 12.rs),
+                    SizedBox(width: AppSpacing.md),
                     Icon(Icons.settings_rounded, size: 20, color: scheme.primary),
                     SizedBox(width: 10.rs),
                     Column(
@@ -1360,7 +1361,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                         onPressed: () { setState(() { _loaded = false; _savedSnapshot = ''; }); ref.invalidate(_generalSettingsProvider); },
                         child: const Text('Cancel'),
                       ),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                     ],
                     FilledButton.icon(
                       onPressed: _dirty && !_saving ? _save : null,
@@ -1370,7 +1371,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                       label: Text(_saving ? 'Saving...' : 'Save'),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                       ),
                     ),
                   ],
@@ -1383,7 +1384,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8.rs),
+                        borderRadius: AppRadius.button,
                         border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                       ),
                       child: Row(
@@ -1393,7 +1394,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                             size: 15,
                             color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                           ),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                         ],
                       ),
@@ -1409,18 +1410,18 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
               loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
-                padding: EdgeInsets.all(28.rs),
+                padding: AppSpacing.pagePadding,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildCompanySection(scheme, text),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     _buildRegionalSection(scheme, text),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     _buildWeighbridgeIdentity(scheme, text),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     _buildLocationSection(scheme, text),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     _buildDocumentsSection(scheme, text),
                     SizedBox(height: 40.rs),
                   ],
@@ -1440,7 +1441,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6.rs),
+        borderRadius: AppRadius.chip,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1449,7 +1450,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
             padding: const EdgeInsets.only(top: 1),
             child: Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary.withValues(alpha: 0.6)),
           ),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           Expanded(child: Text(infoText, style: textTheme.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant, height: 1.4))),
         ],
       ),
@@ -1467,7 +1468,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
           _buildInfoRow('Appears on weighment slips, invoices, and reports. GSTIN and PAN are validated on save.', scheme, text),
           SizedBox(height: 14.rs),
           _ReadOnlyField(label: 'Company Name', value: _companyName.text, scheme: scheme, text: text),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           Row(
             children: [
               Expanded(child: _Field(label: 'Address Line 1', controller: _address1, hint: 'e.g. Plot No. 45, GIDC Industrial Estate', onChanged: (_) => _markDirty())),
@@ -1475,7 +1476,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
               Expanded(child: _Field(label: 'Address Line 2', controller: _address2, hint: 'e.g. Vatva, Ahmedabad, Gujarat 382445', onChanged: (_) => _markDirty())),
             ],
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           Row(
             children: [
               Expanded(child: _VerifiableField(
@@ -1497,7 +1498,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
               )),
             ],
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           Row(
             children: [
               Expanded(child: _ReadOnlyField(label: 'GSTIN', value: _gstin.text, scheme: scheme, text: text)),
@@ -1573,7 +1574,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                     Row(
                       children: [
                         _RadioChip(label: '12-hour', selected: _timeFormat == '12-hour', onTap: () { setState(() => _timeFormat = '12-hour'); _markDirty(); }),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         _RadioChip(label: '24-hour', selected: _timeFormat == '24-hour', onTap: () { setState(() => _timeFormat = '24-hour'); _markDirty(); }),
                       ],
                     ),
@@ -1639,7 +1640,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
             child: Row(
               children: [
                 Icon(Icons.workspace_premium_rounded, size: 16, color: tierColor),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
@@ -1650,11 +1651,11 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                 ),
                 SizedBox(width: 14.rs),
                 Icon(Icons.scale_rounded, size: 13, color: scheme.onSurfaceVariant),
-                SizedBox(width: 4.rs),
+                SizedBox(width: AppSpacing.xs),
                 Text('$wbLabel WB', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                 SizedBox(width: 14.rs),
                 Icon(Icons.location_on_rounded, size: 13, color: scheme.onSurfaceVariant),
-                SizedBox(width: 4.rs),
+                SizedBox(width: AppSpacing.xs),
                 Text('$siteLabel Site${license.maxSites != 1 ? 's' : ''}', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                 const Spacer(),
                 if (isFree)
@@ -1668,7 +1669,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
               ],
             ),
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           // Site & Weighbridge tree
           _SiteWeighbridgeManager(
             companyId: siteCtx.companyId,
@@ -1688,15 +1689,15 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
             },
             onShowMsg: (msg, {bool isError = false}) => _showHeaderMsg(msg, isError: isError),
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
           SizedBox(height: 20.rs),
           Container(
             width: double.infinity,
-            padding: EdgeInsets.all(16.rs),
+            padding: AppSpacing.cardPadding,
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12.rs),
+              borderRadius: AppRadius.card,
               border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
             ),
             child: Column(
@@ -1726,7 +1727,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                     ),
                   ],
                 ),
-                SizedBox(height: 12.rs),
+                SizedBox(height: AppSpacing.md),
                 Text(
                   'A unique identifier for this installation. Required for license activation, support requests, and data recovery. Do not share publicly.',
                   style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.5),
@@ -1738,7 +1739,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
                       color: scheme.surface,
-                      borderRadius: BorderRadius.circular(8.rs),
+                      borderRadius: AppRadius.button,
                       border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
                     ),
                     child: Row(
@@ -1767,7 +1768,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                     ),
                   ),
                   if (_systemCodeGeneratedAt != null) ...[
-                    SizedBox(height: 8.rs),
+                    SizedBox(height: AppSpacing.sm),
                     Builder(builder: (_) {
                       final daysElapsed = DateTime.now().difference(_systemCodeGeneratedAt!).inDays;
                       final daysRemaining = 90 - daysElapsed;
@@ -1803,13 +1804,13 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: scheme.surface,
-                        borderRadius: BorderRadius.circular(8.rs),
+                        borderRadius: AppRadius.button,
                         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
                       ),
                       child: Row(
                         children: [
                           Icon(Icons.lock_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1824,13 +1825,13 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
                               color: scheme.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6.rs),
+                              borderRadius: AppRadius.chip,
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.visibility_rounded, size: 12, color: scheme.primary),
-                                SizedBox(width: 4.rs),
+                                SizedBox(width: AppSpacing.xs),
                                 Text('Reveal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
                               ],
                             ),
@@ -1863,11 +1864,11 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
           Row(
             children: [
               Icon(Icons.scale_rounded, size: 16, color: scheme.primary),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text('Weighbridge Location', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
             ],
           ),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Expanded(child: _Field(label: 'Latitude', controller: _latitude, hint: 'e.g. 23.0225', onChanged: (_) => _markDirty())),
@@ -1888,7 +1889,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                         label: const Text('Pick on Map'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                          shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                         ),
                       ),
                     ),
@@ -1901,11 +1902,11 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
           Row(
             children: [
               Icon(Icons.business_rounded, size: 16, color: scheme.secondary),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text('Company Office Location', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
             ],
           ),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Expanded(child: _Field(label: 'Latitude', controller: _officeLatitude, hint: 'e.g. 23.0395', onChanged: (_) => _markDirty())),
@@ -1926,7 +1927,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                         label: const Text('Pick on Map'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                          shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                         ),
                       ),
                     ),
@@ -1991,10 +1992,10 @@ class _SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(24.rs),
+      padding: AppSpacing.pagePadding,
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2)),
@@ -2010,11 +2011,11 @@ class _SettingsCard extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   color: scheme.primaryContainer.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                 ),
                 child: Icon(icon, size: 16, color: scheme.primary),
               ),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2095,7 +2096,7 @@ class _ReadOnlyField extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
           ),
           child: Row(
@@ -2147,13 +2148,13 @@ class _VerifiableField extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
           ),
           child: Row(
             children: [
               Icon(icon, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   value.isNotEmpty ? value : '—',
@@ -2171,7 +2172,7 @@ class _VerifiableField extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: scheme.primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(6.rs),
+                      borderRadius: AppRadius.chip,
                       border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                     ),
                     child: Text('Change', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
@@ -2218,7 +2219,7 @@ class _DropdownField extends StatelessWidget {
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             isDense: true,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               borderSide: BorderSide(color: scheme.outlineVariant),
             ),
           ),
@@ -2248,7 +2249,7 @@ class _RadioChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: selected ? scheme.primaryContainer : scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(8.rs),
+          borderRadius: AppRadius.button,
           border: Border.all(
             color: selected ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.4),
           ),
@@ -2265,7 +2266,7 @@ class _RadioChip extends StatelessWidget {
                 color: selected ? scheme.onPrimary : Colors.transparent,
               ),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text(
               label,
               style: TextStyle(
@@ -2338,7 +2339,7 @@ class _MapPickerDialogState extends State<_MapPickerDialog> {
     final text = Theme.of(context).textTheme;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
       child: SizedBox(
         width: 600,
         height: 500,
@@ -2349,9 +2350,9 @@ class _MapPickerDialogState extends State<_MapPickerDialog> {
               child: Row(
                 children: [
                   Icon(Icons.location_on_rounded, size: 20, color: scheme.primary),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   Text('Pick Location', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                  SizedBox(width: 12.rs),
+                  SizedBox(width: AppSpacing.md),
                   Text('Tap on map to select', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
                   const Spacer(),
                   IconButton(
@@ -2400,21 +2401,21 @@ class _MapPickerDialogState extends State<_MapPickerDialog> {
                     right: 10,
                     child: Material(
                       elevation: 2,
-                      borderRadius: BorderRadius.circular(8.rs),
+                      borderRadius: AppRadius.button,
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(8.rs),
+                        borderRadius: AppRadius.button,
                         onTap: () => setState(() => _satellite = !_satellite),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(8.rs),
+                            borderRadius: AppRadius.button,
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(_satellite ? Icons.map_rounded : Icons.satellite_rounded, size: 14),
-                              SizedBox(width: 4.rs),
+                              SizedBox(width: AppSpacing.xs),
                               Text(_satellite ? 'Map' : 'Satellite', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                             ],
                           ),
@@ -2495,7 +2496,7 @@ class _UploadTile extends StatelessWidget {
       showDialog(
         context: context,
         builder: (ctx) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(ctx).size.width * 0.6,
@@ -2543,7 +2544,7 @@ class _UploadTile extends StatelessWidget {
       padding: EdgeInsets.all(14.rs),
       decoration: BoxDecoration(
         color: uploaded ? scheme.primaryContainer.withValues(alpha: 0.15) : scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(color: uploaded ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -2558,7 +2559,7 @@ class _UploadTile extends StatelessWidget {
                 height: 80,
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
                 ),
                 clipBehavior: Clip.antiAlias,
@@ -2572,7 +2573,7 @@ class _UploadTile extends StatelessWidget {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(Icons.picture_as_pdf_rounded, size: 28, color: scheme.error.withValues(alpha: 0.7)),
-                                    SizedBox(height: 4.rs),
+                                    SizedBox(height: AppSpacing.xs),
                                     Text('PDF', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
                                   ],
                                 ),
@@ -2715,7 +2716,7 @@ class _VerifyMethodCard extends StatelessWidget {
                   Icon(Icons.check_circle_rounded, size: 14, color: scheme.primary),
               ],
             ),
-            SizedBox(height: 4.rs),
+            SizedBox(height: AppSpacing.xs),
             Text(
               subtitle,
               style: text.bodySmall?.copyWith(fontSize: 10, color: scheme.onSurfaceVariant),
@@ -2994,11 +2995,11 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
             }
 
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 400),
                 child: Padding(
-                  padding: EdgeInsets.all(24.rs),
+                  padding: AppSpacing.pagePadding,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -3011,22 +3012,22 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                           IconButton(onPressed: () => Navigator.pop(ctx, false), icon: const Icon(Icons.close_rounded, size: 18)),
                         ],
                       ),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Text(message, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                      SizedBox(height: 16.rs),
+                      SizedBox(height: AppSpacing.lg),
 
                       if (!otpSent) ...[
                         Container(
                           padding: EdgeInsets.all(12.rs),
                           decoration: BoxDecoration(
                             color: scheme.errorContainer.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8.rs),
+                            borderRadius: AppRadius.button,
                             border: Border.all(color: scheme.error.withValues(alpha: 0.2)),
                           ),
                           child: Row(
                             children: [
                               Icon(Icons.shield_rounded, size: 14, color: scheme.error),
-                              SizedBox(width: 8.rs),
+                              SizedBox(width: AppSpacing.sm),
                               Expanded(
                                 child: Text(
                                   'OTP verification required for destructive actions.',
@@ -3039,7 +3040,7 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                         if (phone.isNotEmpty && email.isNotEmpty) ...[
                           SizedBox(height: 14.rs),
                           Text('Send code via', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
-                          SizedBox(height: 8.rs),
+                          SizedBox(height: AppSpacing.sm),
                           Row(
                             children: [
                               Expanded(
@@ -3075,13 +3076,13 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
                             color: scheme.primaryContainer.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8.rs),
+                            borderRadius: AppRadius.button,
                             border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                           ),
                           child: Row(
                             children: [
                               Icon(Icons.security_rounded, size: 14, color: scheme.primary),
-                              SizedBox(width: 8.rs),
+                              SizedBox(width: AppSpacing.sm),
                               Expanded(
                                 child: Text(
                                   'Code sent to ${verifyVia == 'email' ? email : phone}',
@@ -3091,7 +3092,7 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                             ],
                           ),
                         ),
-                        SizedBox(height: 16.rs),
+                        SizedBox(height: AppSpacing.lg),
                         TextField(
                           controller: otpCtrl,
                           style: text.titleMedium?.copyWith(letterSpacing: 8, fontWeight: FontWeight.w700),
@@ -3104,18 +3105,18 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                             counterText: '',
                             isDense: true,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                            border: OutlineInputBorder(borderRadius: AppRadius.button),
                           ),
                         ),
                       ],
 
                       if (error != null) ...[
-                        SizedBox(height: 12.rs),
+                        SizedBox(height: AppSpacing.md),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: scheme.errorContainer.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(6.rs),
+                            borderRadius: AppRadius.chip,
                           ),
                           child: Row(
                             children: [
@@ -3131,7 +3132,7 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           FilledButton.icon(
                             onPressed: (sending || verifying) ? null : otpSent ? verifyAndDelete : sendOtp,
                             icon: (sending || verifying)
@@ -3143,7 +3144,7 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                             style: FilledButton.styleFrom(
                               backgroundColor: otpSent ? scheme.error : null,
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                              shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                             ),
                           ),
                         ],
@@ -3181,16 +3182,16 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
           ),
           child: Row(
             children: [
               Icon(Icons.account_tree_rounded, size: 14, color: scheme.onSurfaceVariant),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text('${sites.length} site${sites.length != 1 ? 's' : ''}', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-              SizedBox(width: 4.rs),
+              SizedBox(width: AppSpacing.xs),
               Text('/', style: text.bodySmall?.copyWith(color: scheme.outlineVariant)),
-              SizedBox(width: 4.rs),
+              SizedBox(width: AppSpacing.xs),
               Text('$_totalWeighbridges weighbridge${_totalWeighbridges != 1 ? 's' : ''}', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
               const Spacer(),
               if (_canAddSite)
@@ -3198,7 +3199,7 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
             ],
           ),
         ),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
         // Site cards
         for (var i = 0; i < sites.length; i++) ...[
           _buildSiteCard(sites[i], scheme, text),
@@ -3215,7 +3216,7 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(color: isActive ? scheme.primary.withValues(alpha: 0.35) : scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 1))],
       ),
@@ -3241,13 +3242,13 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                     duration: const Duration(milliseconds: 200),
                     child: Icon(Icons.chevron_right_rounded, size: 18, color: scheme.onSurfaceVariant),
                   ),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   Container(
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
                       color: isActive ? scheme.primary.withValues(alpha: 0.1) : scheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(6.rs),
+                      borderRadius: AppRadius.chip,
                     ),
                     child: Icon(Icons.location_on_rounded, size: 15, color: isActive ? scheme.primary : scheme.onSurfaceVariant),
                   ),
@@ -3260,7 +3261,7 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                           children: [
                             Text(site.name, style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w700, color: isActive ? scheme.primary : scheme.onSurface)),
                             if (isActive) ...[
-                              SizedBox(width: 8.rs),
+                              SizedBox(width: AppSpacing.sm),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4.rs)),
@@ -3283,8 +3284,8 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                     constraints: const BoxConstraints(),
                     style: IconButton.styleFrom(minimumSize: const Size(32, 32), padding: EdgeInsets.zero),
                     itemBuilder: (_) => [
-                      PopupMenuItem(value: 'rename', child: Row(children: [Icon(Icons.edit_rounded, size: 14, color: scheme.onSurface), SizedBox(width: 8.rs), const Text('Rename')])),
-                      if (!isActive) PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline_rounded, size: 14, color: scheme.error), SizedBox(width: 8.rs), Text('Delete', style: TextStyle(color: scheme.error))])),
+                      PopupMenuItem(value: 'rename', child: Row(children: [Icon(Icons.edit_rounded, size: 14, color: scheme.onSurface), SizedBox(width: AppSpacing.sm), const Text('Rename')])),
+                      if (!isActive) PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline_rounded, size: 14, color: scheme.error), SizedBox(width: AppSpacing.sm), Text('Delete', style: TextStyle(color: scheme.error))])),
                     ],
                     onSelected: (action) {
                       if (action == 'rename') _renameSite(site.id, site.name);
@@ -3307,7 +3308,7 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                     if (i < site.weighbridges.length - 1) SizedBox(height: 6.rs),
                   ],
                   if (_canAddWeighbridge) ...[
-                    SizedBox(height: 8.rs),
+                    SizedBox(height: AppSpacing.sm),
                     _ActionChip(label: 'Add Weighbridge', icon: Icons.add_rounded, onTap: () => _addWeighbridge(site.id), scheme: scheme),
                   ],
                 ],
@@ -3326,7 +3327,7 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: isActive ? scheme.primaryContainer.withValues(alpha: 0.15) : scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(8.rs),
+        borderRadius: AppRadius.button,
         border: Border.all(color: isActive ? scheme.primary.withValues(alpha: 0.25) : scheme.outlineVariant.withValues(alpha: 0.15)),
       ),
       child: Row(
@@ -3341,7 +3342,7 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
           ),
           SizedBox(width: 10.rs),
           Icon(Icons.scale_rounded, size: 14, color: isActive ? scheme.primary : scheme.onSurfaceVariant),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(wb.name, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: isActive ? scheme.primary : scheme.onSurface)),
           ),
@@ -3366,7 +3367,7 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs), side: BorderSide(color: scheme.primary.withValues(alpha: 0.25))),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.chip, side: BorderSide(color: scheme.primary.withValues(alpha: 0.25))),
               ),
               child: const Text('Switch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
             ),
@@ -3377,8 +3378,8 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
             constraints: const BoxConstraints(),
             style: IconButton.styleFrom(minimumSize: const Size(26, 26), padding: EdgeInsets.zero),
             itemBuilder: (_) => [
-              PopupMenuItem(value: 'rename', child: Row(children: [Icon(Icons.edit_rounded, size: 14, color: scheme.onSurface), SizedBox(width: 8.rs), const Text('Rename')])),
-              if (!isActive) PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline_rounded, size: 14, color: scheme.error), SizedBox(width: 8.rs), Text('Delete', style: TextStyle(color: scheme.error))])),
+              PopupMenuItem(value: 'rename', child: Row(children: [Icon(Icons.edit_rounded, size: 14, color: scheme.onSurface), SizedBox(width: AppSpacing.sm), const Text('Rename')])),
+              if (!isActive) PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline_rounded, size: 14, color: scheme.error), SizedBox(width: AppSpacing.sm), Text('Delete', style: TextStyle(color: scheme.error))])),
             ],
             onSelected: (action) {
               if (action == 'rename') _renameWeighbridge(site.id, wb.id, wb.name);
@@ -3403,11 +3404,11 @@ class _ActionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(6.rs),
+      borderRadius: AppRadius.chip,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           color: scheme.primary.withValues(alpha: 0.06),
           border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
         ),

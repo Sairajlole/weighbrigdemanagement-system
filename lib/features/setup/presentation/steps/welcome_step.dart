@@ -20,6 +20,7 @@ import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import '../../application/setup_wizard_provider.dart';
 import '../../application/setup_wizard_state.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 String _hashPassword(String password) => sha256.convert(utf8.encode(password)).toString();
 
@@ -196,12 +197,12 @@ class _RoleSelectionContent extends ConsumerWidget {
           ),
           child: Icon(Icons.scale_rounded, size: 36, color: scheme.primary),
         ),
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
         Text(
           'Weighbridge Management',
           style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5),
         ),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Text(
           'Smart weighing, simplified operations',
           style: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
@@ -243,11 +244,11 @@ class _RoleSelectionContent extends ConsumerWidget {
 
         // Sub-role selector (shown when Sign Up selected)
         if (state.role == WizardRole.admin || state.role == WizardRole.operator) ...[
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
             child: Container(
-              padding: EdgeInsets.all(16.rs),
+              padding: AppSpacing.cardPadding,
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(14.rs),
@@ -257,7 +258,7 @@ class _RoleSelectionContent extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('I am a...', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
-                  SizedBox(height: 12.rs),
+                  SizedBox(height: AppSpacing.md),
                   Row(
                     children: [
                       Expanded(
@@ -270,7 +271,7 @@ class _RoleSelectionContent extends ConsumerWidget {
                           scheme: scheme,
                         ),
                       ),
-                      SizedBox(width: 12.rs),
+                      SizedBox(width: AppSpacing.md),
                       Expanded(
                         child: _SubRoleChip(
                           icon: Icons.badge_rounded,
@@ -289,7 +290,7 @@ class _RoleSelectionContent extends ConsumerWidget {
           ),
         ],
 
-        SizedBox(height: 32.rs),
+        SizedBox(height: AppSpacing.xxl),
 
         // Get Started button (only for Sign Up)
         if (state.role == WizardRole.admin || state.role == WizardRole.operator)
@@ -315,7 +316,7 @@ class _RoleSelectionContent extends ConsumerWidget {
             ),
           ),
 
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
 
         // Info banner
         ConstrainedBox(
@@ -548,7 +549,7 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
           height: 60,
           decoration: BoxDecoration(
             color: scheme.tertiary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16.rs),
+            borderRadius: AppRadius.dialog,
             border: Border.all(color: scheme.tertiary.withValues(alpha: 0.2)),
           ),
           child: Icon(Icons.restore_rounded, size: 28, color: scheme.tertiary),
@@ -558,7 +559,7 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
           'Resume Setup',
           style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5),
         ),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Text(
           'Sign in to continue where you left off',
           style: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
@@ -572,13 +573,13 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
             padding: EdgeInsets.all(14.rs),
             decoration: BoxDecoration(
               color: scheme.tertiaryContainer.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12.rs),
+              borderRadius: AppRadius.card,
               border: Border.all(color: scheme.tertiary.withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [
                 Icon(Icons.info_outline_rounded, size: 18, color: scheme.tertiary),
-                SizedBox(width: 12.rs),
+                SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Text(
                     'You have an incomplete setup (paused at "$stepName" step). Verify your credentials to resume.',
@@ -596,7 +597,7 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
             child: Container(
-              padding: EdgeInsets.all(16.rs),
+              padding: AppSpacing.cardPadding,
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(14.rs),
@@ -616,7 +617,7 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
                         ),
                         child: Icon(Icons.business_rounded, size: 18, color: scheme.primary),
                       ),
-                      SizedBox(width: 12.rs),
+                      SizedBox(width: AppSpacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -635,20 +636,20 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 12.rs),
+                  SizedBox(height: AppSpacing.md),
                   Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
-                  SizedBox(height: 12.rs),
+                  SizedBox(height: AppSpacing.md),
                   Row(
                     children: [
                       _DetailChip(icon: Icons.assignment_ind_rounded, label: 'GSTIN: $_gstin', scheme: scheme),
                     ],
                   ),
                   if (_address != null && _address!.isNotEmpty) ...[
-                    SizedBox(height: 8.rs),
+                    SizedBox(height: AppSpacing.sm),
                     Row(
                       children: [
                         Icon(Icons.location_on_outlined, size: 13, color: scheme.onSurfaceVariant),
-                        SizedBox(width: 4.rs),
+                        SizedBox(width: AppSpacing.xs),
                         Expanded(
                           child: Text(_address!, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis),
                         ),
@@ -666,13 +667,13 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
             child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
           ),
 
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
 
         // Sign-in form
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Container(
-            padding: EdgeInsets.all(28.rs),
+            padding: AppSpacing.pagePadding,
             decoration: BoxDecoration(
               color: scheme.surface,
               borderRadius: BorderRadius.circular(18.rs),
@@ -697,12 +698,12 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
                       child: Row(
                         children: [
                           Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Expanded(child: Text(_error!, style: TextStyle(fontSize: 12, color: scheme.error, fontWeight: FontWeight.w500))),
                         ],
                       ),
                     ),
-                    SizedBox(height: 16.rs),
+                    SizedBox(height: AppSpacing.lg),
                   ],
 
                   Text('Email', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
@@ -720,7 +721,7 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
                       prefixIcon: Icon(Icons.email_outlined, size: 18),
                     ),
                   ),
-                  SizedBox(height: 16.rs),
+                  SizedBox(height: AppSpacing.lg),
 
                   Text('Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
                   SizedBox(height: 6.rs),
@@ -737,7 +738,7 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
                       ),
                     ),
                   ),
-                  SizedBox(height: 24.rs),
+                  SizedBox(height: AppSpacing.xl),
 
                   SizedBox(
                     width: double.infinity,
@@ -797,13 +798,13 @@ class _DetailChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(6.rs),
+        borderRadius: AppRadius.chip,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: scheme.primary),
-          SizedBox(width: 4.rs),
+          SizedBox(width: AppSpacing.xs),
           Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
         ],
       ),
@@ -1193,7 +1194,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
             child: Row(
               children: [
                 Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(child: Text(_error!, style: TextStyle(fontSize: 12, color: scheme.error, fontWeight: FontWeight.w500))),
               ],
             ),
@@ -1216,7 +1217,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
             prefixIcon: Icon(Icons.email_outlined, size: 18),
           ),
         ),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
 
         Text('Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
         SizedBox(height: 6.rs),
@@ -1233,7 +1234,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
             ),
           ),
         ),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
 
         Align(
           alignment: Alignment.centerRight,
@@ -1245,7 +1246,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: scheme.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(color: scheme.primary.withValues(alpha: 0.25)),
                 ),
                 child: Text('Forgot Password?',
@@ -1280,11 +1281,11 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         Row(
           children: [
             Icon(Icons.lock_reset_rounded, size: 20, color: scheme.primary),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('Change Password', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
           ],
         ),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Text(
           'Your administrator requires you to set a new password before continuing.',
           style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -1302,7 +1303,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
             child: Row(
               children: [
                 const Icon(Icons.check_circle_rounded, size: 16, color: Colors.green),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(child: Text(_changeSuccess!, style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600))),
               ],
             ),
@@ -1319,12 +1320,12 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
               child: Row(
                 children: [
                   Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   Expanded(child: Text(_changeError!, style: TextStyle(fontSize: 12, color: scheme.error, fontWeight: FontWeight.w500))),
                 ],
               ),
             ),
-            SizedBox(height: 16.rs),
+            SizedBox(height: AppSpacing.lg),
           ],
 
           Text('New Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
@@ -1437,7 +1438,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
           height: 60,
           decoration: BoxDecoration(
             color: scheme.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16.rs),
+            borderRadius: AppRadius.dialog,
             border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
           ),
           child: Icon(Icons.scale_rounded, size: 28, color: scheme.primary),
@@ -1447,7 +1448,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
           'Welcome Back',
           style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5),
         ),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Text(
           'Sign in to configure this device',
           style: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
@@ -1476,7 +1477,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
           ),
         ),
 
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
 
         // Back link
         TextButton.icon(
@@ -1526,14 +1527,14 @@ class _RoleCardState extends State<_RoleCard> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.all(28.rs),
+          padding: AppSpacing.pagePadding,
           decoration: BoxDecoration(
             color: widget.isSelected
                 ? scheme.primary.withValues(alpha: 0.08)
                 : _hovered
                     ? scheme.surfaceContainerHighest.withValues(alpha: 0.6)
                     : scheme.surface,
-            borderRadius: BorderRadius.circular(16.rs),
+            borderRadius: AppRadius.dialog,
             border: Border.all(
               color: widget.isSelected
                   ? scheme.primary.withValues(alpha: 0.5)
@@ -1561,7 +1562,7 @@ class _RoleCardState extends State<_RoleCard> {
                 ),
                 child: Icon(widget.icon, size: 24, color: widget.isSelected ? scheme.primary : scheme.onSurfaceVariant),
               ),
-              SizedBox(height: 16.rs),
+              SizedBox(height: AppSpacing.lg),
               Text(
                 widget.title,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: scheme.onSurface),
@@ -1655,7 +1656,7 @@ class _SubRoleChipState extends State<_SubRoleChip> {
                 size: 20,
                 color: widget.isSelected ? scheme.primary : scheme.onSurfaceVariant,
               ),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1719,7 +1720,7 @@ class _AppearanceControls extends ConsumerWidget {
           scheme: scheme,
           onChanged: (mode) => ref.read(appearanceProvider.notifier).setThemeMode(mode),
         ),
-        SizedBox(width: 8.rs),
+        SizedBox(width: AppSpacing.sm),
         // Accent color picker
         _AccentColorButton(
           currentColor: settings.accentColor,
@@ -1848,7 +1849,7 @@ class _ThemeToggleButton extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(8.rs),
+        borderRadius: AppRadius.button,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -1871,7 +1872,7 @@ class _ThemeToggleButton extends StatelessWidget {
         padding: EdgeInsets.all(6.rs),
         decoration: BoxDecoration(
           color: selected ? scheme.primary.withValues(alpha: 0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
         ),
         child: Icon(icon, size: 16, color: selected ? scheme.primary : scheme.onSurfaceVariant.withValues(alpha: 0.6)),
       ),
@@ -1934,7 +1935,7 @@ class _AccentColorButtonState extends State<_AccentColorButton> {
                 padding: EdgeInsets.all(12.rs),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(12.rs),
+                  borderRadius: AppRadius.card,
                   border: Border.all(color: widget.scheme.outlineVariant.withValues(alpha: 0.3)),
                   boxShadow: [
                     BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4)),

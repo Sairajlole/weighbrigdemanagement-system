@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 const _accentColors = <Color>[
   Color(0xFF059669), // Emerald (default)
@@ -98,18 +99,18 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
 
   Widget _buildContent(ColorScheme scheme, TextTheme text) {
     return SingleChildScrollView(
-      padding: EdgeInsets.all(28.rs),
+      padding: AppSpacing.pagePadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildThemeSection(scheme, text),
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           _buildAccentSection(scheme, text),
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           _buildBackgroundSection(scheme, text),
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           _buildFontSection(scheme, text),
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           _buildLanguageSection(scheme, text),
           SizedBox(height: 40.rs),
         ],
@@ -144,9 +145,9 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                         context.go('/settings');
                       },
                       icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                     ),
-                    SizedBox(width: 12.rs),
+                    SizedBox(width: AppSpacing.md),
                     Icon(Icons.palette_rounded, size: 20, color: scheme.primary),
                     SizedBox(width: 10.rs),
                     Column(
@@ -172,7 +173,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                         },
                         child: const Text('Cancel'),
                       ),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                     ],
                     FilledButton.icon(
                       onPressed: _dirty && !_saving ? _save : null,
@@ -182,7 +183,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                       label: Text(_saving ? 'Saving...' : 'Save'),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                       ),
                     ),
                   ],
@@ -195,7 +196,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8.rs),
+                        borderRadius: AppRadius.button,
                         border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                       ),
                       child: Row(
@@ -205,7 +206,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                             size: 15,
                             color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                           ),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                         ],
                       ),
@@ -240,7 +241,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
               onTap: () { setState(() => _themeMode = ThemeMode.light); _markDirty(); },
               scheme: scheme, text: text,
             ),
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             _ThemeOption(
               label: 'Dark',
               icon: Icons.dark_mode_rounded,
@@ -248,7 +249,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
               onTap: () { setState(() => _themeMode = ThemeMode.dark); _markDirty(); },
               scheme: scheme, text: text,
             ),
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             _ThemeOption(
               label: 'System',
               icon: Icons.settings_brightness_rounded,
@@ -376,7 +377,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
           padding: EdgeInsets.all(12.rs),
           decoration: BoxDecoration(
             color: scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
           ),
           child: Text(
@@ -430,7 +431,7 @@ class _Section extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
@@ -463,7 +464,7 @@ class _Section extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: EdgeInsets.all(24.rs),
+            padding: AppSpacing.pagePadding,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
           ),
         ],
@@ -491,13 +492,13 @@ class _ThemeOption extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
           decoration: BoxDecoration(
             color: selected ? scheme.primaryContainer.withValues(alpha: 0.4) : scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(12.rs),
+            borderRadius: AppRadius.card,
             border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4), width: selected ? 2 : 1),
           ),
           child: Column(
             children: [
               Icon(icon, size: 24, color: selected ? scheme.primary : scheme.onSurfaceVariant),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               Text(label, style: text.labelMedium?.copyWith(fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
             ],
           ),
@@ -532,7 +533,7 @@ class _FontOption extends StatelessWidget {
           child: Column(
             children: [
               Text('Aa', style: TextStyle(fontSize: 14 * scale, fontWeight: FontWeight.w700, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
-              SizedBox(height: 4.rs),
+              SizedBox(height: AppSpacing.xs),
               Text(label, style: text.labelSmall?.copyWith(fontSize: 10, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
             ],
           ),
@@ -562,14 +563,14 @@ class _LangOption extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
           decoration: BoxDecoration(
             color: selected ? scheme.primaryContainer.withValues(alpha: 0.4) : scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(12.rs),
+            borderRadius: AppRadius.card,
             border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4), width: selected ? 2 : 1),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(native, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text('($label)', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
             ],
           ),
@@ -588,7 +589,7 @@ class _ArtPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8.rs),
+      borderRadius: AppRadius.button,
       child: CustomPaint(
         size: const Size(90, 50),
         painter: _ArtPainter(art, color),

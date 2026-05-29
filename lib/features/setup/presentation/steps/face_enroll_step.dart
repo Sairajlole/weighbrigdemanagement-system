@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class FaceEnrollStep extends ConsumerStatefulWidget {
   const FaceEnrollStep({super.key});
@@ -309,14 +310,14 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
                   height: 56,
                   decoration: BoxDecoration(
                     color: scheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(16.rs),
+                    borderRadius: AppRadius.dialog,
                     border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                   ),
                   child: Icon(Icons.face_rounded, size: 28, color: scheme.primary),
                 ),
                 SizedBox(height: 20.rs),
                 Text('Face Enrollment', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                SizedBox(height: 8.rs),
+                SizedBox(height: AppSpacing.sm),
                 Text(
                   'Capture face snapshots for identity verification when logging in.',
                   style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -341,25 +342,25 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
       children: [
         Container(
           width: double.infinity,
-          padding: EdgeInsets.all(24.rs),
+          padding: AppSpacing.pagePadding,
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius: BorderRadius.circular(16.rs),
+            borderRadius: AppRadius.dialog,
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
             boxShadow: [BoxShadow(color: scheme.shadow.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
           ),
           child: Column(
             children: [
               Icon(Icons.visibility_rounded, size: 40, color: scheme.primary),
-              SizedBox(height: 16.rs),
+              SizedBox(height: AppSpacing.lg),
               Text('Do you wear spectacles / glasses?', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               Text(
                 'If yes, we\'ll capture your face both with and without glasses for better recognition accuracy.',
                 style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 24.rs),
+              SizedBox(height: AppSpacing.xl),
               Row(
                 children: [
                   Expanded(
@@ -373,7 +374,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
                       ),
                     ),
                   ),
-                  SizedBox(width: 16.rs),
+                  SizedBox(width: AppSpacing.lg),
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: () => _answerSpecs(true),
@@ -390,7 +391,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
             ],
           ),
         ),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
         TextButton(
           onPressed: _proceed,
           child: Text('Skip Face Enrollment', style: TextStyle(color: scheme.onSurfaceVariant)),
@@ -439,7 +440,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
               color: _specsPhase
                   ? scheme.primaryContainer.withValues(alpha: 0.2)
                   : scheme.tertiaryContainer.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12.rs),
+              borderRadius: AppRadius.card,
               border: Border.all(
                 color: _specsPhase
                     ? scheme.primary.withValues(alpha: 0.3)
@@ -453,11 +454,11 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
                   height: 36,
                   decoration: BoxDecoration(
                     color: (_specsPhase ? scheme.primary : scheme.tertiary).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8.rs),
+                    borderRadius: AppRadius.button,
                   ),
                   child: Icon(phaseIcon, size: 20, color: _specsPhase ? scheme.primary : scheme.tertiary),
                 ),
-                SizedBox(width: 12.rs),
+                SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -479,13 +480,13 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppTheme.successColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6.rs),
+                      borderRadius: AppRadius.chip,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.check_circle_rounded, size: 12, color: AppTheme.successColor),
-                        SizedBox(width: 4.rs),
+                        SizedBox(width: AppSpacing.xs),
                         Text('Phase 1 done', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
                       ],
                     ),
@@ -501,7 +502,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
             child: Row(
               children: [
                 Icon(Icons.videocam_rounded, size: 16, color: scheme.onSurfaceVariant),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     initialValue: _selectedCameraId,
@@ -509,7 +510,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                      border: OutlineInputBorder(borderRadius: AppRadius.button),
                     ),
                     items: _cameras.map((cam) => DropdownMenuItem(
                       value: cam['id'],
@@ -533,7 +534,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
           height: 240,
           decoration: BoxDecoration(
             color: Colors.black,
-            borderRadius: BorderRadius.circular(16.rs),
+            borderRadius: AppRadius.dialog,
             border: Border.all(
               color: _capturing ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.3),
               width: _capturing ? 3 : 1,
@@ -550,14 +551,14 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.videocam_off_rounded, size: 32, color: Colors.white54),
-                              SizedBox(height: 8.rs),
+                              SizedBox(height: AppSpacing.sm),
                               Text('Initializing camera...', style: TextStyle(color: Colors.white54, fontSize: 12)),
                             ],
                           ),
                   ),
           ),
         ),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
 
         // Tips
         Container(
@@ -601,7 +602,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
               height: 40,
               margin: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8.rs),
+                borderRadius: AppRadius.button,
                 border: Border.all(
                   color: captured ? AppTheme.successColor : scheme.outlineVariant.withValues(alpha: 0.4),
                   width: captured ? 2 : 1,
@@ -621,16 +622,16 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
             );
           }),
         ),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Text(
           '${_capturedFrames.length} of $_requiredFrames captured',
           style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
         ),
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
 
         if (_enrolling) ...[
           const CircularProgressIndicator(strokeWidth: 2),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Text('Verifying & enrolling face...', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
         ] else if (_enrollError != null) ...[
           Container(
@@ -648,7 +649,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
               ],
             ),
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -674,7 +675,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
                     width: 18, height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
                   ),
-                  SizedBox(width: 12.rs),
+                  SizedBox(width: AppSpacing.md),
                   Text(
                     'Starting in $_autoCountdown...',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: scheme.primary),
@@ -697,7 +698,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.fiber_manual_record_rounded, size: 14, color: AppTheme.successColor),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   Text(
                     'Capturing... look at the camera naturally',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.successColor),
@@ -728,7 +729,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
             '5 photos will be taken automatically (1 per second)',
             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
           ),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           TextButton(
             onPressed: _proceed,
             child: Text('Skip', style: TextStyle(color: scheme.onSurfaceVariant)),
@@ -743,10 +744,10 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
       children: [
         Container(
           width: double.infinity,
-          padding: EdgeInsets.all(28.rs),
+          padding: AppSpacing.pagePadding,
           decoration: BoxDecoration(
             color: scheme.tertiaryContainer.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(16.rs),
+            borderRadius: AppRadius.dialog,
             border: Border.all(color: scheme.tertiary.withValues(alpha: 0.25)),
           ),
           child: Column(
@@ -772,18 +773,18 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.successColor),
                 ),
               ),
-              SizedBox(height: 16.rs),
+              SizedBox(height: AppSpacing.lg),
               Text(
                 'Now remove your spectacles',
                 style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               Text(
                 'Take off your glasses before continuing. This helps the system recognise you regardless of whether you\'re wearing them.',
                 style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 24.rs),
+              SizedBox(height: AppSpacing.xl),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
@@ -809,7 +810,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
       child: Row(
         children: [
           Icon(icon, size: 13, color: Colors.orange),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           Expanded(child: Text(tip, style: const TextStyle(fontSize: 11))),
         ],
       ),
@@ -838,13 +839,13 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
         ),
         SizedBox(height: 20.rs),
         Text('Face Enrolled Successfully', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Text(
           'Your identity has been securely registered.',
           style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
         Container(
           width: double.infinity,
           padding: EdgeInsets.all(20.rs),
@@ -890,26 +891,26 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppTheme.successColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6.rs),
+                      borderRadius: AppRadius.chip,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.check_circle_rounded, size: 12, color: AppTheme.successColor),
-                        SizedBox(width: 4.rs),
+                        SizedBox(width: AppSpacing.xs),
                         Text('Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
                       ],
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 16.rs),
+              SizedBox(height: AppSpacing.lg),
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(12.rs),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                 ),
                 child: Row(
                   children: [
@@ -940,7 +941,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
             ),
           ),
         ),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         TextButton.icon(
           onPressed: () {
             ref.read(wizardFaceEnrolledProvider.notifier).state = false;
@@ -982,13 +983,13 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
         ),
         SizedBox(height: 20.rs),
         Text('Camera Not Available', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Text(
           _errorMessage ?? 'Could not access the camera. Please check permissions.',
           style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
         Row(
           children: [
             Expanded(
@@ -1001,7 +1002,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
                 label: const Text('Retry'),
               ),
             ),
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             Expanded(
               child: FilledButton(
                 onPressed: _proceed,

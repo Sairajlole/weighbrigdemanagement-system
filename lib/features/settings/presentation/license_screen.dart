@@ -7,6 +7,7 @@ import 'package:weighbridgemanagement/shared/providers/site_context_provider.dar
 import 'package:weighbridgemanagement/shared/providers/version_provider.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class LicenseScreen extends ConsumerStatefulWidget {
   const LicenseScreen({super.key});
@@ -79,9 +80,9 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                 IconButton(
                   onPressed: () => context.go('/settings'),
                   icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                  style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                  style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                 ),
-                SizedBox(width: 12.rs),
+                SizedBox(width: AppSpacing.md),
                 Icon(Icons.workspace_premium_rounded, size: 22, color: scheme.primary),
                 SizedBox(width: 10.rs),
                 Column(
@@ -96,12 +97,12 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.all(28.rs),
+              padding: AppSpacing.pagePadding,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildStatusHero(license, scheme, text),
-                  SizedBox(height: 24.rs),
+                  SizedBox(height: AppSpacing.xl),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -170,7 +171,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
           };
 
     return Container(
-      padding: EdgeInsets.all(24.rs),
+      padding: AppSpacing.pagePadding,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -180,7 +181,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border: Border.all(color: (trialExpired ? scheme.error : tierColor).withValues(alpha: 0.2)),
       ),
       child: Row(
@@ -190,7 +191,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
             height: 56,
             decoration: BoxDecoration(
               color: (trialExpired ? scheme.error : tierColor).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16.rs),
+              borderRadius: AppRadius.dialog,
             ),
             child: Icon(
               trialExpired ? Icons.timer_off_rounded
@@ -209,14 +210,14 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                 Row(
                   children: [
                     Text(tierLabel, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800, color: trialExpired ? scheme.error : tierColor)),
-                    SizedBox(width: 12.rs),
+                    SizedBox(width: AppSpacing.md),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: license.isValid
                             ? Colors.green.withValues(alpha: 0.1)
                             : scheme.errorContainer.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(6.rs),
+                        borderRadius: AppRadius.chip,
                       ),
                       child: Text(
                         license.isValid ? 'Active' : 'Expired',
@@ -225,13 +226,13 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                     ),
                   ],
                 ),
-                SizedBox(height: 4.rs),
+                SizedBox(height: AppSpacing.xs),
                 Text(subtitle, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
               ],
             ),
           ),
           if (trialActive) ...[
-            SizedBox(width: 16.rs),
+            SizedBox(width: AppSpacing.lg),
             _buildTrialProgress(license, scheme, text),
           ],
         ],
@@ -249,14 +250,14 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
       padding: EdgeInsets.all(12.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(color: urgent ? Colors.orange.withValues(alpha: 0.3) : scheme.outlineVariant.withValues(alpha: 0.2)),
       ),
       child: Column(
         children: [
           Text('$daysRemaining', style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, color: urgent ? Colors.orange.shade700 : scheme.primary)),
           Text('days left', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           ClipRRect(
             borderRadius: BorderRadius.circular(4.rs),
             child: LinearProgressIndicator(
@@ -289,17 +290,17 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                 width: 32, height: 32,
                 decoration: BoxDecoration(
                   color: AppTheme.proColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                 ),
                 child: const Icon(Icons.vpn_key_rounded, size: 16, color: AppTheme.proColor),
               ),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               Text('Activate Pro License', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
             ],
           ),
           SizedBox(height: 6.rs),
           Text('Enter a license key to unlock all Pro features permanently.', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           Row(
             children: [
               Expanded(
@@ -316,7 +317,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                   onSubmitted: (_) => _activateKey(),
                 ),
               ),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               FilledButton.icon(
                 onPressed: _activating ? null : _activateKey,
                 icon: _activating
@@ -335,7 +336,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
             SizedBox(height: 10.rs),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(6.rs)),
+              decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.4), borderRadius: AppRadius.chip),
               child: Row(
                 children: [
                   Icon(Icons.error_outline_rounded, size: 14, color: scheme.error),
@@ -349,7 +350,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
             SizedBox(height: 10.rs),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6.rs)),
+              decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: AppRadius.chip),
               child: Row(
                 children: [
                   const Icon(Icons.check_circle_rounded, size: 14, color: Colors.green),
@@ -364,12 +365,12 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
             padding: EdgeInsets.all(12.rs),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
             ),
             child: Row(
               children: [
                 Icon(Icons.info_outline_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     'License keys are priced per weighbridge. Contact sales@weighbridge.app for a key.',
@@ -404,11 +405,11 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                 width: 32, height: 32,
                 decoration: BoxDecoration(
                   color: scheme.primaryContainer.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                 ),
                 child: Icon(Icons.compare_arrows_rounded, size: 16, color: scheme.primary),
               ),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               Text('Plan Comparison', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
               const Spacer(),
               Container(
@@ -479,7 +480,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
 
           // Trial fallback info (if on trial)
           if (license.isTrial && license.isValid) ...[
-            SizedBox(height: 16.rs),
+            SizedBox(height: AppSpacing.lg),
             Container(
               padding: EdgeInsets.all(14.rs),
               decoration: BoxDecoration(
@@ -500,7 +501,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                           'After your trial ends',
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.onSurface),
                         ),
-                        SizedBox(height: 4.rs),
+                        SizedBox(height: AppSpacing.xs),
                         Text(
                           'Your account will move to the Free plan. All data is preserved — Pro features are locked until you upgrade. You can upgrade anytime with a license key.',
                           style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
@@ -538,11 +539,11 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                 width: 32, height: 32,
                 decoration: BoxDecoration(
                   color: scheme.primaryContainer.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                 ),
                 child: Icon(Icons.featured_play_list_rounded, size: 16, color: scheme.primary),
               ),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               Text('Feature Details', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
             ],
           ),
@@ -563,7 +564,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
             scheme: scheme,
             text: text,
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           _FeatureGroupWidget(
             icon: Icons.videocam_rounded,
             title: 'Cameras & AI',
@@ -578,7 +579,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
             scheme: scheme,
             text: text,
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           _FeatureGroupWidget(
             icon: Icons.door_sliding_rounded,
             title: 'Automation & Hardware',
@@ -592,7 +593,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
             scheme: scheme,
             text: text,
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           _FeatureGroupWidget(
             icon: Icons.print_rounded,
             title: 'Printing & Output',
@@ -607,7 +608,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
             scheme: scheme,
             text: text,
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           _FeatureGroupWidget(
             icon: Icons.bar_chart_rounded,
             title: 'Reports & Data',
@@ -622,7 +623,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
             scheme: scheme,
             text: text,
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           _FeatureGroupWidget(
             icon: Icons.security_rounded,
             title: 'Security & Integrations',
@@ -668,7 +669,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
               Text('License Details', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
             ],
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           _detailRow('Key', license.key.isNotEmpty ? '${license.key.substring(0, license.key.length > 10 ? 10 : license.key.length)}...' : 'None', scheme, text),
           SizedBox(height: 10.rs),
           _detailRow('Tier', switch (license.tier) {
@@ -708,7 +709,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
               label: const Text('Validate Now'),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                 textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
             ),
@@ -719,7 +720,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
               ),
               child: Row(
                 children: [
@@ -767,7 +768,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
               Text('Usage & Limits', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
             ],
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           _LimitRow(icon: Icons.scale_rounded, label: 'Weighbridges', value: wbLabel, scheme: scheme, text: text),
           SizedBox(height: 10.rs),
           _LimitRow(icon: Icons.location_on_rounded, label: 'Sites', value: siteLabel, scheme: scheme, text: text),
@@ -783,12 +784,12 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
               padding: EdgeInsets.all(10.rs),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(8.rs),
+                borderRadius: AppRadius.button,
               ),
               child: Row(
                 children: [
                   Icon(Icons.trending_up_rounded, size: 14, color: scheme.primary),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
                       'Upgrade to Pro for unlimited weighbridges and multi-site support.',
@@ -866,14 +867,14 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
           Row(
             children: [
               Icon(statusIcon, size: 18, color: statusColor),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text(statusLabel, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: statusColor)),
             ],
           ),
           SizedBox(height: 10.rs),
           _detailRow('Current', 'v${info.currentVersion}', scheme, text),
           if (info.latestVersion != null && info.status != VersionStatus.upToDate) ...[
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             _detailRow('Latest', 'v${info.latestVersion}', scheme, text),
           ],
           if (info.releaseNotes != null && info.releaseNotes!.isNotEmpty) ...[
@@ -883,7 +884,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
               padding: EdgeInsets.all(10.rs),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
               ),
               child: Text(
                 info.releaseNotes!,
@@ -894,7 +895,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
             ),
           ],
           if (info.status == VersionStatus.updateAvailable || info.status == VersionStatus.updateRequired) ...[
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -903,7 +904,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                 label: const Text('Download Update'),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                   backgroundColor: statusColor,
                   textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                 ),
@@ -968,7 +969,7 @@ class _PlanCard extends StatelessWidget {
                 width: 32, height: 32,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                 ),
                 child: Icon(icon, size: 16, color: color),
               ),
@@ -984,7 +985,7 @@ class _PlanCard extends StatelessWidget {
                           SizedBox(width: 6.rs),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8.rs)),
+                            decoration: BoxDecoration(color: color, borderRadius: AppRadius.button),
                             child: Text(badge!, style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white)),
                           ),
                         ],
@@ -1000,7 +1001,7 @@ class _PlanCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -1027,7 +1028,7 @@ class _PlanCard extends StatelessWidget {
                     color: color.withValues(alpha: 0.7),
                   ),
                 ),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(child: Text(f, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant, height: 1.3))),
               ],
             ),
@@ -1080,7 +1081,7 @@ class _FeatureGroupWidget extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 16, color: scheme.primary),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.onSurface)),
             ],
           ),
@@ -1161,7 +1162,7 @@ class _LimitRow extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, size: 14, color: scheme.onSurfaceVariant),
-        SizedBox(width: 8.rs),
+        SizedBox(width: AppSpacing.sm),
         Expanded(child: Text(label, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

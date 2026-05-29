@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class SiteSetupScreen extends ConsumerStatefulWidget {
   const SiteSetupScreen({super.key});
@@ -124,7 +125,7 @@ class _SiteSetupScreenState extends ConsumerState<SiteSetupScreen> {
                   ),
                 )),
               ),
-              SizedBox(height: 32.rs),
+              SizedBox(height: AppSpacing.xxl),
 
               if (_step == 0) _buildCompanyStep(scheme, text),
               if (_step == 1) _buildSiteStep(scheme, text),
@@ -142,15 +143,15 @@ class _SiteSetupScreenState extends ConsumerState<SiteSetupScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('Select Company', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Text('Choose an existing company or create a new one.', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
         _CompanySelector(
           db: _db,
           selected: _selectedCompanyId,
           onSelected: (id) => setState(() => _selectedCompanyId = id),
         ),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
         // Or create new
         ExpansionTile(
           title: Text('Create new company', style: text.labelLarge),
@@ -161,7 +162,7 @@ class _SiteSetupScreenState extends ConsumerState<SiteSetupScreen> {
               decoration: const InputDecoration(labelText: 'Company Name', border: OutlineInputBorder()),
               onChanged: (v) => setState(() => _newCompanyName = v),
             ),
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             FilledButton(
               onPressed: _newCompanyName.trim().isEmpty ? null : () async {
                 setState(() => _loading = true);
@@ -172,7 +173,7 @@ class _SiteSetupScreenState extends ConsumerState<SiteSetupScreen> {
             ),
           ],
         ),
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
         Align(
           alignment: Alignment.centerRight,
           child: FilledButton(
@@ -190,16 +191,16 @@ class _SiteSetupScreenState extends ConsumerState<SiteSetupScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('Select Site', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Text('A site represents a physical location with one or more weighbridges.', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
         _SiteSelector(
           db: _db,
           companyId: _selectedCompanyId!,
           selected: _selectedSiteId,
           onSelected: (id) => setState(() => _selectedSiteId = id),
         ),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
         ExpansionTile(
           title: Text('Create new site', style: text.labelLarge),
           tilePadding: EdgeInsets.zero,
@@ -209,12 +210,12 @@ class _SiteSetupScreenState extends ConsumerState<SiteSetupScreen> {
               decoration: const InputDecoration(labelText: 'Site Name', border: OutlineInputBorder()),
               onChanged: (v) => setState(() => _newSiteName = v),
             ),
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             TextField(
               decoration: const InputDecoration(labelText: 'Location (optional)', border: OutlineInputBorder()),
               onChanged: (v) => setState(() => _newSiteLocation = v),
             ),
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             FilledButton(
               onPressed: _newSiteName.trim().isEmpty ? null : () async {
                 setState(() => _loading = true);
@@ -225,7 +226,7 @@ class _SiteSetupScreenState extends ConsumerState<SiteSetupScreen> {
             ),
           ],
         ),
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -246,9 +247,9 @@ class _SiteSetupScreenState extends ConsumerState<SiteSetupScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('Select Weighbridge', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Text('Choose which weighbridge this device will operate.', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
         _WeighbridgeSelector(
           db: _db,
           companyId: _selectedCompanyId!,
@@ -256,7 +257,7 @@ class _SiteSetupScreenState extends ConsumerState<SiteSetupScreen> {
           selected: _selectedWeighbridgeId,
           onSelected: (id) => setState(() => _selectedWeighbridgeId = id),
         ),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
         ExpansionTile(
           title: Text('Create new weighbridge', style: text.labelLarge),
           tilePadding: EdgeInsets.zero,
@@ -266,7 +267,7 @@ class _SiteSetupScreenState extends ConsumerState<SiteSetupScreen> {
               decoration: const InputDecoration(labelText: 'Weighbridge Name', hintText: 'e.g. WB-01', border: OutlineInputBorder()),
               onChanged: (v) => setState(() => _newWeighbridgeName = v),
             ),
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             FilledButton(
               onPressed: _newWeighbridgeName.trim().isEmpty ? null : () async {
                 setState(() => _loading = true);
@@ -277,7 +278,7 @@ class _SiteSetupScreenState extends ConsumerState<SiteSetupScreen> {
             ),
           ],
         ),
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -319,7 +320,7 @@ class _CompanySelector extends StatelessWidget {
             return ListTile(
               title: Text(data['name'] ?? doc.id),
               leading: Icon(isSelected ? Icons.radio_button_checked : Icons.radio_button_off),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
               selected: isSelected,
               onTap: () => onSelected(doc.id),
             );
@@ -354,7 +355,7 @@ class _SiteSelector extends StatelessWidget {
               title: Text(data['name'] ?? doc.id),
               subtitle: data['location'] != null ? Text(data['location']) : null,
               leading: Icon(isSelected ? Icons.radio_button_checked : Icons.radio_button_off),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
               selected: isSelected,
               onTap: () => onSelected(doc.id),
             );
@@ -389,7 +390,7 @@ class _WeighbridgeSelector extends StatelessWidget {
             return ListTile(
               title: Text(data['name'] ?? doc.id),
               leading: Icon(isSelected ? Icons.radio_button_checked : Icons.radio_button_off),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
               selected: isSelected,
               onTap: () => onSelected(doc.id),
             );

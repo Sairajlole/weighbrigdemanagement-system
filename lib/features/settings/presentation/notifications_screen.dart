@@ -11,6 +11,7 @@ import 'package:weighbridgemanagement/shared/widgets/pro_feature_banner.dart';
 import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 // ---------------------------------------------------------------------------
 // Local persistence helper
@@ -298,13 +299,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
-                padding: EdgeInsets.all(28.rs),
+                padding: AppSpacing.pagePadding,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const ProFeatureBanner(feature: 'Notifications & Alerts'),
                     _buildChannelsSection(scheme, text),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     _buildEventsSection(scheme, text),
                     SizedBox(height: 40.rs),
                   ],
@@ -336,9 +337,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               IconButton(
                 onPressed: () => context.go('/settings'),
                 icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
               ),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               Icon(Icons.notifications_rounded, size: 20, color: scheme.primary),
               SizedBox(width: 10.rs),
               Column(
@@ -354,7 +355,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   onPressed: () { setState(() { _loaded = false; _dirty = false; }); ref.invalidate(_notificationsSettingsProvider); },
                   child: const Text('Cancel'),
                 ),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
               ],
               FilledButton.icon(
                 onPressed: _dirty && !_saving ? _save : null,
@@ -364,7 +365,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 label: Text(_saving ? 'Saving...' : 'Save'),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                 ),
               ),
             ],
@@ -377,7 +378,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                 ),
                 child: Row(
@@ -387,7 +388,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       size: 15,
                       color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                     ),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                   ],
                 ),
@@ -427,7 +428,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               ),
             ],
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           _FeatureToggle(
             icon: Icons.sms_rounded,
             label: 'SMS',
@@ -439,7 +440,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               _markDirty();
             },
           ),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           _FeatureToggle(
             icon: Icons.chat_rounded,
             label: 'WhatsApp',
@@ -451,7 +452,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               _markDirty();
             },
           ),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           _FeatureToggle(
             icon: Icons.email_rounded,
             label: 'Email',
@@ -463,7 +464,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               _markDirty();
             },
           ),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           _FeatureToggle(
             icon: Icons.notifications_active_rounded,
             label: 'In-App',
@@ -509,7 +510,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               ),
             ],
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           ..._eventDefinitions.map((def) => _buildEventCard(def, scheme, text)),
         ],
       ),
@@ -526,7 +527,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         color: state.enabled
             ? scheme.surfaceContainerLow
             : scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(
           color: state.enabled
               ? scheme.primary.withValues(alpha: 0.12)
@@ -554,7 +555,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       : scheme.onSurfaceVariant,
                 ),
               ),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               if (state.enabled)
                 Container(
                   padding:
@@ -586,7 +587,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           ),
           children: [
             if (state.enabled) ...[
-              SizedBox(height: 4.rs),
+              SizedBox(height: AppSpacing.xs),
               _buildChannelDelivery(def, state, scheme, text),
               if (def.hasOperators) ...[
                 SizedBox(height: 14.rs),
@@ -606,7 +607,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       children: [
         Text('Channel Delivery',
             style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Row(
           children: [
             _buildChannelCheckbox(
@@ -618,7 +619,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               scheme: scheme,
               text: text,
             ),
-            SizedBox(width: 16.rs),
+            SizedBox(width: AppSpacing.lg),
             _buildChannelCheckbox(
               label: 'WhatsApp',
               icon: Icons.chat_rounded,
@@ -628,7 +629,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               scheme: scheme,
               text: text,
             ),
-            SizedBox(width: 16.rs),
+            SizedBox(width: AppSpacing.lg),
             _buildChannelCheckbox(
               label: 'Email',
               icon: Icons.email_rounded,
@@ -638,7 +639,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               scheme: scheme,
               text: text,
             ),
-            SizedBox(width: 16.rs),
+            SizedBox(width: AppSpacing.lg),
             _buildChannelCheckbox(
               label: 'In-App',
               icon: Icons.notifications_active_rounded,
@@ -681,14 +682,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 });
                 _markDirty();
               },
-        borderRadius: BorderRadius.circular(8.rs),
+        borderRadius: AppRadius.button,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected && !isDisabled
                 ? scheme.primaryContainer.withValues(alpha: 0.2)
                 : scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
             border: Border.all(
               color: isSelected && !isDisabled
                   ? scheme.primary.withValues(alpha: 0.4)
@@ -709,7 +710,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               ),
               SizedBox(width: 6.rs),
               Icon(icon, size: 14, color: scheme.onSurfaceVariant),
-              SizedBox(width: 4.rs),
+              SizedBox(width: AppSpacing.xs),
               Text(
                 label,
                 style: text.bodySmall?.copyWith(
@@ -735,7 +736,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       children: [
         Text('Also Notify Operators',
             style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         operatorsAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.all(8),
@@ -755,7 +756,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 padding: EdgeInsets.all(12.rs),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(
                       color: scheme.outlineVariant.withValues(alpha: 0.2)),
                 ),
@@ -763,7 +764,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   children: [
                     Icon(Icons.info_outline_rounded,
                         size: 14, color: scheme.onSurfaceVariant),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Text(
                       'No operators found in the system',
                       style: text.bodySmall
@@ -816,7 +817,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         : scheme.outlineVariant.withValues(alpha: 0.3),
                   ),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.rs)),
+                      borderRadius: AppRadius.button),
                   showCheckmark: true,
                   checkmarkColor: scheme.primary,
                 );
@@ -853,10 +854,10 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(24.rs),
+      padding: AppSpacing.pagePadding,
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border:
             Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [
@@ -909,7 +910,7 @@ class _FeatureToggle extends StatelessWidget {
         children: [
           Icon(icon,
               size: 18, color: value ? scheme.primary : scheme.outlineVariant),
-          SizedBox(width: 12.rs),
+          SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

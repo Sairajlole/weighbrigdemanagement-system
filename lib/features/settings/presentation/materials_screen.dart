@@ -11,6 +11,7 @@ import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.d
 import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 final _materialsMigrationProvider = FutureProvider<void>((ref) async {
   final db = ref.watch(firestorePathsProvider);
@@ -137,7 +138,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
       builder: (ctx) {
         final s = Theme.of(ctx).colorScheme;
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.rs)),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.card),
           title: Text('Delete "$name"?', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           content: const Text('This material will be permanently removed. Existing weighments using it will keep the name.', style: TextStyle(fontSize: 13)),
           actions: [
@@ -163,7 +164,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.rs)),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.card),
           title: const Text('Rename Material', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           content: TextField(
             controller: ctrl,
@@ -239,9 +240,9 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                         context.go('/settings');
                       },
                       icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                     ),
-                    SizedBox(width: 12.rs),
+                    SizedBox(width: AppSpacing.md),
                     Icon(Icons.inventory_2_rounded, size: 20, color: scheme.primary),
                     SizedBox(width: 10.rs),
                     Column(
@@ -261,7 +262,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8.rs),
+                        borderRadius: AppRadius.button,
                         border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                       ),
                       child: Row(
@@ -271,7 +272,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                             size: 15,
                             color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                           ),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                         ],
                       ),
@@ -291,7 +292,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.all(28.rs),
+              padding: AppSpacing.pagePadding,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -344,21 +345,21 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                   filled: true,
                                   fillColor: scheme.surfaceContainerLow,
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
-                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
-                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
+                                  border: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+                                  enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+                                  focusedBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.primary, width: 1.5)),
                                 ),
                                 onSubmitted: (_) => _addMaterial(),
                               ),
                             ),
-                            SizedBox(width: 12.rs),
+                            SizedBox(width: AppSpacing.md),
                             FilledButton.icon(
                               onPressed: _saving ? null : _addMaterial,
                               icon: const Icon(Icons.add_rounded, size: 16),
                               label: const Text('Add'),
                               style: FilledButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                               ),
                             ),
                           ],
@@ -371,9 +372,9 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                               child: Column(
                                 children: [
                                   Icon(Icons.inventory_2_outlined, size: 40, color: scheme.outlineVariant),
-                                  SizedBox(height: 8.rs),
+                                  SizedBox(height: AppSpacing.sm),
                                   Text('No materials added yet', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                                  SizedBox(height: 4.rs),
+                                  SizedBox(height: AppSpacing.xs),
                                   Text('Type a name above and press Add', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
                                 ],
                               ),
@@ -385,18 +386,18 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
                                 color: scheme.surfaceContainerLow,
-                                borderRadius: BorderRadius.circular(6.rs),
+                                borderRadius: AppRadius.chip,
                               ),
                               child: Row(
                                 children: [
                                   SizedBox(width: 32.rs),
                                   Expanded(child: Text('MATERIAL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.5))),
                                   Text('ACTIONS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.5)),
-                                  SizedBox(width: 12.rs),
+                                  SizedBox(width: AppSpacing.md),
                                 ],
                               ),
                             ),
-                            SizedBox(height: 4.rs),
+                            SizedBox(height: AppSpacing.xs),
                             SizedBox(
                               height: activeMaterials.length * 56.0,
                               child: ReorderableListView.builder(
@@ -408,7 +409,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                                 proxyDecorator: (child, index, animation) {
                                   return Material(
                                     elevation: 4,
-                                    borderRadius: BorderRadius.circular(8.rs),
+                                    borderRadius: AppRadius.button,
                                     child: child,
                                   );
                                 },
@@ -460,7 +461,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
 
                   // Inactive Materials
                   if (inactiveMaterials.isNotEmpty) ...[
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     _SettingsCard(
                       icon: Icons.visibility_off_rounded,
                       title: 'Inactive',
@@ -499,7 +500,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                       ),
                     ),
                   ],
-                  SizedBox(height: 24.rs),
+                  SizedBox(height: AppSpacing.xl),
 
                   // AI Training
                   _SettingsCard(
@@ -593,10 +594,10 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
         child: Container(
           width: 440,
-          padding: EdgeInsets.all(24.rs),
+          padding: AppSpacing.pagePadding,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -609,13 +610,13 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                   IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded, size: 18)),
                 ],
               ),
-              SizedBox(height: 16.rs),
+              SizedBox(height: AppSpacing.lg),
               Container(
                 width: double.infinity,
                 height: 150,
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(12.rs),
+                  borderRadius: AppRadius.card,
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
                 ),
                 child: Column(
@@ -624,9 +625,9 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                     Icon(Icons.cloud_upload_rounded, size: 36, color: scheme.primary.withValues(alpha: 0.5)),
                     SizedBox(height: 10.rs),
                     Text('Select top-view images of loaded trucks', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                    SizedBox(height: 4.rs),
+                    SizedBox(height: AppSpacing.xs),
                     Text('PNG, JPG (max 10MB each, multiple allowed)', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-                    SizedBox(height: 12.rs),
+                    SizedBox(height: AppSpacing.md),
                     OutlinedButton.icon(
                       onPressed: () {
                         Navigator.pop(ctx);
@@ -636,7 +637,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                       label: const Text('Browse Files'),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                       ),
                     ),
                   ],
@@ -647,12 +648,12 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                 padding: EdgeInsets.all(10.rs),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                 ),
                 child: Row(
                   children: [
                     const Icon(Icons.lightbulb_outline_rounded, size: 14, color: Color(0xFFF59E0B)),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
                         'Upload 20+ varied images per material for best accuracy. All images go to a shared training server.',
@@ -717,7 +718,7 @@ class _MaterialRow extends StatelessWidget {
               child: Icon(Icons.drag_indicator_rounded, size: 16, color: scheme.outlineVariant),
             ),
           ),
-          SizedBox(width: 12.rs),
+          SizedBox(width: AppSpacing.md),
           Expanded(
             child: Row(
               children: [
@@ -726,7 +727,7 @@ class _MaterialRow extends StatelessWidget {
                   child: Text(material['name'] ?? '', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
                 ),
                 if (isDefault) ...[
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
@@ -792,14 +793,14 @@ class _MaterialRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(6.rs),
+            borderRadius: AppRadius.chip,
             border: Border.all(color: color.withValues(alpha: 0.25)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 12, color: color),
-              SizedBox(width: 4.rs),
+              SizedBox(width: AppSpacing.xs),
               Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
             ],
           ),
@@ -833,10 +834,10 @@ class _SettingsCard extends StatelessWidget {
     final color = iconColor ?? scheme.primary;
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(24.rs),
+      padding: AppSpacing.pagePadding,
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
@@ -854,7 +855,7 @@ class _SettingsCard extends StatelessWidget {
                 ),
                 child: Icon(icon, size: 16, color: color),
               ),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
               if (trailing != null) ...[
                 const Spacer(),

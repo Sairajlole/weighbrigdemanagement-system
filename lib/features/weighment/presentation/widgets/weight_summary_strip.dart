@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class WeightSummaryStrip extends StatelessWidget {
   final double? firstWeight;
@@ -33,7 +34,7 @@ class WeightSummaryStrip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8.rs),
+        borderRadius: AppRadius.button,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -120,12 +121,12 @@ class _WeightCell extends StatelessWidget {
               ),
             ),
             if (tappable) ...[
-              SizedBox(width: 4.rs),
+              SizedBox(width: AppSpacing.xs),
               Icon(Icons.swap_horiz, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
             ],
           ],
         ),
-        SizedBox(height: 4.rs),
+        SizedBox(height: AppSpacing.xs),
         Text(
           valueText,
           style: TextStyle(

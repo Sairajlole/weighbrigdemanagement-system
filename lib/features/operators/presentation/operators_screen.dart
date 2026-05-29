@@ -20,6 +20,7 @@ import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 
 final _operatorsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
@@ -177,7 +178,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
             top: top,
             child: Material(
               elevation: 8,
-              borderRadius: BorderRadius.circular(12.rs),
+              borderRadius: AppRadius.card,
               clipBehavior: Clip.antiAlias,
               child: Container(
                 padding: EdgeInsets.all(10.rs),
@@ -215,7 +216,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: active ? scheme.primary.withValues(alpha: 0.15) : scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           border: active ? Border.all(color: scheme.primary.withValues(alpha: 0.6)) : null,
         ),
         child: Text(
@@ -239,14 +240,14 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
       children: [
         Expanded(
           child: Padding(
-        padding: EdgeInsets.all(24.rs),
+        padding: AppSpacing.pagePadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildNormalHeader(scheme, text, operatorsAsync),
-            SizedBox(height: 16.rs),
+            SizedBox(height: AppSpacing.lg),
             _buildTabBar(scheme, text, operatorsAsync),
-            SizedBox(height: 16.rs),
+            SizedBox(height: AppSpacing.lg),
             Expanded(
               child: operatorsAsync.when(
                 loading: () => const AppLoading(),
@@ -290,12 +291,12 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.people_outline, size: 48, color: scheme.outlineVariant),
-                          SizedBox(height: 8.rs),
+                          SizedBox(height: AppSpacing.sm),
                           Text(
                             _search.isNotEmpty ? 'No matches for "$_search"' : 'No operators yet',
                             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                           ),
-                          SizedBox(height: 4.rs),
+                          SizedBox(height: AppSpacing.xs),
                           Text(
                             _search.isNotEmpty ? 'Try a different search term' : 'Add your first operator to get started',
                             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
@@ -313,7 +314,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                 },
               ),
             ),
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             _buildBottomSummary(scheme, operatorsAsync),
           ],
         ),
@@ -338,14 +339,14 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
         Row(
           children: [
             Text('Operators', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-            SizedBox(width: 16.rs),
+            SizedBox(width: AppSpacing.lg),
             _buildJoinCodeChip(scheme),
             const Spacer(),
             Container(
               height: 34,
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(8.rs),
+                borderRadius: AppRadius.button,
               ),
               padding: EdgeInsets.all(3.rs),
               child: Row(
@@ -359,7 +360,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: !_viewAllSites ? scheme.primary : Colors.transparent,
-                        borderRadius: BorderRadius.circular(6.rs),
+                        borderRadius: AppRadius.chip,
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -385,7 +386,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: _viewAllSites ? scheme.primary : Colors.transparent,
-                        borderRadius: BorderRadius.circular(6.rs),
+                        borderRadius: AppRadius.chip,
                       ),
                       child: Text('All Sites', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _viewAllSites ? scheme.onPrimary : scheme.onSurfaceVariant)),
                     ),
@@ -400,15 +401,15 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
         Row(
           children: [
             _headerStatCard('Total', '$total', Icons.people_rounded, scheme.primary, scheme),
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             _headerStatCard('Active', '$active', Icons.check_circle_rounded, Colors.green.shade700, scheme),
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             _headerStatCard('Pending', '$pending', Icons.pending_actions_rounded, Colors.amber.shade700, scheme),
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             _headerStatCard('Shift Restricted', '$shiftRestricted', Icons.schedule_rounded, Colors.deepPurple, scheme),
           ],
         ),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
 
         Wrap(
           spacing: 10,
@@ -429,9 +430,9 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                     filled: true,
                     fillColor: scheme.surfaceContainerHigh,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
+                    border: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide.none),
+                    enabledBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide(color: scheme.primary, width: 1.5)),
                   ),
                   style: const TextStyle(fontSize: 12),
                 ),
@@ -445,7 +446,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
                   color: _sortOption != _SortOption.nameAsc ? scheme.primary.withValues(alpha: 0.1) : scheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(6.rs),
+                  borderRadius: AppRadius.chip,
                   border: _sortOption != _SortOption.nameAsc ? Border.all(color: scheme.primary.withValues(alpha: 0.4)) : null,
                 ),
                 child: Row(
@@ -463,7 +464,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
               height: 32,
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -473,7 +474,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                 ],
               ),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             GestureDetector(
               onTap: () => _showAddOperatorDialog(context),
               child: Container(
@@ -481,13 +482,13 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   color: scheme.primary,
-                  borderRadius: BorderRadius.circular(6.rs),
+                  borderRadius: AppRadius.chip,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.add_rounded, size: 14, color: scheme.onPrimary),
-                    SizedBox(width: 4.rs),
+                    SizedBox(width: AppSpacing.xs),
                     Text('Add Operator', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onPrimary)),
                   ],
                 ),
@@ -521,7 +522,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: scheme.primaryContainer.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
                 border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
               ),
               child: Row(
@@ -544,7 +545,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(6.rs),
+              borderRadius: AppRadius.chip,
               border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
             ),
             child: Row(
@@ -564,7 +565,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(6.rs),
+              borderRadius: AppRadius.chip,
               border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
             ),
             child: Row(
@@ -622,7 +623,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(6.rs),
+                  borderRadius: AppRadius.chip,
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                 ),
                 child: Row(
@@ -631,7 +632,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                     Icon(Icons.lock_rounded, size: 12, color: scheme.onSurfaceVariant),
                     SizedBox(width: 6.rs),
                     Text('System Code', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-                    SizedBox(width: 4.rs),
+                    SizedBox(width: AppSpacing.xs),
                     Icon(Icons.visibility_outlined, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
                   ],
                 ),
@@ -706,7 +707,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
       padding: EdgeInsets.all(3.rs),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(8.rs),
+        borderRadius: AppRadius.button,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -727,7 +728,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: selected ? scheme.surface : Colors.transparent,
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           boxShadow: selected ? [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 3, offset: const Offset(0, 1))] : null,
         ),
         child: Row(
@@ -740,7 +741,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                 decoration: BoxDecoration(
                   color: Colors.amber.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                 ),
                 child: Text('$badge', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.amber.shade700)),
               ),
@@ -760,9 +761,9 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.check_circle_outline_rounded, size: 48, color: scheme.outlineVariant),
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             Text('No pending requests', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-            SizedBox(height: 4.rs),
+            SizedBox(height: AppSpacing.xs),
             Text('All operator registrations have been processed', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
           ],
         ),
@@ -770,9 +771,9 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
     }
 
     return ListView.separated(
-      padding: EdgeInsets.all(16.rs),
+      padding: AppSpacing.cardPadding,
       itemCount: pending.length + (rejections.isNotEmpty ? 1 : 0),
-      separatorBuilder: (_, __) => SizedBox(height: 12.rs),
+      separatorBuilder: (_, __) => SizedBox(height: AppSpacing.md),
       itemBuilder: (_, i) {
         // Rejected subsection at the end
         if (i >= pending.length) {
@@ -830,7 +831,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                         Row(
                           children: [
                             Flexible(child: Text(op['name'] ?? 'Unknown', style: text.bodyLarge?.copyWith(fontWeight: FontWeight.w700))),
-                            SizedBox(width: 8.rs),
+                            SizedBox(width: AppSpacing.sm),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                               decoration: BoxDecoration(
@@ -848,7 +849,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                         Row(
                           children: [
                             Icon(Icons.access_time_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                            SizedBox(width: 4.rs),
+                            SizedBox(width: AppSpacing.xs),
                             Text(
                               isInvited ? 'Invited $timeStr' : 'Requested $timeStr',
                               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
@@ -858,7 +859,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       ],
                     ),
                   ),
-                  SizedBox(width: 12.rs),
+                  SizedBox(width: AppSpacing.md),
                   if (!isInvited)
                     GestureDetector(
                       onTap: () => _approveOperator(op),
@@ -866,34 +867,34 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
                           color: Colors.green.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8.rs),
+                          borderRadius: AppRadius.button,
                           border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.check_rounded, size: 14, color: Colors.green.shade700),
-                            SizedBox(width: 4.rs),
+                            SizedBox(width: AppSpacing.xs),
                             Text('Approve', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
                           ],
                         ),
                       ),
                     ),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   GestureDetector(
                     onTap: () => _showRejectDialog(op),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
                         color: scheme.error.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8.rs),
+                        borderRadius: AppRadius.button,
                         border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.close_rounded, size: 14, color: scheme.error),
-                          SizedBox(width: 4.rs),
+                          SizedBox(width: AppSpacing.xs),
                           Text('Reject', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.error)),
                         ],
                       ),
@@ -931,7 +932,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: scheme.primary.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(6.rs),
+                          borderRadius: AppRadius.chip,
                           border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                         ),
                         child: Row(
@@ -948,12 +949,12 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
               ),
               // Rejection history
               if (priorRejections.isNotEmpty) ...[
-                SizedBox(height: 12.rs),
+                SizedBox(height: AppSpacing.md),
                 Container(
                   padding: EdgeInsets.all(10.rs),
                   decoration: BoxDecoration(
                     color: scheme.error.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(8.rs),
+                    borderRadius: AppRadius.button,
                     border: Border.all(color: scheme.error.withValues(alpha: 0.15)),
                   ),
                   child: Column(
@@ -1007,7 +1008,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
           SizedBox(width: 6.rs),
           Flexible(child: Text(label, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis)),
           if (verified) ...[
-            SizedBox(width: 4.rs),
+            SizedBox(width: AppSpacing.xs),
             Icon(Icons.verified_rounded, size: 12, color: Colors.green.shade600),
           ],
         ],
@@ -1020,7 +1021,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: verified ? Colors.green.withValues(alpha: 0.08) : scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(6.rs),
+        borderRadius: AppRadius.chip,
         border: Border.all(color: verified ? Colors.green.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -1057,11 +1058,11 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSt) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 460),
             child: Padding(
-              padding: EdgeInsets.all(24.rs),
+              padding: AppSpacing.pagePadding,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1091,11 +1092,11 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                         }
                       }
                     }),
-                    borderRadius: BorderRadius.circular(8.rs),
+                    borderRadius: AppRadius.button,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8.rs),
+                        borderRadius: AppRadius.button,
                         color: selectAll ? scheme.primary.withValues(alpha: 0.08) : null,
                         border: Border.all(color: selectAll ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.3)),
                       ),
@@ -1121,7 +1122,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       constraints: const BoxConstraints(maxHeight: 180),
                       decoration: BoxDecoration(
                         color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(8.rs),
+                        borderRadius: AppRadius.button,
                         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                       ),
                       child: SingleChildScrollView(
@@ -1142,7 +1143,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                                 margin: const EdgeInsets.only(bottom: 4),
                                 decoration: BoxDecoration(
                                   color: selected ? scheme.primary.withValues(alpha: 0.08) : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(6.rs),
+                                  borderRadius: AppRadius.chip,
                                   border: selected ? Border.all(color: scheme.primary.withValues(alpha: 0.3)) : null,
                                 ),
                                 child: Row(
@@ -1152,7 +1153,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                                       size: 16,
                                       color: selected ? scheme.primary : scheme.onSurfaceVariant,
                                     ),
-                                    SizedBox(width: 8.rs),
+                                    SizedBox(width: AppSpacing.sm),
                                     Expanded(
                                       child: Text(
                                         site['name']!,
@@ -1169,7 +1170,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                     ),
                   ],
                   if (!selectAll && selectedSites.isEmpty) ...[
-                    SizedBox(height: 8.rs),
+                    SizedBox(height: AppSpacing.sm),
                     Text('Select at least one site', style: TextStyle(fontSize: 11, color: scheme.error)),
                   ],
                   SizedBox(height: 20.rs),
@@ -1177,7 +1178,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       FilledButton(
                         onPressed: (!selectAll && selectedSites.isEmpty) || saving
                             ? null
@@ -1235,11 +1236,11 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520, maxHeight: 750),
           child: Padding(
-            padding: EdgeInsets.all(24.rs),
+            padding: AppSpacing.pagePadding,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1258,7 +1259,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                 SizedBox(height: 18.rs),
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.all(16.rs),
+                  padding: AppSpacing.cardPadding,
                   decoration: BoxDecoration(
                     color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(10.rs),
@@ -1270,11 +1271,11 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       Row(
                         children: [
                           Icon(Icons.article_rounded, size: 16, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Text('Document Type', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
                         ],
                       ),
-                      SizedBox(height: 4.rs),
+                      SizedBox(height: AppSpacing.xs),
                       Padding(
                         padding: const EdgeInsets.only(left: 24),
                         child: Text(
@@ -1286,11 +1287,11 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       Row(
                         children: [
                           Icon(Icons.numbers_rounded, size: 16, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Text('Document Number', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
                         ],
                       ),
-                      SizedBox(height: 4.rs),
+                      SizedBox(height: AppSpacing.xs),
                       Padding(
                         padding: const EdgeInsets.only(left: 24),
                         child: Text(
@@ -1302,14 +1303,14 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                   ),
                 ),
                 if (idDocImages.isNotEmpty) ...[
-                  SizedBox(height: 16.rs),
+                  SizedBox(height: AppSpacing.lg),
                   Text('Document Image${idDocImages.length > 1 ? 's (${idDocImages.length})' : ''}', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   Flexible(
                     child: ListView.separated(
                       shrinkWrap: true,
                       itemCount: idDocImages.length,
-                      separatorBuilder: (_, __) => SizedBox(height: 8.rs),
+                      separatorBuilder: (_, __) => SizedBox(height: AppSpacing.sm),
                       itemBuilder: (_, i) {
                         final raw = idDocImages[i] as String;
                         return _IdDocImageView(base64Data: raw, scheme: scheme);
@@ -1317,10 +1318,10 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                     ),
                   ),
                 ] else ...[
-                  SizedBox(height: 16.rs),
+                  SizedBox(height: AppSpacing.lg),
                   Container(
                     width: double.infinity,
-                    padding: EdgeInsets.all(16.rs),
+                    padding: AppSpacing.cardPadding,
                     decoration: BoxDecoration(
                       color: scheme.surfaceContainerHigh.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(10.rs),
@@ -1330,7 +1331,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.image_not_supported_rounded, size: 16, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         Text('No document image submitted', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
                       ],
                     ),
@@ -1369,11 +1370,11 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSt) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),
             child: Padding(
-              padding: EdgeInsets.all(24.rs),
+              padding: AppSpacing.pagePadding,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1396,11 +1397,11 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                     padding: const EdgeInsets.only(bottom: 6),
                     child: InkWell(
                       onTap: () => setSt(() { selectedReason = r; }),
-                      borderRadius: BorderRadius.circular(8.rs),
+                      borderRadius: AppRadius.button,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8.rs),
+                          borderRadius: AppRadius.button,
                           border: Border.all(color: selectedReason == r ? scheme.error.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
                           color: selectedReason == r ? scheme.error.withValues(alpha: 0.06) : null,
                         ),
@@ -1421,11 +1422,11 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                   // Custom reason option
                   InkWell(
                     onTap: () => setSt(() { selectedReason = '__custom__'; }),
-                    borderRadius: BorderRadius.circular(8.rs),
+                    borderRadius: AppRadius.button,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8.rs),
+                        borderRadius: AppRadius.button,
                         border: Border.all(color: selectedReason == '__custom__' ? scheme.error.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
                         color: selectedReason == '__custom__' ? scheme.error.withValues(alpha: 0.06) : null,
                       ),
@@ -1452,7 +1453,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                         hintText: 'Enter rejection reason...',
                         isDense: true,
                         contentPadding: EdgeInsets.all(12.rs),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                        border: OutlineInputBorder(borderRadius: AppRadius.button),
                       ),
                     ),
                   ],
@@ -1461,7 +1462,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       FilledButton(
                         onPressed: selectedReason == null || (selectedReason == '__custom__' && customCtrl.text.trim().isEmpty)
                             ? null
@@ -1511,15 +1512,15 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Divider(color: scheme.outlineVariant.withValues(alpha: 0.2)),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
         Row(
           children: [
             Icon(Icons.person_off_rounded, size: 16, color: scheme.error.withValues(alpha: 0.7)),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('Previously Rejected', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w700, color: scheme.error.withValues(alpha: 0.8))),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(color: scheme.error.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(4.rs)),
@@ -1527,7 +1528,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
             ),
           ],
         ),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
         ...rejections.map((rej) {
           final rejectedAt = rej['rejectedAt'];
           final timeStr = rejectedAt is Timestamp ? _formatTimestamp(rejectedAt, ref.read(timeFormatProvider)) : 'Unknown';
@@ -1562,7 +1563,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                         ),
                       ),
                       Text(timeStr, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       IconButton(
                         onPressed: () => ref.read(firestorePathsProvider).rejections.doc(rej['id']).delete(),
                         icon: Icon(Icons.close_rounded, size: 16, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
@@ -1571,13 +1572,13 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       ),
                     ],
                   ),
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   Container(
                     width: double.infinity,
                     padding: EdgeInsets.all(8.rs),
                     decoration: BoxDecoration(
                       color: scheme.error.withValues(alpha: 0.03),
-                      borderRadius: BorderRadius.circular(6.rs),
+                      borderRadius: AppRadius.chip,
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1588,7 +1589,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       ],
                     ),
                   ),
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   Wrap(
                     spacing: 14,
                     runSpacing: 6,
@@ -1596,13 +1597,13 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       if ((rej['phone'] as String? ?? '').isNotEmpty)
                         Row(mainAxisSize: MainAxisSize.min, children: [
                           Icon(Icons.phone_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                          SizedBox(width: 4.rs),
+                          SizedBox(width: AppSpacing.xs),
                           Text(rej['phone'], style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.8))),
                         ]),
                       if ((rej['idDocType'] as String? ?? '').isNotEmpty)
                         Row(mainAxisSize: MainAxisSize.min, children: [
                           Icon(Icons.badge_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                          SizedBox(width: 4.rs),
+                          SizedBox(width: AppSpacing.xs),
                           Text(
                             '${rej['idDocType']}${(rej['idDocNumber'] as String? ?? '').isNotEmpty ? ' • ${rej['idDocNumber']}' : ''}',
                             style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.8)),
@@ -1611,13 +1612,13 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       if (rej['faceEnrolled'] == true)
                         Row(mainAxisSize: MainAxisSize.min, children: [
                           Icon(Icons.face_rounded, size: 11, color: Colors.green.withValues(alpha: 0.7)),
-                          SizedBox(width: 4.rs),
+                          SizedBox(width: AppSpacing.xs),
                           Text('Face enrolled', style: TextStyle(fontSize: 10, color: Colors.green.withValues(alpha: 0.8))),
                         ])
                       else
                         Row(mainAxisSize: MainAxisSize.min, children: [
                           Icon(Icons.face_rounded, size: 11, color: scheme.error.withValues(alpha: 0.5)),
-                          SizedBox(width: 4.rs),
+                          SizedBox(width: AppSpacing.xs),
                           Text('No face', style: TextStyle(fontSize: 10, color: scheme.error.withValues(alpha: 0.7))),
                         ]),
                     ],
@@ -1628,7 +1629,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(Icons.location_on_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.4)),
-                        SizedBox(width: 4.rs),
+                        SizedBox(width: AppSpacing.xs),
                         Expanded(
                           child: Text(
                             '${rej['address']}${(rej['address2'] as String? ?? '').isNotEmpty ? ', ${rej['address2']}' : ''}',
@@ -1697,9 +1698,9 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.archive_outlined, size: 48, color: scheme.outlineVariant),
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             Text('No archived operators', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-            SizedBox(height: 4.rs),
+            SizedBox(height: AppSpacing.xs),
             Text('Archived operators will appear here', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
           ],
         ),
@@ -1717,10 +1718,10 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
             : 'Unknown';
 
         return Container(
-          padding: EdgeInsets.all(16.rs),
+          padding: AppSpacing.cardPadding,
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius: BorderRadius.circular(12.rs),
+            borderRadius: AppRadius.card,
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
           ),
           child: Row(
@@ -1741,18 +1742,18 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                     Text(op['name'] ?? 'Unknown', style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                     SizedBox(height: 2.rs),
                     Text(op['email'] ?? '', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-                    SizedBox(height: 4.rs),
+                    SizedBox(height: AppSpacing.xs),
                     Row(
                       children: [
                         Icon(Icons.archive_outlined, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                        SizedBox(width: 4.rs),
+                        SizedBox(width: AppSpacing.xs),
                         Text('Archived $timeStr', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
                       ],
                     ),
                   ],
                 ),
               ),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               GestureDetector(
                 onTap: () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({
                   'isArchived': FieldValue.delete(),
@@ -1772,34 +1773,34 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     color: scheme.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8.rs),
+                    borderRadius: AppRadius.button,
                     border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.unarchive_outlined, size: 14, color: scheme.primary),
-                      SizedBox(width: 4.rs),
+                      SizedBox(width: AppSpacing.xs),
                       Text('Restore', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
                     ],
                   ),
                 ),
               ),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               GestureDetector(
                 onTap: () => _deleteArchivedOperator(op['id'] as String, op['name'] as String? ?? 'Unknown'),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     color: scheme.error.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8.rs),
+                    borderRadius: AppRadius.button,
                     border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.delete_outline_rounded, size: 14, color: scheme.error),
-                      SizedBox(width: 4.rs),
+                      SizedBox(width: AppSpacing.xs),
                       Text('Delete', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.error)),
                     ],
                   ),
@@ -1849,7 +1850,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active ? scheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
         ),
         child: Icon(icon, size: 16, color: active ? scheme.onPrimary : scheme.onSurfaceVariant),
       ),
@@ -1866,14 +1867,14 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(color: scheme.shadow.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         child: Column(
           children: [
             // Header
@@ -1966,7 +1967,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: isActive ? Colors.green.withValues(alpha: 0.08) : scheme.error.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(12.rs),
+                              borderRadius: AppRadius.card,
                             ),
                             child: Text(
                               isActive ? 'Active' : 'Inactive',
@@ -2011,7 +2012,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
       message: tooltip,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(6.rs),
+        borderRadius: AppRadius.chip,
         child: Padding(
           padding: EdgeInsets.all(6.rs),
           child: Icon(icon, size: 15, color: color.withValues(alpha: 0.7)),
@@ -2047,15 +2048,15 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
 
     return Material(
       color: scheme.surface,
-      borderRadius: BorderRadius.circular(12.rs),
+      borderRadius: AppRadius.card,
       child: InkWell(
         onTap: () => _showEditOperatorDialog(context, op),
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         hoverColor: scheme.primary.withValues(alpha: 0.03),
         child: Container(
           padding: EdgeInsets.all(14.rs),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12.rs),
+            borderRadius: AppRadius.card,
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
             boxShadow: [
               BoxShadow(color: scheme.shadow.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2)),
@@ -2092,7 +2093,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                   ),
                 ],
               ),
-              SizedBox(height: 12.rs),
+              SizedBox(height: AppSpacing.md),
               // Contact info
               _cardDetailRow(Icons.email_outlined, email.isNotEmpty ? email : '--', scheme),
               if (phone.isNotEmpty) ...[
@@ -2107,14 +2108,14 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                 ),
                 child: Row(
                   children: [
                     _buildIdStatusChip(idStatus, scheme),
                     const Spacer(),
                     Icon(Icons.access_time_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                    SizedBox(width: 4.rs),
+                    SizedBox(width: AppSpacing.xs),
                     Text(
                       _formatTimestamp(op['lastLoginAt'], ref.read(timeFormatProvider)),
                       style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
@@ -2176,12 +2177,12 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
   Widget _cardAction(IconData icon, String label, Color color, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(6.rs),
+      borderRadius: AppRadius.chip,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 5),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           border: Border.all(color: color.withValues(alpha: 0.15)),
         ),
         child: Row(
@@ -2241,7 +2242,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
           if (filtered.length != operators.length) ...[
             Text(' / ${operators.length} total', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
           ],
-          SizedBox(width: 16.rs),
+          SizedBox(width: AppSpacing.lg),
           _bottomPill('Active', '$active', Colors.green.shade700, scheme),
           SizedBox(width: 6.rs),
           _bottomPill('Inactive', '$inactive', scheme.error, scheme),
@@ -2529,7 +2530,7 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           decoration: BoxDecoration(
             color: active ? scheme.primary.withValues(alpha: 0.1) : scheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
             border: Border.all(color: active ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
           ),
           child: Row(
@@ -2597,11 +2598,11 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
     final text = Theme.of(context).textTheme;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
       child: SizedBox(
         width: 440,
         child: Padding(
-          padding: EdgeInsets.all(24.rs),
+          padding: AppSpacing.pagePadding,
           child: Form(
             key: _formKey,
             child: Column(
@@ -2620,12 +2621,12 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
                     ),
                   ],
                 ),
-                SizedBox(height: 8.rs),
+                SizedBox(height: AppSpacing.sm),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6.rs),
+                    borderRadius: AppRadius.chip,
                   ),
                   child: Row(
                     children: [
@@ -2653,7 +2654,7 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
                   ),
                   validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
                 ),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 Text('Email', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
                 SizedBox(height: 6.rs),
                 TextFormField(
@@ -2671,12 +2672,12 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
                   },
                 ),
                 if (_domainWarning != null) ...[
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: scheme.errorContainer.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8.rs),
+                      borderRadius: AppRadius.button,
                       border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
                     ),
                     child: Column(
@@ -2708,14 +2709,14 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: scheme.primary.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6.rs),
+                                  borderRadius: AppRadius.chip,
                                   border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(Icons.add_rounded, size: 12, color: scheme.primary),
-                                    SizedBox(width: 4.rs),
+                                    SizedBox(width: AppSpacing.xs),
                                     Text('Allow @${_domainWarning!}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
                                   ],
                                 ),
@@ -2727,7 +2728,7 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
                     ),
                   ),
                 ],
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 Text('Phone', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
                 SizedBox(height: 6.rs),
                 TextFormField(
@@ -2740,13 +2741,13 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
                     contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
                 ),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 Text('Site Access', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                SizedBox(height: 8.rs),
+                SizedBox(height: AppSpacing.sm),
                 Row(
                   children: [
                     _scopeChip('all', 'All Sites', Icons.public_rounded, scheme),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     _scopeChip('specific', 'Specific Sites', Icons.location_on_rounded, scheme),
                   ],
                 ),
@@ -2756,7 +2757,7 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
                     padding: EdgeInsets.all(10.rs),
                     decoration: BoxDecoration(
                       color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(8.rs),
+                      borderRadius: AppRadius.button,
                       border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                     ),
                     constraints: const BoxConstraints(maxHeight: 120),
@@ -2781,7 +2782,7 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
                               margin: const EdgeInsets.only(bottom: 4),
                               decoration: BoxDecoration(
                                 color: selected ? scheme.primary.withValues(alpha: 0.08) : Colors.transparent,
-                                borderRadius: BorderRadius.circular(6.rs),
+                                borderRadius: AppRadius.chip,
                                 border: selected ? Border.all(color: scheme.primary.withValues(alpha: 0.3)) : null,
                               ),
                               child: Row(
@@ -2791,7 +2792,7 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
                                     size: 16,
                                     color: selected ? scheme.primary : scheme.onSurfaceVariant,
                                   ),
-                                  SizedBox(width: 8.rs),
+                                  SizedBox(width: AppSpacing.sm),
                                   Text(
                                     site['name']!,
                                     style: TextStyle(fontSize: 12, fontWeight: selected ? FontWeight.w600 : FontWeight.w400, color: scheme.onSurface),
@@ -2805,14 +2806,14 @@ class _AddOperatorDialogState extends State<_AddOperatorDialog> {
                     ),
                   ),
                 ],
-                SizedBox(height: 24.rs),
+                SizedBox(height: AppSpacing.xl),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: _saving || _domainWarning != null ? null : _save,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                     ),
                     child: _saving
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -2981,7 +2982,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: active ? scheme.primary.withValues(alpha: 0.1) : scheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
             border: Border.all(color: active ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
           ),
           child: Row(
@@ -3189,7 +3190,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                 ),
                 child: Text(
@@ -3199,7 +3200,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                 ),
               ),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             SizedBox(
               height: 36,
               child: OutlinedButton(
@@ -3207,7 +3208,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                 ),
                 child: const Text('Change'),
               ),
@@ -3224,7 +3225,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                 ),
                 child: Text(
@@ -3234,7 +3235,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                 ),
               ),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             SizedBox(
               height: 36,
               child: OutlinedButton(
@@ -3242,7 +3243,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                 ),
                 child: const Text('Change'),
               ),
@@ -3272,7 +3273,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
             ),
           ],
         ),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
 
         if (!_otpSent) ...[
           Text(
@@ -3300,17 +3301,17 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
               prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
             ),
           ),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Container(
             padding: EdgeInsets.all(10.rs),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
             ),
             child: Row(
               children: [
                 Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     'A verification code will be sent to your admin email ($adminEmail) for confirmation.',
@@ -3328,7 +3329,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
               ),
               child: _otpVerifying
                   ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -3361,7 +3362,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                   decoration: InputDecoration(
                     counterText: '',
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                    border: OutlineInputBorder(borderRadius: AppRadius.button),
                   ),
                   onChanged: (val) {
                     if (val.isNotEmpty && i < 5) {
@@ -3385,14 +3386,14 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
               ),
               child: _otpVerifying
                   ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Text('Verify & Update'),
             ),
           ),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Center(
             child: TextButton(
               onPressed: _otpVerifying ? null : _sendAdminOTP,
@@ -3407,7 +3408,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
             padding: EdgeInsets.all(8.rs),
             decoration: BoxDecoration(
               color: scheme.errorContainer.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
             ),
             child: Row(
               children: [
@@ -3464,7 +3465,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                     ],
                   ),
                 ),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 GestureDetector(
                   onTap: () {
                     final oldAddress = currentAddress;
@@ -3475,7 +3476,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: scheme.primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(6.rs),
+                      borderRadius: AppRadius.chip,
                     ),
                     child: Text('Use this', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
                   ),
@@ -3502,17 +3503,17 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
         Row(
           children: [
             Icon(Icons.face_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('Face Enrollment', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
           ],
         ),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Container(
           width: double.infinity,
           padding: EdgeInsets.all(10.rs),
           decoration: BoxDecoration(
             color: faceEnrolled ? Colors.green.withValues(alpha: 0.05) : scheme.errorContainer.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
             border: Border.all(color: faceEnrolled ? Colors.green.withValues(alpha: 0.2) : scheme.error.withValues(alpha: 0.2)),
           ),
           child: Column(
@@ -3524,7 +3525,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                   SizedBox(width: 6.rs),
                   Text(faceEnrolled ? 'Enrolled' : 'Not enrolled', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: faceEnrolled ? Colors.green.shade700 : scheme.error)),
                   if (faceEnrolled) ...[
-                    SizedBox(width: 12.rs),
+                    SizedBox(width: AppSpacing.md),
                     Text('$faceValidCount valid · ${(faceConfidence * 100).toStringAsFixed(0)}% conf', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                   ],
                 ],
@@ -3534,7 +3535,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                 Row(
                   children: [
                     Icon(Icons.event_rounded, size: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                    SizedBox(width: 4.rs),
+                    SizedBox(width: AppSpacing.xs),
                     Text('First: ${_formatTimestamp(faceEnrolledAt, widget.ref.read(timeFormatProvider))}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
                   ],
                 ),
@@ -3543,10 +3544,10 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                   Row(
                     children: [
                       Icon(Icons.update_rounded, size: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                      SizedBox(width: 4.rs),
+                      SizedBox(width: AppSpacing.xs),
                       Text('Last: ${_formatTimestamp(fe!['lastTrainedAt'], widget.ref.read(timeFormatProvider))}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
                       if (fe['trainingSessions'] != null) ...[
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         Text('(${fe['trainingSessions']} training sessions)', style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.5))),
                       ],
                     ],
@@ -3556,7 +3557,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
             ],
           ),
         ),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         _FaceEnrollmentWidget(
           ref: widget.ref,
           operatorId: widget.operator['id'] as String,
@@ -3571,17 +3572,17 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
           Row(
             children: [
               Icon(Icons.badge_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text('Submitted at Registration', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
             ],
           ),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.green.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               border: Border.all(color: Colors.green.withValues(alpha: 0.25)),
             ),
             child: Column(
@@ -3608,13 +3609,13 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: scheme.primary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(6.rs),
+                            borderRadius: AppRadius.chip,
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.visibility_rounded, size: 12, color: scheme.primary),
-                              SizedBox(width: 4.rs),
+                              SizedBox(width: AppSpacing.xs),
                               Text('View', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
                             ],
                           ),
@@ -3623,7 +3624,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                   ],
                 ),
                 if (!_verifiedIds.any((id) => id['type'] == (op['idDocType'] as String? ?? '') && id['number'] == (op['idDocNumber'] as String? ?? ''))) ...[
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -3648,11 +3649,11 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
         Row(
           children: [
             Icon(Icons.verified_user_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('Admin-Verified IDs', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
           ],
         ),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
 
         // Success message
         if (_kycSuccessMessage != null) ...[
@@ -3660,18 +3661,18 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
             padding: EdgeInsets.all(10.rs),
             decoration: BoxDecoration(
               color: Colors.green.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
                 const Icon(Icons.check_circle_rounded, size: 15, color: Colors.green),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(child: Text(_kycSuccessMessage!, style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w600))),
               ],
             ),
           ),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
         ],
 
         // Verified IDs list
@@ -3686,7 +3687,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.green.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(8.rs),
+                borderRadius: AppRadius.button,
                 border: Border.all(color: Colors.green.withValues(alpha: 0.25)),
               ),
               child: Row(
@@ -3711,13 +3712,13 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: scheme.primary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(6.rs),
+                            borderRadius: AppRadius.chip,
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.visibility_rounded, size: 12, color: scheme.primary),
-                              SizedBox(width: 4.rs),
+                              SizedBox(width: AppSpacing.xs),
                               Text('View', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
                             ],
                           ),
@@ -3731,7 +3732,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                         padding: EdgeInsets.all(4.rs),
                         decoration: BoxDecoration(
                           color: scheme.errorContainer.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(6.rs),
+                          borderRadius: AppRadius.chip,
                         ),
                         child: Icon(Icons.close_rounded, size: 12, color: scheme.error),
                       ),
@@ -3740,7 +3741,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
               ),
             );
           }),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
         ],
 
         if (_verifiedIds.isEmpty && !_showAddId)
@@ -3765,13 +3766,13 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
               decoration: InputDecoration(
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant)),
+                border: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant)),
               ),
               style: text.bodySmall,
               icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: scheme.onSurfaceVariant),
             );
           }),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
 
           // Document number (read-only, extracted from scan)
           if (_idDocNumberCtrl.text.isNotEmpty) ...[
@@ -3782,12 +3783,12 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(8.rs),
+                borderRadius: AppRadius.button,
                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
               ),
               child: Text(_idDocNumberCtrl.text, style: text.bodySmall),
             ),
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
           ],
 
           // Upload hint + button
@@ -3795,13 +3796,13 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
             padding: EdgeInsets.all(10.rs),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(child: Text(_idUploadHint(), style: TextStyle(fontSize: 10, color: scheme.primary))),
               ],
             ),
@@ -3817,11 +3818,11 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
               label: Text(_kycScanning ? 'Scanning...' : 'Upload & Scan ID', style: const TextStyle(fontSize: 12)),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
               ),
             ),
           ),
-          SizedBox(height: 4.rs),
+          SizedBox(height: AppSpacing.xs),
           Text('Select multiple files for front + back. Accepts PDF, JPG, PNG.', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 10)),
 
           // Scan error
@@ -3831,13 +3832,13 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
               padding: EdgeInsets.all(10.rs),
               decoration: BoxDecoration(
                 color: scheme.errorContainer.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8.rs),
+                borderRadius: AppRadius.button,
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.warning_amber_rounded, size: 14, color: scheme.error),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   Expanded(child: Text(_kycError!, style: TextStyle(fontSize: 11, color: scheme.error))),
                 ],
               ),
@@ -3846,19 +3847,19 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
 
           // Name match result
           if (_kycNameMatch != null && _kycExtractedName != null) ...[
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             if (_kycNameMatch == 'exact')
               Container(
                 padding: EdgeInsets.all(10.rs),
                 decoration: BoxDecoration(
                   color: Colors.green.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
                     const Icon(Icons.check_circle_rounded, size: 15, color: Colors.green),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Expanded(child: Text('Name matches: $_kycExtractedName', style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w600))),
                   ],
                 ),
@@ -3869,7 +3870,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                 padding: EdgeInsets.all(10.rs),
                 decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                 ),
                 child: Column(
@@ -3878,11 +3879,11 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                     Row(
                       children: [
                         Icon(Icons.info_rounded, size: 14, color: Colors.orange.shade700),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         Expanded(child: Text('Name on ID: "$_kycExtractedName"', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange.shade700))),
                       ],
                     ),
-                    SizedBox(height: 8.rs),
+                    SizedBox(height: AppSpacing.sm),
                     Text(
                       _wasAlreadyVerified
                           ? 'Slightly different from operator name "${op['name']}". Name cannot be changed after first verification.'
@@ -3904,7 +3905,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                               child: const Text('Update Name & Verify'),
                             ),
                           ),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                         ],
                         Expanded(
                           child: _wasAlreadyVerified
@@ -3939,7 +3940,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                 padding: EdgeInsets.all(10.rs),
                 decoration: BoxDecoration(
                   color: scheme.errorContainer.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
                 ),
                 child: Column(
@@ -3948,7 +3949,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                     Row(
                       children: [
                         Icon(Icons.error_rounded, size: 14, color: scheme.error),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         Expanded(child: Text('Name mismatch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.error))),
                       ],
                     ),
@@ -3971,7 +3972,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                               child: const Text('Use ID Name & Verify'),
                             ),
                           ),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                         ],
                         Expanded(
                           child: OutlinedButton(
@@ -4004,14 +4005,14 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
               padding: EdgeInsets.all(10.rs),
               decoration: BoxDecoration(
                 color: Colors.amber.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8.rs),
+                borderRadius: AppRadius.button,
                 border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.warning_rounded, size: 14, color: Colors.amber.shade700),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   Expanded(child: Text(_kycDuplicateWarning!, style: TextStyle(fontSize: 10, color: Colors.amber.shade900))),
                 ],
               ),
@@ -4029,7 +4030,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
 
         // Add ID button (hide if all types already verified)
         if (!_showAddId && _documentTypes.any((e) => !_verifiedIds.any((id) => id['type'] == e))) ...[
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -4042,7 +4043,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
               label: Text(_verifiedIds.isEmpty ? 'Add ID Document' : 'Add Another ID', style: const TextStyle(fontSize: 12)),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
               ),
             ),
           ),
@@ -4077,11 +4078,11 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520, maxHeight: 750),
           child: Padding(
-            padding: EdgeInsets.all(24.rs),
+            padding: AppSpacing.pagePadding,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -4099,10 +4100,10 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                   ],
                 ),
                 if (id['verifiedBy'] != null) ...[
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   Text('Verified by ${id['verifiedBy']}', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 11)),
                 ],
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 if (imageFiles.isNotEmpty) ...[
                   Text('Document Image${imageFiles.length > 1 ? 's (${imageFiles.length})' : ''}', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
                   SizedBox(height: 10.rs),
@@ -4113,7 +4114,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                       separatorBuilder: (_, __) => SizedBox(height: 10.rs),
                       itemBuilder: (_, i) {
                         return ClipRRect(
-                          borderRadius: BorderRadius.circular(8.rs),
+                          borderRadius: AppRadius.button,
                           child: Image.file(imageFiles[i], fit: BoxFit.contain),
                         );
                       },
@@ -4142,11 +4143,11 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520, maxHeight: 750),
           child: Padding(
-            padding: EdgeInsets.all(24.rs),
+            padding: AppSpacing.pagePadding,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -4161,7 +4162,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                   ],
                 ),
                 if (idDocType.isNotEmpty || idDocNumber.isNotEmpty) ...[
-                  SizedBox(height: 12.rs),
+                  SizedBox(height: AppSpacing.md),
                   Row(
                     children: [
                       if (idDocType.isNotEmpty) ...[
@@ -4170,7 +4171,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                         Text(idDocType, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
                       ],
                       if (idDocNumber.isNotEmpty) ...[
-                        SizedBox(width: 16.rs),
+                        SizedBox(width: AppSpacing.lg),
                         Icon(Icons.numbers_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
                         SizedBox(width: 6.rs),
                         Text(idDocNumber, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: 0.5)),
@@ -4178,19 +4179,19 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                     ],
                   ),
                 ],
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 Flexible(
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: idDocImages.length,
-                    separatorBuilder: (_, __) => SizedBox(height: 8.rs),
+                    separatorBuilder: (_, __) => SizedBox(height: AppSpacing.sm),
                     itemBuilder: (_, i) {
                       final raw = idDocImages[i] as String;
                       return _IdDocImageView(base64Data: raw, scheme: scheme);
                     },
                   ),
                 ),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
@@ -4225,7 +4226,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
       context: ctx,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (dialogCtx, setDlgState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
           title: Row(
             children: [
               Icon(Icons.pin_rounded, color: scheme.primary, size: 20),
@@ -4252,7 +4253,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                     prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
                   ),
                 ),
-                SizedBox(height: 12.rs),
+                SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: confirmCtrl,
                   keyboardType: TextInputType.number,
@@ -4592,14 +4593,14 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(op['name'] ?? '', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                        SizedBox(height: 8.rs),
+                        SizedBox(height: AppSpacing.sm),
                         Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: isActive ? Colors.green.withValues(alpha: 0.1) : scheme.errorContainer,
-                                borderRadius: BorderRadius.circular(12.rs),
+                                borderRadius: AppRadius.card,
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -4610,28 +4611,28 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                                 ],
                               ),
                             ),
-                            SizedBox(width: 8.rs),
+                            SizedBox(width: AppSpacing.sm),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: scheme.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(12.rs),
+                                borderRadius: AppRadius.card,
                               ),
                               child: Text(op['role'] ?? 'operator', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant)),
                             ),
                             if (op['shiftRestricted'] == true) ...[
-                              SizedBox(width: 8.rs),
+                              SizedBox(width: AppSpacing.sm),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: Colors.deepPurple.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(12.rs),
+                                  borderRadius: AppRadius.card,
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(Icons.schedule_rounded, size: 11, color: Colors.deepPurple.shade400),
-                                    SizedBox(width: 4.rs),
+                                    SizedBox(width: AppSpacing.xs),
                                     Text('Shift Restricted', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.deepPurple.shade400)),
                                   ],
                                 ),
@@ -4647,7 +4648,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                     icon: Icon(Icons.close_rounded, size: 20, color: scheme.onSurfaceVariant),
                     style: IconButton.styleFrom(
                       backgroundColor: scheme.surfaceContainerHigh,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                     ),
                   ),
                 ],
@@ -4657,7 +4658,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
             // Body
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.all(28.rs),
+                padding: AppSpacing.pagePadding,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -4712,7 +4713,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                       ),
                     ),
 
-                    SizedBox(width: 24.rs),
+                    SizedBox(width: AppSpacing.xl),
 
                     // Right column — access, security & scheduling
                     Expanded(
@@ -4734,7 +4735,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                                     Switch(value: _mustChangePassword, onChanged: (v) { setState(() => _mustChangePassword = v); _saveField({'mustChangePassword': v}); }),
                                   ],
                                 ),
-                                SizedBox(height: 12.rs),
+                                SizedBox(height: AppSpacing.md),
                                 _metaRow(Icons.key_rounded, 'Password changed', _formatTimestamp(op['passwordLastChanged'], widget.ref.read(timeFormatProvider)), scheme, text),
                                 SizedBox(height: 6.rs),
                                 _metaRow(Icons.login_rounded, 'First login', (op['loginCount'] != null && (op['loginCount'] as int) > 0) ? 'Completed' : 'Not yet', scheme, text),
@@ -4748,7 +4749,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                                       child: Row(
                                         children: [
                                           Icon(Icons.pin_rounded, size: 14, color: scheme.onSurfaceVariant),
-                                          SizedBox(width: 8.rs),
+                                          SizedBox(width: AppSpacing.sm),
                                           Text('Verification PIN', style: text.bodySmall),
                                         ],
                                       ),
@@ -4766,7 +4767,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                                       Text('Not set', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
                                   ],
                                 ),
-                                SizedBox(height: 8.rs),
+                                SizedBox(height: AppSpacing.sm),
                                 SizedBox(
                                   width: double.infinity,
                                   child: OutlinedButton.icon(
@@ -4775,7 +4776,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                                     label: Text(_hasPinSet ? 'Reset PIN' : 'Set PIN', style: const TextStyle(fontSize: 11)),
                                     style: OutlinedButton.styleFrom(
                                       padding: const EdgeInsets.symmetric(vertical: 8),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                                      shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                                     ),
                                   ),
                                 ),
@@ -4843,7 +4844,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                                 Row(
                                   children: [
                                     _editScopeChip('all', 'All Sites', Icons.public_rounded, scheme),
-                                    SizedBox(width: 8.rs),
+                                    SizedBox(width: AppSpacing.sm),
                                     _editScopeChip('specific', 'Specific Sites', Icons.location_on_rounded, scheme),
                                   ],
                                 ),
@@ -4877,7 +4878,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                                                     size: 16,
                                                     color: selected ? scheme.primary : scheme.onSurfaceVariant,
                                                   ),
-                                                  SizedBox(width: 8.rs),
+                                                  SizedBox(width: AppSpacing.sm),
                                                   Text(site['name']!, style: TextStyle(fontSize: 12, color: scheme.onSurface)),
                                                 ],
                                               ),
@@ -4920,7 +4921,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                                   ],
                                 ),
                                 if (_shiftRestricted) ...[
-                                  SizedBox(height: 12.rs),
+                                  SizedBox(height: AppSpacing.md),
                                   Row(
                                     children: [
                                       Expanded(child: _timePickerTile('Start', _shiftStart, () => _pickTime(isStart: true), scheme, text)),
@@ -4945,7 +4946,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                           decoration: BoxDecoration(
                                             color: selected ? scheme.primary : Colors.transparent,
-                                            borderRadius: BorderRadius.circular(6.rs),
+                                            borderRadius: AppRadius.chip,
                                             border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant),
                                           ),
                                           child: Text(day, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? scheme.onPrimary : scheme.onSurfaceVariant)),
@@ -4978,7 +4979,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                     onPressed: () => Navigator.pop(context),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                     ),
                     child: const Text('Close'),
                   ),
@@ -5043,20 +5044,20 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                 Container(
                   constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16.rs),
+                    borderRadius: AppRadius.dialog,
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 24, offset: const Offset(0, 8))],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16.rs),
+                    borderRadius: AppRadius.dialog,
                     child: Image.file(file, fit: BoxFit.contain),
                   ),
                 ),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: scheme.surface,
-                    borderRadius: BorderRadius.circular(8.rs),
+                    borderRadius: AppRadius.button,
                   ),
                   child: Text(name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: scheme.onSurface)),
                 ),
@@ -5089,7 +5090,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
       padding: EdgeInsets.all(18.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
       ),
       child: Column(
@@ -5098,7 +5099,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
           Row(
             children: [
               Icon(icon, size: 16, color: scheme.primary),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700, fontSize: 13)),
             ],
           ),
@@ -5117,7 +5118,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     return Row(
       children: [
         Icon(icon, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-        SizedBox(width: 8.rs),
+        SizedBox(width: AppSpacing.sm),
         Text('$label: ', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
         Expanded(child: Text(value, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
       ],
@@ -5133,12 +5134,12 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
         SizedBox(height: 6.rs),
         InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8.rs),
+          borderRadius: AppRadius.button,
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
             ),
             child: Row(
@@ -5692,7 +5693,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
             label: const Text('Re-enroll Face', style: TextStyle(fontSize: 11)),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
             ),
           ),
         );
@@ -5705,7 +5706,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
           label: const Text('Start Face Enrollment', style: TextStyle(fontSize: 11)),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
           ),
         ),
       );
@@ -5756,9 +5757,9 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
       child: Column(
         children: [
           Icon(Icons.face_retouching_natural_rounded, size: 24, color: scheme.primary),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Text('Face data already exists', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: 4.rs),
+          SizedBox(height: AppSpacing.xs),
           Text(
             'Choose how to update face enrollment:',
             style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
@@ -5773,7 +5774,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
               label: const Text('Add Training Data', style: TextStyle(fontSize: 11)),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
               ),
             ),
           ),
@@ -5793,7 +5794,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 side: BorderSide(color: scheme.error.withValues(alpha: 0.4)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
               ),
             ),
           ),
@@ -5824,21 +5825,21 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
       child: Column(
         children: [
           Icon(Icons.admin_panel_settings_rounded, size: 22, color: scheme.primary),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Text('Admin Verification', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: 4.rs),
+          SizedBox(height: AppSpacing.xs),
           Text(
             'An OTP will be sent to admin email to authorize adding training data.',
             style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           if (_otpStage == _OtpStage.notStarted) ...[
             SizedBox(
               width: double.infinity,
               child: FilledButton(
                 onPressed: _otpSending ? null : _startTrainingOtp,
-                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                 child: _otpSending
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Text('Send OTP to Admin', style: TextStyle(fontSize: 11)),
@@ -5852,13 +5853,13 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _otpVerifying ? null : _verifyTrainingAdminOtp,
-                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                 child: _otpVerifying
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Text('Verify', style: TextStyle(fontSize: 11)),
               ),
             ),
-            SizedBox(height: 4.rs),
+            SizedBox(height: AppSpacing.xs),
             TextButton(
               onPressed: _otpSending ? null : _startTrainingOtp,
               child: Text('Resend Code', style: TextStyle(fontSize: 10, color: scheme.primary)),
@@ -5918,15 +5919,15 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
           ),
           SizedBox(height: 10.rs),
           Text(stageLabel, style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: 4.rs),
+          SizedBox(height: AppSpacing.xs),
           Text(stageDesc, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant), textAlign: TextAlign.center),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           if (_otpStage == _OtpStage.notStarted) ...[
             SizedBox(
               width: double.infinity,
               child: FilledButton(
                 onPressed: _otpSending ? null : _startFullResetOtp,
-                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                 child: _otpSending
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Text('Send OTP to Operator', style: TextStyle(fontSize: 11)),
@@ -5940,13 +5941,13 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _otpVerifying ? null : _verifyOperatorOtp,
-                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                 child: _otpVerifying
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Text('Verify Operator', style: TextStyle(fontSize: 11)),
               ),
             ),
-            SizedBox(height: 4.rs),
+            SizedBox(height: AppSpacing.xs),
             TextButton(
               onPressed: _otpSending ? null : _startFullResetOtp,
               child: Text('Resend Code', style: TextStyle(fontSize: 10, color: scheme.primary)),
@@ -5959,7 +5960,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _otpVerifying ? null : _verifyFullResetAdminOtp,
-                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                 child: _otpVerifying
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Text('Verify Admin', style: TextStyle(fontSize: 11)),
@@ -5991,24 +5992,24 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
       child: Column(
         children: [
           Icon(Icons.warning_amber_rounded, size: 28, color: scheme.error),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Text('Complete Re-enrollment', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700, color: scheme.error)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Container(
             width: double.infinity,
             padding: EdgeInsets.all(10.rs),
             decoration: BoxDecoration(
               color: scheme.error.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               border: Border.all(color: scheme.error.withValues(alpha: 0.15)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _warningRow(Icons.delete_forever_rounded, 'All existing face data will be permanently deleted', scheme),
-                SizedBox(height: 4.rs),
+                SizedBox(height: AppSpacing.xs),
                 _warningRow(Icons.history_rounded, 'Previous training sessions will be lost', scheme),
-                SizedBox(height: 4.rs),
+                SizedBox(height: AppSpacing.xs),
                 _warningRow(Icons.face_retouching_off_rounded, 'Face login will fail until new enrollment completes', scheme),
               ],
             ),
@@ -6021,7 +6022,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
               style: FilledButton.styleFrom(
                 backgroundColor: scheme.error,
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
               ),
               child: const Text('I understand, proceed', style: TextStyle(fontSize: 11)),
             ),
@@ -6063,9 +6064,9 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
           decoration: InputDecoration(
             counterText: '',
             contentPadding: const EdgeInsets.symmetric(vertical: 8),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs)),
+            border: OutlineInputBorder(borderRadius: AppRadius.chip),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6.rs),
+              borderRadius: AppRadius.chip,
               borderSide: BorderSide(color: scheme.primary, width: 2),
             ),
           ),
@@ -6093,9 +6094,9 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
       child: Column(
         children: [
           Icon(Icons.visibility_rounded, size: 24, color: scheme.primary),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Text('Do you wear spectacles?', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: 4.rs),
+          SizedBox(height: AppSpacing.xs),
           Text(
             'If yes, face will be captured both with and without glasses.',
             style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
@@ -6109,7 +6110,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
                   onPressed: () => _answerSpecs(false),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                   ),
                   child: const Text('No', style: TextStyle(fontSize: 11)),
                 ),
@@ -6120,7 +6121,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
                   onPressed: () => _answerSpecs(true),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                   ),
                   child: const Text('Yes', style: TextStyle(fontSize: 11)),
                 ),
@@ -6148,7 +6149,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
       child: Column(
         children: [
           Icon(Icons.videocam_off_rounded, size: 24, color: scheme.error),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Text(_errorMessage ?? 'Camera not available', style: TextStyle(fontSize: 11, color: scheme.error)),
           SizedBox(height: 10.rs),
           Row(
@@ -6156,15 +6157,15 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: _cancelFlow,
-                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                   child: const Text('Cancel', style: TextStyle(fontSize: 11)),
                 ),
               ),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: FilledButton(
                   onPressed: () { setState(() { _cameraError = false; _errorMessage = null; }); _initCamera(); },
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                   child: const Text('Retry', style: TextStyle(fontSize: 11)),
                 ),
               ),
@@ -6194,7 +6195,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
             margin: const EdgeInsets.only(bottom: 8),
             decoration: BoxDecoration(
               color: (_specsPhase ? scheme.primaryContainer : scheme.tertiaryContainer).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               border: Border.all(color: (_specsPhase ? scheme.primary : scheme.tertiary).withValues(alpha: 0.3)),
             ),
             child: Row(
@@ -6204,7 +6205,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
                   size: 14,
                   color: _specsPhase ? scheme.primary : scheme.tertiary,
                 ),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     _specsPhase ? 'Phase 1/2 — WITH glasses' : 'Phase 2/2 — WITHOUT glasses',
@@ -6227,7 +6228,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
               decoration: InputDecoration(
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                border: OutlineInputBorder(borderRadius: AppRadius.button),
                 prefixIcon: const Icon(Icons.videocam_rounded, size: 14),
               ),
               items: _cameras.map((cam) => DropdownMenuItem(
@@ -6289,7 +6290,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
               height: 30,
               margin: const EdgeInsets.symmetric(horizontal: 3),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
                 border: Border.all(
                   color: captured ? AppTheme.successColor : scheme.outlineVariant.withValues(alpha: 0.4),
                   width: captured ? 2 : 1,
@@ -6304,7 +6305,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
             );
           }),
         ),
-        SizedBox(height: 4.rs),
+        SizedBox(height: AppSpacing.xs),
         Center(
           child: Text(
             '${_capturedFrames.length} of $_requiredFrames captured',
@@ -6320,7 +6321,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Text(_saving ? 'Enrolling face...' : 'Validating...', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
               ],
             ),
@@ -6331,7 +6332,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
             padding: EdgeInsets.all(8.rs),
             decoration: BoxDecoration(
               color: scheme.errorContainer.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
             ),
             child: Row(
               children: [
@@ -6341,14 +6342,14 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
               ],
             ),
           ),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () => _resetCapture(fullReset: !(_wearsSpecs == true && _specsPhaseComplete)),
               icon: const Icon(Icons.refresh_rounded, size: 13),
               label: const Text('Try Again', style: TextStyle(fontSize: 11)),
-              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 7), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 7), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
             ),
           ),
         ] else if (_autoCapturing && _autoCountdown > 0) ...[
@@ -6357,7 +6358,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
             ),
             child: Center(
@@ -6373,7 +6374,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
               color: AppTheme.successColor.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.3)),
             ),
             child: Center(
@@ -6399,14 +6400,14 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
                     : 'Start capture',
                 style: const TextStyle(fontSize: 11),
               ),
-              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
             ),
           ),
-          SizedBox(height: 4.rs),
+          SizedBox(height: AppSpacing.xs),
           Center(child: Text('5 photos auto-captured (1/sec)', style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)))),
         ],
 
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         if (!_autoCapturing && !_enrolling && !_saving)
           Center(
             child: TextButton(
@@ -6420,7 +6421,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
 
   Widget _buildPhaseTransition(ColorScheme scheme, TextTheme text) {
     return Container(
-      padding: EdgeInsets.all(16.rs),
+      padding: AppSpacing.cardPadding,
       decoration: BoxDecoration(
         color: scheme.tertiaryContainer.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10.rs),
@@ -6434,13 +6435,13 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: AppTheme.successColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12.rs),
+              borderRadius: AppRadius.card,
             ),
             child: Text('Phase 1 complete', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
           ),
           SizedBox(height: 10.rs),
           Text('Remove spectacles', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: 4.rs),
+          SizedBox(height: AppSpacing.xs),
           Text(
             'Take off glasses before continuing.',
             style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
@@ -6453,7 +6454,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
               onPressed: () => setState(() => _transitionAcknowledged = true),
               icon: const Icon(Icons.arrow_forward_rounded, size: 14),
               label: const Text('Glasses removed — Continue', style: TextStyle(fontSize: 11)),
-              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
             ),
           ),
         ],
@@ -6592,7 +6593,7 @@ class _IdDocImageViewState extends State<_IdDocImageView> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.error_outline_rounded, size: 16, color: widget.scheme.error),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text(_error!, style: TextStyle(fontSize: 12, color: widget.scheme.error)),
             ],
           ),

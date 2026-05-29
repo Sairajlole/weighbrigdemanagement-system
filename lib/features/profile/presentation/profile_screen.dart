@@ -23,6 +23,7 @@ import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 final profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
@@ -332,20 +333,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(flex: 3, child: _buildDetailsCard(scheme, text, isAdmin, email, phone, idStatus, createdAt)),
-                      SizedBox(width: 16.rs),
+                      SizedBox(width: AppSpacing.lg),
                       Expanded(flex: 2, child: _buildSecurityCard(scheme, text, isAdmin, lastLogin, passwordLastChanged, mustChangePassword, settings, loginCount)),
                     ],
                   ),
                 ),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
 
                 // Row 2: License & Sites (non-pro admin) / Company Info (operator)
                 if (isAdmin && ref.watch(licenseProvider).effectiveTier != LicenseTier.pro) ...[
                   _buildLicenseSiteCard(scheme, text),
-                  SizedBox(height: 16.rs),
+                  SizedBox(height: AppSpacing.lg),
                 ] else if (!isAdmin) ...[
                   _buildCompanyInfoCard(scheme, text),
-                  SizedBox(height: 16.rs),
+                  SizedBox(height: AppSpacing.lg),
                 ],
 
                 // Row 3: Session + Face Enrollment (admin)
@@ -355,7 +356,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     children: [
                       Expanded(flex: 3, child: _buildSessionCard(scheme, text, isAdmin, shiftRestricted, shiftStart, shiftEnd, shiftDays)),
                       if (isAdmin) ...[
-                        SizedBox(width: 16.rs),
+                        SizedBox(width: AppSpacing.lg),
                         Expanded(flex: 2, child: _buildFaceEnrollmentCard(scheme, text, profile['facePhoto'] as String?)),
                       ],
                     ],
@@ -516,11 +517,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         return StatefulBuilder(
           builder: (dialogCtx, setSt) {
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Padding(
-                  padding: EdgeInsets.all(28.rs),
+                  padding: AppSpacing.pagePadding,
                   child: Form(
                     key: formKey,
                     child: Column(
@@ -545,13 +546,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             padding: EdgeInsets.all(12.rs),
                             decoration: BoxDecoration(
                               color: Colors.green.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8.rs),
+                              borderRadius: AppRadius.button,
                               border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
                             ),
                             child: Row(
                               children: [
                                 const Icon(Icons.check_circle_rounded, size: 16, color: Colors.green),
-                                SizedBox(width: 8.rs),
+                                SizedBox(width: AppSpacing.sm),
                                 Text(success!, style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
                               ],
                             ),
@@ -560,24 +561,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           if (error != null) ...[
                             Container(
                               padding: EdgeInsets.all(10.rs),
-                              decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(8.rs)),
+                              decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: AppRadius.button),
                               child: Row(
                                 children: [
                                   Icon(Icons.error_outline_rounded, size: 14, color: scheme.error),
-                                  SizedBox(width: 8.rs),
+                                  SizedBox(width: AppSpacing.sm),
                                   Expanded(child: Text(error!, style: TextStyle(fontSize: 12, color: scheme.onErrorContainer))),
                                 ],
                               ),
                             ),
-                            SizedBox(height: 16.rs),
+                            SizedBox(height: AppSpacing.lg),
                           ],
 
                           // Step 0: Choose verification method
                           if (verifyMethod.isEmpty) ...[
                             Text('Verify your identity', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                            SizedBox(height: 4.rs),
+                            SizedBox(height: AppSpacing.xs),
                             Text('Choose how to receive the verification code:', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                            SizedBox(height: 16.rs),
+                            SizedBox(height: AppSpacing.lg),
                             if (email.isNotEmpty)
                               _VerifyMethodTile(
                                 icon: Icons.email_rounded,
@@ -614,7 +615,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     size: 20,
                                     color: scheme.primary,
                                   ),
-                                  SizedBox(width: 12.rs),
+                                  SizedBox(width: AppSpacing.md),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -627,7 +628,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                               : 'A 6-digit code will be sent via SMS to:',
                                           style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
                                         ),
-                                        SizedBox(height: 4.rs),
+                                        SizedBox(height: AppSpacing.xs),
                                         Text(
                                           verifyMethod == 'email' ? email : maskedPhone(),
                                           style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600, color: scheme.primary),
@@ -638,7 +639,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 ],
                               ),
                             ),
-                            SizedBox(height: 16.rs),
+                            SizedBox(height: AppSpacing.lg),
                             Row(
                               children: [
                                 TextButton(
@@ -675,7 +676,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     size: 20,
                                     color: scheme.primary,
                                   ),
-                                  SizedBox(width: 12.rs),
+                                  SizedBox(width: AppSpacing.md),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -694,7 +695,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 ],
                               ),
                             ),
-                            SizedBox(height: 16.rs),
+                            SizedBox(height: AppSpacing.lg),
                             TextFormField(
                               controller: otpCtrl,
                               keyboardType: TextInputType.number,
@@ -710,7 +711,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
                               ),
                             ),
-                            SizedBox(height: 16.rs),
+                            SizedBox(height: AppSpacing.lg),
                             Row(
                               children: [
                                 TextButton(
@@ -722,7 +723,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   onPressed: loading ? null : () => verifyOtp(setSt),
                                   style: FilledButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                                    shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                                   ),
                                   child: loading
                                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -749,7 +750,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 ],
                               ),
                             ),
-                            SizedBox(height: 16.rs),
+                            SizedBox(height: AppSpacing.lg),
                             TextFormField(
                               controller: newCtrl,
                               obscureText: obscureNew,
@@ -793,12 +794,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   onPressed: loading ? null : () { cooldownTimer?.cancel(); Navigator.pop(dialogCtx); },
                                   child: const Text('Cancel'),
                                 ),
-                                SizedBox(width: 8.rs),
+                                SizedBox(width: AppSpacing.sm),
                                 FilledButton(
                                   onPressed: loading ? null : () => changePassword(setSt),
                                   style: FilledButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                                    shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                                   ),
                                   child: loading
                                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -826,14 +827,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _buildHeroHeader(ColorScheme scheme, TextTheme text, String name, String email, String role, String phone, dynamic createdAt, String? profilePic) {
     return Container(
-      padding: EdgeInsets.all(24.rs),
+      padding: AppSpacing.pagePadding,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [scheme.primary.withValues(alpha: 0.08), scheme.primaryContainer.withValues(alpha: 0.12)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border: Border.all(color: scheme.primary.withValues(alpha: 0.1)),
       ),
       child: Row(
@@ -888,12 +889,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Row(
                   children: [
                     Text(name, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-                    SizedBox(width: 12.rs),
+                    SizedBox(width: AppSpacing.md),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: role == 'admin' ? scheme.primary : scheme.tertiary,
-                        borderRadius: BorderRadius.circular(6.rs),
+                        borderRadius: AppRadius.chip,
                       ),
                       child: Text(
                         role == 'admin' ? 'Admin' : 'Operator',
@@ -902,7 +903,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ],
                 ),
-                SizedBox(height: 4.rs),
+                SizedBox(height: AppSpacing.xs),
                 Text(email, style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
                 if (phone.isNotEmpty) ...[
                   SizedBox(height: 2.rs),
@@ -994,7 +995,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             Text(passwordAge, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
             if (mustChangePassword) ...[
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(4.rs)),
@@ -1030,7 +1031,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     size: 11,
                     color: mfaEnabled ? Colors.green : scheme.error,
                   ),
-                  SizedBox(width: 4.rs),
+                  SizedBox(width: AppSpacing.xs),
                   Text(
                     mfaEnabled ? 'Enabled (${enrolled.length} factor${enrolled.length > 1 ? 's' : ''})' : 'Not configured',
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: mfaEnabled ? Colors.green : scheme.error),
@@ -1040,7 +1041,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ));
           },
         ),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
         Row(
           children: [
             Expanded(
@@ -1050,11 +1051,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 label: const Text('Change Password', style: TextStyle(fontSize: 11)),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                 ),
               ),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () => context.go('/settings/mfa'),
@@ -1062,7 +1063,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 label: const Text('Manage MFA', style: TextStyle(fontSize: 11)),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                 ),
               ),
             ),
@@ -1132,7 +1133,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.refresh_rounded, size: 13, color: scheme.primary),
-                  SizedBox(width: 4.rs),
+                  SizedBox(width: AppSpacing.xs),
                   Text('Refresh', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
                 ],
               ),
@@ -1142,9 +1143,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         if (!isAdmin && shiftRestricted) ...[
           SizedBox(height: 14.rs),
           const Divider(height: 1),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Text('Shift Schedule', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           _InfoRow(label: 'Hours', scheme: scheme, text: text, child: Text(
             '${shiftStart ?? '--'} – ${shiftEnd ?? '--'}',
             style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
@@ -1176,7 +1177,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           'Enroll your face for biometric identity verification.',
           style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
         _AdminFaceEnrollment(ref: ref, existingFacePhoto: existingFacePhoto),
       ],
     );
@@ -1213,7 +1214,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       padding: EdgeInsets.all(18.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(color: trialExpired ? scheme.error.withValues(alpha: 0.4) : trialUrgent ? Colors.orange.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 3)),
@@ -1229,7 +1230,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: (trialExpired ? scheme.error : tierColor).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12.rs),
+                  borderRadius: AppRadius.card,
                 ),
                 child: Icon(
                   trialExpired ? Icons.timer_off_rounded
@@ -1239,7 +1240,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   size: 22,
                 ),
               ),
-              SizedBox(width: 16.rs),
+              SizedBox(width: AppSpacing.lg),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1247,13 +1248,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Row(
                       children: [
                         Text(tierLabel, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: trialExpired ? scheme.error : tierColor)),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         if (trialActive)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: trialUrgent ? Colors.orange.withValues(alpha: 0.12) : scheme.primaryContainer.withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(6.rs),
+                              borderRadius: AppRadius.chip,
                             ),
                             child: Text(
                               '${license.daysRemaining} days remaining',
@@ -1265,7 +1266,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: scheme.errorContainer.withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(6.rs),
+                              borderRadius: AppRadius.chip,
                             ),
                             child: Text(
                               'Upgrade to continue',
@@ -1307,14 +1308,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(Icons.location_on_rounded, size: 16, color: scheme.primary),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(siteName, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
                           if (wbs.isNotEmpty) ...[
-                            SizedBox(height: 4.rs),
+                            SizedBox(height: AppSpacing.xs),
                             Wrap(
                               spacing: 6,
                               runSpacing: 4,
@@ -1328,7 +1329,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(Icons.scale_rounded, size: 11, color: scheme.onSurfaceVariant),
-                                    SizedBox(width: 4.rs),
+                                    SizedBox(width: AppSpacing.xs),
                                     Text(wb, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
                                   ],
                                 ),
@@ -1362,7 +1363,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       padding: EdgeInsets.all(18.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 3)),
@@ -1375,11 +1376,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             height: 44,
             decoration: BoxDecoration(
               color: scheme.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12.rs),
+              borderRadius: AppRadius.card,
             ),
             child: Icon(Icons.business_rounded, color: scheme.primary, size: 22),
           ),
-          SizedBox(width: 16.rs),
+          SizedBox(width: AppSpacing.lg),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1400,7 +1401,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Container(width: 1, height: 40, color: scheme.outlineVariant.withValues(alpha: 0.3)),
           SizedBox(width: 20.rs),
           Icon(Icons.location_on_rounded, size: 18, color: scheme.primary),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1541,7 +1542,7 @@ class _Card extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 3)),
@@ -1629,15 +1630,15 @@ class _UpgradePlaceholder extends StatelessWidget {
                 ),
                 child: const Icon(Icons.workspace_premium_rounded, size: 36, color: Color(0xFF7C3AED)),
               ),
-              SizedBox(height: 24.rs),
+              SizedBox(height: AppSpacing.xl),
               Text('Upgrade to Pro', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-              SizedBox(height: 12.rs),
+              SizedBox(height: AppSpacing.md),
               Text(
                 'Unlock multi-weighbridge, IP cameras, gate control, integrations, and more.',
                 style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 32.rs),
+              SizedBox(height: AppSpacing.xxl),
               Container(
                 padding: EdgeInsets.all(20.rs),
                 decoration: BoxDecoration(
@@ -1649,7 +1650,7 @@ class _UpgradePlaceholder extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Contact sales for a license key:', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
-                    SizedBox(height: 12.rs),
+                    SizedBox(height: AppSpacing.md),
                     _upgradeBullet(scheme, 'Email: sales@weighbridge.app'),
                     _upgradeBullet(scheme, 'Phone: +91 98765 43210'),
                     _upgradeBullet(scheme, 'Enter your key in Settings > License'),
@@ -1992,20 +1993,20 @@ class _AdminFaceEnrollmentState extends State<_AdminFaceEnrollment> {
             padding: EdgeInsets.all(12.rs),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
                 Icon(Icons.check_circle_rounded, size: 18, color: scheme.primary),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Text('Face enrolled', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.primary)),
                 const Spacer(),
                 TextButton(
                   onPressed: _saving ? null : _removeFace,
                   child: Text('Remove', style: TextStyle(fontSize: 11, color: scheme.error)),
                 ),
-                SizedBox(width: 4.rs),
+                SizedBox(width: AppSpacing.xs),
                 TextButton(
                   onPressed: _saving ? null : _beginEnrollment,
                   child: Text('Re-enroll', style: TextStyle(fontSize: 11, color: scheme.primary)),
@@ -2041,7 +2042,7 @@ class _AdminFaceEnrollmentState extends State<_AdminFaceEnrollment> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
-                                  SizedBox(height: 8.rs),
+                                  SizedBox(height: AppSpacing.sm),
                                   Text(_status, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
                                 ],
                               ),
@@ -2055,7 +2056,7 @@ class _AdminFaceEnrollmentState extends State<_AdminFaceEnrollment> {
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: (_faceDetected ? Colors.green : Colors.orange).withValues(alpha: 0.85),
-                        borderRadius: BorderRadius.circular(6.rs),
+                        borderRadius: AppRadius.chip,
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -2065,7 +2066,7 @@ class _AdminFaceEnrollmentState extends State<_AdminFaceEnrollment> {
                             size: 14,
                             color: Colors.white,
                           ),
-                          SizedBox(width: 4.rs),
+                          SizedBox(width: AppSpacing.xs),
                           Text(
                             _faceDetected ? 'Face Detected' : 'Searching...',
                             style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600),
@@ -2080,9 +2081,9 @@ class _AdminFaceEnrollmentState extends State<_AdminFaceEnrollment> {
                     ),
                 ],
               ),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               Text(_status, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
                   Expanded(
@@ -2146,7 +2147,7 @@ class _AdminFaceEnrollmentState extends State<_AdminFaceEnrollment> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Select Camera', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               ..._availableCameras.map((cam) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: SizedBox(
@@ -2157,12 +2158,12 @@ class _AdminFaceEnrollmentState extends State<_AdminFaceEnrollment> {
                     label: Text('${cam.label} (${cam.source})', style: const TextStyle(fontSize: 12)),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                     ),
                   ),
                 ),
               )),
-              SizedBox(height: 4.rs),
+              SizedBox(height: AppSpacing.xs),
               Center(
                 child: TextButton(
                   onPressed: () => setState(() => _showCameraChoice = false),
@@ -2183,7 +2184,7 @@ class _AdminFaceEnrollmentState extends State<_AdminFaceEnrollment> {
           ),
 
         if (_error != null) ...[
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Text(_error!, style: text.labelSmall?.copyWith(color: scheme.error)),
         ],
       ],

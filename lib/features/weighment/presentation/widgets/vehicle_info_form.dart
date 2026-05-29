@@ -15,6 +15,7 @@ import 'package:weighbridgemanagement/shared/providers/live_camera_feeds_provide
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class VehicleInfoForm extends ConsumerStatefulWidget {
   const VehicleInfoForm({super.key});
@@ -251,19 +252,19 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
                       ref.read(inlineVerificationProvider.notifier).skipToPin();
                     }
                   },
-                  borderRadius: BorderRadius.circular(12.rs),
+                  borderRadius: AppRadius.card,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: scheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12.rs),
+                      borderRadius: AppRadius.card,
                       border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.refresh_outlined, size: 13, color: scheme.primary),
-                        SizedBox(width: 4.rs),
+                        SizedBox(width: AppSpacing.xs),
                         Text('Re-verify', style: TextStyle(fontSize: 11, color: scheme.primary, fontWeight: FontWeight.w600)),
                       ],
                     ),
@@ -368,7 +369,7 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
                       ),
                     ),
                     if (anprEnabled) ...[
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       SizedBox(
                         height: 56 * scale,
                         width: 56 * 3.5 * scale,
@@ -377,12 +378,12 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
                             : Container(
                                 decoration: BoxDecoration(
                                   color: scheme.surfaceContainerHigh,
-                                  borderRadius: BorderRadius.circular(6.rs),
+                                  borderRadius: AppRadius.chip,
                                 ),
                                 child: Icon(Icons.image_outlined, size: 22 * scale, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
                               ),
                       ),
-                      SizedBox(width: 4.rs),
+                      SizedBox(width: AppSpacing.xs),
                       _RescanAnprButton(isScanning: ref.watch(anprScanningProvider)),
                     ],
                   ],
@@ -394,7 +395,7 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
 
         // RFID tag badge
         if (session != null && session.rfidTag != null && session.rfidTag!.isNotEmpty) ...[
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Chip(
             avatar: Icon(Icons.nfc_outlined, size: 16 * scale),
             label: Text(session.rfidTag!, style: TextStyle(fontSize: 12 * scale, fontFamily: 'monospace')),
@@ -411,19 +412,19 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
           trailing: !noSession && custFace.detected
               ? InkWell(
                   onTap: _clearCustomerFace,
-                  borderRadius: BorderRadius.circular(12.rs),
+                  borderRadius: AppRadius.card,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: scheme.error.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12.rs),
+                      borderRadius: AppRadius.card,
                       border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.close_outlined, size: 13, color: scheme.error),
-                        SizedBox(width: 4.rs),
+                        SizedBox(width: AppSpacing.xs),
                         Text('Clear', style: TextStyle(fontSize: 11, color: scheme.error, fontWeight: FontWeight.w600)),
                       ],
                     ),
@@ -669,7 +670,7 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
           child: Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.4)),
         ),
         if (trailing != null) ...[
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           trailing,
         ],
       ],
@@ -750,7 +751,7 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
         SizedBox(width: 12 * scale),
         Expanded(child: child),
         if (trailing != null) ...[
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           trailing,
         ],
       ],
@@ -765,10 +766,10 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
       filled: true,
       fillColor: scheme.surfaceContainerHigh,
       contentPadding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 14 * scale),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
-      disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
+      border: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide(color: scheme.primary, width: 1.5)),
+      disabledBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide.none),
     );
   }
 
@@ -816,7 +817,7 @@ class _PlateCropThumbnailState extends State<_PlateCropThumbnail> {
       onTap: () => _showEnlarged(context, _bytes),
       child: Card.outlined(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4)),
         ),
         clipBehavior: Clip.antiAlias,
@@ -1054,12 +1055,12 @@ class _OperatorInfoRow extends StatelessWidget {
         if (isSwitch) ...[
           InkWell(
             onTap: onConfirmSwitch,
-            borderRadius: BorderRadius.circular(6.rs),
+            borderRadius: AppRadius.chip,
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 6 * scale),
               decoration: BoxDecoration(
                 color: scheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
                 border: Border.all(color: scheme.primary.withValues(alpha: 0.5)),
               ),
               child: Text('Switch', style: TextStyle(fontSize: 12 * scale, color: scheme.primary, fontWeight: FontWeight.w700)),
@@ -1068,11 +1069,11 @@ class _OperatorInfoRow extends StatelessWidget {
           SizedBox(width: 8 * scale),
           InkWell(
             onTap: onCancelSwitch,
-            borderRadius: BorderRadius.circular(6.rs),
+            borderRadius: AppRadius.chip,
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 6 * scale),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
               ),
               child: Text('Cancel', style: TextStyle(fontSize: 12 * scale, color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600)),
@@ -1084,11 +1085,11 @@ class _OperatorInfoRow extends StatelessWidget {
               padding: const EdgeInsets.only(right: 8),
               child: InkWell(
                 onTap: onRetryScan,
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 6 * scale),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6.rs),
+                    borderRadius: AppRadius.chip,
                     border: Border.all(color: scheme.primary.withValues(alpha: 0.4)),
                   ),
                   child: Row(
@@ -1162,13 +1163,13 @@ class _InlinePinFieldState extends State<_InlinePinField> {
         filled: true,
         fillColor: scheme.errorContainer.withValues(alpha: 0.15),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
+        border: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           borderSide: BorderSide(color: scheme.error.withValues(alpha: 0.4)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           borderSide: BorderSide(color: scheme.error, width: 1.5),
         ),
         errorText: widget.errorMessage,
@@ -1311,7 +1312,7 @@ class _CustomerFaceAvatar extends ConsumerWidget {
             height: h,
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12.rs),
+                borderRadius: AppRadius.card,
                 color: bgColor,
                 border: Border.all(
                   color: hasLiveFeed
@@ -1487,11 +1488,11 @@ class _EnlargedCustomerCameraDialogState extends ConsumerState<_EnlargedCustomer
         ),
         decoration: BoxDecoration(
           color: const Color(0xFF1A1A2E),
-          borderRadius: BorderRadius.circular(16.rs),
+          borderRadius: AppRadius.dialog,
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 30)],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16.rs),
+          borderRadius: AppRadius.dialog,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1502,7 +1503,7 @@ class _EnlargedCustomerCameraDialogState extends ConsumerState<_EnlargedCustomer
                   children: [
                     _CustomerTabBtn(label: 'Live Feed', icon: Icons.videocam_outlined, selected: _tabIndex == 0, onTap: () => setState(() => _tabIndex = 0)),
                     if (hasFaceSnapshot) ...[
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       _CustomerTabBtn(label: 'Face Snapshot', icon: Icons.face_outlined, selected: _tabIndex == 1, onTap: () => setState(() => _tabIndex = 1)),
                     ],
                     const Spacer(),
@@ -1519,17 +1520,17 @@ class _EnlargedCustomerCameraDialogState extends ConsumerState<_EnlargedCustomer
                         },
                         child: Container(
                           padding: EdgeInsets.all(6.rs),
-                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(6.rs)),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: AppRadius.chip),
                           child: Icon(_audioEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded, size: 16, color: _audioEnabled ? Colors.white : Colors.white70),
                         ),
                       ),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                     ],
                     GestureDetector(
                       onTap: () => Navigator.of(context).pop(),
                       child: Container(
                         padding: EdgeInsets.all(6.rs),
-                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(6.rs)),
+                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: AppRadius.chip),
                         child: const Icon(Icons.close_outlined, size: 16, color: Colors.white70),
                       ),
                     ),
@@ -1548,7 +1549,7 @@ class _EnlargedCustomerCameraDialogState extends ConsumerState<_EnlargedCustomer
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 ClipRRect(
-                                  borderRadius: BorderRadius.circular(12.rs),
+                                  borderRadius: AppRadius.card,
                                   child: Image.memory(
                                     base64Decode(custFace.faceCropB64!.contains(',') ? custFace.faceCropB64!.split(',').last : custFace.faceCropB64!),
                                     height: MediaQuery.of(context).size.height * 0.4,
@@ -1556,7 +1557,7 @@ class _EnlargedCustomerCameraDialogState extends ConsumerState<_EnlargedCustomer
                                     gaplessPlayback: true,
                                   ),
                                 ),
-                                SizedBox(height: 12.rs),
+                                SizedBox(height: AppSpacing.md),
                                 if (custFace.name != null)
                                   Text(custFace.name!, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
                                 if (custFace.confidence > 0)
@@ -1597,7 +1598,7 @@ class _CustomerTabBtn extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: selected ? Colors.white.withValues(alpha: 0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           border: selected ? null : Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),
         child: Row(

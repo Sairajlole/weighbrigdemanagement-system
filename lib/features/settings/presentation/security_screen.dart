@@ -18,6 +18,7 @@ import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 // ─── Local persistence ───────────────────────────────────────────────────────
 
@@ -426,9 +427,9 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                       onPressed: () {
                         context.go('/settings');
                       },
-                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                     ),
-                    SizedBox(width: 12.rs),
+                    SizedBox(width: AppSpacing.md),
                     Icon(Icons.shield_rounded, size: 20, color: scheme.primary),
                     SizedBox(width: 10.rs),
                     Column(
@@ -444,13 +445,13 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                         onPressed: () { setState(() { _loaded = false; _dirty = false; }); ref.invalidate(_securitySettingsProvider); },
                         child: const Text('Cancel'),
                       ),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                     ],
                     FilledButton.icon(
                       onPressed: _dirty && !_saving ? _save : null,
                       icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
                       label: Text(_saving ? 'Saving...' : 'Save'),
-                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                     ),
                   ],
                 ),
@@ -462,7 +463,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8.rs),
+                        borderRadius: AppRadius.button,
                         border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                       ),
                       child: Row(
@@ -472,7 +473,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                             size: 15,
                             color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                           ),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                         ],
                       ),
@@ -487,7 +488,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
-                padding: EdgeInsets.all(28.rs),
+                padding: AppSpacing.pagePadding,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -567,19 +568,19 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: scheme.primaryContainer.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
           ),
           child: Row(
             children: [
               Icon(Icons.verified_user_rounded, size: 14, color: scheme.primary),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text('Admin', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700, color: scheme.primary)),
               const Spacer(),
               Text('Full access to all features', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
             ],
           ),
         ),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
         _PermissionToggle(
           label: 'Require ID verification (KYC) for sensitive operations',
           value: _requireKycForSensitiveOps,
@@ -590,9 +591,9 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
             padding: const EdgeInsets.only(left: 42, bottom: 8),
             child: Text('Operators must have verified ID to: void, edit, manual weight, export, delete', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
           ),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
         Text('Operator Permissions', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         _PermissionToggle(label: 'Void weighments', value: _opCanVoidWeighment, onChanged: (v) { setState(() => _opCanVoidWeighment = v); _markDirty(); }),
         _PermissionToggle(label: 'Edit weighments', value: _opCanEditWeighment, onChanged: (v) { setState(() => _opCanEditWeighment = v); _markDirty(); }),
         _PermissionToggle(label: 'Manual weight entry (override scale)', value: _opCanManualWeight, onChanged: (v) { setState(() => _opCanManualWeight = v); _markDirty(); }, danger: true),
@@ -604,9 +605,9 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
         _PermissionToggle(label: 'Manage customers', value: _opCanManageCustomers, onChanged: (v) { setState(() => _opCanManageCustomers = v); _markDirty(); }),
         _PermissionToggle(label: 'Manage materials', value: _opCanManageMaterials, onChanged: (v) { setState(() => _opCanManageMaterials = v); _markDirty(); }),
         _PermissionToggle(label: 'Delete records', value: _opCanDeleteRecords, onChanged: (v) { setState(() => _opCanDeleteRecords = v); _markDirty(); }, danger: true),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
         Text('Settings Access', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         _PermissionToggle(label: 'Printing settings', value: _opCanAccessPrinting, onChanged: (v) { setState(() => _opCanAccessPrinting = v); _markDirty(); }),
         _PermissionToggle(label: 'Gate control settings', value: _opCanAccessGateControl, onChanged: (v) { setState(() => _opCanAccessGateControl = v); _markDirty(); }),
         _PermissionToggle(label: 'Cameras & AI settings', value: _opCanAccessCameras, onChanged: (v) { setState(() => _opCanAccessCameras = v); _markDirty(); }),
@@ -632,24 +633,24 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               height: 20, width: 36,
               child: FittedBox(child: Switch(value: _auditEnabled, onChanged: (v) { setState(() => _auditEnabled = v); _markDirty(); })),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('Enable audit logging', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
           ],
         ),
         if (_auditEnabled) ...[
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Text('Log events:', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           _PermissionToggle(label: 'Setting changes', value: _auditLogSettingChanges, onChanged: (v) { setState(() => _auditLogSettingChanges = v); _markDirty(); }),
           _PermissionToggle(label: 'Weighment edits/deletions', value: _auditLogWeighmentEdits, onChanged: (v) { setState(() => _auditLogWeighmentEdits = v); _markDirty(); }),
           _PermissionToggle(label: 'Docket reprints', value: _auditLogReprints, onChanged: (v) { setState(() => _auditLogReprints = v); _markDirty(); }),
           _PermissionToggle(label: 'Login/logout events', value: _auditLogLogins, onChanged: (v) { setState(() => _auditLogLogins = v); _markDirty(); }),
           _PermissionToggle(label: 'Data exports', value: _auditLogExports, onChanged: (v) { setState(() => _auditLogExports = v); _markDirty(); }),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Text('Retention:', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               SizedBox(
                 width: 60,
                 child: TextField(
@@ -688,17 +689,17 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               height: 20, width: 36,
               child: FittedBox(child: Switch(value: _autoLockEnabled, onChanged: (v) { setState(() => _autoLockEnabled = v); _markDirty(); })),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('Auto-lock screen', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
           ],
         ),
         if (_autoLockEnabled) ...[
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               SizedBox(width: 44.rs),
               Text('after', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               _ChipGroup(
                 value: '${_autoLockMinutes}m',
                 options: const ['2m', '5m', '10m', '15m', '30m'],
@@ -709,9 +710,9 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
         ],
         SizedBox(height: 14.rs),
         _PermissionToggle(label: 'Encrypt local backups', value: _encryptBackups, onChanged: (v) { setState(() => _encryptBackups = v); _markDirty(); }),
-        SizedBox(height: 4.rs),
+        SizedBox(height: AppSpacing.xs),
         _PermissionToggle(label: 'Mask sensitive fields for operators', value: _maskSensitiveFields, onChanged: (v) { setState(() => _maskSensitiveFields = v); _markDirty(); }),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Padding(
           padding: const EdgeInsets.only(left: 44),
           child: Text('Phone, PAN, Aadhaar hidden for non-admin roles', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
@@ -738,19 +739,19 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       text: text,
       children: [
         _PermissionToggle(label: 'Face verify on each weighment start', value: _faceVerifyOnWeighmentStart, onChanged: (v) { setState(() => _faceVerifyOnWeighmentStart = v); _markDirty(); }),
-        SizedBox(height: 4.rs),
+        SizedBox(height: AppSpacing.xs),
         _PermissionToggle(label: 'Face verify on session start (once per login)', value: _faceVerifyOnSessionStart, onChanged: (v) { setState(() => _faceVerifyOnSessionStart = v); _markDirty(); }),
-        SizedBox(height: 4.rs),
+        SizedBox(height: AppSpacing.xs),
         _PermissionToggle(label: 'Face verify on day start (once per calendar day)', value: _faceVerifyOnDayStart, onChanged: (v) { setState(() => _faceVerifyOnDayStart = v); _markDirty(); }),
-        SizedBox(height: 4.rs),
+        SizedBox(height: AppSpacing.xs),
         _PermissionToggle(label: 'Shift-based login only', value: _shiftBasedLogin, onChanged: (v) { setState(() => _shiftBasedLogin = v); _markDirty(); }),
-        SizedBox(height: 4.rs),
+        SizedBox(height: AppSpacing.xs),
         _PermissionToggle(label: 'Force password change on first login', value: _forcePasswordChangeFirstLogin, onChanged: (v) { setState(() => _forcePasswordChangeFirstLogin = v); _markDirty(); }),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
         Row(
           children: [
             Text('Password expiry:', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             _ChipGroup(
               value: _passwordExpiryDays == 0 ? 'never' : '${_passwordExpiryDays}d',
               options: const ['never', '30d', '60d', '90d'],
@@ -762,7 +763,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
         Divider(color: scheme.outlineVariant.withValues(alpha: 0.2)),
         SizedBox(height: 14.rs),
         Text('Email Domain Restriction', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Row(
           children: [
             SizedBox(
@@ -778,7 +779,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                 },
               )),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Expanded(child: Text('Restrict operators to allowed email domains', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600))),
           ],
         ),
@@ -799,7 +800,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                       onDeleted: () => _removeDomain(domain),
                       backgroundColor: scheme.primaryContainer.withValues(alpha: 0.3),
                       side: BorderSide(color: scheme.primary.withValues(alpha: 0.2)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.compact,
@@ -819,13 +820,13 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                           hintText: 'company.com',
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                          border: OutlineInputBorder(borderRadius: AppRadius.button),
                         ),
                         style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
                         onSubmitted: (_) => _addDomain(),
                       ),
                     ),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     FilledButton.icon(
                       onPressed: _addDomain,
                       icon: const Icon(Icons.add_rounded, size: 14),
@@ -834,7 +835,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                     ),
                   ],
                 ),
-                SizedBox(height: 8.rs),
+                SizedBox(height: AppSpacing.sm),
                 Text(
                   'New operators must use one of the allowed domains. Existing operators are not affected.',
                   style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic),
@@ -865,7 +866,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: _mfaFactors.isNotEmpty ? const Color(0xFFE8F5E9) : scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
             ),
             child: Row(
               children: [
@@ -892,28 +893,28 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
             ),
           ),
           if (_mfaError != null) ...[
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             Container(
               padding: EdgeInsets.all(8.rs),
-              decoration: BoxDecoration(color: const Color(0xFFFFEBEE), borderRadius: BorderRadius.circular(6.rs)),
+              decoration: BoxDecoration(color: const Color(0xFFFFEBEE), borderRadius: AppRadius.chip),
               child: Text(_mfaError!, style: const TextStyle(fontSize: 11, color: Color(0xFFC62828))),
             ),
           ],
           if (_mfaSuccess != null) ...[
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             Container(
               padding: EdgeInsets.all(8.rs),
-              decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(6.rs)),
+              decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: AppRadius.chip),
               child: Text(_mfaSuccess!, style: const TextStyle(fontSize: 11, color: Color(0xFF1B5E20))),
             ),
           ],
           if (_totpSecret != null) ...[
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             Text('Manual key:', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-            SizedBox(height: 4.rs),
+            SizedBox(height: AppSpacing.xs),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(6.rs)),
+              decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: AppRadius.chip),
               child: Row(
                 children: [
                   Expanded(child: SelectableText(_totpSecret!.secretKey, style: const TextStyle(fontFamily: 'Courier', fontSize: 11, fontWeight: FontWeight.w600))),
@@ -939,13 +940,13 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                     decoration: const InputDecoration(hintText: '000000', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
                   ),
                 ),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 FilledButton(
                   onPressed: _mfaEnrolling ? null : _finalizeMfaEnrollment,
                   style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), textStyle: const TextStyle(fontSize: 11)),
                   child: const Text('Verify'),
                 ),
-                SizedBox(width: 4.rs),
+                SizedBox(width: AppSpacing.xs),
                 TextButton(
                   onPressed: () => setState(() { _totpSecret = null; _mfaError = null; }),
                   style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), textStyle: const TextStyle(fontSize: 11)),
@@ -961,7 +962,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               child: Row(
                 children: [
                   const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF2E7D32)),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   Expanded(child: Text(f.displayName ?? 'Authenticator App', style: text.bodySmall)),
                   InkWell(
                     onTap: () => _removeMfaFactor(f),
@@ -1048,19 +1049,19 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               height: 20, width: 36,
               child: FittedBox(child: Switch(value: _ipWhitelistEnabled, onChanged: (v) { setState(() => _ipWhitelistEnabled = v); _markDirty(); })),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('Restrict access to allowed IPs', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
           ],
         ),
         if (_ipWhitelistEnabled) ...[
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           FutureBuilder<Map<String, List<String>>>(
             future: _detectCurrentIps(),
             builder: (ctx, snap) {
               if (!snap.hasData) {
                 return Row(children: [
                   SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: scheme.primary)),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   Text('Detecting IP...', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
                 ]);
               }
@@ -1070,14 +1071,14 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                 padding: EdgeInsets.all(10.rs),
                 decoration: BoxDecoration(
                   color: scheme.primaryContainer.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Your current IPs:', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.primary)),
-                    SizedBox(height: 4.rs),
+                    SizedBox(height: AppSpacing.xs),
                     if (publicIp != null)
                       Row(children: [
                         Icon(Icons.public_rounded, size: 12, color: scheme.primary),
@@ -1099,13 +1100,13 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               );
             },
           ),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           ..._whitelistedIps.asMap().entries.map((e) => Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(
               children: [
                 Icon(Icons.computer_rounded, size: 14, color: scheme.onSurfaceVariant),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(child: Text(e.value, style: text.bodySmall?.copyWith(fontFamily: 'Courier'))),
                 InkWell(
                   onTap: () { setState(() => _whitelistedIps.removeAt(e.key)); _markDirty(); },
@@ -1204,7 +1205,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               ),
               SizedBox(height: 10.rs),
               Text('Examples:', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-              SizedBox(height: 4.rs),
+              SizedBox(height: AppSpacing.xs),
               Text('192.168.1.100  — single PC', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontFamily: 'Courier')),
               Text('192.168.1.0/24  — entire LAN', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontFamily: 'Courier')),
               Text('192.168.1.10-192.168.1.50  — range', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontFamily: 'Courier')),
@@ -1244,25 +1245,25 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
             value: _preventScreenshots,
             onChanged: (v) { setState(() => _preventScreenshots = v); _markDirty(); },
           ),
-          SizedBox(height: 4.rs),
+          SizedBox(height: AppSpacing.xs),
         ],
         _PermissionToggle(
           label: 'Dim content when window is inactive',
           value: _dimOnInactiveWindow,
           onChanged: (v) { setState(() => _dimOnInactiveWindow = v); _markDirty(); },
         ),
-        SizedBox(height: 4.rs),
+        SizedBox(height: AppSpacing.xs),
         _PermissionToggle(
           label: 'Overlay watermark (operator name + timestamp)',
           value: _watermarkEnabled,
           onChanged: (v) { setState(() => _watermarkEnabled = v); _markDirty(); },
         ),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
         Container(
           padding: EdgeInsets.all(10.rs),
           decoration: BoxDecoration(
             color: scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1271,15 +1272,15 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               SizedBox(height: 6.rs),
               if (Platform.isWindows) ...[
                 _infoRow(Icons.screenshot_rounded, 'Screenshots: Window appears black in all screen captures & recordings', text, scheme),
-                SizedBox(height: 4.rs),
+                SizedBox(height: AppSpacing.xs),
               ],
               _infoRow(Icons.visibility_off_rounded, 'Inactive dimming: Obscures data when app loses focus, deters shoulder-surfing', text, scheme),
-              SizedBox(height: 4.rs),
+              SizedBox(height: AppSpacing.xs),
               _infoRow(Icons.water_drop_rounded, 'Watermark: Visible operator identity overlay makes photos traceable', text, scheme),
             ],
           ),
         ),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Text('Note: No software can fully prevent external camera capture. Watermark + audit trail provides accountability.', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
       ],
     );
@@ -1312,7 +1313,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
           padding: EdgeInsets.all(12.rs),
           decoration: BoxDecoration(
             color: _emergencyLockdown ? scheme.errorContainer.withValues(alpha: 0.3) : scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
             border: _emergencyLockdown ? Border.all(color: scheme.error.withValues(alpha: 0.4)) : null,
           ),
           child: Column(
@@ -1321,7 +1322,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               Row(
                 children: [
                   Icon(_emergencyLockdown ? Icons.lock_rounded : Icons.lock_open_rounded, size: 16, color: _emergencyLockdown ? scheme.error : scheme.onSurfaceVariant),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   Expanded(child: Text('Emergency Lockdown', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w700, color: _emergencyLockdown ? scheme.error : scheme.onSurface))),
                   FilledButton(
                     onPressed: () => _toggleLockdown(scheme),
@@ -1347,24 +1348,24 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
         SizedBox(height: 14.rs),
         // Auto-logout vs lock
         Text('Inactivity behavior:', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Row(
           children: [
             SizedBox(
               height: 20, width: 36,
               child: FittedBox(child: Switch(value: _autoLogoutEnabled, onChanged: (v) { setState(() => _autoLogoutEnabled = v); _markDirty(); })),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('Full logout on inactivity', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
           ],
         ),
         if (_autoLogoutEnabled) ...[
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               SizedBox(width: 44.rs),
               Text('after', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               _ChipGroup(
                 value: '${_autoLogoutMinutes}m',
                 options: const ['15m', '30m', '60m', '120m'],
@@ -1389,7 +1390,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
           padding: const EdgeInsets.only(left: 44),
           child: Text('Blocks data copy to external USB drives', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
         ),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         // Remote desktop blocking
         _PermissionToggle(
           label: 'Block remote desktop software',
@@ -1412,7 +1413,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Row(children: [Icon(Icons.warning_rounded, color: scheme.error), SizedBox(width: 8.rs), const Text('Emergency Lockdown')]),
+          title: Row(children: [Icon(Icons.warning_rounded, color: scheme.error), SizedBox(width: AppSpacing.sm), const Text('Emergency Lockdown')]),
           content: const Text('This will immediately lock out ALL operator sessions and prevent new operator logins. Only admin accounts will retain access.\n\nAre you sure?'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
@@ -1457,14 +1458,14 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
         if (_sessionLogs.isEmpty)
           Container(
             width: double.infinity,
-            padding: EdgeInsets.all(16.rs),
-            decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8.rs)),
+            padding: AppSpacing.cardPadding,
+            decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: AppRadius.button),
             child: Text('No session logs recorded yet.', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant), textAlign: TextAlign.center),
           )
         else
           Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
             ),
             child: Column(
@@ -1538,7 +1539,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               label: const Text('Refresh'),
               style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), textStyle: const TextStyle(fontSize: 11)),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             OutlinedButton.icon(
               onPressed: _exportAuditLogCsv,
               icon: const Icon(Icons.download_rounded, size: 14),
@@ -1623,7 +1624,7 @@ class _SectionCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
@@ -1650,7 +1651,7 @@ class _SectionCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: EdgeInsets.all(24.rs),
+            padding: AppSpacing.pagePadding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: children,
@@ -1711,7 +1712,7 @@ class _ChipGroup extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: selected ? scheme.primaryContainer : Colors.transparent,
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
                 border: Border.all(color: selected ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.4)),
               ),
               child: Text(opt, style: TextStyle(fontSize: 10, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? scheme.primary : scheme.onSurfaceVariant)),

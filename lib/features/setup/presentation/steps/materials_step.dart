@@ -5,6 +5,7 @@ import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.d
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class MaterialsStep extends ConsumerStatefulWidget {
   const MaterialsStep({super.key});
@@ -132,12 +133,12 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
           Text('Materials', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Text(
             'Define the materials your weighbridge handles. These appear in the weighment form.',
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          SizedBox(height: 32.rs),
+          SizedBox(height: AppSpacing.xxl),
 
           // Add material
           Row(
@@ -153,7 +154,7 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
                   onSubmitted: _addMaterial,
                 ),
               ),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               FilledButton.icon(
                 onPressed: _adding ? null : () => _addMaterial(_nameCtrl.text),
                 icon: const Icon(Icons.add_rounded, size: 16),
@@ -161,12 +162,12 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
               ),
             ],
           ),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
 
 
           // Material list
           if (_materials.isNotEmpty) ...[
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             Container(
               decoration: BoxDecoration(
                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
@@ -222,17 +223,17 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
             ),
           ),
 
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           Container(
             padding: EdgeInsets.all(12.rs),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
             ),
             child: Row(
               children: [
                 Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     'You can reorder, rename, and manage AI training for materials in Settings later.',

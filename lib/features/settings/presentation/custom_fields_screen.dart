@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 final _customFieldsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
@@ -195,9 +196,9 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                     IconButton(
                       onPressed: () => context.go('/settings'),
                       icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                      style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                     ),
-                    SizedBox(width: 12.rs),
+                    SizedBox(width: AppSpacing.md),
                     Icon(Icons.text_fields_rounded, size: 20, color: scheme.primary),
                     SizedBox(width: 10.rs),
                     Column(
@@ -210,7 +211,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                     const Spacer(),
                     if (_dirty) ...[
                       TextButton(onPressed: _resetDefaults, child: const Text('Cancel')),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                     ],
                     FilledButton.icon(
                       onPressed: _dirty && !_saving ? _save : null,
@@ -220,7 +221,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                       label: Text(_saving ? 'Saving...' : 'Save'),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                       ),
                     ),
                   ],
@@ -233,7 +234,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8.rs),
+                        borderRadius: AppRadius.button,
                         border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                       ),
                       child: Row(
@@ -243,7 +244,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                             size: 15,
                             color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                           ),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                         ],
                       ),
@@ -265,7 +266,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                   Expanded(
                     flex: 3,
                     child: SingleChildScrollView(
-                      padding: EdgeInsets.all(28.rs),
+                      padding: AppSpacing.pagePadding,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -291,9 +292,9 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                               ],
                             ),
                           ),
-                          SizedBox(height: 24.rs),
+                          SizedBox(height: AppSpacing.xl),
                           Text('Field Configuration', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                          SizedBox(height: 16.rs),
+                          SizedBox(height: AppSpacing.lg),
                           ...List.generate(3, (i) => _FieldConfig(
                                 index: i,
                                 field: _fields[i],
@@ -312,7 +313,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                   // Live preview
                   Container(
                     width: 280,
-                    margin: EdgeInsets.all(28.rs),
+                    margin: AppSpacing.pagePadding,
                     padding: EdgeInsets.all(20.rs),
                     decoration: BoxDecoration(
                       color: scheme.surface,
@@ -334,9 +335,9 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                             ),
                           ],
                         ),
-                        SizedBox(height: 16.rs),
+                        SizedBox(height: AppSpacing.lg),
                         Text('Transaction Entry', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
-                        SizedBox(height: 12.rs),
+                        SizedBox(height: AppSpacing.md),
                         // Standard fields preview
                         _PreviewField(label: 'Vehicle Number', hint: 'MH-12-AB-1234', scheme: scheme, text: text),
                         SizedBox(height: 10.rs),
@@ -367,7 +368,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                                 height: 36,
                                 decoration: BoxDecoration(
                                   color: scheme.surfaceContainerHigh.withValues(alpha: 0.3),
-                                  borderRadius: BorderRadius.circular(6.rs),
+                                  borderRadius: AppRadius.chip,
                                 ),
                                 child: Center(
                                   child: Icon(Icons.block_rounded, size: 14, color: scheme.outlineVariant),
@@ -381,7 +382,7 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                             height: 36,
                             decoration: BoxDecoration(
                               color: scheme.primary,
-                              borderRadius: BorderRadius.circular(8.rs),
+                              borderRadius: AppRadius.button,
                             ),
                             child: Center(
                               child: Text('Complete Transaction', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onPrimary)),
@@ -490,7 +491,7 @@ class _FieldConfig extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(
           color: expanded ? scheme.primary.withValues(alpha: 0.3) : scheme.outlineVariant.withValues(alpha: 0.25),
         ),
@@ -516,7 +517,7 @@ class _FieldConfig extends StatelessWidget {
                       child: Text('${index + 1}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.primary)),
                     ),
                   ),
-                  SizedBox(width: 12.rs),
+                  SizedBox(width: AppSpacing.md),
                   Text(
                     'Custom Field ${index + 1}',
                     style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -552,7 +553,7 @@ class _FieldConfig extends StatelessWidget {
           if (expanded) ...[
             Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
             Padding(
-              padding: EdgeInsets.all(16.rs),
+              padding: AppSpacing.cardPadding,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -560,7 +561,7 @@ class _FieldConfig extends StatelessWidget {
                   Row(
                     children: [
                       Text('Enable Field', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w500)),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       Switch(
                         value: enabled,
                         onChanged: (v) => _update('enabled', v),
@@ -568,7 +569,7 @@ class _FieldConfig extends StatelessWidget {
                     ],
                   ),
                   if (enabled) ...[
-                    SizedBox(height: 16.rs),
+                    SizedBox(height: AppSpacing.lg),
                     Row(
                       children: [
                         Expanded(
@@ -652,7 +653,7 @@ class _FieldConfig extends StatelessWidget {
                         padding: EdgeInsets.all(12.rs),
                         decoration: BoxDecoration(
                           color: scheme.primaryContainer.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8.rs),
+                          borderRadius: AppRadius.button,
                           border: Border.all(color: scheme.primary.withValues(alpha: 0.15)),
                         ),
                         child: Column(
@@ -680,7 +681,7 @@ class _FieldConfig extends StatelessWidget {
                                   padding: const EdgeInsets.symmetric(horizontal: 10),
                                   child: Column(
                                     children: [
-                                      SizedBox(height: 16.rs),
+                                      SizedBox(height: AppSpacing.lg),
                                       Text('/', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w300, color: scheme.onSurfaceVariant)),
                                     ],
                                   ),
@@ -695,7 +696,7 @@ class _FieldConfig extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            SizedBox(height: 8.rs),
+                            SizedBox(height: AppSpacing.sm),
                             Text(
                               _ratePreview(field),
                               style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic),
@@ -748,9 +749,9 @@ class _FieldConfig extends StatelessWidget {
                         ),
                       ],
                     ),
-                    SizedBox(height: 16.rs),
+                    SizedBox(height: AppSpacing.lg),
                     Text('Validation', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    SizedBox(height: 8.rs),
+                    SizedBox(height: AppSpacing.sm),
                     Row(
                       children: [
                         Checkbox(
@@ -759,7 +760,7 @@ class _FieldConfig extends StatelessWidget {
                         ),
                         Text('Required Field', style: text.bodySmall),
                         if (field['type'] == 'Text') ...[
-                          SizedBox(width: 24.rs),
+                          SizedBox(width: AppSpacing.xl),
                           SizedBox(
                             width: 80,
                             child: _ConfigField(
@@ -782,7 +783,7 @@ class _FieldConfig extends StatelessWidget {
                         ],
                       ],
                     ),
-                    SizedBox(height: 16.rs),
+                    SizedBox(height: AppSpacing.lg),
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton.icon(
@@ -791,7 +792,7 @@ class _FieldConfig extends StatelessWidget {
                         label: Text('Reset Field', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.error)),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)),
+                          shape: RoundedRectangleBorder(borderRadius: AppRadius.chip),
                         ),
                       ),
                     ),
@@ -863,7 +864,7 @@ class _ConfigDropdown extends StatelessWidget {
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             isDense: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant)),
+            border: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant)),
           ),
           icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: scheme.onSurfaceVariant),
         ),

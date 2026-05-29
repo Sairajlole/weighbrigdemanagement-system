@@ -8,6 +8,7 @@ import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class GatesStep extends ConsumerStatefulWidget {
   const GatesStep({super.key});
@@ -230,12 +231,12 @@ class _GatesStepState extends ConsumerState<GatesStep> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
           Text('Gate Control', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Text(
             'Configure automatic barrier gates and RFID scanners. Gate control is enabled automatically when a connection test passes.',
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          SizedBox(height: 32.rs),
+          SizedBox(height: AppSpacing.xxl),
 
           // Entry gate
           _buildGateSection('Entry Gate', Icons.login_rounded, true, scheme, text),
@@ -243,22 +244,22 @@ class _GatesStepState extends ConsumerState<GatesStep> {
 
           // Exit gate
           _buildGateSection('Exit Gate', Icons.logout_rounded, false, scheme, text),
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
 
           // RFID
           _buildRfidSection(scheme, text),
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
 
           Container(
             padding: EdgeInsets.all(12.rs),
             decoration: BoxDecoration(
               color: scheme.primaryContainer.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
             ),
             child: Row(
               children: [
                 Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     'Safety & protection settings can be configured in Settings after setup.',
@@ -289,10 +290,10 @@ class _GatesStepState extends ConsumerState<GatesStep> {
     final testResult = isEntry ? _entryTestResult : _exitTestResult;
 
     return Container(
-      padding: EdgeInsets.all(16.rs),
+      padding: AppSpacing.cardPadding,
       decoration: BoxDecoration(
         border: Border.all(color: enabled ? scheme.primary.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,7 +301,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
           Row(
             children: [
               Icon(icon, size: 18, color: enabled ? scheme.primary : scheme.onSurfaceVariant),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,7 +313,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
                           width: 6, height: 6,
                           decoration: BoxDecoration(shape: BoxShape.circle, color: testResult == 'ok' ? const Color(0xFF059669) : scheme.error),
                         ),
-                        SizedBox(width: 4.rs),
+                        SizedBox(width: AppSpacing.xs),
                         Text(testResult == 'ok' ? 'Connected' : 'Unreachable',
                             style: TextStyle(fontSize: 10, color: testResult == 'ok' ? const Color(0xFF059669) : scheme.error, fontWeight: FontWeight.w500)),
                       ]),
@@ -323,42 +324,42 @@ class _GatesStepState extends ConsumerState<GatesStep> {
             ],
           ),
           if (enabled) ...[
-            SizedBox(height: 16.rs),
+            SizedBox(height: AppSpacing.lg),
             Row(
               children: [
                 Expanded(child: _buildDropdown('Protocol', protocol, _protocols, (v) => setState(() { if (isEntry) _entryProtocol = v!; else _exitProtocol = v!; }), scheme, text)),
-                SizedBox(width: 12.rs),
+                SizedBox(width: AppSpacing.md),
                 Expanded(child: _buildIpField('IP Address', ipCtrl, isEntry ? '192.168.1.150' : '192.168.1.151', scheme, text)),
               ],
             ),
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             Row(
               children: [
                 Expanded(child: _buildDropdown('Channel', channel, _channels, (v) => setState(() { if (isEntry) _entryChannel = v!; else _exitChannel = v!; }), scheme, text)),
-                SizedBox(width: 12.rs),
+                SizedBox(width: AppSpacing.md),
                 Expanded(child: _buildDropdown('Trigger', trigger, triggers, (v) => setState(() { if (isEntry) _entryTrigger = v!; else _exitTrigger = v!; }), scheme, text)),
               ],
             ),
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             Row(
               children: [
                 SizedBox(
                   width: 120,
                   child: _buildField('Duration (s)', durationCtrl, '30', scheme, text),
                 ),
-                SizedBox(width: 12.rs),
+                SizedBox(width: AppSpacing.md),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text('Auto-close', style: TextStyle(fontSize: 12)),
-                    SizedBox(width: 4.rs),
+                    SizedBox(width: AppSpacing.xs),
                     Switch(value: autoClose, onChanged: (v) => setState(() { if (isEntry) _entryAutoClose = v; else _exitAutoClose = v; })),
                   ],
                 ),
                 const Spacer(),
                 FilledButton.tonal(
                   onPressed: (testing || ipCtrl.text.trim().isEmpty || !isValidHostOrIp(ipCtrl.text.trim())) ? null : () => _testGate(isEntry ? GateId.entry : GateId.exit),
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -381,10 +382,10 @@ class _GatesStepState extends ConsumerState<GatesStep> {
 
   Widget _buildRfidSection(ColorScheme scheme, TextTheme text) {
     return Container(
-      padding: EdgeInsets.all(16.rs),
+      padding: AppSpacing.cardPadding,
       decoration: BoxDecoration(
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -392,7 +393,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
           Row(
             children: [
               Icon(Icons.nfc_rounded, size: 18, color: scheme.secondary),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -406,17 +407,17 @@ class _GatesStepState extends ConsumerState<GatesStep> {
             ],
           ),
           if (_rfidEnabled) ...[
-            SizedBox(height: 16.rs),
+            SizedBox(height: AppSpacing.lg),
             Row(
               children: [
                 Expanded(child: _buildDropdown('Scanner Protocol', _rfidProtocol, _rfidProtocols, (v) => setState(() => _rfidProtocol = v!), scheme, text)),
-                SizedBox(width: 12.rs),
+                SizedBox(width: AppSpacing.md),
                 Expanded(child: _buildIpField('Scanner IP', _rfidIp, '192.168.1.200', scheme, text)),
-                SizedBox(width: 12.rs),
+                SizedBox(width: AppSpacing.md),
                 SizedBox(width: 100, child: _buildField('Timeout (s)', _rfidTimeout, '10', scheme, text)),
               ],
             ),
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             Text(
               'RFID tags on vehicles are scanned at the gate to auto-identify them.',
               style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant),
@@ -449,8 +450,8 @@ class _GatesStepState extends ConsumerState<GatesStep> {
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             isDense: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+            border: OutlineInputBorder(borderRadius: AppRadius.button),
+            enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
           ),
           icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: scheme.onSurfaceVariant),
         ),
@@ -472,8 +473,8 @@ class _GatesStepState extends ConsumerState<GatesStep> {
             hintText: hint,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             isDense: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+            border: OutlineInputBorder(borderRadius: AppRadius.button),
+            enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
           ),
         ),
       ],
@@ -506,9 +507,9 @@ class _GatesStepState extends ConsumerState<GatesStep> {
               ),
             ),
             prefixIconConstraints: const BoxConstraints(minWidth: 30),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+            border: OutlineInputBorder(borderRadius: AppRadius.button),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               borderSide: BorderSide(color: hasValue && !valid ? scheme.error.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.5)),
             ),
             errorText: hasValue && !valid ? 'Invalid IP' : null,

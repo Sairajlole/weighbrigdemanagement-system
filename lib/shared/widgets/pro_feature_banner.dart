@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class ProFeatureBanner extends ConsumerWidget {
   final String feature;
@@ -32,7 +33,7 @@ class ProFeatureBanner extends ConsumerWidget {
       child: Row(
         children: [
           Icon(Icons.workspace_premium_rounded, size: 20, color: proColor),
-          SizedBox(width: 12.rs),
+          SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,7 +46,7 @@ class ProFeatureBanner extends ConsumerWidget {
               ],
             ),
           ),
-          SizedBox(width: 12.rs),
+          SizedBox(width: AppSpacing.md),
           FilledButton.tonal(
             onPressed: () => context.go('/settings/license'),
             style: FilledButton.styleFrom(

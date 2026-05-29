@@ -17,6 +17,7 @@ import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import '../../application/setup_wizard_provider.dart';
 import '../../application/setup_wizard_state.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 String _hashPassword(String password) => sha256.convert(utf8.encode(password)).toString();
 
@@ -1092,14 +1093,14 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                   height: 56,
                   decoration: BoxDecoration(
                     color: scheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(16.rs),
+                    borderRadius: AppRadius.dialog,
                     border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                   ),
                   child: Icon(icon, size: 28, color: scheme.primary),
                 ),
                 SizedBox(height: 20.rs),
                 Text(title, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                SizedBox(height: 8.rs),
+                SizedBox(height: AppSpacing.sm),
                 Text(subtitle, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant), textAlign: TextAlign.center),
                 SizedBox(height: 28.rs),
 
@@ -1120,7 +1121,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                       ],
                     ),
                   ),
-                  SizedBox(height: 16.rs),
+                  SizedBox(height: AppSpacing.lg),
                 ],
 
                 if (isAdmin) _buildAdminForm(scheme, text)
@@ -1146,7 +1147,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
           padding: EdgeInsets.all(20.rs),
           decoration: BoxDecoration(
             color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(16.rs),
+            borderRadius: AppRadius.dialog,
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
           ),
           child: IgnorePointer(
@@ -1158,12 +1159,12 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                 children: [
                   Row(children: [
                     Expanded(child: _buildField('Full Name', _name, 'Your name', Icons.person_outline_rounded)),
-                    SizedBox(width: 16.rs),
+                    SizedBox(width: AppSpacing.lg),
                     Expanded(child: _buildEmailField()),
                   ]),
 
                   if (_detectedDomain != null) ...[
-                    SizedBox(height: 12.rs),
+                    SizedBox(height: AppSpacing.md),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
@@ -1191,7 +1192,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                               ],
                             ),
                           ),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Switch(
                             value: _restrictDomain,
                             onChanged: (v) => setState(() => _restrictDomain = v),
@@ -1200,14 +1201,14 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                       ),
                     ),
                   ],
-                  SizedBox(height: 16.rs),
+                  SizedBox(height: AppSpacing.lg),
 
                   _buildPhoneField(),
-                  SizedBox(height: 16.rs),
+                  SizedBox(height: AppSpacing.lg),
 
                   Row(children: [
                     Expanded(child: _buildPasswordField('Password', _password, false)),
-                    SizedBox(width: 16.rs),
+                    SizedBox(width: AppSpacing.lg),
                     Expanded(child: _buildPasswordField('Confirm Password', _confirmPassword, true)),
                   ]),
                 ],
@@ -1215,7 +1216,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
             ),
           ),
         ),
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
 
         if (!_otpPhase) ...[
           SizedBox(
@@ -1253,25 +1254,25 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
               height: 56,
               decoration: BoxDecoration(
                 color: scheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16.rs),
+                borderRadius: AppRadius.dialog,
                 border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
               ),
               child: Icon(Icons.vpn_key_rounded, size: 28, color: scheme.primary),
             ),
             SizedBox(height: 20.rs),
             Text('Enter Company Code', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             Text(
               'Ask your administrator for the system code to join their company.',
               style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 32.rs),
+            SizedBox(height: AppSpacing.xxl),
             Container(
               padding: EdgeInsets.all(20.rs),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(16.rs),
+                borderRadius: AppRadius.dialog,
                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
               ),
               child: Column(
@@ -1300,21 +1301,21 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                       fillColor: scheme.surface,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.rs),
+                        borderRadius: AppRadius.card,
                         borderSide: BorderSide(color: scheme.outlineVariant),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.rs),
+                        borderRadius: AppRadius.card,
                         borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.rs),
+                        borderRadius: AppRadius.card,
                         borderSide: BorderSide(color: scheme.primary, width: 2),
                       ),
                     ),
                   ),
                   if (_codeVerifying || _loading) ...[
-                    SizedBox(height: 16.rs),
+                    SizedBox(height: AppSpacing.lg),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -1327,7 +1328,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                 ],
               ),
             ),
-            SizedBox(height: 16.rs),
+            SizedBox(height: AppSpacing.lg),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -1356,10 +1357,10 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
         // Company info banner
         Container(
           width: double.infinity,
-          padding: EdgeInsets.all(16.rs),
+          padding: AppSpacing.cardPadding,
           decoration: BoxDecoration(
             color: scheme.primaryContainer.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12.rs),
+            borderRadius: AppRadius.card,
             border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
           ),
           child: Row(
@@ -1368,7 +1369,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                 padding: EdgeInsets.all(10.rs),
                 decoration: BoxDecoration(
                   color: scheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                 ),
                 child: Icon(Icons.business_rounded, size: 20, color: scheme.primary),
               ),
@@ -1384,7 +1385,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                         Icon(Icons.verified_rounded, size: 14, color: scheme.primary),
                       ],
                     ),
-                    SizedBox(height: 4.rs),
+                    SizedBox(height: AppSpacing.xs),
                     if (companyGstin.isNotEmpty)
                       Text(companyGstin, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant, fontFamily: 'Courier', letterSpacing: 0.5)),
                     if (companyAddress.isNotEmpty || companyState.isNotEmpty)
@@ -1406,7 +1407,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                 },
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.chip),
                 ),
                 child: Text('Change', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
               ),
@@ -1421,7 +1422,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
           padding: EdgeInsets.all(20.rs),
           decoration: BoxDecoration(
             color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(16.rs),
+            borderRadius: AppRadius.dialog,
             border: Border.all(color: _idVerified
                 ? AppTheme.successColor.withValues(alpha: 0.4)
                 : scheme.outlineVariant.withValues(alpha: 0.3)),
@@ -1455,23 +1456,23 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: AppTheme.successColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6.rs),
+                        borderRadius: AppRadius.chip,
                       ),
                       child: Text('Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
                     ),
                   ],
                 ],
               ),
-              SizedBox(height: 4.rs),
+              SizedBox(height: AppSpacing.xs),
               Text(
                 'Enter your name and upload a government ID to verify your identity.',
                 style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
               ),
 
               if (!_idVerified) ...[
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 _buildField('Full Name (as on ID)', _name, 'Enter your full name', Icons.person_outline_rounded),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -1483,7 +1484,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: selected ? scheme.primary.withValues(alpha: 0.1) : scheme.surface,
-                          borderRadius: BorderRadius.circular(8.rs),
+                          borderRadius: AppRadius.button,
                           border: Border.all(
                             color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4),
                             width: selected ? 1.5 : 1,
@@ -1501,22 +1502,22 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                     );
                   }).toList(),
                 ),
-                SizedBox(height: 12.rs),
+                SizedBox(height: AppSpacing.md),
                 Container(
                   padding: EdgeInsets.all(10.rs),
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8.rs),
+                    borderRadius: AppRadius.button,
                   ),
                   child: Row(
                     children: [
                       Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       Expanded(child: Text(_uploadHint, style: TextStyle(fontSize: 10, color: scheme.primary))),
                     ],
                   ),
                 ),
-                SizedBox(height: 12.rs),
+                SizedBox(height: AppSpacing.md),
                 SizedBox(
                   width: double.infinity,
                   height: 44,
@@ -1534,17 +1535,17 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
               ],
 
               if (_idError != null) ...[
-                SizedBox(height: 12.rs),
+                SizedBox(height: AppSpacing.md),
                 Container(
                   padding: EdgeInsets.all(10.rs),
                   decoration: BoxDecoration(
                     color: scheme.errorContainer.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8.rs),
+                    borderRadius: AppRadius.button,
                   ),
                   child: Row(
                     children: [
                       Icon(Icons.warning_amber_rounded, size: 14, color: scheme.error),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       Expanded(child: Text(_idError!, style: TextStyle(fontSize: 11, color: scheme.error))),
                     ],
                   ),
@@ -1557,7 +1558,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                       onPressed: () => _acceptCorrectedName(_idCorrectedName!),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                       ),
                       child: Text('Use "$_idCorrectedName" from ID', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                     ),
@@ -1566,15 +1567,15 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
               ],
 
               if (_existingOperatorFound) ...[
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.all(16.rs),
+                  padding: AppSpacing.cardPadding,
                   decoration: BoxDecoration(
                     color: _existingOperatorApproved
                         ? AppTheme.successColor.withValues(alpha: 0.08)
                         : Colors.orange.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12.rs),
+                    borderRadius: AppRadius.card,
                     border: Border.all(
                       color: _existingOperatorApproved
                           ? AppTheme.successColor.withValues(alpha: 0.3)
@@ -1603,12 +1604,12 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 8.rs),
+                      SizedBox(height: AppSpacing.sm),
                       Text(
                         _existingOperatorMessage ?? '',
                         style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
                       ),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Row(
                         children: [
                           Icon(Icons.arrow_forward_rounded, size: 14, color: scheme.primary),
@@ -1638,7 +1639,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
               padding: EdgeInsets.all(20.rs),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(16.rs),
+                borderRadius: AppRadius.dialog,
                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
               ),
               child: Column(
@@ -1652,7 +1653,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                       ),
                     ),
                     if (_idDocNumber != null && _idDocNumber!.isNotEmpty) ...[
-                      SizedBox(width: 16.rs),
+                      SizedBox(width: AppSpacing.lg),
                       Expanded(
                         child: _buildField(
                           '$_selectedDocType Number', TextEditingController(text: _idDocNumber),
@@ -1670,23 +1671,23 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                         style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
                       ),
                     ),
-                  SizedBox(height: 16.rs),
+                  SizedBox(height: AppSpacing.lg),
 
                   Row(children: [
                     Expanded(child: _buildEmailField()),
-                    SizedBox(width: 16.rs),
+                    SizedBox(width: AppSpacing.lg),
                     Expanded(child: _buildPhoneField(enabled: !_isInvitedOperator || _phone.text.isEmpty)),
                   ]),
-                  SizedBox(height: 16.rs),
+                  SizedBox(height: AppSpacing.lg),
 
                   _buildField('Address Line 1', _address, 'Street / locality', Icons.location_on_outlined, enabled: false, optional: true),
-                  SizedBox(height: 16.rs),
+                  SizedBox(height: AppSpacing.lg),
                   _buildField('Address Line 2', _address2, 'City, state, pincode', Icons.location_city_outlined, enabled: false, optional: true),
-                  SizedBox(height: 16.rs),
+                  SizedBox(height: AppSpacing.lg),
 
                   Row(children: [
                     Expanded(child: _buildPasswordField('Password', _password, false)),
-                    SizedBox(width: 16.rs),
+                    SizedBox(width: AppSpacing.lg),
                     Expanded(child: _buildPasswordField('Confirm Password', _confirmPassword, true)),
                   ]),
                 ],
@@ -1694,7 +1695,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
             ),
           ),
         ),
-        SizedBox(height: 24.rs),
+        SizedBox(height: AppSpacing.xl),
 
         if (!_otpPhase) ...[
           SizedBox(
@@ -1743,7 +1744,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
           padding: EdgeInsets.all(14.rs),
           decoration: BoxDecoration(
             color: scheme.primaryContainer.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12.rs),
+            borderRadius: AppRadius.card,
             border: Border.all(color: scheme.primary.withValues(alpha: 0.15)),
           ),
           child: Row(
@@ -1775,7 +1776,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
           onResend: _sendEmailOtp,
           onVerify: _verifyEmailOtp,
         ),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
 
         _buildOtpVerificationRow(
           scheme: scheme,
@@ -1793,9 +1794,9 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
         ),
 
         if (_loading) ...[
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Center(child: Text('Creating account...', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
         ],
 
@@ -1833,7 +1834,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
         color: verified
             ? AppTheme.successColor.withValues(alpha: 0.08)
             : scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(
           color: verified
               ? AppTheme.successColor.withValues(alpha: 0.3)
@@ -1859,13 +1860,13 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppTheme.successColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6.rs),
+                    borderRadius: AppRadius.chip,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.check_circle_rounded, size: 12, color: AppTheme.successColor),
-                      SizedBox(width: 4.rs),
+                      SizedBox(width: AppSpacing.xs),
                       Text('Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
                     ],
                   ),
@@ -1881,7 +1882,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
             ],
           ),
           if (!verified && otpSent) ...[
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             Row(
               children: [
                 SizedBox(
@@ -1902,7 +1903,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                     ),
                   ),
                 ),
-                SizedBox(width: 12.rs),
+                SizedBox(width: AppSpacing.md),
                 SizedBox(
                   height: 48,
                   child: FilledButton(
@@ -1920,7 +1921,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
             ),
           ],
           if (error != null) ...[
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             Text(error, style: TextStyle(fontSize: 11, color: scheme.error, fontWeight: FontWeight.w500)),
           ],
         ],
@@ -2103,7 +2104,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                       ),
                       onChanged: (v) => setDialogState(() => query = v),
                     ),
-                    SizedBox(height: 12.rs),
+                    SizedBox(height: AppSpacing.md),
                     Expanded(
                       child: ListView.builder(
                         itemCount: filtered.length,
@@ -2114,7 +2115,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                             dense: true,
                             selected: isSelected,
                             selectedTileColor: scheme.primary.withValues(alpha: 0.06),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                            shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                             title: Text(country.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                             trailing: Text(
                               country.dialCode,

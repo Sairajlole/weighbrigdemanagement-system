@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/setup_wizard_provider.dart';
 import '../../application/setup_wizard_state.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class WizardSidebar extends ConsumerWidget {
   const WizardSidebar({super.key});
@@ -44,7 +45,7 @@ class WizardSidebar extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           // Logo + title
           Container(
             width: 40,
@@ -64,7 +65,7 @@ class WizardSidebar extends ConsumerWidget {
           ),
           SizedBox(height: 10.rs),
           Text('Setup', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-          SizedBox(height: 4.rs),
+          SizedBox(height: AppSpacing.xs),
           // Progress
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -79,7 +80,7 @@ class WizardSidebar extends ConsumerWidget {
                     color: scheme.primary,
                   ),
                 ),
-                SizedBox(height: 4.rs),
+                SizedBox(height: AppSpacing.xs),
                 Text(
                   '$completedCount of ${visible.length}',
                   style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
@@ -139,7 +140,7 @@ class WizardSidebar extends ConsumerWidget {
               label: Text('Exit Setup', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
               ),
             ),
           ),
@@ -204,7 +205,7 @@ class _StepTile extends StatelessWidget {
                 ],
               ),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             // Content
             Expanded(
               child: AnimatedContainer(
@@ -213,7 +214,7 @@ class _StepTile extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: isCurrent ? scheme.primary.withValues(alpha: 0.07) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                 ),
                 child: Row(
                   children: [
@@ -226,7 +227,7 @@ class _StepTile extends StatelessWidget {
                               ? scheme.primary.withValues(alpha: 0.6)
                               : scheme.onSurfaceVariant.withValues(alpha: 0.4),
                     ),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

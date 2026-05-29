@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class PinEntryBanner extends StatefulWidget {
   final void Function(String pin) onSubmit;
@@ -46,7 +47,7 @@ class _PinEntryBannerState extends State<PinEntryBanner> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(color: scheme.primary.withValues(alpha: 0.3), width: 2),
       ),
       child: Row(
@@ -60,7 +61,7 @@ class _PinEntryBannerState extends State<PinEntryBanner> {
             ),
             child: Icon(Icons.lock_outlined, size: 20, color: scheme.primary),
           ),
-          SizedBox(width: 16.rs),
+          SizedBox(width: AppSpacing.lg),
 
           // PIN input
           Expanded(
@@ -89,8 +90,8 @@ class _PinEntryBannerState extends State<PinEntryBanner> {
                       hintStyle: TextStyle(color: scheme.onSurfaceVariant.withValues(alpha: 0.3), letterSpacing: 8),
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.primary, width: 2)),
+                      border: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant)),
+                      focusedBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.primary, width: 2)),
                     ),
                     onSubmitted: (_) => _submit(),
                   ),
@@ -104,7 +105,7 @@ class _PinEntryBannerState extends State<PinEntryBanner> {
             ),
           ),
 
-          SizedBox(width: 12.rs),
+          SizedBox(width: AppSpacing.md),
 
           // Submit button
           FilledButton(
@@ -115,7 +116,7 @@ class _PinEntryBannerState extends State<PinEntryBanner> {
 
           // Cancel
           if (widget.onCancel != null) ...[
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             IconButton(
               onPressed: widget.onCancel,
               icon: Icon(Icons.close_outlined, size: 18, color: scheme.onSurfaceVariant),

@@ -6,6 +6,7 @@ import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/connection_badge.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class DeviceStatusBar extends ConsumerWidget {
   final Duration elapsed;
@@ -102,7 +103,7 @@ class DeviceStatusBar extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.person_outlined, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                SizedBox(width: 4.rs),
+                SizedBox(width: AppSpacing.xs),
                 Text(
                   user?.displayName ?? user!.email!.split('@').first,
                   style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7), fontWeight: FontWeight.w500),
@@ -133,7 +134,7 @@ class _StatusChip extends StatelessWidget {
         ),
         SizedBox(width: 5.rs),
         Icon(icon, size: 13, color: color),
-        SizedBox(width: 4.rs),
+        SizedBox(width: AppSpacing.xs),
         Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
       ],
     );

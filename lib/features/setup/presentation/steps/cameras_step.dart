@@ -15,6 +15,7 @@ import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 final _systemCamerasProvider = FutureProvider<List<String>>((ref) async {
   if (!Platform.isMacOS) return [];
@@ -511,12 +512,12 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
           Text('Cameras & AI', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Text(
             'Configure cameras for weighment evidence, AI recognition, and operator verification.',
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
 
           // Preview strip — only cameras with a live feed
           if (_testedSlots.isNotEmpty) ...[
@@ -525,7 +526,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: _testedSlots.length,
-                separatorBuilder: (_, __) => SizedBox(width: 8.rs),
+                separatorBuilder: (_, __) => SizedBox(width: AppSpacing.sm),
                 itemBuilder: (_, i) {
                   final key = _testedSlots.elementAt(i);
                   final cam = _slots[key]!;
@@ -536,7 +537,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                 },
               ),
             ),
-            SizedBox(height: 24.rs),
+            SizedBox(height: AppSpacing.xl),
           ],
 
           // Weighbridge cameras
@@ -551,7 +552,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text('Reverse', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _reverseNaming ? scheme.primary : scheme.onSurfaceVariant)),
-                      SizedBox(width: 4.rs),
+                      SizedBox(width: AppSpacing.xs),
                       SizedBox(
                         height: 28,
                         child: Switch(
@@ -573,7 +574,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                 ),
               ],
             )),
-          SizedBox(height: 4.rs),
+          SizedBox(height: AppSpacing.xs),
           Text('Shared across devices. Assign a position for gross/tare phases.',
               style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
           SizedBox(height: 14.rs),
@@ -584,11 +585,11 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                 child: _buildCameraCard(e.key, e.value, scheme, text, isFree: isFree, isWb: true),
               )),
 
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
 
           // Identity cameras
           _buildSectionHeader('Identity Cameras', Icons.face_rounded, scheme, text),
-          SizedBox(height: 4.rs),
+          SizedBox(height: AppSpacing.xs),
           Text('Per-device cameras for operator and customer verification.',
               style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
           SizedBox(height: 14.rs),
@@ -600,12 +601,12 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                     isCustomerLocked: e.key == 'customer' && isFree),
               )),
 
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
             ),
             child: Row(
@@ -641,7 +642,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(8.rs),
+        borderRadius: AppRadius.button,
         border: Border.all(color: connected ? const Color(0xFF22C55E).withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.15)),
       ),
       child: ClipRRect(
@@ -701,9 +702,9 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
     return Row(
       children: [
         Icon(icon, size: 18, color: scheme.primary),
-        SizedBox(width: 8.rs),
+        SizedBox(width: AppSpacing.sm),
         Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-        if (trailing != null) ...[SizedBox(width: 8.rs), trailing],
+        if (trailing != null) ...[SizedBox(width: AppSpacing.sm), trailing],
       ],
     );
   }
@@ -713,7 +714,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(6.rs),
+        borderRadius: AppRadius.chip,
       ),
       child: Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF7C3AED))),
     );
@@ -736,7 +737,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
         decoration: BoxDecoration(
           color: isExpanded ? scheme.surfaceContainerLow : tested ? scheme.primaryContainer.withValues(alpha: 0.08) : scheme.surface,
           border: Border.all(color: isExpanded ? scheme.primary.withValues(alpha: 0.4) : tested ? scheme.primary.withValues(alpha: 0.3) : scheme.outlineVariant.withValues(alpha: 0.3)),
-          borderRadius: BorderRadius.circular(12.rs),
+          borderRadius: AppRadius.card,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -745,16 +746,16 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
               children: [
                 Icon(isWb ? Icons.videocam_rounded : (key == 'operator' ? Icons.face_rounded : Icons.person_search_rounded),
                     size: 16, color: tested ? scheme.primary : scheme.onSurfaceVariant),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Row(
                     children: [
                       Text(cam.label, style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                       if (locked) ...[SizedBox(width: 6.rs), _buildProBadge('PRO', scheme)],
                       if (tested && !isExpanded) ...[
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         Container(width: 6, height: 6, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF059669))),
-                        SizedBox(width: 4.rs),
+                        SizedBox(width: AppSpacing.xs),
                         Text('Connected', style: TextStyle(fontSize: 10, color: const Color(0xFF059669), fontWeight: FontWeight.w500)),
                       ],
                     ],
@@ -767,7 +768,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: isExpanded ? scheme.primary.withValues(alpha: 0.15) : scheme.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(6.rs),
+                        borderRadius: AppRadius.chip,
                         border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                       ),
                       child: Row(
@@ -777,7 +778,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                             SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: scheme.primary))
                           else
                             Icon(isExpanded ? Icons.expand_less_rounded : tested ? Icons.settings_rounded : Icons.add_rounded, size: 12, color: scheme.primary),
-                          SizedBox(width: 4.rs),
+                          SizedBox(width: AppSpacing.xs),
                           Text(isExpanded ? 'Collapse' : tested ? 'Edit' : 'Configure', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
                         ],
                       ),
@@ -791,13 +792,13 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                 child: Row(
                   children: [
                     Icon(Icons.error_outline_rounded, size: 13, color: scheme.error),
-                    SizedBox(width: 4.rs),
+                    SizedBox(width: AppSpacing.xs),
                     Text(error, style: TextStyle(fontSize: 11, color: scheme.error)),
                   ],
                 ),
               ),
             if (tested && isWb && !isExpanded) ...[
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
                   Container(
@@ -823,9 +824,9 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
 
             // Inline config form
             if (isExpanded) ...[
-              SizedBox(height: 16.rs),
+              SizedBox(height: AppSpacing.lg),
               Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-              SizedBox(height: 16.rs),
+              SizedBox(height: AppSpacing.lg),
               _buildInlineConfig(key, cam, scheme, text, isFree: isFree, isWb: isWb),
             ],
           ],
@@ -874,7 +875,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
       children: [
         // Source selector
         Text('SOURCE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.8)),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         Wrap(
           spacing: 8,
           children: ['Network Camera', 'Local Device'].map((src) {
@@ -899,14 +900,14 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: selected ? scheme.primaryContainer : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8.rs),
+                    borderRadius: AppRadius.button,
                     border: Border.all(color: selected ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(src, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
-                      if (isLocked) ...[SizedBox(width: 4.rs), _buildProBadge('PRO', scheme)],
+                      if (isLocked) ...[SizedBox(width: AppSpacing.xs), _buildProBadge('PRO', scheme)],
                     ],
                   ),
                 ),
@@ -916,9 +917,9 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
         ),
         // Network type sub-option
         if (cam.source == 'Network Camera') ...[
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Text('NETWORK TYPE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant, letterSpacing: 0.8)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               Expanded(
@@ -933,7 +934,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: cam.networkType == 'ip' ? scheme.primaryContainer : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8.rs),
+                      borderRadius: AppRadius.button,
                       border: Border.all(color: cam.networkType == 'ip' ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
                     ),
                     child: Row(
@@ -952,7 +953,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                   ),
                 ),
               ),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: GestureDetector(
                   onTap: () {
@@ -965,7 +966,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: cam.networkType == 'nvr' ? scheme.primaryContainer : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8.rs),
+                      borderRadius: AppRadius.button,
                       border: Border.all(color: cam.networkType == 'nvr' ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
                     ),
                     child: Row(
@@ -988,7 +989,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
           ),
         ],
 
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
 
         // Connection fields
         if (cam.source == 'Network Camera') ...[
@@ -999,7 +1000,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
             decoration: InputDecoration(
               labelText: 'IP Address', hintText: '192.168.1.64', isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+              border: OutlineInputBorder(borderRadius: AppRadius.button),
             ),
             style: const TextStyle(fontSize: 13),
           ),
@@ -1014,7 +1015,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                 onChanged: (v) { setState(() { cam.dvrBrand = v!; }); _onFieldChanged(key); },
                 decoration: InputDecoration(labelText: 'Brand', isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs))),
+                  border: OutlineInputBorder(borderRadius: AppRadius.button)),
               )),
               if (cam.networkType == 'nvr') ...[
               SizedBox(width: 10.rs),
@@ -1026,7 +1027,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                 onChanged: (v) { setState(() { cam.dvrChannel = v!; cam.rtspPathCtrl.text = ''; }); _restartFeedAfterChange(key, cam); },
                 decoration: InputDecoration(labelText: 'Channel', isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs))),
+                  border: OutlineInputBorder(borderRadius: AppRadius.button)),
               )),
               SizedBox(width: 10.rs),
               SizedBox(width: 90, child: DropdownButtonFormField<String>(
@@ -1039,7 +1040,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                 onChanged: (v) { setState(() { cam.dvrStreamType = v!; cam.rtspPathCtrl.text = ''; }); _restartFeedAfterChange(key, cam); },
                 decoration: InputDecoration(labelText: 'Quality', isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs))),
+                  border: OutlineInputBorder(borderRadius: AppRadius.button)),
               )),
               ],
             ],
@@ -1052,7 +1053,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                 onChanged: (_) => _onFieldChanged(key),
                 decoration: InputDecoration(labelText: 'Port', hintText: '554', isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs))),
+                  border: OutlineInputBorder(borderRadius: AppRadius.button)),
                 style: const TextStyle(fontSize: 13),
               )),
               SizedBox(width: 10.rs),
@@ -1061,7 +1062,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                 onChanged: (_) => _onFieldChanged(key),
                 decoration: InputDecoration(labelText: 'Username', hintText: 'admin', isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs))),
+                  border: OutlineInputBorder(borderRadius: AppRadius.button)),
                 style: const TextStyle(fontSize: 13),
               )),
               SizedBox(width: 10.rs),
@@ -1070,7 +1071,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                 onChanged: (_) => _onFieldChanged(key),
                 decoration: InputDecoration(labelText: 'Password', hintText: '••••', isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs))),
+                  border: OutlineInputBorder(borderRadius: AppRadius.button)),
                 style: const TextStyle(fontSize: 13),
               )),
             ],
@@ -1089,7 +1090,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
 
         // Error / status
         if (_inlineTestError != null) ...[
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Icon(Icons.error_outline_rounded, size: 14, color: scheme.error),
@@ -1100,7 +1101,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
         ],
 
         if (_isDuplicate(key, cam)) ...[
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Icon(Icons.warning_amber_rounded, size: 14, color: scheme.error),
@@ -1110,7 +1111,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
           ),
         ],
 
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
         // Actions
         Row(
           children: [
@@ -1168,7 +1169,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                 textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                 backgroundColor: _inlineTestError != null ? scheme.error : null,
               ),
             ),
@@ -1239,11 +1240,11 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
     if (allCameras.isEmpty) {
       return Container(
         padding: EdgeInsets.all(12.rs),
-        decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(8.rs)),
+        decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.3), borderRadius: AppRadius.button),
         child: Row(
           children: [
             Icon(Icons.warning_rounded, size: 16, color: scheme.error),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('No cameras detected on this device', style: text.bodySmall?.copyWith(color: scheme.error)),
           ],
         ),
@@ -1253,11 +1254,11 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
     if (cameras.isEmpty) {
       return Container(
         padding: EdgeInsets.all(12.rs),
-        decoration: BoxDecoration(color: scheme.surfaceContainerHighest.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(8.rs)),
+        decoration: BoxDecoration(color: scheme.surfaceContainerHighest.withValues(alpha: 0.5), borderRadius: AppRadius.button),
         child: Row(
           children: [
             Icon(Icons.info_outline_rounded, size: 16, color: scheme.onSurfaceVariant),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('All devices are in use by other cameras', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
           ],
         ),
@@ -1288,7 +1289,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
         prefixIconConstraints: const BoxConstraints(minWidth: 40),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+        border: OutlineInputBorder(borderRadius: AppRadius.button),
       ),
       icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
     );
@@ -1311,7 +1312,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
             onChanged?.call();
           },
         ),
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         _buildSegmentedRow('Tare', cam.tareRole, positions, scheme.secondary, scheme,
           locked: true, onSelect: (_) {},
         ),
@@ -1320,7 +1321,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
           children: [
             SizedBox(width: 42.rs),
             Icon(Icons.lock_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.4)),
-            SizedBox(width: 4.rs),
+            SizedBox(width: AppSpacing.xs),
             Text(
               _reverseNaming ? 'Auto-reversed from gross' : 'Same as gross',
               style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
@@ -1346,7 +1347,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
               child: Container(
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
                 ),
                 child: Row(

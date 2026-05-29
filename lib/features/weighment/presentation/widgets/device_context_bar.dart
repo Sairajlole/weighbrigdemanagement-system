@@ -15,6 +15,7 @@ import 'package:weighbridgemanagement/features/weighment/application/weighment_p
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 final _weighbridgeListProvider = FutureProvider<List<_WbEntry>>((ref) async {
   final ctx = ref.watch(siteContextProvider);
@@ -76,7 +77,7 @@ class DeviceContextBar extends ConsumerWidget {
       child: Row(
         children: [
           _SidebarToggle(scheme: scheme, ref: ref),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           _WbChip(
             current: current,
             allWbs: allWbs,
@@ -92,9 +93,9 @@ class DeviceContextBar extends ConsumerWidget {
             },
           ),
 
-          SizedBox(width: 16.rs),
+          SizedBox(width: AppSpacing.lg),
           Container(width: 1, height: 20, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-          SizedBox(width: 16.rs),
+          SizedBox(width: AppSpacing.lg),
 
           _DeviceChip(
             icon: Icons.scale_outlined,
@@ -113,7 +114,7 @@ class DeviceContextBar extends ConsumerWidget {
             ),
           ),
 
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
 
           _DeviceChip(
             icon: Icons.memory_outlined,
@@ -133,7 +134,7 @@ class DeviceContextBar extends ConsumerWidget {
             ),
           ),
 
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
 
           if (gatesEnabled) ...[
             _DeviceChip(
@@ -151,7 +152,7 @@ class DeviceContextBar extends ConsumerWidget {
                 ],
               ),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
           ],
 
           _DeviceChip(
@@ -172,14 +173,14 @@ class DeviceContextBar extends ConsumerWidget {
 
           _FormDensityToggle(ref: ref, scheme: scheme),
 
-          SizedBox(width: 12.rs),
+          SizedBox(width: AppSpacing.md),
 
           if (user != null)
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.person_outlined, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                SizedBox(width: 4.rs),
+                SizedBox(width: AppSpacing.xs),
                 Text(
                   user.displayName ?? user.email?.split('@').first ?? '',
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
@@ -256,7 +257,7 @@ class DeviceContextBar extends ConsumerWidget {
             top: offset.dy + renderBox.size.height + 4,
             child: Material(
               elevation: 4,
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               color: scheme.surfaceContainerHigh,
               child: Container(
                 constraints: const BoxConstraints(minWidth: 180, maxWidth: 260),
@@ -266,7 +267,7 @@ class DeviceContextBar extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.onSurface)),
-                    SizedBox(height: 8.rs),
+                    SizedBox(height: AppSpacing.sm),
                     for (final row in rows)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
@@ -274,7 +275,7 @@ class DeviceContextBar extends ConsumerWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(row.label, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-                            SizedBox(width: 12.rs),
+                            SizedBox(width: AppSpacing.md),
                             Flexible(
                               child: Text(row.value, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurface), textAlign: TextAlign.end, overflow: TextOverflow.ellipsis),
                             ),
@@ -344,7 +345,7 @@ class _DeviceChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: color.withValues(alpha: isError ? 0.08 : 0.05),
-            borderRadius: BorderRadius.circular(6.rs),
+            borderRadius: AppRadius.chip,
             border: Border.all(color: color.withValues(alpha: isError ? 0.4 : 0.2)),
           ),
           child: Row(
@@ -356,7 +357,7 @@ class _DeviceChip extends StatelessWidget {
               ),
               SizedBox(width: 5.rs),
               Icon(icon, size: 12, color: color),
-              SizedBox(width: 4.rs),
+              SizedBox(width: AppSpacing.xs),
               Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
             ],
           ),
@@ -403,7 +404,7 @@ class _WbChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: scheme.primary.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
         ),
         child: Row(
@@ -415,7 +416,7 @@ class _WbChip extends StatelessWidget {
               current != null ? '${current!.siteName} / ${current!.wbName}' : 'Select',
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.primary),
             ),
-            SizedBox(width: 4.rs),
+            SizedBox(width: AppSpacing.xs),
             Icon(Icons.keyboard_arrow_down_outlined, size: 14, color: scheme.primary),
           ],
         ),
@@ -445,7 +446,7 @@ class _FormDensityToggle extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: scheme.onSurfaceVariant.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(6.rs),
+            borderRadius: AppRadius.chip,
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
           ),
           child: Row(
@@ -456,7 +457,7 @@ class _FormDensityToggle extends StatelessWidget {
                 size: 12,
                 color: scheme.onSurfaceVariant,
               ),
-              SizedBox(width: 4.rs),
+              SizedBox(width: AppSpacing.xs),
               Text(
                 isCompact ? 'Compact' : 'Regular',
                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant),

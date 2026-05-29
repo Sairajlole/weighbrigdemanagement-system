@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class LiveWeightBanner extends ConsumerStatefulWidget {
   final bool canManualEntry;
@@ -122,7 +123,7 @@ class LiveWeightBannerState extends ConsumerState<LiveWeightBanner> {
                         ),
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16.rs),
+                        borderRadius: AppRadius.dialog,
                         side: BorderSide(color: Colors.blue.withValues(alpha: 0.3)),
                       ),
                       backgroundColor: Colors.blue.withValues(alpha: 0.08),
@@ -146,7 +147,7 @@ class LiveWeightBannerState extends ConsumerState<LiveWeightBanner> {
                             ),
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16.rs),
+                            borderRadius: AppRadius.dialog,
                             side: BorderSide(color: accentColor.withValues(alpha: 0.2)),
                           ),
                           backgroundColor: accentColor.withValues(alpha: 0.06),
@@ -169,7 +170,7 @@ class LiveWeightBannerState extends ConsumerState<LiveWeightBanner> {
                             ),
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16.rs),
+                            borderRadius: AppRadius.dialog,
                             side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                           ),
                           backgroundColor: scheme.surfaceContainerLow,

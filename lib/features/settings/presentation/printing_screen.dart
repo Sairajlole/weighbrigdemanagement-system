@@ -22,6 +22,7 @@ import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 // ─── Providers ──────────────────────────────────────────────────────────────
 
@@ -1228,8 +1229,8 @@ if (\$bins.Count -eq 0) {
         children: [
           Row(
             children: [
-              IconButton(onPressed: () { context.go('/settings'); }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)))),
-              SizedBox(width: 12.rs),
+              IconButton(onPressed: () { context.go('/settings'); }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button))),
+              SizedBox(width: AppSpacing.md),
               Icon(Icons.print_rounded, size: 20, color: scheme.primary),
               SizedBox(width: 10.rs),
               Column(
@@ -1242,7 +1243,7 @@ if (\$bins.Count -eq 0) {
               const Spacer(),
               if (_dirty) ...[
                 TextButton(onPressed: () { setState(() { _loaded = false; _savedSnapshot = ''; }); ref.invalidate(_printSettingsProvider); }, child: const Text('Cancel')),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
               ],
               if (_normalOverflows)
                 Padding(
@@ -1253,7 +1254,7 @@ if (\$bins.Count -eq 0) {
                 onPressed: _dirty && !_saving && !_normalOverflows ? _save : null,
                 icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
                 label: Text(_saving ? 'Saving...' : 'Save'),
-                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
               ),
             ],
           ),
@@ -1265,7 +1266,7 @@ if (\$bins.Count -eq 0) {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                 ),
                 child: Row(
@@ -1275,7 +1276,7 @@ if (\$bins.Count -eq 0) {
                       size: 15,
                       color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                     ),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                   ],
                 ),
@@ -1292,7 +1293,7 @@ if (\$bins.Count -eq 0) {
 
   Widget _buildDotMatrixTab(ColorScheme scheme, TextTheme text) {
     return SingleChildScrollView(
-      padding: EdgeInsets.all(28.rs),
+      padding: AppSpacing.pagePadding,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1302,7 +1303,7 @@ if (\$bins.Count -eq 0) {
               children: [
                 _Section(scheme: scheme, icon: Icons.grid_on_rounded, title: 'Dot Matrix Configuration', children: [
                   Text('Paper Width', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                  SizedBox(height: 4.rs),
+                  SizedBox(height: AppSpacing.xs),
                   Row(
                     children: [
                       Expanded(
@@ -1327,13 +1328,13 @@ if (\$bins.Count -eq 0) {
                   SizedBox(height: 10.rs),
                   _SwitchRow(label: 'Logo (Monochrome)', value: _dmLogo, onChanged: (v) { setState(() { _dmLogo = v; }); _markDirty(); }),
                   if (_dmLogo) ...[
-                    SizedBox(height: 8.rs),
+                    SizedBox(height: AppSpacing.sm),
                     Text('Logo Height (lines)', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
                     SizedBox(height: 6.rs),
                     Row(
                       children: [
                         SizedBox(width: 100, child: _buildNumberInput('H', _dmLogoHeight, (v) { setState(() => _dmLogoHeight = v); _markDirty(); }, text)),
-                        SizedBox(width: 12.rs),
+                        SizedBox(width: AppSpacing.md),
                         Text('W: $_dmLogoWidth chars (auto)', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
                       ],
                     ),
@@ -1347,7 +1348,7 @@ if (\$bins.Count -eq 0) {
                     Row(
                       children: [
                         Text('Height: ${_dmPdf417Height.toStringAsFixed(2)}″', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Slider(
                             value: _dmPdf417Height,
@@ -1371,13 +1372,13 @@ if (\$bins.Count -eq 0) {
                   Row(
                     children: [
                       Expanded(child: _buildNumberInput('Top', _dmMarginTop, (v) { _dmMarginTop = v; _markDirty(); }, text)),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       Expanded(child: _buildNumberInput('Bottom', _dmMarginBottom, (v) { _dmMarginBottom = v; _markDirty(); }, text)),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       Expanded(child: _buildNumberInput('L & R', _dmMarginLeft, (v) { _dmMarginLeft = v; _markDirty(); }, text)),
                     ],
                   ),
-                  SizedBox(height: 12.rs),
+                  SizedBox(height: AppSpacing.md),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -1389,13 +1390,13 @@ if (\$bins.Count -eq 0) {
                         foregroundColor: scheme.error,
                         side: BorderSide(color: _isDmConfigDefault() ? scheme.outline.withValues(alpha: 0.2) : scheme.error.withValues(alpha: 0.5)),
                         disabledForegroundColor: scheme.onSurface.withValues(alpha: 0.3),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                       ),
                     ),
                   ),
                   SizedBox(height: 10.rs),
                 ]),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 _Section(scheme: scheme, icon: Icons.settings_ethernet_rounded, title: 'Paper Handling', children: [
                   Text(
                     'These settings control how the printer feeds and positions paper. '
@@ -1465,7 +1466,7 @@ if (\$bins.Count -eq 0) {
                         onSelected: (sel) { if (sel) setState(() => _dmPrintQuality = 'draft'); _markDirty(); },
                         visualDensity: VisualDensity.compact,
                       ),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       ChoiceChip(
                         label: Text('NLQ', style: TextStyle(fontWeight: FontWeight.w600, color: _dmPrintQuality == 'nlq' ? scheme.onPrimary : scheme.onSurface)),
                         selected: _dmPrintQuality == 'nlq',
@@ -1537,7 +1538,7 @@ if (\$bins.Count -eq 0) {
                   ),
                   SizedBox(height: 10.rs),
                 ]),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 _buildPlaceholderReference(scheme, text),
               ],
             ),
@@ -1560,16 +1561,16 @@ if (\$bins.Count -eq 0) {
                     onMoveUp: e.key > 0 ? () { setState(() { final item = _dmLines.removeAt(e.key); _dmLines.insert(e.key - 1, item); }); _markDirty(); } : null,
                     onMoveDown: e.key < _dmLines.length - 1 ? () { setState(() { final item = _dmLines.removeAt(e.key); _dmLines.insert(e.key + 1, item); }); _markDirty(); } : null,
                   )),
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   Row(
                     children: [
                       OutlinedButton.icon(
                         onPressed: () { setState(() => _dmLines.add({'text': '', 'align': 'left', 'style': 'normal'})); _markDirty(); },
                         icon: const Icon(Icons.add_rounded, size: 14),
                         label: const Text('Add Line'),
-                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                       ),
-                      SizedBox(width: 8.rs),
+                      SizedBox(width: AppSpacing.sm),
                       OutlinedButton.icon(
                         onPressed: _isDmTemplateDefault() ? null : () { setState(_resetDmTemplate); _markDirty(); },
                         icon: const Icon(Icons.restore_rounded, size: 16),
@@ -1579,7 +1580,7 @@ if (\$bins.Count -eq 0) {
                           foregroundColor: scheme.error,
                           side: BorderSide(color: _isDmTemplateDefault() ? scheme.outline.withValues(alpha: 0.2) : scheme.error.withValues(alpha: 0.5)),
                           disabledForegroundColor: scheme.onSurface.withValues(alpha: 0.3),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                          shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                         ),
                       ),
                       const Spacer(),
@@ -1587,12 +1588,12 @@ if (\$bins.Count -eq 0) {
                         onPressed: () => _testPrint('dm'),
                         icon: const Icon(Icons.print_rounded, size: 14),
                         label: const Text('Test Print'),
-                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                       ),
                     ],
                   ),
                 ]),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 _Section(scheme: scheme, icon: Icons.preview_rounded, title: 'Live Preview  •  ${_dmPaperWidth.toStringAsFixed(1)}″ × ${_dmPageHeight.toStringAsFixed(0)}″  ($_dmColumns col @ $_dmCpi CPI, $_dmLpi LPI)', children: [
                   LayoutBuilder(
                     builder: (context, constraints) {
@@ -1653,7 +1654,7 @@ if (\$bins.Count -eq 0) {
                                   height: totalHeight,
                                   clipBehavior: Clip.antiAlias,
                                   decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8.rs),
+                                    borderRadius: AppRadius.button,
                                     border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                                   ),
                                   child: Column(
@@ -2135,7 +2136,7 @@ if (\$bins.Count -eq 0) {
 
   Widget _buildThermalTab(ColorScheme scheme, TextTheme text) {
     return SingleChildScrollView(
-      padding: EdgeInsets.all(28.rs),
+      padding: AppSpacing.pagePadding,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2149,13 +2150,13 @@ if (\$bins.Count -eq 0) {
                   SizedBox(height: 10.rs),
                   _SwitchRow(label: 'Include Logo', value: _thermalLogo, onChanged: (v) { setState(() => _thermalLogo = v); _markDirty(); }),
                   if (_thermalLogo) ...[
-                    SizedBox(height: 8.rs),
+                    SizedBox(height: AppSpacing.sm),
                     Text('Logo Size (mm)', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
                     SizedBox(height: 6.rs),
                     Row(
                       children: [
                         Expanded(child: _buildDoubleInput('W', _thermalLogoWidth, (v) { setState(() => _thermalLogoWidth = v); _markDirty(); }, text)),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         Expanded(child: _buildDoubleInput('H', _thermalLogoHeight, (v) { setState(() => _thermalLogoHeight = v); _markDirty(); }, text)),
                       ],
                     ),
@@ -2173,7 +2174,7 @@ if (\$bins.Count -eq 0) {
                   _buildDropdownRow('Font Size', '${_thermalFontSize}pt', ['6pt', '7pt', '8pt', '10pt', '12pt', '14pt', '16pt'], (v) { setState(() => _thermalFontSize = int.parse(v!.replaceAll('pt', ''))); _markDirty(); }, text),
                   SizedBox(height: 10.rs),
                   _buildDropdownRow('Cut Mode', _thermalCutMode, ['Full', 'Partial', 'None'], (v) { setState(() => _thermalCutMode = v!); _markDirty(); }, text),
-                  SizedBox(height: 12.rs),
+                  SizedBox(height: AppSpacing.md),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -2185,18 +2186,18 @@ if (\$bins.Count -eq 0) {
                         foregroundColor: scheme.error,
                         side: BorderSide(color: _isThermalConfigDefault() ? scheme.outline.withValues(alpha: 0.2) : scheme.error.withValues(alpha: 0.5)),
                         disabledForegroundColor: scheme.onSurface.withValues(alpha: 0.3),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                       ),
                     ),
                   ),
                   SizedBox(height: 10.rs),
                 ]),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 _buildPlaceholderReference(scheme, text),
               ],
             ),
           ),
-          SizedBox(width: 16.rs),
+          SizedBox(width: AppSpacing.lg),
           // Center: Template Lines
           Flexible(
             flex: 1,
@@ -2213,16 +2214,16 @@ if (\$bins.Count -eq 0) {
                 onMoveUp: e.key > 0 ? () { setState(() { final item = _thermalLines.removeAt(e.key); _thermalLines.insert(e.key - 1, item); }); _markDirty(); } : null,
                 onMoveDown: e.key < _thermalLines.length - 1 ? () { setState(() { final item = _thermalLines.removeAt(e.key); _thermalLines.insert(e.key + 1, item); }); _markDirty(); } : null,
               )),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
                   OutlinedButton.icon(
                     onPressed: () { setState(() => _thermalLines.add({'text': '', 'align': 'left', 'size': 'normal'})); _markDirty(); },
                     icon: const Icon(Icons.add_rounded, size: 14),
                     label: const Text('Add Line'),
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                   ),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   OutlinedButton.icon(
                     onPressed: _isTemplateDefault(_thermalLines, _getDefaultThermalLines(width: _thermalWidth)) ? null : () { setState(() => _thermalLines = _getDefaultThermalLines(width: _thermalWidth)); _markDirty(); },
                     icon: const Icon(Icons.restore_rounded, size: 16),
@@ -2232,7 +2233,7 @@ if (\$bins.Count -eq 0) {
                       foregroundColor: scheme.error,
                       side: BorderSide(color: _isTemplateDefault(_thermalLines, _getDefaultThermalLines(width: _thermalWidth)) ? scheme.outline.withValues(alpha: 0.2) : scheme.error.withValues(alpha: 0.5)),
                       disabledForegroundColor: scheme.onSurface.withValues(alpha: 0.3),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                     ),
                   ),
                   const Spacer(),
@@ -2240,13 +2241,13 @@ if (\$bins.Count -eq 0) {
                     onPressed: () => _testPrint('thermal'),
                     icon: const Icon(Icons.print_rounded, size: 14),
                     label: const Text('Test Print'),
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                   ),
                 ],
               ),
             ]),
           ),
-          SizedBox(width: 16.rs),
+          SizedBox(width: AppSpacing.lg),
           // Right: Live Preview
           SizedBox(
             width: 360,
@@ -2316,7 +2317,7 @@ if (\$bins.Count -eq 0) {
           constraints: BoxConstraints(maxWidth: 600, maxHeight: MediaQuery.of(ctx).size.height * 0.8),
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius: BorderRadius.circular(16.rs),
+            borderRadius: AppRadius.dialog,
             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 30, offset: const Offset(0, 10))],
           ),
           child: Column(
@@ -2327,7 +2328,7 @@ if (\$bins.Count -eq 0) {
                 child: Row(
                   children: [
                     Icon(Icons.receipt_long_rounded, size: 18, color: scheme.primary),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Text('Thermal Preview (Enlarged)', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                     const Spacer(),
                     IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded, size: 20)),
@@ -2336,7 +2337,7 @@ if (\$bins.Count -eq 0) {
               ),
               Flexible(
                 child: Padding(
-                  padding: EdgeInsets.all(24.rs),
+                  padding: AppSpacing.pagePadding,
                   child: SingleChildScrollView(
                     child: Center(child: _buildThermalPreview(scheme, text, enlarged: true)),
                   ),
@@ -2456,7 +2457,7 @@ if (\$bins.Count -eq 0) {
 
   Widget _buildNormalTab(ColorScheme scheme, TextTheme text) {
     return SingleChildScrollView(
-      padding: EdgeInsets.all(28.rs),
+      padding: AppSpacing.pagePadding,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2469,7 +2470,7 @@ if (\$bins.Count -eq 0) {
                   _buildDropdownRow('Paper Size', _normalPaperSize, ['A4', 'A5', 'Letter', 'Legal'], (v) { setState(() => _switchPaperSize(v!)); _markDirty(); }, text),
                   SizedBox(height: 10.rs),
                   Text('Margins (mm)', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   Row(
                     children: [
                       Expanded(child: _buildDoubleInput('T', _normalMarginTop, (v) { setState(() => _normalMarginTop = v); _markDirty(); }, text)),
@@ -2496,28 +2497,28 @@ if (\$bins.Count -eq 0) {
                     ),
                   ],
                 ]),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 _Section(scheme: scheme, icon: Icons.image_rounded, title: 'Content Options', children: [
                   _SwitchRow(label: 'Company Logo', value: _normalLogo, onChanged: (v) { setState(() => _normalLogo = v); _markDirty(); }),
                   if (_normalLogo) ...[
-                    SizedBox(height: 8.rs),
+                    SizedBox(height: AppSpacing.sm),
                     Text('Logo Size (mm)', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
                     SizedBox(height: 6.rs),
                     Row(
                       children: [
                         Expanded(child: _buildDoubleInput('W', _normalLogoWidth, (v) { setState(() => _normalLogoWidth = v); _markDirty(); }, text)),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         Expanded(child: _buildDoubleInput('H', _normalLogoHeight, (v) { setState(() => _normalLogoHeight = v); _markDirty(); }, text)),
                       ],
                     ),
                   ],
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   _SwitchRow(label: 'PDF417 Barcode', value: _normalPdf417, onChanged: (v) { setState(() => _normalPdf417 = v); _markDirty(); }),
                   if (_normalPdf417) ...[
                     SizedBox(height: 6.rs),
                     _buildDropdownRow('Position', _normalPdf417Position, ['bottom', 'afterText'], (v) { setState(() => _normalPdf417Position = v!); _markDirty(); }, text),
                   ],
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   _SwitchRow(label: 'CCTV Snapshots', value: _normalCctv, onChanged: (v) { setState(() => _normalCctv = v); _markDirty(); }),
                   if (_normalCctv) ...[
                     SizedBox(height: 10.rs),
@@ -2548,7 +2549,7 @@ if (\$bins.Count -eq 0) {
                                   _markDirty();
                                 },
                                 labelStyle: text.labelSmall,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)),
+                                shape: RoundedRectangleBorder(borderRadius: AppRadius.chip),
                               );
                             }).toList(),
                           ),
@@ -2556,7 +2557,7 @@ if (\$bins.Count -eq 0) {
                       );
                     }),
                   ],
-                  SizedBox(height: 12.rs),
+                  SizedBox(height: AppSpacing.md),
                   Builder(builder: (context) {
                     final def = _getDefaultSizeConfig(_normalPaperSize);
                     final isDefault = _normalLogo && _normalPdf417 &&
@@ -2576,19 +2577,19 @@ if (\$bins.Count -eq 0) {
                           foregroundColor: scheme.error,
                           side: BorderSide(color: isDefault ? scheme.outline.withValues(alpha: 0.2) : scheme.error.withValues(alpha: 0.5)),
                           disabledForegroundColor: scheme.onSurface.withValues(alpha: 0.3),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                          shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                         ),
                       ),
                     );
                   }),
                   SizedBox(height: 10.rs),
                 ]),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 _buildPlaceholderReference(scheme, text),
               ],
             ),
           ),
-          SizedBox(width: 16.rs),
+          SizedBox(width: AppSpacing.lg),
           // Center: Template Lines
           Flexible(
             flex: 1,
@@ -2606,16 +2607,16 @@ if (\$bins.Count -eq 0) {
                 onMoveUp: e.key > 0 ? () { setState(() { final item = _normalLines.removeAt(e.key); _normalLines.insert(e.key - 1, item); }); _markDirty(); } : null,
                 onMoveDown: e.key < _normalLines.length - 1 ? () { setState(() { final item = _normalLines.removeAt(e.key); _normalLines.insert(e.key + 1, item); }); _markDirty(); } : null,
               )),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
                   OutlinedButton.icon(
                     onPressed: () { setState(() => _normalLines.add({'text': '', 'align': 'left', 'style': 'normal'})); _markDirty(); },
                     icon: const Icon(Icons.add_rounded, size: 14),
                     label: const Text('Add Line'),
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                   ),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   OutlinedButton.icon(
                     onPressed: _isTemplateDefault(_normalLines, _getDefaultNormalLines(paperSize: _normalPaperSize)) ? null : () { setState(() => _normalLines = _getDefaultNormalLines(paperSize: _normalPaperSize)); _markDirty(); },
                     icon: const Icon(Icons.restore_rounded, size: 16),
@@ -2625,7 +2626,7 @@ if (\$bins.Count -eq 0) {
                       foregroundColor: scheme.error,
                       side: BorderSide(color: _isTemplateDefault(_normalLines, _getDefaultNormalLines(paperSize: _normalPaperSize)) ? scheme.outline.withValues(alpha: 0.2) : scheme.error.withValues(alpha: 0.5)),
                       disabledForegroundColor: scheme.onSurface.withValues(alpha: 0.3),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                     ),
                   ),
                   const Spacer(),
@@ -2633,13 +2634,13 @@ if (\$bins.Count -eq 0) {
                     onPressed: () => _testPrint('normal'),
                     icon: const Icon(Icons.print_rounded, size: 14),
                     label: const Text('Test Print'),
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                   ),
                 ],
               ),
             ]),
           ),
-          SizedBox(width: 16.rs),
+          SizedBox(width: AppSpacing.lg),
           // Right: Page Preview
           SizedBox(
             width: 360,
@@ -2687,7 +2688,7 @@ if (\$bins.Count -eq 0) {
           constraints: const BoxConstraints(maxWidth: 700, maxHeight: 900),
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius: BorderRadius.circular(16.rs),
+            borderRadius: AppRadius.dialog,
             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 30, offset: const Offset(0, 10))],
           ),
           child: Column(
@@ -2698,7 +2699,7 @@ if (\$bins.Count -eq 0) {
                 child: Row(
                   children: [
                     Icon(Icons.preview_rounded, size: 18, color: scheme.primary),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Text('Page Preview (Enlarged)', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                     const Spacer(),
                     IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded, size: 20)),
@@ -2707,7 +2708,7 @@ if (\$bins.Count -eq 0) {
               ),
               Flexible(
                 child: Padding(
-                  padding: EdgeInsets.all(24.rs),
+                  padding: AppSpacing.pagePadding,
                   child: Center(child: _buildNormalPreview(scheme, text, enlarged: true)),
                 ),
               ),
@@ -2861,7 +2862,7 @@ if (\$bins.Count -eq 0) {
         contentWidgets.add(Row(
           children: [
             Expanded(child: Center(child: Text('GROSS', style: TextStyle(fontSize: subheadingSize, fontWeight: FontWeight.bold, color: scheme.onSurfaceVariant)))),
-            SizedBox(width: 4.rs),
+            SizedBox(width: AppSpacing.xs),
             Expanded(child: Center(child: Text('TARE', style: TextStyle(fontSize: subheadingSize, fontWeight: FontWeight.bold, color: scheme.onSurfaceVariant)))),
           ],
         ));
@@ -2977,26 +2978,26 @@ if (\$bins.Count -eq 0) {
     return Row(
       children: [
         Icon(Icons.tune_rounded, size: 16, color: scheme.primary),
-        SizedBox(width: 8.rs),
+        SizedBox(width: AppSpacing.sm),
         Text('Print Rules', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-        SizedBox(width: 24.rs),
+        SizedBox(width: AppSpacing.xl),
         // Copies
         Text('Copies:', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-        SizedBox(width: 8.rs),
+        SizedBox(width: AppSpacing.sm),
         _CounterButton(value: _copies, min: 1, max: 10, onChanged: (v) { setState(() => _copies = v); _markDirty(); }),
         SizedBox(width: 20.rs),
         // Toggles
         _CompactToggle(label: 'Gross', value: _printOnGross, onChanged: (v) { setState(() => _printOnGross = v); _markDirty(); }),
-        SizedBox(width: 12.rs),
+        SizedBox(width: AppSpacing.md),
         _CompactToggle(label: 'Tare', value: _printOnTare, onChanged: (v) { setState(() => _printOnTare = v); _markDirty(); }),
-        SizedBox(width: 12.rs),
+        SizedBox(width: AppSpacing.md),
         _CompactToggle(label: 'Auto', value: _autoPrint, onChanged: (v) { setState(() => _autoPrint = v); _markDirty(); }),
-        SizedBox(width: 12.rs),
+        SizedBox(width: AppSpacing.md),
         _CompactToggle(label: 'Reprint', value: _reprintAllowed, onChanged: (v) { setState(() => _reprintAllowed = v); _markDirty(); }),
         if (_reprintAllowed) ...[
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           Text('max:', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-          SizedBox(width: 4.rs),
+          SizedBox(width: AppSpacing.xs),
           _CounterButton(value: _maxReprints, min: 1, max: 20, onChanged: (v) { setState(() => _maxReprints = v); _markDirty(); }),
         ],
       ],
@@ -3018,7 +3019,7 @@ if (\$bins.Count -eq 0) {
           final typeIcon = {'normal': Icons.description_rounded, 'thermal': Icons.receipt_long_rounded, 'dotMatrix': Icons.grid_on_rounded};
           final typeLabel = {'normal': 'Page', 'thermal': 'Thermal', 'dotMatrix': 'Dot Matrix'};
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
             title: Row(children: [
               Icon(Icons.print_rounded, size: 20, color: scheme.primary),
               SizedBox(width: 10.rs),
@@ -3037,10 +3038,10 @@ if (\$bins.Count -eq 0) {
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(8.rs)),
+                      decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: AppRadius.button),
                       child: Row(children: [
                         Icon(Icons.error_outline_rounded, size: 14, color: scheme.onErrorContainer),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         Expanded(child: Text(errorMsg!, style: TextStyle(fontSize: 11, color: scheme.onErrorContainer))),
                       ]),
                     ),
@@ -3057,7 +3058,7 @@ if (\$bins.Count -eq 0) {
                       padding: EdgeInsets.all(14.rs),
                       decoration: BoxDecoration(
                         color: scheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(12.rs),
+                        borderRadius: AppRadius.card,
                         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                       ),
                       child: Column(
@@ -3068,7 +3069,7 @@ if (\$bins.Count -eq 0) {
                             children: [
                               Container(
                                 padding: EdgeInsets.all(6.rs),
-                                decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(6.rs)),
+                                decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.5), borderRadius: AppRadius.chip),
                                 child: Icon(typeIcon[pType] ?? Icons.print_rounded, size: 14, color: scheme.primary),
                               ),
                               SizedBox(width: 10.rs),
@@ -3083,15 +3084,15 @@ if (\$bins.Count -eq 0) {
                                         hintText: pName.isNotEmpty ? 'Nickname ($pName)' : 'Display Name',
                                         isDense: true,
                                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
-                                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+                                        border: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+                                        enabledBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
                                       ),
                                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                                     ),
                                   ],
                                 ),
                               ),
-                              SizedBox(width: 8.rs),
+                              SizedBox(width: AppSpacing.sm),
                               SizedBox(
                                 width: 180,
                                 child: TextField(
@@ -3103,8 +3104,8 @@ if (\$bins.Count -eq 0) {
                                     prefixIconConstraints: const BoxConstraints(minWidth: 28),
                                     isDense: true,
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+                                    border: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+                                    enabledBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
                                   ),
                                   style: const TextStyle(fontSize: 11),
                                 ),
@@ -3179,7 +3180,7 @@ if (\$bins.Count -eq 0) {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(Icons.inventory_2_outlined, size: 11, color: scheme.tertiary),
-                                      SizedBox(width: 4.rs),
+                                      SizedBox(width: AppSpacing.xs),
                                       Text('${trays.length} tray${trays.length > 1 ? 's' : ''}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.tertiary)),
                                     ],
                                   ),
@@ -3194,7 +3195,7 @@ if (\$bins.Count -eq 0) {
                               padding: EdgeInsets.all(8.rs),
                               decoration: BoxDecoration(
                                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                                borderRadius: BorderRadius.circular(8.rs),
+                                borderRadius: AppRadius.button,
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3211,7 +3212,7 @@ if (\$bins.Count -eq 0) {
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
                                           color: scheme.primaryContainer.withValues(alpha: 0.3),
-                                          borderRadius: BorderRadius.circular(6.rs),
+                                          borderRadius: AppRadius.chip,
                                           border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
                                         ),
                                         child: Row(
@@ -3220,7 +3221,7 @@ if (\$bins.Count -eq 0) {
                                             Text(tray, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: scheme.onSurface)),
                                             SizedBox(width: 6.rs),
                                             Icon(Icons.arrow_forward_rounded, size: 10, color: scheme.onSurfaceVariant),
-                                            SizedBox(width: 4.rs),
+                                            SizedBox(width: AppSpacing.xs),
                                             SizedBox(
                                               height: 22,
                                               child: DropdownButton<String>(
@@ -3252,14 +3253,14 @@ if (\$bins.Count -eq 0) {
                       ),
                     );
                   }),
-                  SizedBox(height: 12.rs),
+                  SizedBox(height: AppSpacing.md),
                   Row(
                     children: [
                       OutlinedButton.icon(
                         onPressed: () => setD(() => printers.add({'name': '', 'type': 'normal', 'address': '', 'paperSize': 'A4', 'lines': _defaultLinesForType('normal')})),
                         icon: const Icon(Icons.add_rounded, size: 14),
                         label: const Text('Add Manually'),
-                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                       ),
                       SizedBox(width: 10.rs),
                       FilledButton.tonalIcon(
@@ -3279,7 +3280,7 @@ if (\$bins.Count -eq 0) {
                         },
                         icon: const Icon(Icons.radar_rounded, size: 14),
                         label: const Text('Auto-Detect'),
-                        style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                        style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
                       ),
                     ],
                   ),
@@ -3422,7 +3423,7 @@ if (\$bins.Count -eq 0) {
     if (availableSizes.isNotEmpty) {
       final effectiveSize = availableSizes.contains(currentSize) ? currentSize : availableSizes.first;
       return [
-        SizedBox(width: 4.rs),
+        SizedBox(width: AppSpacing.xs),
         _MiniDropdown(
           value: effectiveSize,
           items: availableSizes,
@@ -3433,7 +3434,7 @@ if (\$bins.Count -eq 0) {
     final trays = _getTraysForPrinter(printerName);
     if (trays.isNotEmpty) {
       return [
-        SizedBox(width: 4.rs),
+        SizedBox(width: AppSpacing.xs),
         _MiniDropdown(
           value: trays.contains(currentTray) ? currentTray : trays.first,
           items: trays,
@@ -3463,27 +3464,27 @@ if (\$bins.Count -eq 0) {
         Row(
           children: [
             Icon(Icons.print_rounded, size: 16, color: scheme.primary),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text('Printer Assignment', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-            SizedBox(width: 24.rs),
+            SizedBox(width: AppSpacing.xl),
             Text('1st Weighment:', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             _MiniPrinterDropdown(
               value: _grossPrinter,
               items: printerOptions,
               onChanged: (v) { setState(() { _grossPrinter = v; _grossPaperSize = ''; _grossTray = ''; _fixBackupPrinter(printerOptions, v, _tarePrinter); }); _markDirty(); },
             ),
             ..._buildTrayOrSizeSelector(_grossPrinter, _grossTray, _grossPaperSize, (tray, size) { setState(() { _grossTray = tray; _grossPaperSize = size; }); _markDirty(); }),
-            SizedBox(width: 16.rs),
+            SizedBox(width: AppSpacing.lg),
             Text('2nd Weighment:', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             _MiniPrinterDropdown(
               value: _tarePrinter,
               items: printerOptions,
               onChanged: (v) { setState(() { _tarePrinter = v; _tarePaperSize = ''; _tareTray = ''; _fixBackupPrinter(printerOptions, _grossPrinter, v); }); _markDirty(); },
             ),
             ..._buildTrayOrSizeSelector(_tarePrinter, _tareTray, _tarePaperSize, (tray, size) { setState(() { _tareTray = tray; _tarePaperSize = size; }); _markDirty(); }),
-            SizedBox(width: 16.rs),
+            SizedBox(width: AppSpacing.lg),
             _CompactToggle(label: 'Backup', value: _backupEnabled, onChanged: (v) {
               final backupAvailable = !(_grossPrinter == _tarePrinter && printerOptions.length <= 1);
               if (v && !backupAvailable) return;
@@ -3491,10 +3492,10 @@ if (\$bins.Count -eq 0) {
               _markDirty();
             }),
             if (_backupEnabled && _grossPrinter == _tarePrinter && printerOptions.length <= 1) ...[
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text('No alternate printer available', style: text.bodySmall?.copyWith(color: scheme.error, fontSize: 10)),
             ] else if (_backupEnabled) ...[
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Builder(builder: (_) {
                 final backupOptions = (_grossPrinter == _tarePrinter)
                     ? printerOptions.where((p) => p != _grossPrinter).toList()
@@ -3510,17 +3511,17 @@ if (\$bins.Count -eq 0) {
             ],
             const Spacer(),
             _CompactToggle(label: 'Material Routing', value: _materialRoutingEnabled, onChanged: (v) { setState(() => _materialRoutingEnabled = v); _markDirty(); }),
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             OutlinedButton.icon(
               onPressed: _showManagePrintersDialog,
               icon: const Icon(Icons.settings_rounded, size: 14),
               label: const Text('Manage Printers'),
-              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), textStyle: const TextStyle(fontSize: 11), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs))),
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), textStyle: const TextStyle(fontSize: 11), shape: RoundedRectangleBorder(borderRadius: AppRadius.chip)),
             ),
           ],
         ),
         if (_materialRoutingEnabled) ...[
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           _buildMaterialRoutingSection(scheme, text, printerOptions),
         ],
       ],
@@ -3551,7 +3552,7 @@ if (\$bins.Count -eq 0) {
                 },
                 icon: const Icon(Icons.add_rounded, size: 12),
                 label: const Text('Add Rule'),
-                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), textStyle: const TextStyle(fontSize: 11), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs))),
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), textStyle: const TextStyle(fontSize: 11), shape: RoundedRectangleBorder(borderRadius: AppRadius.chip)),
               ),
             ],
           ),
@@ -3561,7 +3562,7 @@ if (\$bins.Count -eq 0) {
               child: Text('No material routing rules. All materials use the default printer assignment above.', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
             )
           else ...[
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             ..._materialPrinterRules.asMap().entries.map((e) {
               final rule = e.value;
               final material = rule['material'] as String? ?? '';
@@ -3587,7 +3588,7 @@ if (\$bins.Count -eq 0) {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6.rs),
+                          borderRadius: AppRadius.chip,
                           border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
                         ),
                         child: DropdownButton<String>(
@@ -3602,25 +3603,25 @@ if (\$bins.Count -eq 0) {
                         ),
                       ),
                     ),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Icon(Icons.arrow_forward_rounded, size: 14, color: scheme.onSurfaceVariant),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     _MiniPrinterDropdown(
                       value: printer,
                       items: printerOptions,
                       onChanged: (v) { setState(() => _materialPrinterRules[e.key] = {...rule, 'printer': v}); _markDirty(); },
                     ),
                     if (_getTraysForPrinter(printer).isNotEmpty) ...[
-                      SizedBox(width: 4.rs),
+                      SizedBox(width: AppSpacing.xs),
                       _MiniDropdown(value: _getTraysForPrinter(printer).contains(rule['tray'] as String? ?? '') ? (rule['tray'] as String) : _getTraysForPrinter(printer).first, items: _getTraysForPrinter(printer), onChanged: (v) { setState(() => _materialPrinterRules[e.key] = {...rule, 'tray': v}); _markDirty(); }),
                     ],
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Text('×', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-                    SizedBox(width: 4.rs),
+                    SizedBox(width: AppSpacing.xs),
                     _CounterButton(value: copies, min: 1, max: 10, onChanged: (v) { setState(() => _materialPrinterRules[e.key] = {...rule, 'copies': v}); _markDirty(); }),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     _MiniDropdown(value: printOn, items: const ['—', '1st', '2nd', 'both'], onChanged: (v) { setState(() => _materialPrinterRules[e.key] = {...rule, 'printOn': v}); _markDirty(); }),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     InkWell(
                       onTap: () { setState(() => _materialPrinterRules.removeAt(e.key)); _markDirty(); },
                       child: Padding(padding: EdgeInsets.all(4.rs), child: Icon(Icons.close_rounded, size: 14, color: scheme.error)),
@@ -3658,7 +3659,7 @@ if (\$bins.Count -eq 0) {
               ),
               child: Text(key, style: TextStyle(fontFamily: 'monospace', fontSize: 9.5, fontWeight: FontWeight.w600, color: chipColor, letterSpacing: -0.3)),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Expanded(child: Text(label, style: TextStyle(fontSize: 10.5, color: scheme.onSurfaceVariant))),
           ],
         ),
@@ -3745,7 +3746,7 @@ if (\$bins.Count -eq 0) {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        SizedBox(height: 4.rs),
+        SizedBox(height: AppSpacing.xs),
         TextField(
           controller: TextEditingController(text: value.toString()),
           keyboardType: TextInputType.number,
@@ -3762,7 +3763,7 @@ if (\$bins.Count -eq 0) {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        SizedBox(height: 4.rs),
+        SizedBox(height: AppSpacing.xs),
         TextField(
           controller: TextEditingController(text: value.toStringAsFixed(0)),
           keyboardType: TextInputType.number,
@@ -3792,10 +3793,10 @@ class _Section extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(24.rs),
+      padding: AppSpacing.pagePadding,
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
@@ -3804,7 +3805,7 @@ class _Section extends StatelessWidget {
         children: [
           Row(children: [
             Icon(icon, size: 16, color: scheme.primary),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Flexible(child: Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis)),
           ]),
           SizedBox(height: 14.rs),
@@ -3846,7 +3847,7 @@ class _CounterButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+      decoration: BoxDecoration(borderRadius: AppRadius.button, border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -3884,14 +3885,14 @@ class _CompactToggle extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: value ? scheme.primaryContainer.withValues(alpha: 0.4) : scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           border: Border.all(color: value ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(value ? Icons.check_circle_rounded : Icons.circle_outlined, size: 12, color: value ? scheme.primary : scheme.outlineVariant),
-            SizedBox(width: 4.rs),
+            SizedBox(width: AppSpacing.xs),
             Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: value ? scheme.primary : scheme.onSurfaceVariant)),
           ],
         ),
@@ -3954,7 +3955,7 @@ class _DmLineEditorState extends State<_DmLineEditor> {
           Container(
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(6.rs),
+              borderRadius: AppRadius.chip,
               border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
             ),
             child: Column(
@@ -3989,7 +3990,7 @@ class _DmLineEditorState extends State<_DmLineEditor> {
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
                       color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(6.rs),
+                      borderRadius: AppRadius.chip,
                       border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
                     ),
                     child: Text(style == 'blank' ? '(blank line)' : '── separator line ──', style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
@@ -4001,13 +4002,13 @@ class _DmLineEditorState extends State<_DmLineEditor> {
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+                      border: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
                     ),
                   ),
           ),
           SizedBox(width: 6.rs),
           _MiniDropdown(value: align, items: const ['left', 'center', 'right'], onChanged: (v) => widget.onChanged({...widget.line, 'align': v})),
-          SizedBox(width: 4.rs),
+          SizedBox(width: AppSpacing.xs),
           _MiniDropdown(
             value: style,
             items: const ['normal', 'bold', 'double', 'separator', 'blank'],
@@ -4020,7 +4021,7 @@ class _DmLineEditorState extends State<_DmLineEditor> {
               widget.onChanged(updated);
             },
           ),
-          SizedBox(width: 4.rs),
+          SizedBox(width: AppSpacing.xs),
           _MiniDropdown(
             value: group == 0 ? '—' : 'G$group',
             items: ['—', ...List.generate(((widget.totalLines + 1) / 2).ceil().clamp(1, 10), (i) => 'G${i + 1}')],
@@ -4029,12 +4030,12 @@ class _DmLineEditorState extends State<_DmLineEditor> {
           SizedBox(width: 6.rs),
           InkWell(
             onTap: widget.onRemove,
-            borderRadius: BorderRadius.circular(6.rs),
+            borderRadius: AppRadius.chip,
             child: Container(
               padding: EdgeInsets.all(4.rs),
               decoration: BoxDecoration(
                 color: scheme.errorContainer.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
               ),
               child: Icon(Icons.close_rounded, size: 16, color: scheme.error),
             ),
@@ -4098,7 +4099,7 @@ class _ThermalLineEditorState extends State<_ThermalLineEditor> {
           Container(
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(6.rs),
+              borderRadius: AppRadius.chip,
               border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
             ),
             child: Column(
@@ -4133,7 +4134,7 @@ class _ThermalLineEditorState extends State<_ThermalLineEditor> {
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
                       color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(6.rs),
+                      borderRadius: AppRadius.chip,
                       border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
                     ),
                     child: Text('── separator line ──', style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
@@ -4145,13 +4146,13 @@ class _ThermalLineEditorState extends State<_ThermalLineEditor> {
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+                      border: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
                     ),
                   ),
           ),
           SizedBox(width: 6.rs),
           _MiniDropdown(value: align, items: const ['left', 'center', 'right'], onChanged: (v) => widget.onChanged({...widget.line, 'align': v})),
-          SizedBox(width: 4.rs),
+          SizedBox(width: AppSpacing.xs),
           _MiniDropdown(
             value: size,
             items: const ['normal', 'bold', 'double', 'separator'],
@@ -4164,17 +4165,17 @@ class _ThermalLineEditorState extends State<_ThermalLineEditor> {
               widget.onChanged(updated);
             },
           ),
-          SizedBox(width: 4.rs),
+          SizedBox(width: AppSpacing.xs),
           _MiniDropdown(value: group == 0 ? '—' : 'G$group', items: ['—', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8'], onChanged: (v) => widget.onChanged({...widget.line, 'group': v == '—' ? 0 : int.parse(v.substring(1))})),
           SizedBox(width: 6.rs),
           InkWell(
             onTap: widget.onRemove,
-            borderRadius: BorderRadius.circular(6.rs),
+            borderRadius: AppRadius.chip,
             child: Container(
               padding: EdgeInsets.all(4.rs),
               decoration: BoxDecoration(
                 color: scheme.errorContainer.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
               ),
               child: Icon(Icons.close_rounded, size: 16, color: scheme.error),
             ),
@@ -4223,7 +4224,7 @@ class _MiniPrinterDropdown extends StatelessWidget {
     final effectiveValue = items.contains(value) ? value : items.first;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(6.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+      decoration: BoxDecoration(borderRadius: AppRadius.chip, border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
       child: DropdownButton<String>(
         value: effectiveValue,
         items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 11)))).toList(),
@@ -4346,7 +4347,7 @@ class _MiniChipDropdown extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: scheme.secondaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8.rs),
+        borderRadius: AppRadius.button,
         border: Border.all(color: scheme.outline.withValues(alpha: 0.3)),
       ),
       child: Row(

@@ -6,6 +6,7 @@ import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class SecurityStep extends ConsumerStatefulWidget {
   const SecurityStep({super.key});
@@ -144,12 +145,12 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Security', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Text(
             'Set up access control and data protection policies.',
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          SizedBox(height: 32.rs),
+          SizedBox(height: AppSpacing.xxl),
 
           // Two-column layout
           Row(
@@ -162,7 +163,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
                   children: [
                     _buildCard(scheme, children: [
                       _buildSectionHeader('Screen Lock', Icons.lock_clock_rounded, scheme, text),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Row(
                         children: [
                           Expanded(
@@ -172,7 +173,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
                         ],
                       ),
                       if (_autoLock) ...[
-                        SizedBox(height: 8.rs),
+                        SizedBox(height: AppSpacing.sm),
                         Wrap(
                           spacing: 6,
                           children: [2, 5, 10, 30].map((m) => _buildSelectChip(
@@ -182,12 +183,12 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
                         ),
                       ],
                     ]),
-                    SizedBox(height: 16.rs),
+                    SizedBox(height: AppSpacing.lg),
                     _buildCard(scheme, children: [
                       _buildSectionHeader('Face Verification', Icons.face_rounded, scheme, text),
-                      SizedBox(height: 4.rs),
+                      SizedBox(height: AppSpacing.xs),
                       Text('When to require camera face match', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       _buildFaceOption(
                         Icons.scale_rounded, 'Each weighment',
                         'Before every gross/tare capture',
@@ -195,7 +196,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
                         (v) { setState(() => _faceVerifyOnWeighmentStart = v); _markModified(); },
                         scheme,
                       ),
-                      SizedBox(height: 8.rs),
+                      SizedBox(height: AppSpacing.sm),
                       _buildFaceOption(
                         Icons.login_rounded, 'Session start',
                         'Once per login session',
@@ -203,7 +204,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
                         (v) { setState(() => _faceVerifyOnSessionStart = v); _markModified(); },
                         scheme,
                       ),
-                      SizedBox(height: 8.rs),
+                      SizedBox(height: AppSpacing.sm),
                       _buildFaceOption(
                         Icons.today_rounded, 'Day start',
                         'Once per calendar day',
@@ -212,10 +213,10 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
                         scheme,
                       ),
                     ]),
-                    SizedBox(height: 16.rs),
+                    SizedBox(height: AppSpacing.lg),
                     _buildCard(scheme, children: [
                       _buildSectionHeader('Audit Trail', Icons.history_rounded, scheme, text),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Row(
                         children: [
                           Icon(
@@ -223,7 +224,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
                             size: 16,
                             color: _auditEnabled ? scheme.primary : scheme.onSurfaceVariant,
                           ),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: Text('Log all changes, logins, and exports', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
                           ),
@@ -231,10 +232,10 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
                         ],
                       ),
                     ]),
-                    SizedBox(height: 16.rs),
+                    SizedBox(height: AppSpacing.lg),
                     _buildCard(scheme, children: [
                       _buildSectionHeader('Backup Encryption', Icons.enhanced_encryption_rounded, scheme, text),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       Row(
                         children: [
                           Icon(
@@ -242,7 +243,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
                             size: 16,
                             color: _encryptBackups ? scheme.primary : scheme.onSurfaceVariant,
                           ),
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -264,7 +265,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
               Expanded(
                 child: _buildCard(scheme, children: [
                   _buildSectionHeader('Operator Permissions', Icons.admin_panel_settings_rounded, scheme, text),
-                  SizedBox(height: 4.rs),
+                  SizedBox(height: AppSpacing.xs),
                   Text('What operators are allowed to do', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                   SizedBox(height: 14.rs),
                   _buildPermissionRow(Icons.block_rounded, 'Void weighments', _opCanVoidWeighment, (v) { setState(() => _opCanVoidWeighment = v); _markModified(); }, scheme, isDangerous: true),
@@ -278,14 +279,14 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
             ],
           ),
 
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
 
           if (isFree)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: scheme.tertiaryContainer.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8.rs),
+                borderRadius: AppRadius.button,
                 border: Border.all(color: scheme.tertiary.withValues(alpha: 0.2)),
               ),
               child: Row(
@@ -306,7 +307,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8.rs),
+                borderRadius: AppRadius.button,
                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
               ),
               child: Row(
@@ -329,10 +330,10 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
 
   Widget _buildCard(ColorScheme scheme, {required List<Widget> children}) {
     return Container(
-      padding: EdgeInsets.all(16.rs),
+      padding: AppSpacing.cardPadding,
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLow.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -346,7 +347,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
     return Row(
       children: [
         Icon(icon, size: 18, color: scheme.primary),
-        SizedBox(width: 8.rs),
+        SizedBox(width: AppSpacing.sm),
         Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
       ],
     );
@@ -359,7 +360,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? scheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4)),
         ),
         child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? scheme.surface : scheme.onSurfaceVariant)),
@@ -379,7 +380,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
               color: value
                   ? (isDangerous ? scheme.errorContainer.withValues(alpha: 0.3) : scheme.primaryContainer.withValues(alpha: 0.3))
                   : scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(6.rs),
+              borderRadius: AppRadius.chip,
             ),
             child: Icon(icon, size: 13, color: value ? (isDangerous ? scheme.error : scheme.primary) : scheme.onSurfaceVariant.withValues(alpha: 0.4)),
           ),
@@ -416,7 +417,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
           height: 26,
           decoration: BoxDecoration(
             color: value ? scheme.primaryContainer.withValues(alpha: 0.4) : scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(6.rs),
+            borderRadius: AppRadius.chip,
           ),
           child: Icon(icon, size: 13, color: value ? scheme.primary : scheme.onSurfaceVariant.withValues(alpha: 0.4)),
         ),

@@ -14,6 +14,7 @@ import 'package:weighbridgemanagement/shared/widgets/pro_feature_banner.dart';
 import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 final _gateSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
@@ -326,24 +327,24 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
               loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
-                padding: EdgeInsets.all(28.rs),
+                padding: AppSpacing.pagePadding,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const ProFeatureBanner(feature: 'Gate Control'),
                     _buildStatusIndicator(scheme, text),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(child: _buildGateSection('Entry Gate', true, scheme, text)),
-                        SizedBox(width: 16.rs),
+                        SizedBox(width: AppSpacing.lg),
                         Expanded(child: _buildGateSection('Exit Gate', false, scheme, text)),
                       ],
                     ),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     _buildRfidSection(scheme, text),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     _buildSafetySection(scheme, text),
                     SizedBox(height: 40.rs),
                   ],
@@ -365,8 +366,8 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
         children: [
           Row(
             children: [
-              IconButton(onPressed: () { context.go('/settings'); }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)))),
-              SizedBox(width: 12.rs),
+              IconButton(onPressed: () { context.go('/settings'); }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button))),
+              SizedBox(width: AppSpacing.md),
               Icon(Icons.sensor_door_rounded, size: 20, color: scheme.primary),
               SizedBox(width: 10.rs),
               Column(
@@ -382,13 +383,13 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
                   onPressed: () { setState(() { _loaded = false; }); ref.invalidate(_gateSettingsProvider); },
                   child: const Text('Cancel'),
                 ),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
               ],
               FilledButton.icon(
                 onPressed: _dirty && !_saving ? _save : null,
                 icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16),
                 label: Text(_saving ? 'Saving...' : 'Save'),
-                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
               ),
             ],
           ),
@@ -400,7 +401,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: _headerMsgIsError ? scheme.errorContainer.withValues(alpha: 0.6) : AppTheme.successColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                   border: Border.all(color: _headerMsgIsError ? scheme.error.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3)),
                 ),
                 child: Row(
@@ -410,7 +411,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
                       size: 15,
                       color: _headerMsgIsError ? scheme.error : AppTheme.successColor,
                     ),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Expanded(child: Text(_headerMsg!, style: text.bodySmall?.copyWith(color: _headerMsgIsError ? scheme.error : AppTheme.successColor, fontWeight: FontWeight.w500))),
                   ],
                 ),
@@ -482,7 +483,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
                 width: 32, height: 32,
                 decoration: BoxDecoration(
                   color: (enabled ? (isEntry ? const Color(0xFF2563EB) : AppTheme.proColor) : scheme.outlineVariant).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                 ),
                 child: Icon(isEntry ? Icons.login_rounded : Icons.logout_rounded, size: 16, color: enabled ? (isEntry ? const Color(0xFF2563EB) : AppTheme.proColor) : scheme.outlineVariant),
               ),
@@ -499,7 +500,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
                             width: 6, height: 6,
                             decoration: BoxDecoration(shape: BoxShape.circle, color: testResult == 'ok' ? AppTheme.successColor : scheme.error),
                           ),
-                          SizedBox(width: 4.rs),
+                          SizedBox(width: AppSpacing.xs),
                           Text(testResult == 'ok' ? 'Connected' : 'Unreachable', style: TextStyle(fontSize: 10, color: testResult == 'ok' ? AppTheme.successColor : scheme.error, fontWeight: FontWeight.w500)),
                         ],
                       ),
@@ -516,14 +517,14 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
                 child: Column(
                   children: [
                     Icon(Icons.power_settings_new_rounded, size: 28, color: scheme.outlineVariant.withValues(alpha: 0.5)),
-                    SizedBox(height: 8.rs),
+                    SizedBox(height: AppSpacing.sm),
                     Text('$title disabled', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
                   ],
                 ),
               ),
             ),
           if (enabled) ...[
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             _buildInfoRow(
               isEntry
                 ? 'Opens when a vehicle arrives for weighment. Connects to a relay board over HTTP or TCP to control the barrier motor.'
@@ -532,23 +533,23 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
             ),
             SizedBox(height: 14.rs),
             _buildDropdown('Communication Protocol', protocol, ['HTTP Relay', 'TCP Socket', 'RS-485 Serial', 'Dry Contact', 'Modbus RTU', 'MQTT'], (v) => setState(() { if (isEntry) { _entryProtocol = v!; } else { _exitProtocol = v!; } }), scheme, text),
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             Row(
               children: [
                 Expanded(child: _buildIpField('Relay Board IP', ipCtrl, isEntry ? '192.168.1.150' : '192.168.1.151', scheme, text)),
-                SizedBox(width: 12.rs),
+                SizedBox(width: AppSpacing.md),
                 Expanded(child: _buildDropdown('Relay Channel', channel, ['Channel 01', 'Channel 02', 'Channel 03', 'Channel 04'], (v) => setState(() { if (isEntry) { _entryChannel = v!; } else { _exitChannel = v!; } }), scheme, text)),
               ],
             ),
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             Row(
               children: [
                 Expanded(child: _buildField('Open Duration (sec)', durationCtrl, '30', scheme, text, suffix: 's')),
-                SizedBox(width: 12.rs),
+                SizedBox(width: AppSpacing.md),
                 Expanded(child: _buildDropdown('Open Trigger', trigger, ['Weight Detected', 'RFID Scan', 'Manual', 'Weighment Complete', 'IR Sensor'], (v) => setState(() { if (isEntry) { _entryTrigger = v!; } else { _exitTrigger = v!; } }), scheme, text)),
               ],
             ),
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             _buildInfoRow(
               'Duration: how long gate stays open before auto-close activates. Trigger: what event causes the gate to open automatically.',
               scheme, text,
@@ -559,7 +560,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
                 _buildToggleChip('Auto-close', autoClose, (v) => setState(() { if (isEntry) { _entryAutoClose = v; } else { _exitAutoClose = v; } }), scheme, text),
                 const Spacer(),
                 _buildTestButton(testing, () => _testGate(isEntry ? GateId.entry : GateId.exit), scheme, text),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 _buildActionButton('Open', Icons.open_in_new_rounded, () => _manualOpen(isEntry ? GateId.entry : GateId.exit), scheme, text),
               ],
             ),
@@ -579,7 +580,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
             children: [
               Container(
                 width: 32, height: 32,
-                decoration: BoxDecoration(color: scheme.secondary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8.rs)),
+                decoration: BoxDecoration(color: scheme.secondary.withValues(alpha: 0.12), borderRadius: AppRadius.button),
                 child: Icon(Icons.nfc_rounded, size: 16, color: scheme.secondary),
               ),
               SizedBox(width: 10.rs),
@@ -596,7 +597,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
             ],
           ),
           if (_rfidEnabled) ...[
-            SizedBox(height: 12.rs),
+            SizedBox(height: AppSpacing.md),
             _buildInfoRow('RFID tags on vehicles are scanned at the gate to auto-identify them. Matching is done against registered vehicles in the cloud. If the tag is unregistered or blacklisted, the gate will not open.', scheme, text),
             SizedBox(height: 14.rs),
             Row(
@@ -631,7 +632,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
             children: [
               Container(
                 width: 32, height: 32,
-                decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8.rs)),
+                decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.12), borderRadius: AppRadius.button),
                 child: const Icon(Icons.shield_rounded, size: 16, color: Color(0xFFF59E0B)),
               ),
               SizedBox(width: 10.rs),
@@ -646,9 +647,9 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
               ),
             ],
           ),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           _buildInfoRow('Safety features protect people and vehicles near the gate. Sensor check and emergency stop are strongly recommended. These settings are automatically disabled if no gate hardware is configured.', scheme, text),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           _buildSafetyToggle(
             'Sensor Check',
             'Verify path is clear before gate closes — prevents crushing',
@@ -701,13 +702,13 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
       padding: const EdgeInsets.only(bottom: 4),
       child: InkWell(
         onTap: () => onChanged(!value),
-        borderRadius: BorderRadius.circular(8.rs),
+        borderRadius: AppRadius.button,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           child: Row(
             children: [
               Icon(icon, size: 16, color: value ? const Color(0xFFF59E0B) : scheme.outlineVariant),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -740,7 +741,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
   Widget _buildTestButton(bool testing, VoidCallback onPressed, ColorScheme scheme, TextTheme text) {
     return FilledButton.tonal(
       onPressed: testing ? null : onPressed,
-      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -758,7 +759,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
   Widget _buildActionButton(String label, IconData icon, VoidCallback onPressed, ColorScheme scheme, TextTheme text) {
     return OutlinedButton(
       onPressed: onPressed,
-      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 14), SizedBox(width: 6.rs), Text(label, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w500))]),
     );
   }
@@ -766,12 +767,12 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
   Widget _buildToggleChip(String label, bool value, ValueChanged<bool> onChanged, ColorScheme scheme, TextTheme text) {
     return InkWell(
       onTap: () => onChanged(!value),
-      borderRadius: BorderRadius.circular(8.rs),
+      borderRadius: AppRadius.button,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: value ? scheme.primaryContainer.withValues(alpha: 0.4) : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(8.rs),
+          borderRadius: AppRadius.button,
           border: Border.all(color: value ? scheme.primary.withValues(alpha: 0.3) : scheme.outlineVariant.withValues(alpha: 0.3)),
         ),
         child: Row(
@@ -780,7 +781,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
             Icon(value ? Icons.timer_rounded : Icons.timer_off_rounded, size: 13, color: value ? scheme.primary : scheme.onSurfaceVariant),
             SizedBox(width: 6.rs),
             Text(label, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w500, color: value ? scheme.primary : scheme.onSurfaceVariant)),
-            SizedBox(width: 4.rs),
+            SizedBox(width: AppSpacing.xs),
             Icon(value ? Icons.check_rounded : Icons.close_rounded, size: 11, color: value ? scheme.primary : scheme.onSurfaceVariant),
           ],
         ),
@@ -803,8 +804,8 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
             suffixText: suffix,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             isDense: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+            border: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant)),
+            enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
           ),
         ),
       ],
@@ -837,9 +838,9 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
               ),
             ),
             prefixIconConstraints: const BoxConstraints(minWidth: 30),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant)),
+            border: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant)),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.rs),
+              borderRadius: AppRadius.button,
               borderSide: BorderSide(color: hasValue && !valid ? scheme.error.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.5)),
             ),
             errorText: hasValue && !valid ? 'Invalid IP address' : null,
@@ -855,7 +856,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6.rs),
+        borderRadius: AppRadius.chip,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -864,7 +865,7 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
             padding: const EdgeInsets.only(top: 1),
             child: Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary.withValues(alpha: 0.6)),
           ),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           Expanded(child: Text(infoText, style: textTheme.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant, height: 1.4))),
         ],
       ),
@@ -884,8 +885,8 @@ class _GateControlScreenState extends ConsumerState<GateControlScreen> {
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             isDense: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+            border: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant)),
+            enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
           ),
           icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: scheme.onSurfaceVariant),
         ),
@@ -905,10 +906,10 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(24.rs),
+      padding: AppSpacing.pagePadding,
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border: Border.all(color: borderColor ?? scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),

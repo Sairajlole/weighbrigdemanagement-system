@@ -14,7 +14,9 @@ import 'package:weighbridgemanagement/shared/providers/site_context_provider.dar
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_card.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 final _scaleSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
@@ -664,14 +666,14 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       child: Row(
         children: [
           Icon(Icons.scale_rounded, size: 14, color: scheme.primary),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           Text('Configuring:', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
           SizedBox(width: 6.rs),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: scheme.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(6.rs),
+              borderRadius: AppRadius.chip,
               border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
             ),
             child: Text(
@@ -680,21 +682,21 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
             ),
           ),
           if (hasMultiple) ...[
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             PopupMenuButton<int>(
               tooltip: 'Switch weighbridge',
               offset: const Offset(0, 32),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6.rs),
+                  borderRadius: AppRadius.chip,
                   border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.swap_horiz_rounded, size: 13, color: scheme.onSurfaceVariant),
-                    SizedBox(width: 4.rs),
+                    SizedBox(width: AppSpacing.xs),
                     Text('Switch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
                   ],
                 ),
@@ -720,10 +722,10 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                     child: Row(
                       children: [
                         Icon(Icons.scale_rounded, size: 13, color: isCurrent ? scheme.primary : scheme.onSurfaceVariant),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         Text(wb.wbName, style: TextStyle(fontSize: 12, fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500, color: isCurrent ? scheme.primary : scheme.onSurface)),
                         if (isCurrent) ...[
-                          SizedBox(width: 8.rs),
+                          SizedBox(width: AppSpacing.sm),
                           Icon(Icons.check_rounded, size: 13, color: scheme.primary),
                         ],
                       ],
@@ -777,28 +779,28 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
-                padding: EdgeInsets.all(28.rs),
+                padding: AppSpacing.pagePadding,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Connection (type + details merged)
                     _buildConnectionCard(scheme, text),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     // Advanced config (merged toggle + details)
                     _buildAdvancedConfig(scheme, text),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     // Row 3: Weight Capture + Manual Entry
                     IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(child: _buildWeightCapture(scheme, text)),
-                          SizedBox(width: 24.rs),
+                          SizedBox(width: AppSpacing.xl),
                           Expanded(child: _buildManualEntry(scheme, text)),
                         ],
                       ),
                     ),
-                    SizedBox(height: 24.rs),
+                    SizedBox(height: AppSpacing.xl),
                     _buildWeighmentModeCard(scheme, text),
                     SizedBox(height: 40.rs),
                   ],
@@ -824,10 +826,10 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       decoration: BoxDecoration(color: scheme.surface, border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2)))),
       child: Row(
         children: [
-          IconButton(onPressed: () async { final ok = await _onWillPop(); if (ok && mounted) { context.go('/settings'); } }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)))),
+          IconButton(onPressed: () async { final ok = await _onWillPop(); if (ok && mounted) { context.go('/settings'); } }, icon: const Icon(Icons.arrow_back_rounded, size: 20), style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button))),
           SizedBox(width: 10.rs),
           Icon(Icons.scale_rounded, size: 20, color: scheme.primary),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -835,7 +837,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               Text('Scale and indicator setup', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
             ],
           ),
-          SizedBox(width: 24.rs),
+          SizedBox(width: AppSpacing.xl),
           // Live weight / status display
           Container(
             constraints: const BoxConstraints(minWidth: 160),
@@ -932,18 +934,18 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               ],
             ),
           ),
-          SizedBox(width: 12.rs),
+          SizedBox(width: AppSpacing.md),
           // Test connection button
           TextButton(
             onPressed: _testingConnection ? null : isConnected ? _disconnectTest : _testConnection,
             style: TextButton.styleFrom(
               foregroundColor: isConnected ? scheme.error : scheme.primary,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
             ),
             child: Text(isConnected ? 'Disconnect' : isFailed ? 'Retry' : 'Test Connection', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ),
-          SizedBox(width: 4.rs),
+          SizedBox(width: AppSpacing.xs),
           // Auto-detect button with hint
           if (_autoDetecting)
             TextButton(
@@ -951,7 +953,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               style: TextButton.styleFrom(
                 foregroundColor: scheme.error,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
               ),
               child: const Text('Cancel Detection', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             )
@@ -964,7 +966,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                   style: TextButton.styleFrom(
                     foregroundColor: _detectedConfig != null ? AppTheme.successColor : scheme.primary,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                   ),
                   child: Text(
                     _detectedConfig != null ? 'Re-detect' : 'Auto-Detect',
@@ -979,12 +981,12 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               ],
             ),
           if (_headerMsg != null) ...[
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: (_headerMsgIsError ? scheme.error : AppTheme.successColor).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
                 border: Border.all(color: (_headerMsgIsError ? scheme.error : AppTheme.successColor).withValues(alpha: 0.3)),
               ),
               child: Row(
@@ -1010,7 +1012,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
             style: TextButton.styleFrom(
               foregroundColor: scheme.onSurfaceVariant,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs)),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
             ),
             child: const Text('Reset All to Defaults', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ),
@@ -1020,114 +1022,117 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
   }
 
   Widget _buildWeightCapture(ColorScheme scheme, TextTheme text) {
-    return _Section(
-      scheme: scheme,
-      icon: Icons.monitor_weight_rounded,
+    return AppCard(
       title: 'Weight Capture',
-      subtitle: 'Stability detection & auto-capture behaviour',
-      isDirty: _dirtyCards.contains('capture'),
+      icon: Icons.monitor_weight_rounded,
+      dirty: _dirtyCards.contains('capture'),
       onSave: _saving ? null : () => _saveCard('capture'),
-      onResetDefault: _isAtDefaults('capture') ? null : () => _resetCardToDefaults('capture'),
-      children: [
-        _buildInfoRow('Scale readings fluctuate — uniformity duration ensures the weight is truly settled before capture.', scheme, text),
-        SizedBox(height: 12.rs),
-        Text('Uniformity Duration', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        SizedBox(height: 10.rs),
-        Row(
-          children: [3, 5, 10].map((s) {
-            final selected = _uniformitySeconds == s;
-            return Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: GestureDetector(
-                onTap: () { setState(() => _uniformitySeconds = s); _markCardDirty('capture'); },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: selected ? scheme.primaryContainer : scheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(10.rs),
-                    border: Border.all(color: selected ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
-                  ),
-                  child: Column(
-                    children: [
-                      Text('$s', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800, color: selected ? scheme.primary : scheme.onSurface)),
-                      Text('sec', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-                    ],
+      onReset: _isAtDefaults('capture') ? null : () => _resetCardToDefaults('capture'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildInfoRow('Scale readings fluctuate — uniformity duration ensures the weight is truly settled before capture.', scheme, text),
+          SizedBox(height: AppSpacing.md),
+          Text('Uniformity Duration', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+          SizedBox(height: 10.rs),
+          Row(
+            children: [3, 5, 10].map((s) {
+              final selected = _uniformitySeconds == s;
+              return Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: GestureDetector(
+                  onTap: () { setState(() => _uniformitySeconds = s); _markCardDirty('capture'); },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: selected ? scheme.primaryContainer : scheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(10.rs),
+                      border: Border.all(color: selected ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
+                    ),
+                    child: Column(
+                      children: [
+                        Text('$s', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800, color: selected ? scheme.primary : scheme.onSurface)),
+                        Text('sec', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
-        ),
-        SizedBox(height: 8.rs),
-        Text('Weight must remain uniform for $_uniformitySeconds seconds before considered stable', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-        SizedBox(height: 16.rs),
-        _SwitchRow(label: 'Auto-Capture When Stable', subtitle: 'Automatically record weight once uniformity is achieved', value: _autoCaptureWhenStable, onChanged: (v) { setState(() => _autoCaptureWhenStable = v); _markCardDirty('capture'); }),
-      ],
+              );
+            }).toList(),
+          ),
+          SizedBox(height: AppSpacing.sm),
+          Text('Weight must remain uniform for $_uniformitySeconds seconds before considered stable', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+          SizedBox(height: AppSpacing.lg),
+          _SwitchRow(label: 'Auto-Capture When Stable', subtitle: 'Automatically record weight once uniformity is achieved', value: _autoCaptureWhenStable, onChanged: (v) { setState(() => _autoCaptureWhenStable = v); _markCardDirty('capture'); }),
+        ],
+      ),
     );
   }
 
   Widget _buildManualEntry(ColorScheme scheme, TextTheme text) {
-    return _Section(
-      scheme: scheme,
-      icon: Icons.keyboard_rounded,
+    return AppCard(
       title: 'Manual Entry',
-      subtitle: 'Password-protected manual weight input',
-      isDirty: _dirtyCards.contains('manual'),
+      icon: Icons.keyboard_rounded,
+      dirty: _dirtyCards.contains('manual'),
       onSave: _saving ? null : () => _saveCard('manual'),
-      onResetDefault: _isAtDefaults('manual') ? null : () => _resetCardToDefaults('manual'),
-      children: [
-        _buildInfoRow('Use when the scale is unavailable or for manual corrections. Protected by password to prevent misuse.', scheme, text),
-        SizedBox(height: 12.rs),
-        _SwitchRow(label: 'Allow Manual Weight Entry', subtitle: 'Operators can type weight manually when enabled', value: _allowManualEntry, onChanged: (v) { setState(() => _allowManualEntry = v); _markCardDirty('manual'); }),
-        if (_allowManualEntry) ...[
-          SizedBox(height: 12.rs),
-          Text('Manual Entry Password', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-          SizedBox(height: 6.rs),
-          TextField(
-            controller: _manualPasswordCtrl,
-            obscureText: true,
-            style: text.bodySmall,
-            onChanged: (_) => _markCardDirty('manual'),
-            decoration: const InputDecoration(hintText: 'Admin-set password for manual entry', prefixIcon: Icon(Icons.lock_rounded, size: 16), prefixIconConstraints: BoxConstraints(minWidth: 40), isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-          ),
-          SizedBox(height: 4.rs),
-          Text('Operators must enter this password to use manual entry.', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-          SizedBox(height: 12.rs),
-          _SwitchRow(label: 'Require Face Verification', subtitle: 'Operator must pass face ID during verification step', value: _requireFaceVerification, onChanged: (v) { setState(() => _requireFaceVerification = v); _markCardDirty('manual'); }),
+      onReset: _isAtDefaults('manual') ? null : () => _resetCardToDefaults('manual'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildInfoRow('Use when the scale is unavailable or for manual corrections. Protected by password to prevent misuse.', scheme, text),
+          SizedBox(height: AppSpacing.md),
+          _SwitchRow(label: 'Allow Manual Weight Entry', subtitle: 'Operators can type weight manually when enabled', value: _allowManualEntry, onChanged: (v) { setState(() => _allowManualEntry = v); _markCardDirty('manual'); }),
+          if (_allowManualEntry) ...[
+            SizedBox(height: AppSpacing.md),
+            Text('Manual Entry Password', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+            SizedBox(height: 6.rs),
+            TextField(
+              controller: _manualPasswordCtrl,
+              obscureText: true,
+              style: text.bodySmall,
+              onChanged: (_) => _markCardDirty('manual'),
+              decoration: const InputDecoration(hintText: 'Admin-set password for manual entry', prefixIcon: Icon(Icons.lock_rounded, size: 16), prefixIconConstraints: BoxConstraints(minWidth: 40), isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+            ),
+            SizedBox(height: AppSpacing.xs),
+            Text('Operators must enter this password to use manual entry.', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+            SizedBox(height: AppSpacing.md),
+            _SwitchRow(label: 'Require Face Verification', subtitle: 'Operator must pass face ID during verification step', value: _requireFaceVerification, onChanged: (v) { setState(() => _requireFaceVerification = v); _markCardDirty('manual'); }),
+          ],
         ],
-      ],
+      ),
     );
   }
 
 
   Widget _buildConnectionCard(ColorScheme scheme, TextTheme text) {
-    return _Section(
-      scheme: scheme,
-      icon: Icons.swap_horiz_rounded,
+    return AppCard(
       title: 'Scale Connection',
-      subtitle: 'Configure how the scale communicates with this system',
-      isDirty: _dirtyCards.contains('connection'),
+      icon: Icons.swap_horiz_rounded,
+      dirty: _dirtyCards.contains('connection'),
       onSave: _saving ? null : () => _saveCard('connection'),
-      onResetDefault: _isAtDefaults('connection') ? null : () => _resetCardToDefaults('connection'),
-      children: [
-        _buildInfoRow('Serial is standard for most weighbridges. Use TCP for Wi-Fi indicators or remote scales.', scheme, text),
-        SizedBox(height: 12.rs),
-        // Type selector
-        Row(
-          children: [
-            Expanded(child: _buildConnectionTypeChip('serial', 'Serial / USB', Icons.usb_rounded, scheme)),
-            SizedBox(width: 10.rs),
-            Expanded(child: _buildConnectionTypeChip('tcp', 'Wireless / TCP', Icons.wifi_rounded, scheme)),
-          ],
-        ),
-        SizedBox(height: 16.rs),
-        Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-        SizedBox(height: 16.rs),
-        // Connection details
-        if (_connectionType == 'serial') ..._buildSerialFields(scheme, text)
-        else ..._buildTcpFields(scheme, text),
-      ],
+      onReset: _isAtDefaults('connection') ? null : () => _resetCardToDefaults('connection'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildInfoRow('Serial is standard for most weighbridges. Use TCP for Wi-Fi indicators or remote scales.', scheme, text),
+          SizedBox(height: AppSpacing.md),
+          // Type selector
+          Row(
+            children: [
+              Expanded(child: _buildConnectionTypeChip('serial', 'Serial / USB', Icons.usb_rounded, scheme)),
+              SizedBox(width: 10.rs),
+              Expanded(child: _buildConnectionTypeChip('tcp', 'Wireless / TCP', Icons.wifi_rounded, scheme)),
+            ],
+          ),
+          SizedBox(height: AppSpacing.lg),
+          Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
+          SizedBox(height: AppSpacing.lg),
+          // Connection details
+          if (_connectionType == 'serial') ..._buildSerialFields(scheme, text)
+          else ..._buildTcpFields(scheme, text),
+        ],
+      ),
     );
   }
 
@@ -1147,7 +1152,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 18, color: selected ? scheme.primary : scheme.onSurfaceVariant),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: selected ? scheme.primary : scheme.onSurface)),
             if (selected) ...[SizedBox(width: 6.rs), Icon(Icons.check_circle_rounded, size: 14, color: scheme.primary)],
           ],
@@ -1182,7 +1187,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                     prefixIconConstraints: const BoxConstraints(minWidth: 40),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                    border: OutlineInputBorder(borderRadius: AppRadius.button),
                   ),
                 ),
               ],
@@ -1204,7 +1209,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                     hintText: '3001',
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                    border: OutlineInputBorder(borderRadius: AppRadius.button),
                   ),
                 ),
               ],
@@ -1226,7 +1231,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                 Row(
                   children: [
                     Text('Weight Regex', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    SizedBox(width: 4.rs),
+                    SizedBox(width: AppSpacing.xs),
                     Tooltip(message: 'Pattern to extract numeric weight from raw data.\nDefault works for most scales outputting plain numbers.', child: Icon(Icons.info_outline_rounded, size: 12, color: scheme.onSurfaceVariant)),
                   ],
                 ),
@@ -1235,7 +1240,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                   controller: TextEditingController(text: _weightRegex),
                   style: text.bodySmall?.copyWith(fontFamily: 'monospace'),
                   onChanged: (v) { _weightRegex = v; _markCardDirty('connection'); },
-                  decoration: InputDecoration(hintText: r'(\d+\.?\d*)', isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs))),
+                  decoration: InputDecoration(hintText: r'(\d+\.?\d*)', isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), border: OutlineInputBorder(borderRadius: AppRadius.button)),
                 ),
               ],
             ),
@@ -1245,11 +1250,11 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       SizedBox(height: 14.rs),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+        decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: AppRadius.button, border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
         child: Row(
           children: [
             Icon(Icons.terminal_rounded, size: 14, color: scheme.onSurfaceVariant),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Text(
               'tcp://${_tcpHostCtrl.text.isEmpty ? '...' : _tcpHostCtrl.text}:${_tcpPortCtrl.text}',
               style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontWeight: FontWeight.w600, color: scheme.primary),
@@ -1417,7 +1422,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                         boxShadow: [BoxShadow(color: scoreColor.withValues(alpha: 0.4), blurRadius: 4)],
                       ),
                     ),
-                    SizedBox(width: 12.rs),
+                    SizedBox(width: AppSpacing.md),
                     // Main info
                     Expanded(
                       child: Column(
@@ -1429,7 +1434,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                                 '${c.port}  @  ${c.baudRate}',
                                 style: text.bodySmall?.copyWith(fontWeight: FontWeight.w700),
                               ),
-                              SizedBox(width: 8.rs),
+                              SizedBox(width: AppSpacing.sm),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
@@ -1443,7 +1448,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                               ),
                             ],
                           ),
-                          SizedBox(height: 4.rs),
+                          SizedBox(height: AppSpacing.xs),
                           Text(
                             displaySample,
                             style: text.bodySmall?.copyWith(
@@ -1463,13 +1468,13 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                         ],
                       ),
                     ),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     // Score text
                     Text(
                       '${(c.score * 100).toInt()}%',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scoreColor),
                     ),
-                    SizedBox(width: 12.rs),
+                    SizedBox(width: AppSpacing.md),
                     // Use button
                     FilledButton(
                       onPressed: () {
@@ -1479,7 +1484,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                       },
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)),
+                        shape: RoundedRectangleBorder(borderRadius: AppRadius.chip),
                         textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                       ),
                       child: const Text('Use'),
@@ -1506,7 +1511,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       if (_ports.isEmpty) ...[
         Container(
           width: double.infinity,
-          padding: EdgeInsets.all(16.rs),
+          padding: AppSpacing.cardPadding,
           decoration: BoxDecoration(
             color: scheme.errorContainer.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(10.rs),
@@ -1515,7 +1520,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           child: Row(
             children: [
               Icon(Icons.usb_off_rounded, size: 20, color: scheme.onSurfaceVariant),
-              SizedBox(width: 12.rs),
+              SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1530,7 +1535,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                 onPressed: _detectPorts,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 tooltip: 'Detect available ports',
-                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
               ),
             ],
           ),
@@ -1542,14 +1547,14 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
         Row(
           children: [
             Expanded(child: _buildDropdown('Port', _port, _ports, (v) { setState(() => _port = v!); _markCardDirty('connection'); }, text)),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Padding(
               padding: const EdgeInsets.only(top: 18),
               child: IconButton.outlined(
                 onPressed: _detectPorts,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 tooltip: 'Detect available ports',
-                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.rs))),
+                style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
               ),
             ),
             SizedBox(width: 14.rs),
@@ -1579,11 +1584,11 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
         SizedBox(height: 14.rs),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+          decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: AppRadius.button, border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
           child: Row(
             children: [
               Icon(Icons.terminal_rounded, size: 14, color: scheme.onSurfaceVariant),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text(
                 '$_port  $_baudRate  $_dataBits-${_parity[0]}-$_stopBits  Flow: $_flowControl',
                 style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontWeight: FontWeight.w600, color: scheme.primary),
@@ -1596,68 +1601,34 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
   }
 
   Widget _buildAdvancedConfig(ColorScheme scheme, TextTheme text) {
-    final isDirty = _dirtyCards.contains('advanced');
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(24.rs),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(16.rs),
-        border: Border.all(color: isDirty ? scheme.primary.withValues(alpha: 0.4) : _advancedMode ? scheme.primary.withValues(alpha: 0.25) : scheme.outlineVariant.withValues(alpha: 0.25)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
-      ),
+    return AppCard(
+      title: 'Advanced Configuration',
+      icon: Icons.tune_rounded,
+      dirty: _dirtyCards.contains('advanced'),
+      onSave: _saving ? null : () => _saveCard('advanced'),
+      onReset: _isAtDefaults('advanced') ? null : () => _resetCardToDefaults('advanced'),
+      actions: [
+        Switch(
+          value: _advancedMode,
+          onChanged: (v) {
+            setState(() {
+              _advancedMode = v;
+              if (!v) _resetToDefaults();
+            });
+          },
+        ),
+      ],
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.tune_rounded, size: 18, color: _advancedMode ? scheme.primary : scheme.onSurfaceVariant),
-              SizedBox(width: 10.rs),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Advanced Configuration', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                    Text(
-                      _advancedMode
-                          ? 'Custom parameters active — timeouts, buffers, signals'
-                          : 'Using defaults — enable to customize',
-                      style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
-              if (!_isAtDefaults('advanced'))
-                TextButton(
-                  onPressed: () => _resetCardToDefaults('advanced'),
-                  style: TextButton.styleFrom(foregroundColor: scheme.onSurfaceVariant, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs))),
-                  child: const Text('Reset to Default', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                ),
-              if (isDirty) ...[
-                SizedBox(width: 6.rs),
-                FilledButton(
-                  onPressed: _saving ? null : () => _saveCard('advanced'),
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)), textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                  child: const Text('Save'),
-                ),
-              ],
-              SizedBox(width: 10.rs),
-              Switch(
-                value: _advancedMode,
-                onChanged: (v) {
-                  setState(() {
-                    _advancedMode = v;
-                    if (!v) _resetToDefaults();
-                  });
-                },
-              ),
-            ],
+          Text(
+            _advancedMode
+                ? 'Custom parameters active — timeouts, buffers, signals'
+                : 'Using defaults — enable to customize',
+            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
           if (_advancedMode) ...[
-            SizedBox(height: 16.rs),
-            Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-            SizedBox(height: 16.rs),
+            SizedBox(height: AppSpacing.lg),
             _buildInfoRow('Timeouts control how long to wait for data before giving up.', scheme, text),
             SizedBox(height: 10.rs),
             Row(
@@ -1691,7 +1662,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                       Row(
                         children: [
                           Text('Weight Regex', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                          SizedBox(width: 4.rs),
+                          SizedBox(width: AppSpacing.xs),
                           Tooltip(message: 'Pattern to extract numeric weight from raw data.\nDefault works for most scales outputting plain numbers.', child: Icon(Icons.info_outline_rounded, size: 12, color: scheme.onSurfaceVariant)),
                         ],
                       ),
@@ -1732,7 +1703,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6.rs),
+        borderRadius: AppRadius.chip,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1741,7 +1712,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
             padding: const EdgeInsets.only(top: 1),
             child: Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary.withValues(alpha: 0.6)),
           ),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           Expanded(child: Text(text, style: textTheme.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant, height: 1.4))),
         ],
       ),
@@ -1755,7 +1726,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
         Row(
           children: [
             Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-            SizedBox(width: 4.rs),
+            SizedBox(width: AppSpacing.xs),
             Tooltip(message: tooltip, child: Icon(Icons.info_outline_rounded, size: 12, color: scheme.onSurfaceVariant)),
           ],
         ),
@@ -1791,7 +1762,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
         ),
         if (_delimiter == 'Custom') ...[
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _customDelimiterCtrl,
             style: text.bodySmall?.copyWith(fontFamily: 'monospace'),
@@ -1801,7 +1772,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               hintStyle: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+              border: OutlineInputBorder(borderRadius: AppRadius.button),
             ),
           ),
         ],
@@ -1831,10 +1802,10 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
 
   Widget _buildWeighmentModeCard(ColorScheme scheme, TextTheme text) {
     return Container(
-      padding: EdgeInsets.all(24.rs),
+      padding: AppSpacing.pagePadding,
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
       ),
       child: Column(
@@ -1843,7 +1814,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           Row(
             children: [
               Icon(Icons.route_rounded, size: 18, color: scheme.primary),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               Text('Weighment Mode', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
               const Spacer(),
               FilledButton.tonal(
@@ -1863,7 +1834,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           ),
           SizedBox(height: 20.rs),
           Text('Entry mode', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           SegmentedButton<String>(
             segments: const [
               ButtonSegment(value: 'singleEntry', label: Text('Single Entry'), icon: Icon(Icons.looks_one_rounded, size: 16)),
@@ -1877,7 +1848,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
               });
             },
           ),
-          SizedBox(height: 8.rs),
+          SizedBox(height: AppSpacing.sm),
           Text(
             _weighmentEntryMode == 'singleEntry'
                 ? 'Both gross and tare must be captured in a single session. No "Save & Wait" option.'
@@ -1917,12 +1888,12 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
           if (_weighmentEntryMode == 'singleEntry') ...[
             SizedBox(height: 20.rs),
             Text('Minimum weight difference (kg)', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-            SizedBox(height: 4.rs),
+            SizedBox(height: AppSpacing.xs),
             Text(
               'Reject second weight if |gross − tare| is below this threshold. Set 0 to disable.',
               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
             ),
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             SizedBox(
               width: 160,
               child: TextField(
@@ -1933,7 +1904,7 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                   suffixText: 'kg',
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs)),
+                  border: OutlineInputBorder(borderRadius: AppRadius.button),
                 ),
                 onChanged: (v) {
                   _minWeightDiff = double.tryParse(v) ?? 0;
@@ -1965,10 +1936,10 @@ class _Section extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(24.rs),
+      padding: AppSpacing.pagePadding,
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(16.rs),
+        borderRadius: AppRadius.dialog,
         border: Border.all(color: isDirty ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
       ),
@@ -1995,7 +1966,7 @@ class _Section extends StatelessWidget {
                   style: TextButton.styleFrom(
                     foregroundColor: scheme.onSurfaceVariant,
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.chip),
                   ),
                   child: const Text('Reset to Default', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                 ),
@@ -2005,7 +1976,7 @@ class _Section extends StatelessWidget {
                   onPressed: onSave,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.chip),
                     textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                   ),
                   child: const Text('Save'),
@@ -2013,7 +1984,7 @@ class _Section extends StatelessWidget {
               ],
             ],
           ),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           ...children,
         ],
       ),

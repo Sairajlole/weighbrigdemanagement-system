@@ -19,6 +19,7 @@ import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 final _customersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final paths = ref.watch(firestorePathsProvider);
@@ -301,7 +302,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             top: top,
             child: Material(
               elevation: 8,
-              borderRadius: BorderRadius.circular(12.rs),
+              borderRadius: AppRadius.card,
               clipBehavior: Clip.antiAlias,
               child: Container(
                 padding: EdgeInsets.all(10.rs),
@@ -339,7 +340,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: active ? scheme.primary.withValues(alpha: 0.15) : scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
           border: active ? Border.all(color: scheme.primary.withValues(alpha: 0.6)) : null,
         ),
         child: Text(
@@ -378,7 +379,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         children: [
           Expanded(
             child: Padding(
-      padding: EdgeInsets.all(24.rs),
+      padding: AppSpacing.pagePadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -410,12 +411,12 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.people_outline, size: 48, color: scheme.outlineVariant),
-                        SizedBox(height: 8.rs),
+                        SizedBox(height: AppSpacing.sm),
                         Text(
                           _search.isNotEmpty ? 'No matches for "$_search"' : 'No customers yet',
                           style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                         ),
-                        SizedBox(height: 4.rs),
+                        SizedBox(height: AppSpacing.xs),
                         Text(
                           _search.isNotEmpty ? 'Try a different search term' : 'Add your first customer to get started',
                           style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
@@ -434,7 +435,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
               },
             ),
           ),
-          SizedBox(height: 12.rs),
+          SizedBox(height: AppSpacing.md),
           _buildBottomSummary(scheme, customersAsync, weighmentsAsync),
         ],
       ),
@@ -487,17 +488,17 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       child: Row(
         children: [
           Text('${filtered.length} shown', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-          SizedBox(width: 16.rs),
+          SizedBox(width: AppSpacing.lg),
           _bottomPill('With Phone', '$withPhone', scheme),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           _bottomPill('With Address', '$withAddress', scheme),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           if (archivedCount > 0) ...[
             _bottomPill('Archived', '$archivedCount', scheme),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
           ],
           _bottomPill('Weighments', '${allWeighments.length}', scheme),
-          SizedBox(width: 16.rs),
+          SizedBox(width: AppSpacing.lg),
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -567,7 +568,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: scheme.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(6.rs),
+                  borderRadius: AppRadius.chip,
                   border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                 ),
                 child: Row(
@@ -584,7 +585,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 height: 34,
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(8.rs),
+                  borderRadius: AppRadius.button,
                 ),
                 padding: EdgeInsets.all(3.rs),
                 child: Row(
@@ -598,7 +599,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: !_viewAllSites ? scheme.primary : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6.rs),
+                          borderRadius: AppRadius.chip,
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -622,7 +623,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: _viewAllSites ? scheme.primary : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6.rs),
+                          borderRadius: AppRadius.chip,
                         ),
                         child: Text('All Sites', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _viewAllSites ? scheme.onPrimary : scheme.onSurfaceVariant)),
                       ),
@@ -639,15 +640,15 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         Row(
           children: [
             _headerStatCard('Total', '${customers.length}', Icons.people_rounded, scheme.primary, scheme),
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             _headerStatCard('Active', '$activeCount', Icons.check_circle_rounded, Colors.green.shade700, scheme),
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             _headerStatCard('Weighments', '${allWeighments.length}', Icons.monitor_weight_rounded, Colors.deepPurple, scheme),
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             _headerStatCard('New This Month', '$newThisMonth', Icons.person_add_rounded, Colors.amber.shade700, scheme),
           ],
         ),
-        SizedBox(height: 16.rs),
+        SizedBox(height: AppSpacing.lg),
 
         // Row 3: Filter/action bar
         Wrap(
@@ -669,9 +670,9 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                     filled: true,
                     fillColor: scheme.surfaceContainerHigh,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide.none),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
+                    border: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide.none),
+                    enabledBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide(color: scheme.primary, width: 1.5)),
                   ),
                   style: const TextStyle(fontSize: 12),
                 ),
@@ -685,7 +686,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
                   color: _sortOption != _SortOption.nameAsc ? scheme.primary.withValues(alpha: 0.1) : scheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(6.rs),
+                  borderRadius: AppRadius.chip,
                   border: _sortOption != _SortOption.nameAsc ? Border.all(color: scheme.primary.withValues(alpha: 0.4)) : null,
                 ),
                 child: Row(
@@ -706,7 +707,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   color: scheme.primary,
-                  borderRadius: BorderRadius.circular(6.rs),
+                  borderRadius: AppRadius.chip,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -716,12 +717,12 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 ),
               ),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             Container(
               height: 32,
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -731,13 +732,13 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 ],
               ),
             ),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             _chipButton('History', scheme.onSurfaceVariant, scheme, onTap: () => _showMergeHistory(context)),
             _chipButton('Recycle Bin', scheme.onSurfaceVariant, scheme, onTap: () => _showRecycleBin(context)),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             _chipButton('Merge', scheme.primary, scheme, onTap: () => setState(() { _selectMode = true; _selectPurpose = _SelectPurpose.merge; })),
             _chipButton('Delete', scheme.error, scheme, onTap: () => setState(() { _selectMode = true; _selectPurpose = _SelectPurpose.delete; })),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             GestureDetector(
               onTap: () => _showAddDialog(context),
               child: Container(
@@ -745,7 +746,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   color: scheme.primary,
-                  borderRadius: BorderRadius.circular(6.rs),
+                  borderRadius: AppRadius.chip,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -792,19 +793,19 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
           Container(
             width: 32, height: 32,
-            decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8.rs)),
+            decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), borderRadius: AppRadius.button),
             child: Center(child: Text('${_selected.length}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: scheme.primary))),
           ),
-          SizedBox(width: 12.rs),
+          SizedBox(width: AppSpacing.md),
           Text('selected', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-          SizedBox(width: 12.rs),
+          SizedBox(width: AppSpacing.md),
           Text(
             _selectPurpose == _SelectPurpose.merge ? 'Select 2 or more to merge' : 'Select customers to delete',
             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
@@ -822,7 +823,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
               style: TextButton.styleFrom(foregroundColor: scheme.primary),
               child: const Text('Merge Selected', style: TextStyle(fontSize: 13)),
             ),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           TextButton(
             onPressed: _cancelSelection,
             style: TextButton.styleFrom(foregroundColor: scheme.onSurfaceVariant),
@@ -841,7 +842,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -863,7 +864,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active ? scheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(6.rs),
+          borderRadius: AppRadius.chip,
         ),
         child: Icon(icon, size: 16, color: active ? scheme.onPrimary : scheme.onSurfaceVariant),
       ),
@@ -908,7 +909,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                     width: 24, height: 24,
                     decoration: BoxDecoration(
                       color: isSelected ? scheme.primary : scheme.surface,
-                      borderRadius: BorderRadius.circular(6.rs),
+                      borderRadius: AppRadius.chip,
                       border: Border.all(color: isSelected ? scheme.primary : scheme.outlineVariant, width: 2),
                     ),
                     child: isSelected ? Icon(Icons.check_rounded, size: 16, color: scheme.onPrimary) : null,
@@ -969,7 +970,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
               top: top,
               child: Material(
                 elevation: 8,
-                borderRadius: BorderRadius.circular(12.rs),
+                borderRadius: AppRadius.card,
                 clipBehavior: Clip.antiAlias,
                 child: Container(
                   width: 320,
@@ -979,7 +980,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Toggle time columns', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-                      SizedBox(height: 8.rs),
+                      SizedBox(height: AppSpacing.sm),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -1001,7 +1002,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
                                 color: active ? scheme.primary.withValues(alpha: 0.12) : scheme.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(6.rs),
+                                borderRadius: AppRadius.chip,
                                 border: active ? Border.all(color: scheme.primary.withValues(alpha: 0.5)) : null,
                               ),
                               child: Text(
@@ -1030,7 +1031,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(12.rs),
+        borderRadius: AppRadius.card,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -1221,7 +1222,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           final hasPhoneMismatch = phones.length > 1;
 
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
             child: SizedBox(
               width: 460,
               child: Column(
@@ -1240,7 +1241,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                           decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(10.rs)),
                           child: Icon(Icons.merge_rounded, size: 18, color: scheme.primary),
                         ),
-                        SizedBox(width: 12.rs),
+                        SizedBox(width: AppSpacing.md),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1285,7 +1286,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                                     width: 32, height: 32,
                                     decoration: BoxDecoration(
                                       color: isSelected ? scheme.primary : scheme.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(8.rs),
+                                      borderRadius: AppRadius.button,
                                     ),
                                     child: Center(
                                       child: isSelected
@@ -1293,7 +1294,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                                           : Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
                                     ),
                                   ),
-                                  SizedBox(width: 12.rs),
+                                  SizedBox(width: AppSpacing.md),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1303,7 +1304,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                                           children: [
                                             if (phone.isNotEmpty) ...[
                                               Text(phone, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
-                                              SizedBox(width: 8.rs),
+                                              SizedBox(width: AppSpacing.sm),
                                             ],
                                             Text('$weighments weighments', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
                                           ],
@@ -1332,13 +1333,13 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: scheme.tertiaryContainer.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(8.rs),
+                          borderRadius: AppRadius.button,
                           border: Border.all(color: scheme.tertiary.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.info_outline_rounded, size: 14, color: scheme.tertiary),
-                            SizedBox(width: 8.rs),
+                            SizedBox(width: AppSpacing.sm),
                             Expanded(
                               child: Text('Different phone numbers detected. Primary\'s phone will be kept.', style: TextStyle(fontSize: 11, color: scheme.tertiary)),
                             ),
@@ -1353,13 +1354,13 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         Icon(Icons.info_outline_rounded, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
                         SizedBox(width: 6.rs),
                         Expanded(child: Text('Weighments will be reassigned to primary. This action can be reverted from History.', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)))),
-                        SizedBox(width: 12.rs),
+                        SizedBox(width: AppSpacing.md),
                         OutlinedButton(
                           onPressed: () => Navigator.pop(ctx),
                           style: OutlinedButton.styleFrom(foregroundColor: scheme.onSurfaceVariant, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
                           child: const Text('Cancel', style: TextStyle(fontSize: 13)),
                         ),
-                        SizedBox(width: 8.rs),
+                        SizedBox(width: AppSpacing.sm),
                         FilledButton(
                           onPressed: primaryId == null ? null : () async {
                             if (ctx.mounted) Navigator.pop(ctx);
@@ -1589,7 +1590,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.rs)),
         title: Row(children: [
           Icon(Icons.verified_user_rounded, size: 20, color: scheme.tertiary),
-          SizedBox(width: 8.rs),
+          SizedBox(width: AppSpacing.sm),
           const Text('Admin Reverification'),
         ]),
         content: SizedBox(
@@ -1600,7 +1601,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
             children: [
               Text('This customer has 1 weighment. Editing requires operator/admin password to confirm.',
                   style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-              SizedBox(height: 16.rs),
+              SizedBox(height: AppSpacing.lg),
               TextField(
                 controller: passC,
                 obscureText: true,
@@ -1658,7 +1659,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
         builder: (dCtx) => Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.rs)),
           child: Padding(
-            padding: EdgeInsets.all(24.rs),
+            padding: AppSpacing.pagePadding,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1668,12 +1669,12 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
                   SizedBox(width: 10.rs),
                   Text('Delete Customer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: scheme.onSurface)),
                 ]),
-                SizedBox(height: 12.rs),
+                SizedBox(height: AppSpacing.md),
                 Text('Delete "$name"? This customer has no weighments and will be moved to the recycle bin.', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-                SizedBox(height: 16.rs),
+                SizedBox(height: AppSpacing.lg),
                 Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                   OutlinedButton(onPressed: () => Navigator.pop(dCtx, false), style: OutlinedButton.styleFrom(foregroundColor: scheme.onSurfaceVariant), child: const Text('Cancel', style: TextStyle(fontSize: 13))),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   FilledButton(onPressed: () => Navigator.pop(dCtx, true), style: FilledButton.styleFrom(backgroundColor: scheme.error), child: const Text('Delete', style: TextStyle(fontSize: 13))),
                 ]),
               ],
@@ -1735,7 +1736,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
 
     return Dialog(
       alignment: Alignment.topCenter,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
       insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
       child: SizedBox(
         width: 900,
@@ -1784,7 +1785,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
                   width: 64, height: 64,
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(12.rs),
+                    borderRadius: AppRadius.card,
                     border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                   ),
                   child: Column(
@@ -1802,14 +1803,14 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
         SizedBox(width: 10.rs),
         if (lastFace != null) ...[
           _FacePreview(facePath: lastFace, label: 'Last', scheme: scheme),
-          SizedBox(width: 12.rs),
+          SizedBox(width: AppSpacing.md),
         ],
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(name, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-              SizedBox(height: 4.rs),
+              SizedBox(height: AppSpacing.xs),
               Row(children: [
                 Icon(Icons.phone_rounded, size: 14, color: scheme.onSurfaceVariant),
                 SizedBox(width: 6.rs),
@@ -1817,7 +1818,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
                 if (address.isNotEmpty) ...[
                   Text('   •   ', style: TextStyle(fontSize: 12, color: scheme.outlineVariant)),
                   Icon(Icons.location_on_rounded, size: 14, color: scheme.onSurfaceVariant),
-                  SizedBox(width: 4.rs),
+                  SizedBox(width: AppSpacing.xs),
                   Expanded(child: Text(address, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis)),
                 ],
                 if (address.isEmpty) const Spacer(),
@@ -1827,21 +1828,21 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(6.rs)),
+                    decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: AppRadius.chip),
                     child: Text('$totalWeighments weighments', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.onPrimaryContainer)),
                   ),
                   if (mergedFrom.isNotEmpty) ...[
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Tooltip(
                       message: 'Merged from: ${mergedFrom.join(", ")}',
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: scheme.tertiaryContainer.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(6.rs)),
+                        decoration: BoxDecoration(color: scheme.tertiaryContainer.withValues(alpha: 0.5), borderRadius: AppRadius.chip),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.merge_rounded, size: 11, color: scheme.tertiary),
-                            SizedBox(width: 4.rs),
+                            SizedBox(width: AppSpacing.xs),
                             Text('${mergedFrom.length} merged', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.tertiary)),
                           ],
                         ),
@@ -1853,7 +1854,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
             ],
           ),
         ),
-        SizedBox(width: 8.rs),
+        SizedBox(width: AppSpacing.sm),
         if (_canEditWithReverification)
           TextButton(
             onPressed: () => _requestReverification(context, () => setState(() => _editing = true)),
@@ -1866,13 +1867,13 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
             style: TextButton.styleFrom(foregroundColor: scheme.primary),
             child: const Text('Edit', style: TextStyle(fontSize: 12)),
           ),
-        SizedBox(width: 4.rs),
+        SizedBox(width: AppSpacing.xs),
         TextButton(
           onPressed: () => _deleteCustomer(context),
           style: TextButton.styleFrom(foregroundColor: scheme.error),
           child: const Text('Delete', style: TextStyle(fontSize: 12)),
         ),
-        SizedBox(width: 8.rs),
+        SizedBox(width: AppSpacing.sm),
         IconButton(
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.close_rounded, size: 20),
@@ -1896,7 +1897,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
             isDense: true,
           ),
         ),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
         Row(
           children: [
             Expanded(
@@ -1910,7 +1911,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
                 ),
               ),
             ),
-            SizedBox(width: 12.rs),
+            SizedBox(width: AppSpacing.md),
             Expanded(
               child: TextField(
                 controller: _addressC,
@@ -1924,12 +1925,12 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
             ),
           ],
         ),
-        SizedBox(height: 12.rs),
+        SizedBox(height: AppSpacing.md),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             TextButton(onPressed: () => setState(() => _editing = false), child: const Text('Cancel')),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             FilledButton(
               onPressed: _saving ? null : _saveChanges,
               child: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save'),
@@ -2004,9 +2005,9 @@ class _WeighmentHistory extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.error_outline_rounded, size: 40, color: scheme.error.withValues(alpha: 0.5)),
-                SizedBox(height: 8.rs),
+                SizedBox(height: AppSpacing.sm),
                 Text('Failed to load history', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-                SizedBox(height: 4.rs),
+                SizedBox(height: AppSpacing.xs),
                 Text('${snap.error}', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)), textAlign: TextAlign.center),
               ],
             ),
@@ -2020,7 +2021,7 @@ class _WeighmentHistory extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.scale_rounded, size: 40, color: scheme.outlineVariant),
-                SizedBox(height: 8.rs),
+                SizedBox(height: AppSpacing.sm),
                 Text('No weighment history', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
               ],
             ),
@@ -2046,10 +2047,10 @@ class _WeighmentHistory extends StatelessWidget {
               child: Row(
                 children: [
                   Text('Weighments (${docs.length})', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-                  SizedBox(width: 12.rs),
+                  SizedBox(width: AppSpacing.md),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: scheme.tertiaryContainer, borderRadius: BorderRadius.circular(6.rs)),
+                    decoration: BoxDecoration(color: scheme.tertiaryContainer, borderRadius: AppRadius.chip),
                     child: Text('Net: ${(totalNet / 1000).toStringAsFixed(1)} t', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: totalNet < 0 ? scheme.error : scheme.onTertiaryContainer)),
                   ),
                 ],
@@ -2065,7 +2066,7 @@ class _WeighmentHistory extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: scheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(6.rs),
+                    borderRadius: AppRadius.chip,
                     border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                   ),
                   child: Text('${e.key}: ${e.value}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
@@ -2321,7 +2322,7 @@ class _RecycleBinDialogState extends State<_RecycleBinDialog> {
     final text = Theme.of(context).textTheme;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: 550,
@@ -2362,15 +2363,15 @@ class _RecycleBinDialogState extends State<_RecycleBinDialog> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.check_circle_outline_rounded, size: 40, color: scheme.outlineVariant),
-                              SizedBox(height: 8.rs),
+                              SizedBox(height: AppSpacing.sm),
                               Text('Recycle bin is empty', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
                             ],
                           ),
                         )
                       : ListView.separated(
-                          padding: EdgeInsets.all(16.rs),
+                          padding: AppSpacing.cardPadding,
                           itemCount: _deleted!.length,
-                          separatorBuilder: (_, __) => SizedBox(height: 8.rs),
+                          separatorBuilder: (_, __) => SizedBox(height: AppSpacing.sm),
                           itemBuilder: (_, i) {
                             final item = _deleted![i];
                             final id = item['id'] as String;
@@ -2401,11 +2402,11 @@ class _RecycleBinDialogState extends State<_RecycleBinDialog> {
                                     width: 36, height: 36,
                                     decoration: BoxDecoration(
                                       color: scheme.errorContainer.withValues(alpha: 0.4),
-                                      borderRadius: BorderRadius.circular(8.rs),
+                                      borderRadius: AppRadius.button,
                                     ),
                                     child: Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(fontWeight: FontWeight.w700, color: scheme.error))),
                                   ),
-                                  SizedBox(width: 12.rs),
+                                  SizedBox(width: AppSpacing.md),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2426,7 +2427,7 @@ class _RecycleBinDialogState extends State<_RecycleBinDialog> {
                                       style: TextButton.styleFrom(foregroundColor: scheme.primary, minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
                                       child: const Text('Restore', style: TextStyle(fontSize: 11)),
                                     ),
-                                    SizedBox(width: 4.rs),
+                                    SizedBox(width: AppSpacing.xs),
                                     TextButton(
                                       onPressed: () => _permanentDelete(item),
                                       style: TextButton.styleFrom(foregroundColor: scheme.error, minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
@@ -2553,7 +2554,7 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
     final text = Theme.of(context).textTheme;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: 580,
@@ -2570,7 +2571,7 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
                     decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(10.rs)),
                     child: Icon(Icons.merge_rounded, size: 18, color: scheme.primary),
                   ),
-                  SizedBox(width: 12.rs),
+                  SizedBox(width: AppSpacing.md),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2596,15 +2597,15 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.merge_rounded, size: 40, color: scheme.outlineVariant),
-                              SizedBox(height: 8.rs),
+                              SizedBox(height: AppSpacing.sm),
                               Text('No merge history', style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
                             ],
                           ),
                         )
                       : ListView.separated(
-                          padding: EdgeInsets.all(16.rs),
+                          padding: AppSpacing.cardPadding,
                           itemCount: _merges!.length,
-                          separatorBuilder: (_, __) => SizedBox(height: 8.rs),
+                          separatorBuilder: (_, __) => SizedBox(height: AppSpacing.sm),
                           itemBuilder: (_, i) {
                             final merge = _merges![i];
                             final id = merge['id'] as String;
@@ -2653,14 +2654,14 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
                                         child: Text('PRIMARY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.primary, letterSpacing: 0.3)),
                                       ),
                                       if (primaryPhone.isNotEmpty) ...[
-                                        SizedBox(width: 8.rs),
+                                        SizedBox(width: AppSpacing.sm),
                                         Text(primaryPhone, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                                       ],
                                       const Spacer(),
                                       Text(dateStr, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                                     ],
                                   ),
-                                  SizedBox(height: 8.rs),
+                                  SizedBox(height: AppSpacing.sm),
                                   // Merged customers list
                                   ...mergedDetails.map((m) => Padding(
                                     padding: const EdgeInsets.only(bottom: 4),
@@ -2680,7 +2681,7 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
                                       ],
                                     ),
                                   )),
-                                  SizedBox(height: 4.rs),
+                                  SizedBox(height: AppSpacing.xs),
                                   // Stats + revert
                                   Row(
                                     children: [
@@ -2706,7 +2707,7 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(Icons.undo_rounded, size: 12, color: scheme.onSurfaceVariant),
-                                              SizedBox(width: 4.rs),
+                                              SizedBox(width: AppSpacing.xs),
                                               Text('Reverted', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
                                             ],
                                           ),
@@ -2748,7 +2749,7 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.rs)),
         child: Padding(
-          padding: EdgeInsets.all(24.rs),
+          padding: AppSpacing.pagePadding,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2760,12 +2761,12 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
                   Text('Revert Merge?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: scheme.onSurface)),
                 ],
               ),
-              SizedBox(height: 12.rs),
+              SizedBox(height: AppSpacing.md),
               Text(
                 'This will restore $mergedCount customer(s) that were merged into "$primaryName" and reassign their weighments back.',
                 style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
               ),
-              SizedBox(height: 16.rs),
+              SizedBox(height: AppSpacing.lg),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -2774,7 +2775,7 @@ class _MergeHistoryDialogState extends State<_MergeHistoryDialog> {
                     style: OutlinedButton.styleFrom(foregroundColor: scheme.onSurfaceVariant),
                     child: const Text('Cancel', style: TextStyle(fontSize: 13)),
                   ),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   FilledButton(
                     onPressed: () {
                       Navigator.pop(ctx);
@@ -2977,7 +2978,7 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
     }).toList();
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
       child: SizedBox(
         width: 500,
         height: 520,
@@ -2996,7 +2997,7 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                     decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(10.rs)),
                     child: Icon(Icons.person_off_rounded, size: 18, color: scheme.error),
                   ),
-                  SizedBox(width: 12.rs),
+                  SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3016,12 +3017,12 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
             else
               Expanded(
                 child: Padding(
-                  padding: EdgeInsets.all(16.rs),
+                  padding: AppSpacing.cardPadding,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Choose how to handle the weighments:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-                      SizedBox(height: 12.rs),
+                      SizedBox(height: AppSpacing.md),
                       // Option 1: Archive
                       GestureDetector(
                         onTap: _archive,
@@ -3036,10 +3037,10 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                             children: [
                               Container(
                                 width: 32, height: 32,
-                                decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(8.rs)),
+                                decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: AppRadius.button),
                                 child: Icon(Icons.archive_rounded, size: 16, color: scheme.onSurfaceVariant),
                               ),
-                              SizedBox(width: 12.rs),
+                              SizedBox(width: AppSpacing.md),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3054,7 +3055,7 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                           ),
                         ),
                       ),
-                      SizedBox(height: 8.rs),
+                      SizedBox(height: AppSpacing.sm),
                       // Option 2: Transfer
                       Container(
                         padding: EdgeInsets.all(12.rs),
@@ -3070,10 +3071,10 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                               children: [
                                 Container(
                                   width: 32, height: 32,
-                                  decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(8.rs)),
+                                  decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: AppRadius.button),
                                   child: Icon(Icons.swap_horiz_rounded, size: 16, color: scheme.primary),
                                 ),
-                                SizedBox(width: 12.rs),
+                                SizedBox(width: AppSpacing.md),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -3095,13 +3096,13 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                                   hintStyle: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                                   prefixIcon: Icon(Icons.search, size: 16, color: scheme.onSurfaceVariant),
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.rs), borderSide: BorderSide(color: scheme.outlineVariant)),
+                                  border: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant)),
                                   isDense: true,
                                 ),
                                 style: const TextStyle(fontSize: 12),
                               ),
                             ),
-                            SizedBox(height: 8.rs),
+                            SizedBox(height: AppSpacing.sm),
                             SizedBox(
                               height: 160,
                               child: filteredCustomers == null
@@ -3110,7 +3111,7 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                                       ? Center(child: Text('No customers found', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)))
                                       : ListView.separated(
                                           itemCount: filteredCustomers.length,
-                                          separatorBuilder: (_, __) => SizedBox(height: 4.rs),
+                                          separatorBuilder: (_, __) => SizedBox(height: AppSpacing.xs),
                                           itemBuilder: (_, i) {
                                             final c = filteredCustomers[i];
                                             final cId = c['id'] as String;
@@ -3123,7 +3124,7 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                                 decoration: BoxDecoration(
                                                   color: isSelected ? scheme.primaryContainer.withValues(alpha: 0.3) : Colors.transparent,
-                                                  borderRadius: BorderRadius.circular(6.rs),
+                                                  borderRadius: AppRadius.chip,
                                                   border: isSelected ? Border.all(color: scheme.primary.withValues(alpha: 0.4)) : null,
                                                 ),
                                                 child: Row(
@@ -3132,7 +3133,7 @@ class _DeleteWithWeighmentsDialogState extends State<_DeleteWithWeighmentsDialog
                                                       Icon(Icons.check_circle_rounded, size: 14, color: scheme.primary)
                                                     else
                                                       Icon(Icons.radio_button_unchecked_rounded, size: 14, color: scheme.outlineVariant),
-                                                    SizedBox(width: 8.rs),
+                                                    SizedBox(width: AppSpacing.sm),
                                                     Expanded(child: Text(cName, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface))),
                                                     if (cPhone.isNotEmpty)
                                                       Text(cPhone, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
@@ -3385,7 +3386,7 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
     final text = Theme.of(context).textTheme;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: 360,
@@ -3420,7 +3421,7 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
 
             // Actions
             Padding(
-              padding: EdgeInsets.all(16.rs),
+              padding: AppSpacing.cardPadding,
               child: _buildActions(scheme),
             ),
           ],
@@ -3437,11 +3438,11 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.videocam_off_rounded, size: 24, color: scheme.onSurfaceVariant),
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             Text('Customer camera not configured', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
             SizedBox(height: 14.rs),
             Text('Select a camera:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
-            SizedBox(height: 8.rs),
+            SizedBox(height: AppSpacing.sm),
             ...List.generate(_availableCameras.length, (i) => Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: SizedBox(
@@ -3469,7 +3470,7 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
             child: Center(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6.rs)),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: AppRadius.chip),
                 child: const Text('Preview — save or retake', style: TextStyle(fontSize: 10, color: Colors.white70)),
               ),
             ),
@@ -3489,13 +3490,13 @@ class _FaceCaptureForCustomerDialogState extends State<_FaceCaptureForCustomerDi
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: (_faceDetected ? Colors.green : Colors.orange).withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(6.rs),
+                borderRadius: AppRadius.chip,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(_faceDetected ? Icons.face_rounded : Icons.face_retouching_off_rounded, size: 12, color: Colors.white),
-                  SizedBox(width: 4.rs),
+                  SizedBox(width: AppSpacing.xs),
                   Text(_faceDetected ? 'Detected' : 'Searching...', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
                 ],
               ),
@@ -3887,7 +3888,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                     ),
                     child: Icon(Icons.person_add_rounded, size: 20, color: scheme.primary),
                   ),
-                  SizedBox(width: 12.rs),
+                  SizedBox(width: AppSpacing.md),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -3933,7 +3934,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                       ),
                     ),
                     if (_wbs.length > 1) ...[
-                      SizedBox(width: 12.rs),
+                      SizedBox(width: AppSpacing.md),
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           initialValue: _selectedWbId,
@@ -3983,7 +3984,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                             color: scheme.surfaceContainerLow,
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12.rs),
+                            borderRadius: AppRadius.card,
                             child: _buildFaceArea(scheme, text),
                           ),
                         ),
@@ -4060,7 +4061,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                     onPressed: () { _frameTimer?.cancel(); Navigator.pop(context); },
                     child: const Text('Cancel'),
                   ),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   FilledButton(
                     onPressed: _saving ? null : _save,
                     child: Text(_saving ? 'Saving...' : 'Add Customer'),
@@ -4096,7 +4097,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.check_circle_rounded, size: 12, color: Colors.white70),
-                  SizedBox(width: 4.rs),
+                  SizedBox(width: AppSpacing.xs),
                   Text('Face captured', style: TextStyle(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.w500)),
                 ],
               ),
@@ -4129,7 +4130,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     side: BorderSide(color: scheme.primary.withValues(alpha: 0.4)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.rs)),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.chip),
                   ),
                   child: Text(
                     _availableCameras[i],
@@ -4157,7 +4158,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
-                  SizedBox(height: 8.rs),
+                  SizedBox(height: AppSpacing.sm),
                   Text(_status, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                 ],
               ),
@@ -4169,7 +4170,7 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
                   color: (_faceDetected ? Colors.green : Colors.orange).withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(6.rs),
+                  borderRadius: AppRadius.chip,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -4483,7 +4484,7 @@ class _FacePreview extends StatelessWidget {
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12.rs),
+            borderRadius: AppRadius.card,
             border: Border.all(color: scheme.primary.withValues(alpha: 0.3), width: 2),
           ),
           child: ClipRRect(
@@ -4730,7 +4731,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
     final text = Theme.of(context).textTheme;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.rs)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 640, maxHeight: 580),
@@ -4748,7 +4749,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
                     decoration: BoxDecoration(color: scheme.tertiaryContainer, borderRadius: BorderRadius.circular(9.rs)),
                     child: Icon(Icons.upload_file_rounded, size: 17, color: scheme.tertiary),
                   ),
-                  SizedBox(width: 12.rs),
+                  SizedBox(width: AppSpacing.md),
                   Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -4801,46 +4802,46 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.error.withValues(alpha: 0.3))),
+                  decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.2), borderRadius: AppRadius.button, border: Border.all(color: scheme.error.withValues(alpha: 0.3))),
                   child: Row(children: [
                     Icon(Icons.error_outline_rounded, size: 14, color: scheme.error),
-                    SizedBox(width: 8.rs),
+                    SizedBox(width: AppSpacing.sm),
                     Text(_error!, style: text.bodySmall?.copyWith(color: scheme.error, fontWeight: FontWeight.w500)),
                   ]),
                 ),
               ],
               Text('Required Columns (all 3 mandatory)', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               _CsvFormatRow(label: 'Name', description: 'Customer/party name', example: 'Rajesh Kumar', scheme: scheme, text: text),
               _CsvFormatRow(label: 'Phone', description: 'Mobile number (10-12 digits)', example: '9876543210', scheme: scheme, text: text),
               _CsvFormatRow(label: 'Address', description: 'Village/city/area', example: 'Vatva, Ahmedabad', scheme: scheme, text: text),
-              SizedBox(height: 16.rs),
+              SizedBox(height: AppSpacing.lg),
               Text('Accepted Formats', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-              SizedBox(height: 8.rs),
+              SizedBox(height: AppSpacing.sm),
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(12.rs),
-                decoration: BoxDecoration(color: scheme.surfaceContainerHighest.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+                decoration: BoxDecoration(color: scheme.surfaceContainerHighest.withValues(alpha: 0.4), borderRadius: AppRadius.button, border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('With header row:', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                    SizedBox(height: 4.rs),
+                    SizedBox(height: AppSpacing.xs),
                     Text('Name, Phone, Address\nRajesh Kumar, 9876543210, Vatva', style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontSize: 11, color: scheme.onSurfaceVariant, height: 1.5)),
                     SizedBox(height: 10.rs),
                     Text('Without header (columns in order):', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                    SizedBox(height: 4.rs),
+                    SizedBox(height: AppSpacing.xs),
                     Text('Rajesh Kumar, 9876543210, Vatva\nSuresh Patel, 8765432109, Naroda', style: text.bodySmall?.copyWith(fontFamily: 'monospace', fontSize: 11, color: scheme.onSurfaceVariant, height: 1.5)),
                   ],
                 ),
               ),
-              SizedBox(height: 12.rs),
+              SizedBox(height: AppSpacing.md),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6.rs)),
+                decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: 0.15), borderRadius: AppRadius.chip),
                 child: Row(children: [
                   Icon(Icons.lightbulb_outline_rounded, size: 14, color: scheme.primary),
-                  SizedBox(width: 8.rs),
+                  SizedBox(width: AppSpacing.sm),
                   Expanded(child: Text('Header keywords: name/party/customer, phone/mobile/contact, address/city/location. Names are auto title-cased. Non-digit characters in phone are stripped.', style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.primary))),
                 ]),
               ),
@@ -4853,7 +4854,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
             children: [
               const Spacer(),
               TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-              SizedBox(width: 8.rs),
+              SizedBox(width: AppSpacing.sm),
               FilledButton.icon(
                 onPressed: _pickAndParse,
                 icon: const Icon(Icons.file_open_rounded, size: 16),
@@ -4884,7 +4885,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
             flex: 3,
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(8.rs), border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
+              decoration: BoxDecoration(borderRadius: AppRadius.button, border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3))),
               clipBehavior: Clip.antiAlias,
               child: Column(children: [
                 Container(
@@ -4956,7 +4957,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
             ),
           ),
         ],
-        SizedBox(height: 8.rs),
+        SizedBox(height: AppSpacing.sm),
         // Footer
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -4969,7 +4970,7 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
             ),
             const Spacer(),
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            SizedBox(width: 8.rs),
+            SizedBox(width: AppSpacing.sm),
             FilledButton.icon(
               onPressed: _rows.isEmpty ? null : _doImport,
               icon: const Icon(Icons.upload_rounded, size: 16),
@@ -4988,14 +4989,14 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.check_circle_rounded, size: 48, color: Colors.green.shade600),
-          SizedBox(height: 16.rs),
+          SizedBox(height: AppSpacing.lg),
           Text('$_importedCount customer${_importedCount != 1 ? 's' : ''} imported', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
           if (_duplicateCount > 0)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text('$_duplicateCount duplicate phone${_duplicateCount != 1 ? 's' : ''} skipped', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
             ),
-          SizedBox(height: 24.rs),
+          SizedBox(height: AppSpacing.xl),
           FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done')),
         ],
       ),
@@ -5063,14 +5064,14 @@ class _InvalidRowTileState extends State<_InvalidRowTile> {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8.rs),
+        borderRadius: AppRadius.button,
         border: Border.all(color: scheme.error.withValues(alpha: 0.25)),
         color: scheme.errorContainer.withValues(alpha: 0.06),
       ),
       child: Column(
         children: [
           InkWell(
-            borderRadius: BorderRadius.circular(8.rs),
+            borderRadius: AppRadius.button,
             onTap: () => setState(() => _expanded = !_expanded),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -5082,7 +5083,7 @@ class _InvalidRowTileState extends State<_InvalidRowTile> {
                   style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 )),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 ...issues.map((code) => Container(
                   margin: const EdgeInsets.only(right: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -5110,12 +5111,12 @@ class _InvalidRowTileState extends State<_InvalidRowTile> {
                     labelText: 'Name',
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs)),
+                    border: OutlineInputBorder(borderRadius: AppRadius.chip),
                     errorText: issues.contains('name') ? '' : null,
                     errorStyle: const TextStyle(height: 0, fontSize: 0),
                   ),
                 )),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(child: TextField(
                   controller: _phoneC,
                   style: const TextStyle(fontSize: 12),
@@ -5123,12 +5124,12 @@ class _InvalidRowTileState extends State<_InvalidRowTile> {
                     labelText: 'Phone',
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs)),
+                    border: OutlineInputBorder(borderRadius: AppRadius.chip),
                     errorText: issues.any((c) => c.startsWith('phone') || c == 'dup') ? '' : null,
                     errorStyle: const TextStyle(height: 0, fontSize: 0),
                   ),
                 )),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(child: TextField(
                   controller: _addressC,
                   style: const TextStyle(fontSize: 12),
@@ -5136,12 +5137,12 @@ class _InvalidRowTileState extends State<_InvalidRowTile> {
                     labelText: 'Address',
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.rs)),
+                    border: OutlineInputBorder(borderRadius: AppRadius.chip),
                     errorText: issues.contains('address') ? '' : null,
                     errorStyle: const TextStyle(height: 0, fontSize: 0),
                   ),
                 )),
-                SizedBox(width: 8.rs),
+                SizedBox(width: AppSpacing.sm),
                 IconButton(
                   onPressed: () => widget.onFix(widget.index, _nameC.text, _phoneC.text, _addressC.text),
                   icon: Icon(Icons.check_circle_rounded, size: 20, color: Colors.green.shade600),
