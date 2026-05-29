@@ -10,6 +10,7 @@
 	<true/>
 	<key>com.apple.security.keychain-access-groups</key>
 	<array>
+		<string>$(AppIdentifierPrefix)$(CFBundleIdentifier)</string>
 		<string>$(AppIdentifierPrefix)com.google.GIDSignIn</string>
 	</array>
 </dict>

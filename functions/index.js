@@ -54,7 +54,76 @@ exports.onOperatorCreated = functions.firestore
     if (Object.keys(defaults).length > 0) {
       await snap.ref.update(defaults);
     }
+
+    // Auto-create Firebase Auth account for the operator
+    if (data.email) {
+      try {
+        await admin.auth().getUserByEmail(data.email);
+      } catch (err) {
+        if (err.code === "auth/user-not-found") {
+          try {
+            const crypto = require("crypto");
+            const tempPassword = crypto.randomBytes(16).toString("hex");
+            const newUser = await admin.auth().createUser({
+              email: data.email,
+              password: data.passwordHash ? undefined : tempPassword,
+              emailVerified: true,
+            });
+            await snap.ref.update({ uid: newUser.uid });
+          } catch (_) {}
+        }
+      }
+    }
   });
+
+// ─── Ensure Firebase Auth: callable to migrate existing operators ────────────
+
+exports.ensureFirebaseAuth = functions.https.onCall(async (data, context) => {
+  const email = (data.email || "").trim().toLowerCase();
+  const password = data.password || "";
+  if (!email) throw new functions.https.HttpsError("invalid-argument", "Email required");
+
+  try {
+    const userRecord = await admin.auth().getUserByEmail(email);
+    // User exists — update password if provided
+    if (password) {
+      await admin.auth().updateUser(userRecord.uid, { password });
+      const crypto = require("crypto");
+      const hash = crypto.createHash("sha256").update(password).digest("hex");
+      const opSnap = await db.collectionGroup("operators").where("email", "==", email).limit(1).get();
+      if (!opSnap.empty) {
+        await opSnap.docs[0].ref.update({ uid: userRecord.uid, passwordHash: hash });
+      }
+      const companySnap = await db.collection("companies").where("email", "==", email).limit(1).get();
+      if (!companySnap.empty) {
+        await companySnap.docs[0].ref.update({ passwordHash: hash });
+      }
+    }
+    return { uid: userRecord.uid, created: false };
+  } catch (err) {
+    if (err.code !== "auth/user-not-found") {
+      throw new functions.https.HttpsError("internal", err.message);
+    }
+    // Create new Firebase Auth account
+    if (!password) throw new functions.https.HttpsError("invalid-argument", "Password required for new account");
+    const newUser = await admin.auth().createUser({
+      email,
+      password,
+      emailVerified: true,
+    });
+    const crypto = require("crypto");
+    const hash = crypto.createHash("sha256").update(password).digest("hex");
+    const opSnap = await db.collectionGroup("operators").where("email", "==", email).limit(1).get();
+    if (!opSnap.empty) {
+      await opSnap.docs[0].ref.update({ uid: newUser.uid, passwordHash: hash });
+    }
+    const companySnap = await db.collection("companies").where("email", "==", email).limit(1).get();
+    if (!companySnap.empty) {
+      await companySnap.docs[0].ref.update({ passwordHash: hash });
+    }
+    return { uid: newUser.uid, created: true };
+  }
+});
 
 // ─── Operator Updated: Audit trail for KYC status changes ───────────────────
 

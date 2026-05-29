@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:crypto/crypto.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +21,18 @@ import '../../application/setup_wizard_provider.dart';
 import '../../application/setup_wizard_state.dart';
 
 String _hashPassword(String password) => sha256.convert(utf8.encode(password)).toString();
+
+Future<void> _ensureFirebaseAuthAccount(String email, String password) async {
+  try {
+    final callable = FirebaseFunctions.instance.httpsCallable('ensureFirebaseAuth');
+    await callable.call({'email': email, 'password': password});
+    // Now sign in with the (possibly just-created) Firebase Auth account
+    await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
+    debugPrint('[Login] Firebase Auth sign-in succeeded after ensure');
+  } catch (e) {
+    debugPrint('[Login] ensureFirebaseAuth fallback: $e');
+  }
+}
 
 final _emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
 
@@ -474,6 +488,7 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
         return;
       }
 
+      if (!firebaseAuthOk) await _ensureFirebaseAuthAccount(email, _password.text);
       await LocalCacheService.cacheCurrentUserEmail(email);
 
       // Configure site context if a site+weighbridge exists (so Firestore paths work)
@@ -906,7 +921,8 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
           }
         }
 
-        debugPrint('[Login] Password OK, configuring site...');
+        debugPrint('[Login] Password OK, ensuring Firebase Auth account...');
+        await _ensureFirebaseAuthAccount(email, _password.text);
         await LocalCacheService.cacheCurrentUserEmail(email);
         final companyId = companySnap.docs.first.id;
 
@@ -1003,6 +1019,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         return;
       }
 
+      if (!firebaseAuthOk) await _ensureFirebaseAuthAccount(email, _password.text);
       await LocalCacheService.cacheCurrentUserEmail(email);
       ref.read(sessionLoggedInProvider.notifier).state = true;
 
