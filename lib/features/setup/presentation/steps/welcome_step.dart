@@ -407,12 +407,6 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final isOnline = ref.read(connectivityProvider).valueOrNull ?? false;
-    if (!isOnline) {
-      setState(() => _error = 'Internet connection required to sign in.');
-      return;
-    }
-
     setState(() { _loading = true; _error = null; });
 
     try {
@@ -847,12 +841,6 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-
-    final isOnline = ref.read(connectivityProvider).valueOrNull ?? false;
-    if (!isOnline) {
-      setState(() => _error = 'Internet connection required to sign in.');
-      return;
-    }
 
     setState(() { _loading = true; _error = null; });
 
