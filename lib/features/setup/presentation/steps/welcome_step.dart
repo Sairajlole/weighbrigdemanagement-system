@@ -32,9 +32,7 @@ Future<void> _ensureFirebaseAuthAccount(String email, String password) async {
     );
     await callable.call({'email': email, 'password': password}).timeout(const Duration(seconds: 8));
     await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
-    debugPrint('[Login] Firebase Auth sign-in succeeded after ensure');
   } catch (e) {
-    debugPrint('[Login] ensureFirebaseAuth skipped: $e');
   }
 }
 
@@ -868,7 +866,6 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
     try {
       final db = ref.read(firestoreProvider);
       final email = _email.text.trim();
-      debugPrint('[Login] Starting for $email');
 
       bool firebaseAuthOk = false;
       try {
@@ -877,32 +874,25 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
           password: _password.text,
         );
         firebaseAuthOk = true;
-        debugPrint('[Login] Firebase auth OK');
       } catch (e) {
-        debugPrint('[Login] Firebase auth failed: $e');
       }
       if (!mounted) { debugPrint('[Login] Not mounted after auth'); return; }
 
-      debugPrint('[Login] Querying operators...');
       final operatorSnap = await db
           .collectionGroup('operators')
           .where('email', isEqualTo: email)
           .limit(1)
           .get()
           .timeout(const Duration(seconds: 8), onTimeout: () {
-            debugPrint('[Login] Operator query timed out');
             throw TimeoutException('Query timed out');
           });
-      debugPrint('[Login] Got ${operatorSnap.docs.length} operator docs');
 
       if (operatorSnap.docs.isEmpty) {
-        debugPrint('[Login] No operator, checking companies...');
         final companySnap = await db
             .collection('companies')
             .where('email', isEqualTo: email)
             .limit(1)
             .get();
-        debugPrint('[Login] Got ${companySnap.docs.length} company docs');
 
         if (companySnap.docs.isEmpty) {
           setState(() { _error = 'No account found with this email.'; _loading = false; });
@@ -913,46 +903,37 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         if (!firebaseAuthOk) {
           final companyData = companySnap.docs.first.data();
           final storedHash = companyData['passwordHash'] as String?;
-          debugPrint('[Login] storedHash=${storedHash != null ? "exists" : "null"}, firebaseAuthOk=$firebaseAuthOk');
           if (storedHash != null && storedHash != _hashPassword(_password.text)) {
-            debugPrint('[Login] Hash mismatch — wrong password');
             setState(() { _error = 'Invalid email or password.'; _loading = false; });
             return;
           }
           if (storedHash == null) {
-            debugPrint('[Login] No hash stored, saving one');
             companySnap.docs.first.reference.update({'passwordHash': _hashPassword(_password.text)});
           }
         }
 
-        debugPrint('[Login] Password OK, ensuring Firebase Auth account...');
         await _ensureFirebaseAuthAccount(email, _password.text);
         await LocalCacheService.cacheCurrentUserEmail(email);
         final companyId = companySnap.docs.first.id;
 
         final sitesSnap = await db.collection('companies/$companyId/sites').get();
-        debugPrint('[Login] Sites: ${sitesSnap.docs.length}');
 
         final companyDoc = await db.doc('companies/$companyId').get();
         final firstLoginDone = companyDoc.data()?['firstLoginComplete'] == true;
-        debugPrint('[Login] firstLoginDone=$firstLoginDone');
 
         for (final site in sitesSnap.docs) {
           final wbSnap = await db
               .collection('companies/$companyId/sites/${site.id}/weighbridges')
               .limit(1)
               .get();
-          debugPrint('[Login] Site ${site.id}: ${wbSnap.docs.length} weighbridges');
           if (wbSnap.docs.isNotEmpty) {
             await ref.read(siteContextProvider.notifier).configure(
               companyId: companyId,
               siteId: site.id,
               weighbridgeId: wbSnap.docs.first.id,
             );
-            debugPrint('[Login] Site configured. firstLoginDone=$firstLoginDone');
             if (!firstLoginDone) {
               if (!mounted) return;
-              debugPrint('[Login] Going to wizard (first login not done)');
               ref.read(sessionLoggedInProvider.notifier).state = true;
               ref.read(wizardCompanyIdProvider.notifier).state = companyId;
               final siteStepIndex = wizardSteps.indexWhere((s) => s.id == WizardStepId.site);
@@ -963,11 +944,9 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
               }
               return;
             }
-            debugPrint('[Login] Marking wizard complete, going to dashboard...');
             await ref.read(wizardProgressProvider.notifier).markComplete();
             ref.read(sessionLoggedInProvider.notifier).state = true;
             final allowed = await _runPostLoginChecks(ref, email);
-            debugPrint('[Login] postLoginChecks allowed=$allowed');
             if (!allowed) return;
             if (mounted) context.go('/dashboard');
             return;
@@ -982,13 +961,10 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
       }
 
       // Found operator record — verify password
-      debugPrint('[Login] Found operator, verifying password...');
       final opDoc = operatorSnap.docs.first;
       if (!firebaseAuthOk) {
         final storedHash = opDoc.data()['passwordHash'] as String?;
-        debugPrint('[Login] Op storedHash=${storedHash != null ? "exists" : "null"}');
         if (storedHash != null && storedHash != _hashPassword(_password.text)) {
-          debugPrint('[Login] Op hash mismatch');
           setState(() { _error = 'Invalid email or password.'; _loading = false; });
           return;
         }
@@ -996,7 +972,6 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
           opDoc.reference.update({'passwordHash': _hashPassword(_password.text)});
         }
       }
-      debugPrint('[Login] Op password OK');
 
       final opData = opDoc.data();
 
@@ -1016,9 +991,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
 
       final isVerified = opData['isVerified'] as bool? ?? false;
       final isActive = opData['isActive'] as bool? ?? false;
-      debugPrint('[Login] Op isVerified=$isVerified isActive=$isActive isDeleted=$isDeleted isArchived=$isArchived');
       if (!isVerified || !isActive) {
-        debugPrint('[Login] Op not verified/active — blocking');
         setState(() { _error = 'Your account is pending approval. Please wait for your administrator to accept your request.'; _loading = false; });
         return;
       }

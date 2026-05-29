@@ -148,7 +148,7 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
   }
 
   void _ensureHealthTimer() {
-    _healthTimer ??= Timer.periodic(const Duration(seconds: 60), (_) => _syncToLive());
+    _healthTimer ??= Timer.periodic(const Duration(seconds: 10), (_) => _syncToLive());
   }
 
   Future<void> _syncToLive() async {
@@ -159,8 +159,12 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
     for (final entry in feeds.entries) {
       final player = entry.value.player;
       final native = player.platform as NativePlayer;
-      // Seek to end of stream to jump to live edge
-      await native.command(['seek', '100', 'absolute-percent+keyframes']);
+      final pos = player.state.position;
+      final dur = player.state.duration;
+      // Only seek if stream has fallen behind (position significantly less than duration)
+      if (dur > Duration.zero && pos < dur - const Duration(seconds: 3)) {
+        await native.command(['seek', '100', 'absolute-percent+keyframes']);
+      }
     }
 
     _syncing = false;

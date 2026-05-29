@@ -98,7 +98,7 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
       ..clear()
       ..addAll(desiredKeys);
 
-    _healthTimer ??= Timer.periodic(const Duration(seconds: 30), (_) => _seekToLive());
+    _healthTimer ??= Timer.periodic(const Duration(seconds: 10), (_) => _seekToLive());
 
     _syncing = false;
     if (mounted) setState(() {});
@@ -109,8 +109,12 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     for (final key in _activeKeys) {
       final player = _players[key];
       if (player == null) continue;
-      final native = player.platform as NativePlayer;
-      await native.command(['seek', '100', 'absolute-percent+keyframes']);
+      final pos = player.state.position;
+      final dur = player.state.duration;
+      if (dur > Duration.zero && pos < dur - const Duration(seconds: 3)) {
+        final native = player.platform as NativePlayer;
+        await native.command(['seek', '100', 'absolute-percent+keyframes']);
+      }
     }
   }
 
