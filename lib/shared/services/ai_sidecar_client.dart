@@ -865,7 +865,8 @@ class SidecarProcessManager {
     try {
       if (Platform.isWindows) {
         _process = await Process.start(
-          'cmd', ['/c', '$sidecarDir/start.bat'],
+          'powershell',
+          ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', '& "$sidecarDir/start.bat"'],
           workingDirectory: sidecarDir,
           mode: ProcessStartMode.detached,
         );
