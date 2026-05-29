@@ -46,6 +46,11 @@ CustomTransitionPage<void> _noTransitionPage(Widget child, GoRouterState state) 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Set to true by the login flow after successful hash-based authentication.
+/// Resets on app restart (StateProvider starts as false).
+final sessionLoggedInProvider = StateProvider<bool>((ref) => false);
+final _sessionLoggedInProvider = sessionLoggedInProvider;
+
 final routerProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -107,8 +112,8 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final authState = ref.read(authStateProvider);
       final authUser = authState.valueOrNull;
-      final isLoggedIn = (authUser != null && !authUser.isAnonymous) ||
-          (siteCtx.isConfigured && wizardProgress.setupComplete);
+      final hasSessionLogin = ref.read(_sessionLoggedInProvider);
+      final isLoggedIn = (authUser != null && !authUser.isAnonymous) || hasSessionLogin;
       final authRoutes = ['/forgot-password', '/linkage-pending'];
       final isAuthRoute = authRoutes.contains(state.matchedLocation);
 

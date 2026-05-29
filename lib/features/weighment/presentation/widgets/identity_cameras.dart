@@ -53,7 +53,7 @@ class _IdentityCamerasState extends ConsumerState<IdentityCameras> {
     _webcamTimer?.cancel();
     _customerFaceTimer?.cancel();
     _stopWebcam();
-    ref.read(customerNativeFeedProvider.notifier).shutdown();
+    try { ref.read(customerNativeFeedProvider.notifier).shutdown(); } catch (_) {}
     super.dispose();
   }
 

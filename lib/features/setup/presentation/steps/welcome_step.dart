@@ -13,6 +13,7 @@ import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.d
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
+import 'package:weighbridgemanagement/shared/routing/app_router.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import '../../application/setup_wizard_provider.dart';
 import '../../application/setup_wizard_state.dart';
@@ -932,6 +933,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
             if (!firstLoginDone) {
               if (!mounted) return;
               debugPrint('[Login] Going to wizard (first login not done)');
+              ref.read(sessionLoggedInProvider.notifier).state = true;
               ref.read(wizardCompanyIdProvider.notifier).state = companyId;
               final siteStepIndex = wizardSteps.indexWhere((s) => s.id == WizardStepId.site);
               final resumed = ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
@@ -943,6 +945,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
             }
             debugPrint('[Login] Marking wizard complete, going to dashboard...');
             await ref.read(wizardProgressProvider.notifier).markComplete();
+            ref.read(sessionLoggedInProvider.notifier).state = true;
             final allowed = await _runPostLoginChecks(ref, email);
             debugPrint('[Login] postLoginChecks allowed=$allowed');
             if (!allowed) return;
@@ -959,10 +962,13 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
       }
 
       // Found operator record — verify password
+      debugPrint('[Login] Found operator, verifying password...');
       final opDoc = operatorSnap.docs.first;
       if (!firebaseAuthOk) {
         final storedHash = opDoc.data()['passwordHash'] as String?;
+        debugPrint('[Login] Op storedHash=${storedHash != null ? "exists" : "null"}');
         if (storedHash != null && storedHash != _hashPassword(_password.text)) {
+          debugPrint('[Login] Op hash mismatch');
           setState(() { _error = 'Invalid email or password.'; _loading = false; });
           return;
         }
@@ -970,6 +976,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
           opDoc.reference.update({'passwordHash': _hashPassword(_password.text)});
         }
       }
+      debugPrint('[Login] Op password OK');
 
       final opData = opDoc.data();
 
@@ -989,12 +996,15 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
 
       final isVerified = opData['isVerified'] as bool? ?? false;
       final isActive = opData['isActive'] as bool? ?? false;
+      debugPrint('[Login] Op isVerified=$isVerified isActive=$isActive isDeleted=$isDeleted isArchived=$isArchived');
       if (!isVerified || !isActive) {
+        debugPrint('[Login] Op not verified/active — blocking');
         setState(() { _error = 'Your account is pending approval. Please wait for your administrator to accept your request.'; _loading = false; });
         return;
       }
 
       await LocalCacheService.cacheCurrentUserEmail(email);
+      ref.read(sessionLoggedInProvider.notifier).state = true;
 
       final opRole = opData['role'] as String? ?? '';
       final isOperatorRole = opRole == 'operator';

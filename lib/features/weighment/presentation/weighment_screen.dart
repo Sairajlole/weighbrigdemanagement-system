@@ -300,12 +300,14 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     _anprTimeoutTimer?.cancel();
     _anprScanning = false;
     _anprScanInProgress = false;
-    if (_anprSessionId != null) {
-      ref.read(sidecarClientProvider).deleteAnprSession(_anprSessionId!);
-      _anprSessionId = null;
-    }
-    ref.read(anprScanningProvider.notifier).state = false;
-    ref.read(anprDetectionOverlayProvider.notifier).state = {};
+    try {
+      if (_anprSessionId != null) {
+        ref.read(sidecarClientProvider).deleteAnprSession(_anprSessionId!);
+        _anprSessionId = null;
+      }
+      ref.read(anprScanningProvider.notifier).state = false;
+      ref.read(anprDetectionOverlayProvider.notifier).state = {};
+    } catch (_) {}
   }
 
   void _sendPlateToDisplayBoard(String plateText) {
