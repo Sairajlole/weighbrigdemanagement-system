@@ -367,7 +367,7 @@ if (\$bins.Count -eq 0) {
 
   // ── Print Rules ──
   int _copies = 2;
-  bool _printOnGross = false;
+  bool _printOnGross = true;
   bool _printOnTare = true;
   bool _autoPrint = true;
   bool _reprintAllowed = true;
@@ -414,27 +414,27 @@ if (\$bins.Count -eq 0) {
   // ── Per-template Logo ──
   double _thermalLogoWidth = 160;
   double _thermalLogoHeight = 160;
-  double _normalLogoWidth = 80;
-  double _normalLogoHeight = 80;
+  double _normalLogoWidth = 90;
+  double _normalLogoHeight = 90;
 
   // ── Font ──
-  int _normalFontSize = 14;
+  int _normalFontSize = 16;
   String _normalFont = 'Helvetica';
 
   // ── Multi-column ──
   int _dmColumnCount = 1;
 
   // ── Normal ──
-  String _normalPaperSize = 'A4';
+  String _normalPaperSize = 'Legal';
   double _normalMarginTop = 10;
   double _normalMarginBottom = 10;
-  double _normalMarginLeft = 10;
-  double _normalMarginRight = 10;
+  double _normalMarginLeft = 15;
+  double _normalMarginRight = 15;
   bool _normalLogo = true;
   bool _normalPdf417 = true;
   String _normalPdf417Position = 'bottom';
-  bool _normalCctv = false;
-  List<String> _normalCctvCameras = [];
+  bool _normalCctv = true;
+  List<String> _normalCctvCameras = ['Front', 'Rear', 'Top'];
   List<Map<String, dynamic>> _normalLines = [];
 
   // Per-size config store (normal printer)
@@ -679,7 +679,7 @@ if (\$bins.Count -eq 0) {
     {'text': 'Weighbridge: {weighbridge_name}', 'align': 'left', 'size': 'normal'},
   ];
 
-  static List<Map<String, dynamic>> _getDefaultNormalLines({String paperSize = 'A4'}) {
+  static List<Map<String, dynamic>> _getDefaultNormalLines({String paperSize = 'Legal'}) {
     return [
       {'text': '{company_name}', 'align': 'left', 'style': 'bold'},
       {'text': '{company_address1}', 'align': 'left', 'style': 'normal'},
