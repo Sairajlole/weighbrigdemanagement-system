@@ -81,7 +81,15 @@ class PrintService {
 
   Future<String> _fetchScalePort() async {
     final doc = await _paths.scaleSettings.get();
-    return doc.exists ? (doc.data()?['port'] as String? ?? '') : '';
+    if (!doc.exists) return '';
+    final data = doc.data()!;
+    final type = data['connectionType'] as String? ?? 'serial';
+    if (type == 'tcp') {
+      final host = data['tcpHost'] as String? ?? '';
+      final port = data['tcpPort'] as int? ?? 3001;
+      return host.isNotEmpty ? '$host:$port' : '';
+    }
+    return data['port'] as String? ?? '';
   }
 
   Future<Uint8List?> _fetchImageBytes(String url) async {
