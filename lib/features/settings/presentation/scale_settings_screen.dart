@@ -880,16 +880,28 @@ class _ScaleSettingsScreenState extends ConsumerState<ScaleSettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      isConnected
-                          ? '${_liveWeight.toStringAsFixed(1)} KG'
-                          : _autoDetecting
-                              ? 'Detecting...'
-                              : _testingConnection
-                                  ? 'Connecting...'
-                                  : isFailed
-                                      ? 'Connection Failed'
-                                      : '------- KG',
+                    isConnected
+                        ? TweenAnimationBuilder<double>(
+                            tween: Tween(end: _liveWeight),
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOutCubic,
+                            builder: (_, v, __) => Text(
+                              '${v.toStringAsFixed(1)} KG',
+                              style: text.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                fontFamily: 'monospace',
+                                color: scheme.onSurface,
+                              ),
+                            ),
+                          )
+                        : Text(
+                      _autoDetecting
+                          ? 'Detecting...'
+                          : _testingConnection
+                              ? 'Connecting...'
+                              : isFailed
+                                  ? 'Connection Failed'
+                                  : '------- KG',
                       style: text.titleSmall?.copyWith(
                         fontWeight: FontWeight.w800,
                         fontFamily: isConnected || (!_testingConnection && !isFailed && !_autoDetecting) ? 'monospace' : null,

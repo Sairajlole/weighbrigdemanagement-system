@@ -185,19 +185,35 @@ class LiveWeightBannerState extends ConsumerState<LiveWeightBanner> {
             Center(
               child: _editing
                   ? _buildManualInput(scheme)
-                  : FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        '$weightText KG',
-                        style: TextStyle(
-                          fontSize: 300,
-                          fontWeight: FontWeight.w800,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                          fontFamily: 'monospace',
-                          color: connected && stable ? Colors.green : scheme.error,
-                          letterSpacing: 4,
-                        ),
-                      ),
+                  : TweenAnimationBuilder<double>(
+                      tween: Tween(end: connected ? weight : 0),
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                      builder: (_, animatedWeight, __) {
+                        final String displayText;
+                        if (connected) {
+                          final raw = animatedWeight.toStringAsFixed(0);
+                          displayText = raw.length > 3
+                              ? '${raw.substring(0, raw.length - 3)},${raw.substring(raw.length - 3)}'
+                              : raw;
+                        } else {
+                          displayText = '---,---';
+                        }
+                        return FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '$displayText KG',
+                            style: TextStyle(
+                              fontSize: 300,
+                              fontWeight: FontWeight.w800,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                              fontFamily: 'monospace',
+                              color: connected && stable ? Colors.green : scheme.error,
+                              letterSpacing: 4,
+                            ),
+                          ),
+                        );
+                      },
                     ),
             ),
           ],
