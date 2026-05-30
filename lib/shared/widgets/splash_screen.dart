@@ -129,10 +129,10 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                                 width: 80,
                                 height: 80,
                                 decoration: BoxDecoration(
-                                  gradient: LinearGradient(
+                                  gradient: const LinearGradient(
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
-                                    colors: [scheme.primary, scheme.tertiary],
+                                    colors: [Color(0xFF1E3A5F), Color(0xFF0D9488)],
                                   ),
                                   borderRadius: BorderRadius.circular(22),
                                   boxShadow: [

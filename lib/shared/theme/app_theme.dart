@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static const _seed = Color(0xFF059669);
-  static const defaultAccent = Color(0xFF059669);
-  static const successColor = Color(0xFF059669);
+  static const _seed = Color(0xFF0D9488);
+  static const defaultAccent = Color(0xFF0D9488);
+  static const successColor = Color(0xFF10B981);
+  static const brandNavy = Color(0xFF1E3A5F);
+  static const brandTeal = Color(0xFF0D9488);
+  static const brandTealLight = Color(0xFF14B8A6);
+  static const brandGradient = [Color(0xFF1E3A5F), Color(0xFF0D9488)];
   static const proColor = Color(0xFF7C3AED);
   static const proGradient = [Color(0xFF7C3AED), Color(0xFF4F46E5)];
 
