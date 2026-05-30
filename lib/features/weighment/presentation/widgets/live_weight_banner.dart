@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
@@ -87,7 +88,7 @@ class LiveWeightBannerState extends ConsumerState<LiveWeightBanner> {
     if (!connected) {
       accentColor = scheme.outlineVariant.withValues(alpha: 0.4);
     } else if (stable) {
-      accentColor = scheme.onSurface;
+      accentColor = AppTheme.brandTeal;
     } else {
       accentColor = scheme.onSurfaceVariant.withValues(alpha: 0.6);
     }

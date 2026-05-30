@@ -178,8 +178,14 @@ class _SidebarState extends ConsumerState<_Sidebar> {
     return Container(
       width: 64,
       decoration: BoxDecoration(
-        color: scheme.surface,
-        border: Border(right: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.15))),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppTheme.brandNavy,
+            AppTheme.brandNavy.withValues(alpha: 0.95),
+          ],
+        ),
       ),
       child: Column(
         children: [
@@ -188,18 +194,14 @@ class _SidebarState extends ConsumerState<_Sidebar> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [scheme.primary, scheme.primary.withValues(alpha: 0.8)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: Colors.white.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10.rs),
-              boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 2))],
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
             ),
-            child: Icon(Icons.scale_rounded, color: scheme.onPrimary, size: 18),
+            child: const Icon(Icons.scale_rounded, color: Colors.white, size: 18),
           ),
           SizedBox(height: AppSpacing.md),
-          Divider(height: 1, indent: 14, endIndent: 14, color: scheme.outlineVariant.withValues(alpha: 0.15)),
+          Divider(height: 1, indent: 14, endIndent: 14, color: Colors.white.withValues(alpha: 0.1)),
           SizedBox(height: AppSpacing.sm),
           Expanded(
             child: ListView(
@@ -226,7 +228,7 @@ class _SidebarState extends ConsumerState<_Sidebar> {
               ],
             ),
           ),
-          Divider(height: 1, indent: 14, endIndent: 14, color: scheme.outlineVariant.withValues(alpha: 0.15)),
+          Divider(height: 1, indent: 14, endIndent: 14, color: Colors.white.withValues(alpha: 0.1)),
           SizedBox(height: AppSpacing.sm),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -302,8 +304,8 @@ class _NavTileState extends State<_NavTile> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final accent = widget.isDestructive ? scheme.error : scheme.primary;
-    final iconColor = widget.isSelected ? accent : _hovered ? scheme.onSurface : scheme.onSurfaceVariant;
+    final accent = widget.isDestructive ? const Color(0xFFEF4444) : AppTheme.brandTealLight;
+    final iconColor = widget.isSelected ? Colors.white : _hovered ? Colors.white.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.5);
 
     final child = AnimatedContainer(
       duration: const Duration(milliseconds: 180),
@@ -312,11 +314,12 @@ class _NavTileState extends State<_NavTile> {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: widget.isSelected
-            ? accent.withValues(alpha: 0.08)
+            ? Colors.white.withValues(alpha: 0.12)
             : _hovered
-                ? scheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                ? Colors.white.withValues(alpha: 0.06)
                 : Colors.transparent,
         borderRadius: BorderRadius.circular(10.rs),
+        border: widget.isSelected ? Border.all(color: AppTheme.brandTealLight.withValues(alpha: 0.4)) : null,
       ),
       child: Stack(
         clipBehavior: Clip.none,
@@ -331,7 +334,7 @@ class _NavTileState extends State<_NavTile> {
                 decoration: BoxDecoration(
                   color: scheme.error,
                   borderRadius: AppRadius.button,
-                  border: Border.all(color: scheme.surface, width: 1.5),
+                  border: Border.all(color: AppTheme.brandNavy, width: 1.5),
                 ),
                 alignment: Alignment.center,
                 child: Text(
