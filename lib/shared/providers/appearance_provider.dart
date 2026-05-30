@@ -5,6 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+Color _migrateAccentColor(int? saved) {
+  if (saved == null) return AppTheme.defaultAccent;
+  // Migrate old green (#059669) to new brand teal
+  if (saved == 0xFF059669) return AppTheme.defaultAccent;
+  return Color(saved);
+}
+
 class AppearanceSettings {
   final ThemeMode themeMode;
   final Color accentColor;
@@ -27,7 +34,7 @@ class AppearanceSettings {
         'system' => ThemeMode.system,
         _ => ThemeMode.light,
       },
-      accentColor: Color(data['accentColor'] as int? ?? 0xFF059669),
+      accentColor: _migrateAccentColor(data['accentColor'] as int?),
       backgroundArt: data['backgroundArt'] as String? ?? 'none',
       fontScale: (data['fontScale'] as num? ?? 1.0).toDouble(),
       locale: data['locale'] as String? ?? 'en',
