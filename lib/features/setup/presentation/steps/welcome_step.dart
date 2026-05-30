@@ -1029,6 +1029,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
       }
 
       final opCompanyDoc = await db.doc('companies/$companyId').get();
+      if (!mounted) return;
       final opFirstLoginDone = opCompanyDoc.data()?['firstLoginComplete'] == true;
 
       // Try site from path first
@@ -1036,14 +1037,15 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         final wbSnap = await db
             .collection('companies/$companyId/sites/$siteIdFromPath/weighbridges')
             .limit(1).get();
+        if (!mounted) return;
         if (wbSnap.docs.isNotEmpty) {
           await ref.read(siteContextProvider.notifier).configure(
             companyId: companyId,
             siteId: siteIdFromPath,
             weighbridgeId: wbSnap.docs.first.id,
           );
+          if (!mounted) return;
           if (!opFirstLoginDone) {
-            if (!mounted) return;
             ref.read(wizardCompanyIdProvider.notifier).state = companyId;
             final siteStepIndex = wizardSteps.indexWhere((s) => s.id == WizardStepId.site);
             final resumed = ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
@@ -1054,27 +1056,30 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
             return;
           }
           await ref.read(wizardProgressProvider.notifier).markComplete();
+          if (!mounted) return;
           final allowed = await _runPostLoginChecks(ref, email);
-          if (!allowed) return;
-          if (mounted) context.go('/dashboard');
+          if (!allowed || !mounted) return;
+          context.go('/dashboard');
           return;
         }
       }
 
       // Auto-resolve site: find first site with a weighbridge
       final sitesSnap = await db.collection('companies/$companyId/sites').get();
+      if (!mounted) return;
       for (final site in sitesSnap.docs) {
         final wbSnap = await db
             .collection('companies/$companyId/sites/${site.id}/weighbridges')
             .limit(1).get();
+        if (!mounted) return;
         if (wbSnap.docs.isNotEmpty) {
           await ref.read(siteContextProvider.notifier).configure(
             companyId: companyId,
             siteId: site.id,
             weighbridgeId: wbSnap.docs.first.id,
           );
+          if (!mounted) return;
           if (!opFirstLoginDone) {
-            if (!mounted) return;
             ref.read(wizardCompanyIdProvider.notifier).state = companyId;
             final siteStepIndex = wizardSteps.indexWhere((s) => s.id == WizardStepId.site);
             final resumed = ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
@@ -1085,14 +1090,16 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
             return;
           }
           await ref.read(wizardProgressProvider.notifier).markComplete();
+          if (!mounted) return;
           final allowed = await _runPostLoginChecks(ref, email);
-          if (!allowed) return;
-          if (mounted) context.go('/dashboard');
+          if (!allowed || !mounted) return;
+          context.go('/dashboard');
           return;
         }
       }
 
       // No site with weighbridge found
+      if (!mounted) return;
       if (isOperatorRole) {
         setState(() { _error = 'No site assigned yet. Contact your admin.'; _loading = false; });
       } else {
@@ -1103,9 +1110,9 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
       }
     } catch (e) {
       debugPrint('SignIn error: $e');
-      // Log failed login attempt
+      if (!mounted) return;
       _logLoginAttempt(ref, _email.text.trim(), false);
-      if (mounted) setState(() => _error = _parseError(e.toString()));
+      setState(() => _error = _parseError(e.toString()));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
