@@ -434,7 +434,7 @@ if (\$bins.Count -eq 0) {
   bool _normalPdf417 = true;
   String _normalPdf417Position = 'bottom';
   bool _normalCctv = true;
-  List<String> _normalCctvCameras = ['Front', 'Rear'];
+  List<String> _normalCctvCameras = [];
   List<Map<String, dynamic>> _normalLines = [];
 
   // Per-size config store (normal printer)
@@ -491,7 +491,7 @@ if (\$bins.Count -eq 0) {
           'headerLayout': 'inline', 'headerRows': 3,
           'logo': true, 'logoWidth': 50.0, 'logoHeight': 50.0,
           'pdf417': true, 'pdf417Position': 'bottom',
-          'cctv': true, 'cctvCameras': <String>['Front', 'Rear'], 'cctvMaxSlots': 2,
+          'cctv': true, 'cctvCameras': <String>[], 'cctvMaxSlots': 2,
           'fontSize': 10,
           'normalLines': _getDefaultNormalLines(paperSize: 'A5'),
         };
@@ -501,7 +501,7 @@ if (\$bins.Count -eq 0) {
           'headerLayout': 'inline', 'headerRows': 3,
           'logo': true, 'logoWidth': 90.0, 'logoHeight': 90.0,
           'pdf417': true, 'pdf417Position': 'bottom',
-          'cctv': true, 'cctvCameras': <String>['Front', 'Rear', 'Top'], 'cctvMaxSlots': 2,
+          'cctv': true, 'cctvCameras': <String>[], 'cctvMaxSlots': 3,
           'fontSize': 16,
           'normalLines': _getDefaultNormalLines(paperSize: 'Legal'),
         };
@@ -511,7 +511,7 @@ if (\$bins.Count -eq 0) {
           'headerLayout': 'inline', 'headerRows': 3,
           'logo': true, 'logoWidth': 80.0, 'logoHeight': 80.0,
           'pdf417': true, 'pdf417Position': 'bottom',
-          'cctv': true, 'cctvCameras': <String>['Front', 'Rear'], 'cctvMaxSlots': 2,
+          'cctv': true, 'cctvCameras': <String>[], 'cctvMaxSlots': 2,
           'fontSize': 12,
           'normalLines': _getDefaultNormalLines(paperSize: 'Letter'),
         };
@@ -521,7 +521,7 @@ if (\$bins.Count -eq 0) {
           'headerLayout': 'inline', 'headerRows': 3,
           'logo': true, 'logoWidth': 80.0, 'logoHeight': 80.0,
           'pdf417': true, 'pdf417Position': 'bottom',
-          'cctv': true, 'cctvCameras': <String>['Front', 'Rear'], 'cctvMaxSlots': 2,
+          'cctv': true, 'cctvCameras': <String>[], 'cctvMaxSlots': 2,
           'fontSize': 14,
           'normalLines': _getDefaultNormalLines(paperSize: 'A4'),
         };
