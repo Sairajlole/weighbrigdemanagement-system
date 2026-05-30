@@ -83,7 +83,7 @@ class _WeighbridgeAppState extends ConsumerState<WeighbridgeApp> {
     };
 
     return MaterialApp.router(
-      title: 'Weighbridge',
+      title: 'Tulanam',
       debugShowCheckedModeBanner: false,
       theme: theme,
       themeAnimationDuration: Duration.zero,

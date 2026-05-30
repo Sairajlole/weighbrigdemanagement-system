@@ -161,22 +161,22 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                           child: Column(
                             children: [
                               Text(
-                                'Weighbridge',
+                                'tulanam',
                                 style: TextStyle(
-                                  fontSize: 28,
+                                  fontSize: 32,
                                   fontWeight: FontWeight.w800,
                                   color: scheme.onSurface,
-                                  letterSpacing: -0.5,
+                                  letterSpacing: -1,
                                 ),
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'Smart Weighment System',
+                                'SMART WEIGHMENT SYSTEM',
                                 style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
                                   color: scheme.onSurfaceVariant,
-                                  letterSpacing: 1.5,
+                                  letterSpacing: 2.5,
                                 ),
                               ),
                             ],

@@ -197,7 +197,7 @@ class _RoleSelectionContent extends ConsumerWidget {
         ),
         SizedBox(height: AppSpacing.xl),
         Text(
-          'Weighbridge Management',
+          'Tulanam',
           style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5),
         ),
         SizedBox(height: AppSpacing.sm),
