@@ -913,10 +913,12 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         }
 
         await _ensureFirebaseAuthAccount(email, _password.text);
+        if (!mounted) return;
         await LocalCacheService.cacheCurrentUserEmail(email);
         final companyId = companySnap.docs.first.id;
 
         final sitesSnap = await db.collection('companies/$companyId/sites').get();
+        if (!mounted) return;
 
         final companyDoc = await db.doc('companies/$companyId').get();
         final firstLoginDone = companyDoc.data()?['firstLoginComplete'] == true;
@@ -997,6 +999,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
       }
 
       if (!firebaseAuthOk) await _ensureFirebaseAuthAccount(email, _password.text);
+      if (!mounted) return;
       await LocalCacheService.cacheCurrentUserEmail(email);
       ref.read(sessionLoggedInProvider.notifier).state = true;
 
