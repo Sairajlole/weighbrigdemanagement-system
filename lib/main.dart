@@ -10,6 +10,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:weighbridgemanagement/firebase_options.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/widgets/splash_screen.dart';
 import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/version_provider.dart';
 import 'package:weighbridgemanagement/shared/routing/app_router.dart';
@@ -60,11 +61,18 @@ void main() async {
   runApp(const ProviderScope(child: WeighbridgeApp()));
 }
 
-class WeighbridgeApp extends ConsumerWidget {
+class WeighbridgeApp extends ConsumerStatefulWidget {
   const WeighbridgeApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WeighbridgeApp> createState() => _WeighbridgeAppState();
+}
+
+class _WeighbridgeAppState extends ConsumerState<WeighbridgeApp> {
+  bool _splashComplete = false;
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final appearance = ref.watch(appearanceProvider);
 
@@ -87,7 +95,9 @@ class WeighbridgeApp extends ConsumerWidget {
           data: MediaQuery.of(context).copyWith(
             textScaler: TextScaler.linear(appearance.fontScale),
           ),
-          child: _VersionGate(child: child!),
+          child: _splashComplete
+              ? _VersionGate(child: child!)
+              : SplashScreen(onComplete: () => setState(() => _splashComplete = true)),
         );
       },
     );
