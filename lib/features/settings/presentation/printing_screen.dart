@@ -414,27 +414,27 @@ if (\$bins.Count -eq 0) {
   // ── Per-template Logo ──
   double _thermalLogoWidth = 160;
   double _thermalLogoHeight = 160;
-  double _normalLogoWidth = 90;
-  double _normalLogoHeight = 90;
+  double _normalLogoWidth = 80;
+  double _normalLogoHeight = 80;
 
   // ── Font ──
-  int _normalFontSize = 16;
+  int _normalFontSize = 14;
   String _normalFont = 'Helvetica';
 
   // ── Multi-column ──
   int _dmColumnCount = 1;
 
   // ── Normal ──
-  String _normalPaperSize = 'Legal';
+  String _normalPaperSize = 'A4';
   double _normalMarginTop = 10;
   double _normalMarginBottom = 10;
-  double _normalMarginLeft = 15;
-  double _normalMarginRight = 15;
+  double _normalMarginLeft = 10;
+  double _normalMarginRight = 10;
   bool _normalLogo = true;
   bool _normalPdf417 = true;
   String _normalPdf417Position = 'bottom';
   bool _normalCctv = true;
-  List<String> _normalCctvCameras = ['Front', 'Rear', 'Top'];
+  List<String> _normalCctvCameras = ['Front', 'Rear'];
   List<Map<String, dynamic>> _normalLines = [];
 
   // Per-size config store (normal printer)
@@ -487,32 +487,32 @@ if (\$bins.Count -eq 0) {
     switch (size) {
       case 'A5':
         return {
-          'marginTop': 5.0, 'marginBottom': 5.0, 'marginLeft': 5.0, 'marginRight': 5.0,
+          'marginTop': 5.0, 'marginBottom': 5.0, 'marginLeft': 10.0, 'marginRight': 10.0,
           'headerLayout': 'inline', 'headerRows': 3,
           'logo': true, 'logoWidth': 50.0, 'logoHeight': 50.0,
           'pdf417': true, 'pdf417Position': 'bottom',
-          'cctv': true, 'cctvCameras': <String>[], 'cctvMaxSlots': 2,
+          'cctv': true, 'cctvCameras': <String>['Front', 'Rear'], 'cctvMaxSlots': 2,
           'fontSize': 10,
           'normalLines': _getDefaultNormalLines(paperSize: 'A5'),
         };
       case 'Legal':
         return {
-          'marginTop': 10.0, 'marginBottom': 10.0, 'marginLeft': 10.0, 'marginRight': 10.0,
+          'marginTop': 10.0, 'marginBottom': 10.0, 'marginLeft': 15.0, 'marginRight': 15.0,
           'headerLayout': 'inline', 'headerRows': 3,
           'logo': true, 'logoWidth': 90.0, 'logoHeight': 90.0,
           'pdf417': true, 'pdf417Position': 'bottom',
-          'cctv': true, 'cctvCameras': <String>[], 'cctvMaxSlots': 2,
+          'cctv': true, 'cctvCameras': <String>['Front', 'Rear', 'Top'], 'cctvMaxSlots': 2,
           'fontSize': 16,
           'normalLines': _getDefaultNormalLines(paperSize: 'Legal'),
         };
       case 'Letter':
         return {
-          'marginTop': 15.0, 'marginBottom': 15.0, 'marginLeft': 15.0, 'marginRight': 15.0,
-          'headerLayout': 'inline', 'headerRows': 4,
+          'marginTop': 5.0, 'marginBottom': 5.0, 'marginLeft': 15.0, 'marginRight': 15.0,
+          'headerLayout': 'inline', 'headerRows': 3,
           'logo': true, 'logoWidth': 80.0, 'logoHeight': 80.0,
           'pdf417': true, 'pdf417Position': 'bottom',
-          'cctv': true, 'cctvCameras': <String>[], 'cctvMaxSlots': 2,
-          'fontSize': 14,
+          'cctv': true, 'cctvCameras': <String>['Front', 'Rear'], 'cctvMaxSlots': 2,
+          'fontSize': 12,
           'normalLines': _getDefaultNormalLines(paperSize: 'Letter'),
         };
       default: // A4
@@ -521,8 +521,8 @@ if (\$bins.Count -eq 0) {
           'headerLayout': 'inline', 'headerRows': 3,
           'logo': true, 'logoWidth': 80.0, 'logoHeight': 80.0,
           'pdf417': true, 'pdf417Position': 'bottom',
-          'cctv': true, 'cctvCameras': <String>[], 'cctvMaxSlots': 2,
-          'fontSize': 16,
+          'cctv': true, 'cctvCameras': <String>['Front', 'Rear'], 'cctvMaxSlots': 2,
+          'fontSize': 14,
           'normalLines': _getDefaultNormalLines(paperSize: 'A4'),
         };
     }
@@ -679,7 +679,7 @@ if (\$bins.Count -eq 0) {
     {'text': 'Weighbridge: {weighbridge_name}', 'align': 'left', 'size': 'normal'},
   ];
 
-  static List<Map<String, dynamic>> _getDefaultNormalLines({String paperSize = 'Legal'}) {
+  static List<Map<String, dynamic>> _getDefaultNormalLines({String paperSize = 'A4'}) {
     return [
       {'text': '{company_name}', 'align': 'left', 'style': 'bold'},
       {'text': '{company_address1}', 'align': 'left', 'style': 'normal'},
