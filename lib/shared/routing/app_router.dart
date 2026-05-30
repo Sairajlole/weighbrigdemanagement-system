@@ -37,9 +37,30 @@ CustomTransitionPage<void> _noTransitionPage(Widget child, GoRouterState state) 
   return CustomTransitionPage(
     key: state.pageKey,
     child: child,
-    transitionDuration: Duration.zero,
-    reverseTransitionDuration: Duration.zero,
-    transitionsBuilder: (_, __, ___, child) => child,
+    transitionDuration: const Duration(milliseconds: 200),
+    reverseTransitionDuration: const Duration(milliseconds: 150),
+    transitionsBuilder: (_, animation, __, child) {
+      return FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: child,
+      );
+    },
+  );
+}
+
+CustomTransitionPage<void> _slideTransitionPage(Widget child, GoRouterState state) {
+  return CustomTransitionPage(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 250),
+    reverseTransitionDuration: const Duration(milliseconds: 200),
+    transitionsBuilder: (_, animation, __, child) {
+      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      return SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0.03, 0), end: Offset.zero).animate(curved),
+        child: FadeTransition(opacity: curved, child: child),
+      );
+    },
   );
 }
 
@@ -139,7 +160,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profile', pageBuilder: (_, state) => _noTransitionPage(const ProfileScreen(), state)),
           GoRoute(path: '/settings', pageBuilder: (_, state) => _noTransitionPage(const SettingsScreen(), state),
             routes: [
-              GoRoute(path: 'general', pageBuilder: (_, state) => _noTransitionPage(const GeneralSettingsScreen(), state)),
+              GoRoute(path: 'general', pageBuilder: (_, state) => _slideTransitionPage(const GeneralSettingsScreen(), state)),
               GoRoute(path: 'custom-fields', pageBuilder: (_, state) => _noTransitionPage(const CustomFieldsScreen(), state)),
               GoRoute(path: 'materials', pageBuilder: (_, state) => _noTransitionPage(const MaterialsScreen(), state)),
               GoRoute(path: 'gate-control', pageBuilder: (_, state) => _noTransitionPage(const GateControlScreen(), state)),
