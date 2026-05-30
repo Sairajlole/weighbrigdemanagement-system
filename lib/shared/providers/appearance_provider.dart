@@ -6,10 +6,8 @@ import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 Color _migrateAccentColor(int? saved) {
-  if (saved == null) return AppTheme.defaultAccent;
-  // Migrate old green (#059669) to new brand teal
-  if (saved == 0xFF059669) return AppTheme.defaultAccent;
-  return Color(saved);
+  // Brand color is fixed — always use Tulanam teal
+  return AppTheme.defaultAccent;
 }
 
 class AppearanceSettings {

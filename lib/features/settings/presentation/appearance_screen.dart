@@ -6,25 +6,6 @@ import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart'
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
-const _accentColors = <Color>[
-  Color(0xFF059669), // Emerald (default)
-  Color(0xFF2563EB), // Blue
-  Color(0xFF7C3AED), // Violet
-  Color(0xFFDC2626), // Red
-  Color(0xFFEA580C), // Orange
-  Color(0xFFCA8A04), // Amber
-  Color(0xFF0891B2), // Cyan
-  Color(0xFF4F46E5), // Indigo
-  Color(0xFFDB2777), // Pink
-  Color(0xFF16A34A), // Green
-  Color(0xFF475569), // Slate
-  Color(0xFF1E293B), // Dark
-];
-
-const _accentLabels = <String>[
-  'Emerald', 'Blue', 'Violet', 'Red', 'Orange', 'Amber',
-  'Cyan', 'Indigo', 'Pink', 'Green', 'Slate', 'Dark',
-];
 
 const _backgroundArts = <String, String>{
   'none': 'None',
@@ -45,7 +26,6 @@ class AppearanceScreen extends ConsumerStatefulWidget {
 
 class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
   late ThemeMode _themeMode;
-  late Color _accentColor;
   late String _backgroundArt;
   late double _fontScale;
   late String _locale;
@@ -60,7 +40,6 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
     super.initState();
     final settings = ref.read(appearanceProvider);
     _themeMode = settings.themeMode;
-    _accentColor = settings.accentColor;
     _backgroundArt = settings.backgroundArt;
     _fontScale = settings.fontScale;
     _locale = settings.locale;
@@ -83,7 +62,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
       await ref.read(appearanceProvider.notifier).update(
         AppearanceSettings(
           themeMode: _themeMode,
-          accentColor: _accentColor,
+          accentColor: AppTheme.defaultAccent,
           backgroundArt: _backgroundArt,
           fontScale: _fontScale,
           locale: _locale,
@@ -104,8 +83,6 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildThemeSection(scheme, text),
-          SizedBox(height: AppSpacing.xl),
-          _buildAccentSection(scheme, text),
           SizedBox(height: AppSpacing.xl),
           _buildBackgroundSection(scheme, text),
           SizedBox(height: AppSpacing.xl),
@@ -164,8 +141,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                           final settings = ref.read(appearanceProvider);
                           setState(() {
                             _themeMode = settings.themeMode;
-                            _accentColor = settings.accentColor;
-                            _backgroundArt = settings.backgroundArt;
+                                                    _backgroundArt = settings.backgroundArt;
                             _fontScale = settings.fontScale;
                             _locale = settings.locale;
                             _dirty = false;
@@ -263,44 +239,6 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
     );
   }
 
-  Widget _buildAccentSection(ColorScheme scheme, TextTheme text) {
-    return _Section(
-      icon: Icons.color_lens_rounded,
-      title: 'Accent Color',
-      scheme: scheme,
-      text: text,
-      children: [
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: List.generate(_accentColors.length, (i) {
-            final color = _accentColors[i];
-            final selected = _accentColor.toARGB32() == color.toARGB32();
-            return Tooltip(
-              message: _accentLabels[i],
-              child: GestureDetector(
-                onTap: () { setState(() => _accentColor = color); _markDirty(); },
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(10.rs),
-                    border: Border.all(
-                      color: selected ? scheme.onSurface : Colors.transparent,
-                      width: selected ? 2.5 : 0,
-                    ),
-                    boxShadow: selected ? [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 2))] : null,
-                  ),
-                  child: selected ? const Icon(Icons.check_rounded, color: Colors.white, size: 18) : null,
-                ),
-              ),
-            );
-          }),
-        ),
-      ],
-    );
-  }
 
   Widget _buildBackgroundSection(ColorScheme scheme, TextTheme text) {
     return _Section(
