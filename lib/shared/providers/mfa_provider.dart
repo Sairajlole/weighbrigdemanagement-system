@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
@@ -17,27 +19,34 @@ class MfaService {
 
   User get _user => _auth.currentUser!;
 
+  static bool get _unsupported => Platform.isWindows || Platform.isLinux;
+
   Future<bool> isMfaEnabled() async {
+    if (_unsupported) return false;
     final factors = await _user.multiFactor.getEnrolledFactors();
     return factors.isNotEmpty;
   }
 
   Future<List<MultiFactorInfo>> getEnrolledFactors() async {
+    if (_unsupported) return [];
     return _user.multiFactor.getEnrolledFactors();
   }
 
   Future<TotpSecret> enrollTotp() async {
+    if (_unsupported) throw MfaException('MFA not supported on this platform');
     final session = await _user.multiFactor.getSession();
     final totpSecret = await TotpMultiFactorGenerator.generateSecret(session);
     return totpSecret;
   }
 
   Future<void> finalizeEnrollment(TotpSecret secret, String otp, {String displayName = 'Authenticator App'}) async {
+    if (_unsupported) throw MfaException('MFA not supported on this platform');
     final assertion = await TotpMultiFactorGenerator.getAssertionForEnrollment(secret, otp);
     await _user.multiFactor.enroll(assertion, displayName: displayName);
   }
 
   Future<void> unenrollFactor(MultiFactorInfo factor) async {
+    if (_unsupported) throw MfaException('MFA not supported on this platform');
     await _user.multiFactor.unenroll(multiFactorInfo: factor);
   }
 

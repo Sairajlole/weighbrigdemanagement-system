@@ -19,7 +19,10 @@ class LiveFeed {
   LiveFeed({required this.player, required this.controller, required this.rtspUrl});
 
   void dispose() {
-    player.dispose();
+    try {
+      player.stop();
+      player.dispose();
+    } catch (_) {}
   }
 }
 
@@ -111,12 +114,13 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
     final rtspUrl = _buildRtspUrl(previewCamData);
     if (rtspUrl == null) return;
 
-    final player = _createPlayer(rtspUrl);
-    final controller = VideoController(player);
-    player.open(Media(rtspUrl), play: true);
-    player.setVolume(0);
-
-    feeds[key] = LiveFeed(player: player, controller: controller, rtspUrl: rtspUrl);
+    try {
+      final player = _createPlayer(rtspUrl);
+      final controller = VideoController(player);
+      player.open(Media(rtspUrl), play: true);
+      player.setVolume(0);
+      feeds[key] = LiveFeed(player: player, controller: controller, rtspUrl: rtspUrl);
+    } catch (_) {}
   }
 
   static Player _createPlayer(String rtspUrl) {
@@ -132,6 +136,8 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
     native.setProperty('hwdec', '${PlatformService.hwDecoder}-copy');
     if (Platform.isWindows) {
       native.setProperty('hwdec-codecs', 'all');
+      native.setProperty('gpu-context', 'd3d11');
+      native.setProperty('vo', 'gpu');
     }
     native.setProperty('cache', 'no');
     native.setProperty('cache-pause', 'no');
@@ -172,8 +178,16 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
 
   void disposeAll() {
     _healthTimer?.cancel();
+    _healthTimer = null;
     for (final feed in state.feeds.values) {
-      feed.dispose();
+      try {
+        feed.player.stop();
+      } catch (_) {}
+    }
+    for (final feed in state.feeds.values) {
+      try {
+        feed.player.dispose();
+      } catch (_) {}
     }
     state = const LiveCameraFeedsState();
   }

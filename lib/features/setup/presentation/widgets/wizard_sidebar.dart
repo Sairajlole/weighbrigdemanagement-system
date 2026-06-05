@@ -1,7 +1,10 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/setup_wizard_provider.dart';
 import '../../application/setup_wizard_state.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
@@ -27,7 +30,6 @@ class WizardSidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(setupWizardProvider);
-    final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final visible = state.visibleSteps;
     final completedCount = visible.where((s) {
@@ -37,38 +39,28 @@ class WizardSidebar extends ConsumerWidget {
     }).length;
     final progress = visible.isEmpty ? 0.0 : completedCount / visible.length;
 
-    return Container(
+    final scheme = Theme.of(context).colorScheme;
+
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
       width: 240,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       decoration: BoxDecoration(
-        color: scheme.surface,
-        border: Border(right: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.15))),
+        color: scheme.surface.withValues(alpha: 0.7),
+        border: Border(right: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.12))),
       ),
       child: Column(
         children: [
-          SizedBox(height: AppSpacing.xl),
-          // Logo + title
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [scheme.primary, scheme.primary.withValues(alpha: 0.7)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(11.rs),
-              boxShadow: [
-                BoxShadow(color: scheme.primary.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 2)),
-              ],
-            ),
-            child: Icon(Icons.scale_rounded, color: scheme.onPrimary, size: 20),
-          ),
-          SizedBox(height: 10.rs),
-          Text('Setup', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-          SizedBox(height: AppSpacing.xs),
+          SizedBox(height: AppSpacing.lg),
+          Text('tulanam', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: scheme.onSurface, letterSpacing: 2)),
+          SizedBox(height: 4.rs),
+          Text('setup', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant.withValues(alpha: 0.5), letterSpacing: 2)),
+          SizedBox(height: AppSpacing.md),
           // Progress
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Column(
               children: [
                 ClipRRect(
@@ -76,23 +68,23 @@ class WizardSidebar extends ConsumerWidget {
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 4,
-                    backgroundColor: scheme.outlineVariant.withValues(alpha: 0.2),
-                    color: scheme.primary,
+                    backgroundColor: scheme.outlineVariant.withValues(alpha: 0.15),
+                    color: AppTheme.brandTeal,
                   ),
                 ),
                 SizedBox(height: AppSpacing.xs),
                 Text(
                   '$completedCount of ${visible.length}',
-                  style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
+                  style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5), fontWeight: FontWeight.w500),
                 ),
               ],
             ),
           ),
-          SizedBox(height: 20.rs),
-          // Steps
+          SizedBox(height: 16.rs),
+          // Steps as cards
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: EdgeInsets.zero,
               itemCount: wizardSteps.length,
               itemBuilder: (context, index) {
                 final step = wizardSteps[index];
@@ -128,24 +120,23 @@ class WizardSidebar extends ConsumerWidget {
               },
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-            child: TextButton.icon(
-              onPressed: () {
-                ref.read(wizardPrefillEmailProvider.notifier).state = null;
-                ref.read(wizardShowResumeSignInProvider.notifier).state = false;
-                ref.read(setupWizardProvider.notifier).goToWelcome();
-              },
-              icon: Icon(Icons.logout_rounded, size: 14, color: scheme.onSurfaceVariant),
-              label: Text('Exit Setup', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
-              ),
+          TextButton.icon(
+            onPressed: () {
+              ref.read(wizardPrefillEmailProvider.notifier).state = null;
+              ref.read(wizardShowResumeSignInProvider.notifier).state = false;
+              ref.read(setupWizardProvider.notifier).goToWelcome();
+            },
+            icon: Icon(Icons.logout_rounded, size: 14, color: scheme.onSurfaceVariant),
+            label: Text('Exit Setup', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
             ),
           ),
         ],
       ),
+      ),
+    ),
     );
   }
 
@@ -181,99 +172,78 @@ class _StepTile extends StatelessWidget {
     final isSkipped = status == StepStatus.skipped;
     final isPast = isCompleted || isSkipped;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Timeline column
-            SizedBox(
-              width: 32,
-              child: Column(
-                children: [
-                  _buildIndicator(scheme, isPast, isCurrent, isCompleted, isSkipped),
-                  if (!isLast)
-                    Expanded(
-                      child: Container(
-                        width: 1.5,
-                        color: isPast
-                            ? scheme.primary.withValues(alpha: 0.4)
-                            : scheme.outlineVariant.withValues(alpha: 0.25),
-                      ),
-                    ),
-                ],
-              ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: isCurrent
+                ? scheme.surface
+                : isPast
+                    ? scheme.surface.withValues(alpha: 0.7)
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(10.rs),
+            border: Border.all(
+              color: isCurrent
+                  ? AppTheme.brandTeal.withValues(alpha: 0.5)
+                  : isPast
+                      ? scheme.outlineVariant.withValues(alpha: 0.2)
+                      : Colors.transparent,
             ),
-            SizedBox(width: AppSpacing.sm),
-            // Content
-            Expanded(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: EdgeInsets.only(bottom: isLast ? 0 : 4),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isCurrent ? scheme.primary.withValues(alpha: 0.07) : Colors.transparent,
-                  borderRadius: AppRadius.button,
-                ),
-                child: Row(
+            boxShadow: isCurrent
+                ? [BoxShadow(color: AppTheme.brandTeal.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))]
+                : null,
+          ),
+          child: Row(
+            children: [
+              _buildIndicator(scheme, isPast, isCurrent, isCompleted, isSkipped),
+              SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      icon,
-                      size: 15,
-                      color: isCurrent
-                          ? scheme.primary
-                          : isPast
-                              ? scheme.primary.withValues(alpha: 0.6)
-                              : scheme.onSurfaceVariant.withValues(alpha: 0.4),
-                    ),
-                    SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-                              color: isCurrent
-                                  ? scheme.onSurface
-                                  : isPast
-                                      ? scheme.onSurface.withValues(alpha: 0.7)
-                                      : scheme.onSurfaceVariant.withValues(alpha: 0.5),
-                            ),
-                          ),
-                          Text(
-                            subtitle,
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: isCurrent
-                                  ? scheme.onSurfaceVariant.withValues(alpha: 0.8)
-                                  : scheme.onSurfaceVariant.withValues(alpha: 0.45),
-                            ),
-                          ),
-                        ],
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                        color: isCurrent
+                            ? scheme.onSurface
+                            : isPast
+                                ? scheme.onSurface.withValues(alpha: 0.7)
+                                : scheme.onSurfaceVariant.withValues(alpha: 0.5),
                       ),
                     ),
-                    if (!isRequired && !isPast)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(4.rs),
-                        ),
-                        child: Text(
-                          'opt',
-                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                        ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isCurrent
+                            ? scheme.onSurfaceVariant
+                            : scheme.onSurfaceVariant.withValues(alpha: 0.4),
                       ),
+                    ),
                   ],
                 ),
               ),
-            ),
-          ],
+              if (!isRequired && !isPast)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(4.rs),
+                  ),
+                  child: Text(
+                    'opt',
+                    style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -288,10 +258,9 @@ class _StepTile extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: scheme.primary,
-          boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 1))],
+          color: AppTheme.brandTeal,
         ),
-        child: Icon(Icons.check_rounded, size: 12, color: scheme.onPrimary),
+        child: const Icon(Icons.check_rounded, size: 12, color: Colors.white),
       );
     }
 
@@ -302,9 +271,9 @@ class _StepTile extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: scheme.surfaceContainerHighest,
-          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5), width: 1.5),
+          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4), width: 1.5),
         ),
-        child: Icon(Icons.skip_next_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+        child: Icon(Icons.skip_next_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
       );
     }
 
@@ -314,14 +283,14 @@ class _StepTile extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: scheme.primary, width: 2),
-          boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.15), blurRadius: 6, spreadRadius: 1)],
+          color: AppTheme.brandTeal.withValues(alpha: 0.12),
+          border: Border.all(color: AppTheme.brandTeal, width: 2),
         ),
         child: Center(
           child: Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.primary),
+            width: 7,
+            height: 7,
+            decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.brandTeal),
           ),
         ),
       );

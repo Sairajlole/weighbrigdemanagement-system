@@ -43,6 +43,9 @@ dependencies:
   media_kit_libs_windows_video: ^1.0.9
   flutter_libserialport: ^0.4.0
 
+  # Charts
+  fl_chart: ^0.69.2
+
   # Image Processing
   image: ^4.5.3
   pdfx: ^2.6.0
@@ -62,6 +65,7 @@ dependencies:
   package_info_plus: ^8.3.0
   file_picker: ^8.1.6
   csv: ^6.0.0
+  url_launcher: ^6.2.5
 
 dev_dependencies:
   flutter_test:
@@ -70,3 +74,89 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/app_icon.png
+    - assets/logo.png
+    - assets/voice/bn/female/normal/
+    - assets/voice/bn/female/polite/
+    - assets/voice/bn/male/normal/
+    - assets/voice/bn/male/polite/
+    - assets/voice/en/female/normal/
+    - assets/voice/en/female/polite/
+    - assets/voice/en/male/normal/
+    - assets/voice/en/male/polite/
+    - assets/voice/gu/female/normal/
+    - assets/voice/gu/female/polite/
+    - assets/voice/gu/male/normal/
+    - assets/voice/gu/male/polite/
+    - assets/voice/hr/female/polite/
+    - assets/voice/hr/male/polite/
+    - assets/voice/hi/female/normal/
+    - assets/voice/hi/female/polite/
+    - assets/voice/hi/male/normal/
+    - assets/voice/hi/male/polite/
+    - assets/voice/kn/female/normal/
+    - assets/voice/kn/female/polite/
+    - assets/voice/kn/male/normal/
+    - assets/voice/kn/male/polite/
+    - assets/voice/ml/female/normal/
+    - assets/voice/ml/female/polite/
+    - assets/voice/ml/male/normal/
+    - assets/voice/ml/male/polite/
+    - assets/voice/mr/female/normal/
+    - assets/voice/mr/female/polite/
+    - assets/voice/mr/male/normal/
+    - assets/voice/mr/male/polite/
+    - assets/voice/pa/female/normal/
+    - assets/voice/pa/female/polite/
+    - assets/voice/pa/male/normal/
+    - assets/voice/pa/male/polite/
+    - assets/voice/ta/female/normal/
+    - assets/voice/ta/female/polite/
+    - assets/voice/ta/male/normal/
+    - assets/voice/ta/male/polite/
+    - assets/voice/te/female/normal/
+    - assets/voice/te/female/polite/
+    - assets/voice/te/male/normal/
+    - assets/voice/te/male/polite/
+    - assets/voice/bn/female/normal/numbers/
+    - assets/voice/bn/female/polite/numbers/
+    - assets/voice/bn/male/normal/numbers/
+    - assets/voice/bn/male/polite/numbers/
+    - assets/voice/en/female/normal/numbers/
+    - assets/voice/en/female/polite/numbers/
+    - assets/voice/en/male/normal/numbers/
+    - assets/voice/en/male/polite/numbers/
+    - assets/voice/gu/female/normal/numbers/
+    - assets/voice/gu/female/polite/numbers/
+    - assets/voice/gu/male/normal/numbers/
+    - assets/voice/gu/male/polite/numbers/
+    - assets/voice/hi/female/normal/numbers/
+    - assets/voice/hi/female/polite/numbers/
+    - assets/voice/hi/male/normal/numbers/
+    - assets/voice/hi/male/polite/numbers/
+    - assets/voice/kn/female/normal/numbers/
+    - assets/voice/kn/female/polite/numbers/
+    - assets/voice/kn/male/normal/numbers/
+    - assets/voice/kn/male/polite/numbers/
+    - assets/voice/ml/female/normal/numbers/
+    - assets/voice/ml/female/polite/numbers/
+    - assets/voice/ml/male/normal/numbers/
+    - assets/voice/ml/male/polite/numbers/
+    - assets/voice/mr/female/normal/numbers/
+    - assets/voice/mr/female/polite/numbers/
+    - assets/voice/mr/male/normal/numbers/
+    - assets/voice/mr/male/polite/numbers/
+    - assets/voice/pa/female/normal/numbers/
+    - assets/voice/pa/female/polite/numbers/
+    - assets/voice/pa/male/normal/numbers/
+    - assets/voice/pa/male/polite/numbers/
+    - assets/voice/ta/female/normal/numbers/
+    - assets/voice/ta/female/polite/numbers/
+    - assets/voice/ta/male/normal/numbers/
+    - assets/voice/ta/male/polite/numbers/
+    - assets/voice/te/female/normal/numbers/
+    - assets/voice/te/female/polite/numbers/
+    - assets/voice/te/male/normal/numbers/
+    - assets/voice/te/male/polite/numbers/

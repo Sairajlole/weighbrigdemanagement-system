@@ -12,6 +12,20 @@ class BackgroundArt extends ConsumerWidget {
     if (art == 'none') return child;
 
     final scheme = Theme.of(context).colorScheme;
+
+    if (art == 'watermark') {
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: _LogoWatermarkBg(scheme: scheme),
+            ),
+          ),
+          child,
+        ],
+      );
+    }
+
     return Stack(
       children: [
         Positioned.fill(
@@ -84,4 +98,80 @@ class _BackgroundPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BackgroundPainter old) => art != old.art || color != old.color;
+}
+
+class _LogoWatermarkBg extends StatefulWidget {
+  final ColorScheme scheme;
+  const _LogoWatermarkBg({required this.scheme});
+
+  @override
+  State<_LogoWatermarkBg> createState() => _LogoWatermarkBgState();
+}
+
+class _LogoWatermarkBgState extends State<_LogoWatermarkBg> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 120),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final opacity = isDark ? 0.03 : 0.05;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final rows = (constraints.maxHeight / 160).ceil() + 1;
+        final totalWidth = constraints.maxWidth;
+        return AnimatedBuilder(
+          animation: _controller,
+          builder: (_, __) {
+            final shift = _controller.value * (totalWidth + 200);
+            return ClipRect(
+              child: Opacity(
+                opacity: opacity,
+                child: ColorFiltered(
+                  colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.srcIn),
+                  child: Stack(
+                    children: List.generate(rows, (row) {
+                      return Positioned(
+                        top: row * 160.0 - 80,
+                        left: shift - totalWidth - 200,
+                        width: totalWidth * 3,
+                        height: 140,
+                        child: Row(
+                          children: List.generate(24, (col) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 40),
+                              child: SizedBox(
+                                width: 100,
+                                height: 92,
+                                child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+                              ),
+                            );
+                          }),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 }

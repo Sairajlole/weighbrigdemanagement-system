@@ -349,19 +349,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   SizedBox(height: AppSpacing.lg),
                 ],
 
-                // Row 3: Session + Face Enrollment (admin)
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(flex: 3, child: _buildSessionCard(scheme, text, isAdmin, shiftRestricted, shiftStart, shiftEnd, shiftDays)),
-                      if (isAdmin) ...[
-                        SizedBox(width: AppSpacing.lg),
-                        Expanded(flex: 2, child: _buildFaceEnrollmentCard(scheme, text, profile['facePhoto'] as String?)),
-                      ],
-                    ],
-                  ),
-                ),
+                // Row 3: Session
+                _buildSessionCard(scheme, text, isAdmin, shiftRestricted, shiftStart, shiftEnd, shiftDays),
               ],
             ),
           );

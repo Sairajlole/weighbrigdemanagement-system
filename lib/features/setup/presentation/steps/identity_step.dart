@@ -201,23 +201,32 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
           constraints: const BoxConstraints(maxWidth: 520),
           child: Column(
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: 0.1),
-                  borderRadius: AppRadius.dialog,
-                  border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
-                ),
-                child: Icon(Icons.fingerprint_rounded, size: 28, color: scheme.primary),
-              ),
-              SizedBox(height: 20.rs),
-              Text('Identity Verification', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-              SizedBox(height: AppSpacing.sm),
-              Text(
-                'Upload a government ID and a selfie to verify your identity.',
-                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                textAlign: TextAlign.center,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 3.5,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppTheme.brandTeal,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  SizedBox(width: 14.rs),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Identity Verification', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                        SizedBox(height: 4.rs),
+                        Text(
+                          'Upload a government ID and a selfie to verify your identity.',
+                          style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               SizedBox(height: AppSpacing.xxl),
 

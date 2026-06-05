@@ -5,25 +5,6 @@ import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
-const _accentColors = <Color>[
-  Color(0xFF059669), // Emerald
-  Color(0xFF2563EB), // Blue
-  Color(0xFF7C3AED), // Violet
-  Color(0xFFDC2626), // Red
-  Color(0xFFEA580C), // Orange
-  Color(0xFFCA8A04), // Amber
-  Color(0xFF0891B2), // Cyan
-  Color(0xFF4F46E5), // Indigo
-  Color(0xFFDB2777), // Pink
-  Color(0xFF16A34A), // Green
-  Color(0xFF475569), // Slate
-  Color(0xFF1E293B), // Dark
-];
-
-const _accentLabels = <String>[
-  'Emerald', 'Blue', 'Violet', 'Red', 'Orange', 'Amber',
-  'Cyan', 'Indigo', 'Pink', 'Green', 'Slate', 'Dark',
-];
 
 class AppearanceStep extends ConsumerStatefulWidget {
   const AppearanceStep({super.key});
@@ -34,7 +15,6 @@ class AppearanceStep extends ConsumerStatefulWidget {
 
 class _AppearanceStepState extends ConsumerState<AppearanceStep> {
   late ThemeMode _themeMode;
-  late Color _accentColor;
   late double _fontScale;
   late String _locale;
 
@@ -43,7 +23,6 @@ class _AppearanceStepState extends ConsumerState<AppearanceStep> {
     super.initState();
     final settings = ref.read(appearanceProvider);
     _themeMode = settings.themeMode;
-    _accentColor = settings.accentColor;
     _fontScale = settings.fontScale;
     _locale = settings.locale;
 
@@ -64,7 +43,6 @@ class _AppearanceStepState extends ConsumerState<AppearanceStep> {
       await ref.read(appearanceProvider.notifier).update(
         AppearanceSettings(
           themeMode: _themeMode,
-          accentColor: _accentColor,
           backgroundArt: ref.read(appearanceProvider).backgroundArt,
           fontScale: _fontScale,
           locale: _locale,
@@ -113,45 +91,6 @@ class _AppearanceStepState extends ConsumerState<AppearanceStep> {
               _ThemeCard(icon: Icons.brightness_auto_rounded, label: 'System', isSelected: _themeMode == ThemeMode.system,
                   onTap: () => setState(() => _themeMode = ThemeMode.system), scheme: scheme),
             ],
-          ),
-
-          SizedBox(height: AppSpacing.xxl),
-
-          // Accent color
-          Text('Accent Color', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-          SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: List.generate(_accentColors.length, (i) {
-              final color = _accentColors[i];
-              final selected = _accentColor.toARGB32() == color.toARGB32();
-              return GestureDetector(
-                onTap: () => setState(() => _accentColor = color),
-                child: Tooltip(
-                  message: _accentLabels[i],
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: selected ? scheme.onSurface : Colors.transparent,
-                        width: 3,
-                      ),
-                      boxShadow: selected ? [
-                        BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 2)),
-                      ] : null,
-                    ),
-                    child: selected
-                        ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
-                        : null,
-                  ),
-                ),
-              );
-            }),
           ),
 
           SizedBox(height: AppSpacing.xxl),

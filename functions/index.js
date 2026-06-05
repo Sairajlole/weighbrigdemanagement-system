@@ -4868,3 +4868,606 @@ function averageLandmarks(landmarkSets) {
   }
   return averaged;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── DigiLocker Identity Verification (via Setu Gateway) ─────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const SETU_BASE = process.env.SETU_BASE_URL || "https://dg-sandbox.setu.co";
+const SETU_CLIENT_ID = process.env.SETU_CLIENT_ID || "";
+const SETU_CLIENT_SECRET = process.env.SETU_CLIENT_SECRET || "";
+const SETU_PRODUCT_ID = process.env.SETU_DIGILOCKER_PRODUCT_ID || SETU_CLIENT_ID;
+const DIGILOCKER_TEST_MODE = !SETU_CLIENT_ID;
+
+async function setuFetch(path, options = {}) {
+  const fetch = (await import("node-fetch")).default;
+  const url = `${SETU_BASE}${path}`;
+  const headers = {
+    "Content-Type": "application/json",
+    "x-client-id": SETU_CLIENT_ID,
+    "x-client-secret": SETU_CLIENT_SECRET,
+    "x-product-instance-id": SETU_PRODUCT_ID,
+    ...options.headers,
+  };
+  const res = await fetch(url, { ...options, headers });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Setu API error ${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
+/**
+ * initiateDigiLockerConsent
+ * Creates a DigiLocker consent session via Setu.
+ * Returns a URL the user opens to authenticate with DigiLocker.
+ *
+ * Input: { purpose: 'admin_verification' | 'operator_verification', redirectUrl, companyId? }
+ * Output: { consentId, url }
+ */
+exports.initiateDigiLockerConsent = functions.https.onCall(async (data, context) => {
+  const uid = context.auth?.uid || data.uid || `anon_${Date.now()}`;
+  if (!uid) {
+    throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
+  }
+
+  const { purpose, redirectUrl } = data;
+  if (!purpose || !redirectUrl) {
+    throw new functions.https.HttpsError("invalid-argument", "purpose and redirectUrl required");
+  }
+
+  // ── TEST MODE: simulate DigiLocker without real API ──
+  if (DIGILOCKER_TEST_MODE) {
+    const testId = `test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    await db.collection("digilocker_sessions").doc(testId).set({
+      consentId: testId,
+      uid,
+      purpose,
+      companyId: data.companyId || null,
+      status: "initiated",
+      testMode: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return { consentId: testId, url: `${redirectUrl}?consent_id=${testId}&test=true` };
+  }
+
+  // ── PRODUCTION: call Setu DigiLocker API ──
+  const docTypes = purpose === "admin_verification"
+    ? ["PANCR", "ADHAR"]
+    : ["PANCR", "ADHAR"];
+
+  const body = {
+    redirectUrl,
+    context: {
+      purpose: purpose === "admin_verification"
+        ? "Verify identity as company stakeholder"
+        : "Verify operator identity for weighbridge access",
+      description: "Tulanam Smart Weighment System identity verification",
+    },
+    documents: docTypes.map(type => ({
+      type,
+      format: "json",
+    })),
+  };
+
+  const result = await setuFetch("/api/digilocker/consent", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+  await db.collection("digilocker_sessions").doc(result.id).set({
+    consentId: result.id,
+    uid,
+    purpose,
+    companyId: data.companyId || null,
+    status: "initiated",
+    testMode: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return { consentId: result.id, url: result.url };
+});
+
+/**
+ * processDigiLockerConsent
+ * After user completes DigiLocker auth, call this with the consentId.
+ * Fetches the documents and performs verification.
+ *
+ * Input: { consentId }
+ * Output: { verified, pan, aadhaarLast4, name, dob, photo?, reason? }
+ */
+exports.processDigiLockerConsent = functions.runWith({ timeoutSeconds: 60 }).https.onCall(async (data, context) => {
+  const uid = context.auth?.uid || data.uid || null;
+
+  const { consentId } = data;
+  if (!consentId) {
+    throw new functions.https.HttpsError("invalid-argument", "consentId required");
+  }
+
+  const sessionDoc = await db.collection("digilocker_sessions").doc(consentId).get();
+  if (!sessionDoc.exists) {
+    throw new functions.https.HttpsError("permission-denied", "Consent session not found");
+  }
+  if (uid && sessionDoc.data().uid !== uid && !sessionDoc.data().uid.startsWith("anon_")) {
+    throw new functions.https.HttpsError("permission-denied", "Unauthorized");
+  }
+  const sessionData = sessionDoc.data();
+
+  // ── TEST MODE: return simulated data ──
+  if (sessionData.testMode) {
+    const testResult = {
+      verified: true,
+      pan: "ABCDE1234F",
+      aadhaarLast4: "4532",
+      name: "Test User (DigiLocker)",
+      dob: "01-01-1990",
+      photo: null,
+      address: "123 Test Street, Mumbai, Maharashtra 400001",
+      reason: null,
+    };
+    await sessionDoc.ref.update({
+      status: "completed",
+      verified: true,
+      panVerified: true,
+      aadhaarVerified: true,
+      name: testResult.name,
+      testMode: true,
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return testResult;
+  }
+
+  // ── PRODUCTION: fetch from Setu ──
+  const consent = await setuFetch(`/api/digilocker/consent/${consentId}`);
+
+  if (consent.status !== "APPROVED") {
+    await sessionDoc.ref.update({ status: consent.status });
+    throw new functions.https.HttpsError("failed-precondition", `Consent not approved. Status: ${consent.status}`);
+  }
+
+  // Fetch documents
+  const documents = {};
+  for (const doc of (consent.documents || [])) {
+    try {
+      const docData = await setuFetch(`/api/digilocker/consent/${consentId}/document/${doc.id}`);
+      documents[doc.type] = docData;
+    } catch (e) {
+      functions.logger.warn(`Failed to fetch ${doc.type}:`, e.message);
+    }
+  }
+
+  // Extract identity data
+  const result = {
+    verified: false,
+    pan: null,
+    aadhaarLast4: null,
+    name: null,
+    dob: null,
+    photo: null,
+    address: null,
+    reason: null,
+  };
+
+  // PAN data
+  if (documents.PANCR) {
+    const pan = documents.PANCR;
+    result.pan = pan.number || pan.pan_number || null;
+    result.name = result.name || pan.name || pan.full_name || null;
+    result.dob = result.dob || pan.dob || pan.date_of_birth || null;
+  }
+
+  // Aadhaar data
+  if (documents.ADHAR) {
+    const aadhaar = documents.ADHAR;
+    const fullNumber = aadhaar.number || aadhaar.aadhaar_number || "";
+    result.aadhaarLast4 = fullNumber.slice(-4) || null;
+    result.name = result.name || aadhaar.name || aadhaar.full_name || null;
+    result.dob = result.dob || aadhaar.dob || aadhaar.date_of_birth || null;
+    result.photo = aadhaar.photo || aadhaar.image || null;
+    result.address = aadhaar.address || null;
+  }
+
+  result.verified = !!(result.pan && result.name);
+
+  // Update session
+  await sessionDoc.ref.update({
+    status: "completed",
+    verified: result.verified,
+    panVerified: !!result.pan,
+    aadhaarVerified: !!result.aadhaarLast4,
+    name: result.name,
+    completedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return result;
+});
+
+/**
+ * verifyStakeholder
+ * Cross-verifies that the DigiLocker-authenticated person is actually a
+ * stakeholder (owner/director/partner) of the GSTIN company.
+ *
+ * Input: { consentId, gstin, companyId }
+ * Output: { isStakeholder, matchType, details }
+ */
+exports.verifyStakeholder = functions.runWith({ timeoutSeconds: 30 }).https.onCall(async (data, context) => {
+  const uid = context.auth?.uid || data.uid || null;
+
+  const { consentId, gstin, companyId } = data;
+  if (!consentId || !gstin) {
+    throw new functions.https.HttpsError("invalid-argument", "consentId and gstin required");
+  }
+
+  const sessionDoc = await db.collection("digilocker_sessions").doc(consentId).get();
+  if (!sessionDoc.exists) {
+    throw new functions.https.HttpsError("permission-denied", "Session not found");
+  }
+  const session = sessionDoc.data();
+  if (!session.verified) {
+    throw new functions.https.HttpsError("failed-precondition", "Identity not verified yet");
+  }
+
+  // ── TEST MODE: simulate stakeholder match ──
+  if (session.testMode) {
+    const testResult = { isStakeholder: true, matchType: "test_mode_auto_approve", entityType: "individual", details: "Test mode: auto-approved" };
+    if (companyId) {
+      await db.collection(`companies/${companyId}/verifications`).add({
+        type: "stakeholder", uid: uid || "unknown", gstin, consentId,
+        ...testResult, testMode: true, verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+    return testResult;
+  }
+
+  // Fetch GSTIN data (reuse existing lookupGstin logic)
+  const gstinPan = gstin.substring(2, 12); // PAN embedded in GSTIN
+  const entityChar = gstin[12]; // Constitution type indicator
+
+  // Determine entity type from GSTIN structure
+  // P = Proprietorship, C = Company, F = Firm/LLP, T = Trust, etc.
+  const panTypeChar = gstin[5]; // 4th char of PAN (at position 5 in GSTIN)
+  const entityType = panTypeChar === "P" ? "individual"
+    : panTypeChar === "C" ? "company"
+    : panTypeChar === "F" ? "firm"
+    : "other";
+
+  const result = {
+    isStakeholder: false,
+    matchType: null,
+    entityType,
+    details: null,
+  };
+
+  // ── Proprietorship: PAN in GSTIN must match user's PAN ──
+  if (entityType === "individual") {
+    const userPan = session.panVerified ? await _getPanFromSession(consentId) : null;
+    if (userPan && userPan.toUpperCase() === gstinPan.toUpperCase()) {
+      result.isStakeholder = true;
+      result.matchType = "pan_match_proprietor";
+      result.details = "User PAN matches GSTIN proprietor PAN";
+    } else {
+      result.details = "User PAN does not match GSTIN proprietor PAN";
+    }
+  }
+
+  // ── Company (Pvt Ltd / Public Ltd): Check MCA directors ──
+  else if (entityType === "company") {
+    const mcaResult = await _checkMcaDirectors(gstinPan, session.name);
+    result.isStakeholder = mcaResult.found;
+    result.matchType = mcaResult.found ? "mca_director_match" : null;
+    result.details = mcaResult.reason;
+  }
+
+  // ── Firm / LLP / Partnership ──
+  else if (entityType === "firm") {
+    // For firms, check if user's PAN matches the firm PAN (managing partner)
+    // or check GST registration details for partner list
+    const userPan = session.panVerified ? await _getPanFromSession(consentId) : null;
+    if (userPan && userPan.toUpperCase() === gstinPan.toUpperCase()) {
+      result.isStakeholder = true;
+      result.matchType = "pan_match_firm";
+      result.details = "User PAN matches firm PAN (managing partner)";
+    } else {
+      // Attempt name match against GST authorized signatory
+      const gstData = await _getCachedGstData(gstin);
+      if (gstData && session.name) {
+        const signatoryMatch = _nameMatch(session.name, gstData.authorizedSignatory || "");
+        if (signatoryMatch >= 0.7) {
+          result.isStakeholder = true;
+          result.matchType = "signatory_name_match";
+          result.details = `Name matches authorized signatory (${Math.round(signatoryMatch * 100)}% confidence)`;
+        } else {
+          result.details = "User not found as partner/signatory";
+        }
+      }
+    }
+  }
+
+  // Store verification result
+  if (companyId) {
+    await db.collection(`companies/${companyId}/verifications`).add({
+      type: "stakeholder",
+      uid: uid || "unknown",
+      gstin,
+      consentId,
+      isStakeholder: result.isStakeholder,
+      matchType: result.matchType,
+      entityType: result.entityType,
+      verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  return result;
+});
+
+// ─── Helper: Get PAN from DigiLocker session documents ─────────────────────
+
+async function _getPanFromSession(consentId) {
+  try {
+    const docData = await setuFetch(`/api/digilocker/consent/${consentId}/document/PANCR`);
+    return docData.number || docData.pan_number || null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Helper: Check MCA Directors Registry ──────────────────────────────────
+
+async function _checkMcaDirectors(companyPan, userName) {
+  const MCA_API_KEY = process.env.MCA_API_KEY || "";
+
+  if (!MCA_API_KEY) {
+    // Fallback: check cached GST data for authorized signatory name match
+    return { found: false, reason: "MCA API not configured — cannot verify director status" };
+  }
+
+  try {
+    const fetch = (await import("node-fetch")).default;
+    // MCA company master data via third-party API (e.g., Signzy/Setu/custom)
+    const res = await fetch(`https://api.mca.gov.in/v1/company/${companyPan}/directors`, {
+      headers: { "Authorization": `Bearer ${MCA_API_KEY}`, "Content-Type": "application/json" },
+    });
+
+    if (!res.ok) {
+      return { found: false, reason: `MCA lookup failed: ${res.status}` };
+    }
+
+    const data = await res.json();
+    const directors = data.directors || data.data?.directors || [];
+
+    for (const director of directors) {
+      const directorName = director.name || director.din_name || "";
+      const similarity = _nameMatch(userName, directorName);
+      if (similarity >= 0.7) {
+        return {
+          found: true,
+          reason: `Matched director: ${directorName} (${Math.round(similarity * 100)}% name match)`,
+          din: director.din || null,
+        };
+      }
+    }
+
+    return { found: false, reason: `User "${userName}" not found among ${directors.length} directors` };
+  } catch (e) {
+    return { found: false, reason: `MCA lookup error: ${e.message}` };
+  }
+}
+
+// ─── Helper: Get cached GST data ───────────────────────────────────────────
+
+async function _getCachedGstData(gstin) {
+  const cached = await db.collection("gstin_lookups").doc(gstin).get();
+  return cached.exists ? cached.data() : null;
+}
+
+// ─── Helper: Name similarity (Levenshtein-based) ───────────────────────────
+
+function _nameMatch(a, b) {
+  if (!a || !b) return 0;
+  const na = a.trim().toLowerCase().replace(/[^a-z\s]/g, "");
+  const nb = b.trim().toLowerCase().replace(/[^a-z\s]/g, "");
+  if (na === nb) return 1.0;
+
+  // Token overlap
+  const tokensA = na.split(/\s+/).filter(t => t.length > 1);
+  const tokensB = nb.split(/\s+/).filter(t => t.length > 1);
+  const intersection = tokensA.filter(t => tokensB.includes(t));
+  const tokenSim = intersection.length / Math.max(tokensA.length, tokensB.length);
+  if (tokenSim >= 0.8) return tokenSim;
+
+  // Levenshtein
+  const len1 = na.length, len2 = nb.length;
+  const dp = Array.from({ length: len1 + 1 }, (_, i) =>
+    Array.from({ length: len2 + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      dp[i][j] = na[i - 1] === nb[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return 1 - dp[len1][len2] / Math.max(len1, len2);
+}
+
+// ─── Scheduled Email Report ──────────────────────────────────────────────────
+// Runs every day at 8 AM IST (2:30 UTC). Checks each company's emailSchedule
+// config and sends a summary report via SendGrid Trigger Email extension.
+
+exports.scheduledEmailReport = functions.pubsub
+  .schedule("30 2 * * *") // 8:00 AM IST daily
+  .timeZone("Asia/Kolkata")
+  .onRun(async () => {
+    const companiesSnap = await db.collection("companies").get();
+
+    for (const companyDoc of companiesSnap.docs) {
+      const companyId = companyDoc.id;
+      const scheduleDoc = await db.doc(`companies/${companyId}/settings/emailSchedule`).get();
+      if (!scheduleDoc.exists) continue;
+
+      const config = scheduleDoc.data();
+      if (!config.enabled || !config.recipient) continue;
+
+      // Check frequency
+      const now = new Date();
+      if (config.frequency === "weekly" && now.getDay() !== 1) continue; // Monday only
+
+      // Gather yesterday's data (or last 7 days for weekly)
+      const daysBack = config.frequency === "weekly" ? 7 : 1;
+      const startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - daysBack);
+      startDate.setHours(0, 0, 0, 0);
+
+      // Find all weighbridges
+      const sitesSnap = await db.collection(`companies/${companyId}/sites`).get();
+      let totalWeighments = 0;
+      let totalNet = 0;
+      let totalVehicles = new Set();
+      const materialTotals = {};
+
+      for (const siteDoc of sitesSnap.docs) {
+        const wbSnap = await db.collection(`companies/${companyId}/sites/${siteDoc.id}/weighbridges`).get();
+        for (const wbDoc of wbSnap.docs) {
+          const weighmentsSnap = await db
+            .collection(`companies/${companyId}/sites/${siteDoc.id}/weighbridges/${wbDoc.id}/weighments`)
+            .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(startDate))
+            .where("status", "==", "completed")
+            .get();
+
+          for (const w of weighmentsSnap.docs) {
+            const d = w.data();
+            totalWeighments++;
+            totalNet += (d.netWeight || 0);
+            if (d.vehicleNumber) totalVehicles.add(d.vehicleNumber);
+            const mat = d.material || "Unknown";
+            materialTotals[mat] = (materialTotals[mat] || 0) + (d.netWeight || 0);
+          }
+        }
+      }
+
+      // Build email content
+      const period = config.frequency === "weekly" ? "Last 7 Days" : "Yesterday";
+      const materialLines = Object.entries(materialTotals)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([m, v]) => `  • ${m}: ${(v / 1000).toFixed(1)} T`)
+        .join("\n");
+
+      const body = `
+Weighbridge Report — ${period}
+${"=".repeat(40)}
+
+Total Weighments: ${totalWeighments}
+Unique Vehicles: ${totalVehicles.size}
+Net Tonnage: ${(totalNet / 1000).toFixed(1)} T
+
+Top Materials:
+${materialLines || "  No data"}
+
+---
+Generated: ${now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+This is an automated report from your weighbridge system.
+      `.trim();
+
+      // Send via Nodemailer (Gmail)
+      try {
+        const transporter = getMailTransporter();
+        await transporter.sendMail({
+          from: functions.config().gmail?.email || process.env.GMAIL_EMAIL,
+          to: config.recipient,
+          subject: `Weighbridge Report — ${period} (${totalWeighments} weighments, ${(totalNet / 1000).toFixed(1)}T)`,
+          text: body,
+        });
+      } catch (mailErr) {
+        // Fallback: write to mail collection for Trigger Email extension
+        await db.collection("mail").add({
+          to: config.recipient,
+          message: {
+            subject: `Weighbridge Report — ${period} (${totalWeighments} weighments, ${(totalNet / 1000).toFixed(1)}T)`,
+            text: body,
+          },
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        functions.logger.warn(`Direct mail failed, wrote to mail collection: ${mailErr.message}`);
+      }
+
+      functions.logger.info(`Email report sent to ${config.recipient} for company ${companyId}`);
+    }
+
+    return null;
+  });
+
+// ─── On-demand Report Email (callable) ───────────────────────────────────────
+// Admin can trigger a report email immediately from the app
+
+exports.sendReportEmail = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
+
+  const { companyId, recipient, period } = data;
+  if (!companyId || !recipient) throw new functions.https.HttpsError("invalid-argument", "Missing companyId or recipient");
+
+  const daysBack = period === "weekly" ? 7 : 1;
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setDate(startDate.getDate() - daysBack);
+  startDate.setHours(0, 0, 0, 0);
+
+  const sitesSnap = await db.collection(`companies/${companyId}/sites`).get();
+  let totalWeighments = 0;
+  let totalNet = 0;
+  const totalVehicles = new Set();
+  const materialTotals = {};
+
+  for (const siteDoc of sitesSnap.docs) {
+    const wbSnap = await db.collection(`companies/${companyId}/sites/${siteDoc.id}/weighbridges`).get();
+    for (const wbDoc of wbSnap.docs) {
+      const weighmentsSnap = await db
+        .collection(`companies/${companyId}/sites/${siteDoc.id}/weighbridges/${wbDoc.id}/weighments`)
+        .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(startDate))
+        .where("status", "==", "completed")
+        .get();
+
+      for (const w of weighmentsSnap.docs) {
+        const d = w.data();
+        totalWeighments++;
+        totalNet += (d.netWeight || 0);
+        if (d.vehicleNumber) totalVehicles.add(d.vehicleNumber);
+        const mat = d.material || "Unknown";
+        materialTotals[mat] = (materialTotals[mat] || 0) + (d.netWeight || 0);
+      }
+    }
+  }
+
+  const periodLabel = period === "weekly" ? "Last 7 Days" : "Yesterday";
+  const materialLines = Object.entries(materialTotals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([m, v]) => `  • ${m}: ${(v / 1000).toFixed(1)} T`)
+    .join("\n");
+
+  const body = `
+Weighbridge Report — ${periodLabel}
+${"=".repeat(40)}
+
+Total Weighments: ${totalWeighments}
+Unique Vehicles: ${totalVehicles.size}
+Net Tonnage: ${(totalNet / 1000).toFixed(1)} T
+
+Top Materials:
+${materialLines || "  No data"}
+
+---
+Generated: ${now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+Requested by: ${context.auth.token.email || "admin"}
+  `.trim();
+
+  const transporter = getMailTransporter();
+  await transporter.sendMail({
+    from: functions.config().gmail?.email || process.env.GMAIL_EMAIL,
+    to: recipient,
+    subject: `Weighbridge Report — ${periodLabel} (${totalWeighments} weighments, ${(totalNet / 1000).toFixed(1)}T)`,
+    text: body,
+  });
+
+  return { success: true, weighments: totalWeighments, tonnage: (totalNet / 1000).toFixed(1) };
+});

@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:weighbridgemanagement/features/profile/presentation/profile_screen.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
@@ -389,46 +390,19 @@ class _DashboardHeaderState extends ConsumerState<_DashboardHeader> {
                 ),
               ),
               SizedBox(height: AppSpacing.xs),
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: scheme.primary,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: scheme.primary.withValues(alpha: 0.4),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Live',
-                    style: text.labelMedium?.copyWith(
-                      color: scheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  SizedBox(width: AppSpacing.md),
-                  Text(
-                    '${DateFormat('EEEE, d MMMM yyyy').format(_now)}  •  ${getTimeFormatter(ref.watch(timeFormatProvider)).format(_now)}',
-                    style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                  ),
-                ],
+              Text(
+                '${DateFormat('EEEE, d MMMM yyyy').format(_now)}  •  ${getTimeFormatter(ref.watch(timeFormatProvider)).format(_now)}',
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ],
           ),
         ),
-        _GlowButton(
-          onPressed: widget.onNewWeighment,
-          icon: Icons.add_rounded,
-          label: 'New Weighment',
-        ),
+        if (!ref.watch(permissionServiceProvider).isAdmin)
+          _GlowButton(
+            onPressed: widget.onNewWeighment,
+            icon: Icons.add_rounded,
+            label: 'New Weighment',
+          ),
       ],
     );
   }
@@ -958,7 +932,7 @@ class _MaterialBreakdownCard extends StatelessWidget {
   });
 
   static const _colors = [
-    Color(0xFF059669),
+    AppTheme.successColor,
     Color(0xFF0EA5E9),
     AppTheme.proColor,
     Color(0xFFF59E0B),
@@ -1606,7 +1580,7 @@ class _TopCustomersCard extends StatelessWidget {
   Color _avatarColor(int i) {
     const colors = [
       AppTheme.proColor,
-      Color(0xFF059669),
+      AppTheme.successColor,
       Color(0xFF0EA5E9),
       Color(0xFFF59E0B),
       Color(0xFFEF4444),

@@ -48,7 +48,7 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
   @override
   void dispose() {
     for (final player in _players.values) {
-      player.dispose();
+      try { player.dispose(); } catch (_) {}
     }
     _snapshotTimer?.cancel();
     _healthTimer?.cancel();
@@ -71,7 +71,7 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     // Stop feeds for cameras that were removed
     final removed = _activeKeys.difference(desiredKeys);
     for (final key in removed) {
-      _players[key]?.dispose();
+      try { _players[key]?.dispose(); } catch (_) {}
       _players.remove(key);
       _videoControllers.remove(key);
       if (_nativeFeeds.containsKey(key)) {
@@ -207,6 +207,8 @@ class _CameraFeedsPanelState extends ConsumerState<CameraFeedsPanel> {
     if (Platform.isWindows) {
       native.setProperty('hwdec', 'd3d11va-copy');
       native.setProperty('hwdec-codecs', 'all');
+      native.setProperty('gpu-context', 'd3d11');
+      native.setProperty('vo', 'gpu');
     } else {
       native.setProperty('hwdec', 'videotoolbox');
     }

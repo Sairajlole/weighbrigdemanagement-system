@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -31,10 +33,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   }
 
   Future<void> _checkMfaStatus() async {
+    if (Platform.isWindows || Platform.isLinux) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final factors = await user.multiFactor.getEnrolledFactors();
-    if (mounted) setState(() => _hasMfa = factors.isNotEmpty);
+    try {
+      final factors = await user.multiFactor.getEnrolledFactors();
+      if (mounted) setState(() => _hasMfa = factors.isNotEmpty);
+    } catch (_) {}
   }
 
   @override

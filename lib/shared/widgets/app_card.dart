@@ -13,6 +13,7 @@ class AppCard extends StatelessWidget {
   final List<Widget>? actions;
   final EdgeInsets? padding;
   final EdgeInsets? margin;
+  final bool stretch;
 
   const AppCard({
     super.key,
@@ -27,6 +28,7 @@ class AppCard extends StatelessWidget {
     this.actions,
     this.padding,
     this.margin,
+    this.stretch = false,
   });
 
   @override
@@ -36,122 +38,64 @@ class AppCard extends StatelessWidget {
 
     return Container(
       margin: margin ?? EdgeInsets.only(bottom: AppSpacing.lg),
+      padding: padding ?? AppSpacing.cardPadding,
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: AppRadius.card,
         border: Border.all(
           color: dirty
               ? scheme.primary.withValues(alpha: 0.4)
-              : scheme.outlineVariant.withValues(alpha: 0.3),
+              : scheme.outlineVariant.withValues(alpha: 0.25),
         ),
         boxShadow: AppElevation.card(scheme.shadow),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: stretch ? MainAxisSize.max : MainAxisSize.min,
         children: [
-          if (title != null)
-            _CardHeader(
-              title: title!,
-              icon: icon,
-              dirty: dirty,
-              scheme: scheme,
-              text: text,
-              onSave: onSave,
-              onReset: onReset,
-              actions: actions,
+          if (title != null) ...[
+            Row(
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 18, color: scheme.primary),
+                  SizedBox(width: AppSpacing.sm),
+                ],
+                Text(title!, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                if (dirty) ...[
+                  SizedBox(width: AppSpacing.sm),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(color: scheme.primary, shape: BoxShape.circle),
+                  ),
+                ],
+                const Spacer(),
+                if (actions != null) ...actions!,
+                if (onReset != null)
+                  TextButton(
+                    onPressed: onReset,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadius.chip),
+                    ),
+                    child: Text('Reset', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
+                  ),
+                if (onSave != null) ...[
+                  SizedBox(width: AppSpacing.sm),
+                  FilledButton.tonal(
+                    onPressed: onSave,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    child: const Text('Save'),
+                  ),
+                ],
+              ],
             ),
-          Padding(
-            padding: padding ?? AppSpacing.cardPadding,
-            child: child,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CardHeader extends StatelessWidget {
-  final String title;
-  final IconData? icon;
-  final bool dirty;
-  final ColorScheme scheme;
-  final TextTheme text;
-  final VoidCallback? onSave;
-  final VoidCallback? onReset;
-  final List<Widget>? actions;
-
-  const _CardHeader({
-    required this.title,
-    this.icon,
-    required this.dirty,
-    required this.scheme,
-    required this.text,
-    this.onSave,
-    this.onReset,
-    this.actions,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.lg - 1),
-          topRight: Radius.circular(AppRadius.lg - 1),
-        ),
-        border: Border(
-          bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2)),
-        ),
-      ),
-      child: Row(
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: AppSizes.iconSm, color: scheme.primary),
-            SizedBox(width: AppSpacing.sm),
+            SizedBox(height: AppSpacing.lg),
           ],
-          Text(
-            title,
-            style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          if (dirty) ...[
-            SizedBox(width: AppSpacing.sm),
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: scheme.primary,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ],
-          const Spacer(),
-          if (actions != null) ...actions!,
-          if (onReset != null)
-            TextButton(
-              onPressed: onReset,
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Text('Reset', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
-            ),
-          if (onSave != null) ...[
-            SizedBox(width: AppSpacing.xs),
-            FilledButton(
-              onPressed: onSave,
-              style: FilledButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-              ),
-              child: const Text('Save'),
-            ),
-          ],
+          child,
         ],
       ),
     );

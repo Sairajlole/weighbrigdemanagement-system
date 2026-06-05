@@ -226,9 +226,12 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+            margin: const EdgeInsets.fromLTRB(24, 16, 24, 0),
             decoration: BoxDecoration(
               color: scheme.surface,
-              border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
+              borderRadius: AppRadius.card,
+              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+              boxShadow: AppElevation.card(scheme.shadow),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,

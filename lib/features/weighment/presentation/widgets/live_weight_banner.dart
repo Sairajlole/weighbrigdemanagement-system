@@ -72,18 +72,6 @@ class LiveWeightBannerState extends ConsumerState<LiveWeightBanner> {
     final weight = reading.weight;
     final stable = reading.stable;
 
-    final String weightText;
-    if (connected) {
-      final raw = weight.toStringAsFixed(0);
-      if (raw.length > 3) {
-        weightText = '${raw.substring(0, raw.length - 3)},${raw.substring(raw.length - 3)}';
-      } else {
-        weightText = raw;
-      }
-    } else {
-      weightText = '---,---';
-    }
-
     final Color accentColor;
     if (!connected) {
       accentColor = scheme.outlineVariant.withValues(alpha: 0.4);

@@ -105,7 +105,6 @@ class AppearanceNotifier extends StateNotifier<AppearanceSettings> {
   }
 
   void setThemeMode(ThemeMode mode) => update(state.copyWith(themeMode: mode));
-  void setAccentColor(Color color) => update(state.copyWith(accentColor: color));
   void setBackgroundArt(String art) => update(state.copyWith(backgroundArt: art));
   void setFontScale(double scale) => update(state.copyWith(fontScale: scale));
   void setLocale(String locale) => update(state.copyWith(locale: locale));

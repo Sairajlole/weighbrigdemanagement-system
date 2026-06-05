@@ -21,8 +21,55 @@ final sidecarProcessProvider = Provider<SidecarProcessManager>((ref) {
 
 /// Auto-starts sidecar if not already running. Watch from app shell.
 final sidecarAutoStartProvider = FutureProvider<bool>((ref) async {
+  // Check if any AI feature is enabled before starting sidecar
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return false;
+
+  try {
+    final doc = await paths.camerasAiSettings.get();
+    if (!doc.exists) return false;
+    final data = doc.data()!;
+
+    final anprEnabled = data['anprEnabled'] as bool? ?? false;
+    final materialRecognition = data['materialRecognition'] as bool? ?? false;
+    final customerRecognition = data['customerRecognition'] as bool? ?? false;
+    final driverAssist = data['driverAssist'] as bool? ?? false;
+
+    // Check if any camera is enabled (needed for face/customer recognition)
+    final cameras = data['cameras'] as Map<String, dynamic>? ?? {};
+    final hasAnyCameraEnabled = cameras.values.any((c) =>
+        c is Map<String, dynamic> && c['enabled'] == true);
+
+    final anyAiEnabled = anprEnabled || materialRecognition || customerRecognition || driverAssist;
+
+    if (!anyAiEnabled && !hasAnyCameraEnabled) {
+      debugPrint('[Sidecar] All AI features disabled — skipping auto-start');
+      return false;
+    }
+  } catch (e) {
+    debugPrint('[Sidecar] Failed to read AI settings: $e');
+  }
+
+  // Build list of features to enable in sidecar
+  final enabledFeatures = <String>[];
+  try {
+    final doc = await paths.camerasAiSettings.get();
+    if (doc.exists) {
+      final data = doc.data()!;
+      if (data['anprEnabled'] == true) enabledFeatures.add('anpr');
+      if (data['materialRecognition'] == true) enabledFeatures.add('material');
+      if (data['customerRecognition'] == true) enabledFeatures.add('customer');
+      if (data['driverAssist'] == true) enabledFeatures.add('driver');
+      if (data['operatorFaceVerification'] == true) enabledFeatures.add('face');
+    }
+  } catch (_) {}
+
   final client = ref.watch(sidecarClientProvider);
-  if (await client.isAvailable()) return true;
+  if (await client.isAvailable()) {
+    // Already running — send config update for selective model loading
+    await client.updateConfig(enabledFeatures);
+    return true;
+  }
 
   final manager = ref.read(sidecarProcessProvider);
   debugPrint('[Sidecar] Not running — attempting auto-start...');
@@ -37,6 +84,8 @@ final sidecarAutoStartProvider = FutureProvider<bool>((ref) async {
     await Future.delayed(const Duration(seconds: 1));
     if (await client.isAvailable()) {
       debugPrint('[Sidecar] Started successfully after ${i + 1}s');
+      // Send config so only needed models load
+      await client.updateConfig(enabledFeatures);
       return true;
     }
   }

@@ -60,7 +60,7 @@ class _CameraCarouselState extends ConsumerState<CameraCarousel> {
   @override
   void dispose() {
     for (final player in _players.values) {
-      player.dispose();
+      try { player.dispose(); } catch (_) {}
     }
     _snapshotTimer?.cancel();
     MultiCameraService.stopAll();
@@ -79,7 +79,7 @@ class _CameraCarouselState extends ConsumerState<CameraCarousel> {
 
     final removed = _activeKeys.difference(desiredKeys);
     for (final key in removed) {
-      _players[key]?.dispose();
+      try { _players[key]?.dispose(); } catch (_) {}
       _players.remove(key);
       _videoControllers.remove(key);
       if (_nativeFeeds.containsKey(key)) {

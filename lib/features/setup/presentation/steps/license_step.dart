@@ -1,3 +1,4 @@
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/models/license_model.dart';
@@ -291,13 +292,13 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('KEPT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: const Color(0xFF16A34A), letterSpacing: 0.5)),
+                                    Text('KEPT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AppTheme.successColor, letterSpacing: 0.5)),
                                     SizedBox(height: 6.rs),
-                                    _buildFreeItem(Icons.check_rounded, 'Basic weighments', const Color(0xFF16A34A)),
-                                    _buildFreeItem(Icons.check_rounded, '1 weighbridge', const Color(0xFF16A34A)),
-                                    _buildFreeItem(Icons.check_rounded, 'Manual capture only', const Color(0xFF16A34A)),
-                                    _buildFreeItem(Icons.check_rounded, 'Simple docket printing', const Color(0xFF16A34A)),
-                                    _buildFreeItem(Icons.check_rounded, 'All your existing data', const Color(0xFF16A34A)),
+                                    _buildFreeItem(Icons.check_rounded, 'Basic weighments', AppTheme.successColor),
+                                    _buildFreeItem(Icons.check_rounded, '1 weighbridge', AppTheme.successColor),
+                                    _buildFreeItem(Icons.check_rounded, 'Manual capture only', AppTheme.successColor),
+                                    _buildFreeItem(Icons.check_rounded, 'Simple docket printing', AppTheme.successColor),
+                                    _buildFreeItem(Icons.check_rounded, 'All your existing data', AppTheme.successColor),
                                   ],
                                 ),
                               ),

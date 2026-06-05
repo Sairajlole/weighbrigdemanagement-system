@@ -1,3 +1,4 @@
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -190,7 +191,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
             ? '${isEntry ? "Entry" : "Exit"} gate reachable (${result.responseTimeMs ?? "?"}ms)'
             : '${isEntry ? "Entry" : "Exit"}: ${result.message}'),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: result.success ? const Color(0xFF059669) : Theme.of(context).colorScheme.error,
+        backgroundColor: result.success ? AppTheme.successColor : Theme.of(context).colorScheme.error,
       ));
     }
   }
@@ -311,11 +312,11 @@ class _GatesStepState extends ConsumerState<GatesStep> {
                       Row(children: [
                         Container(
                           width: 6, height: 6,
-                          decoration: BoxDecoration(shape: BoxShape.circle, color: testResult == 'ok' ? const Color(0xFF059669) : scheme.error),
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: testResult == 'ok' ? AppTheme.successColor : scheme.error),
                         ),
                         SizedBox(width: AppSpacing.xs),
                         Text(testResult == 'ok' ? 'Connected' : 'Unreachable',
-                            style: TextStyle(fontSize: 10, color: testResult == 'ok' ? const Color(0xFF059669) : scheme.error, fontWeight: FontWeight.w500)),
+                            style: TextStyle(fontSize: 10, color: testResult == 'ok' ? AppTheme.successColor : scheme.error, fontWeight: FontWeight.w500)),
                       ]),
                   ],
                 ),
@@ -503,7 +504,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
               child: Icon(
                 hasValue ? (valid ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded) : Icons.lan_outlined,
                 size: 14,
-                color: hasValue ? (valid ? const Color(0xFF059669) : scheme.error) : scheme.outlineVariant,
+                color: hasValue ? (valid ? AppTheme.successColor : scheme.error) : scheme.outlineVariant,
               ),
             ),
             prefixIconConstraints: const BoxConstraints(minWidth: 30),

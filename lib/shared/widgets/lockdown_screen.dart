@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class LockdownScreen extends StatelessWidget {

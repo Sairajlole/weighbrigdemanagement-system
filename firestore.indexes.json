@@ -76,6 +76,14 @@
       ]
     },
     {
+      "collectionGroup": "weighments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "operators",
       "queryScope": "COLLECTION",
       "fields": [

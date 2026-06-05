@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Labeler</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .header {
+            background: #16213e;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #0f3460;
+        }
+        .header h1 { font-size: 20px; color: #4fc3f7; }
+        .stats {
+            display: flex;
+            gap: 16px;
+            font-size: 13px;
+            color: #90a4ae;
+        }
+        .stats .num { color: #4fc3f7; font-weight: 600; }
+        .container {
+            max-width: 900px;
+            margin: 24px auto;
+            padding: 0 24px;
+        }
+        .card {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 16px;
+            border: 1px solid #0f3460;
+        }
+        .image-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+            margin-bottom: 20px;
+            background: #0f3460;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .image-container img {
+            max-width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+        }
+        .suggestion {
+            background: #0f3460;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .suggestion .guess { color: #81c784; font-weight: 500; }
+        .suggestion .conf { color: #90a4ae; font-size: 13px; }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            color: #90a4ae;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        .form-group select, .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            background: #0f3460;
+            border: 1px solid #1a4a7a;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+        .form-group select:focus, .form-group input:focus {
+            outline: none;
+            border-color: #4fc3f7;
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-confirm {
+            background: #4caf50;
+            color: white;
+            flex: 2;
+        }
+        .btn-confirm:hover { background: #388e3c; }
+        .btn-save {
+            background: #4fc3f7;
+            color: #1a1a2e;
+            flex: 2;
+        }
+        .btn-save:hover { background: #29b6f6; }
+        .btn-skip {
+            background: #455a64;
+            color: #e0e0e0;
+            flex: 1;
+        }
+        .btn-skip:hover { background: #546e7a; }
+        .btn-add {
+            background: #ff9800;
+            color: white;
+            font-size: 12px;
+            padding: 8px 16px;
+        }
+        .progress {
+            text-align: center;
+            margin-top: 16px;
+            color: #90a4ae;
+            font-size: 13px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #546e7a;
+        }
+        .empty-state h2 { margin-bottom: 8px; color: #78909c; }
+        .keyboard-hint {
+            font-size: 11px;
+            color: #546e7a;
+            text-align: center;
+            margin-top: 8px;
+        }
+        .new-class-form {
+            display: none;
+            background: #0f3460;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+        .new-class-form.visible { display: block; }
+        .new-class-form .form-row { grid-template-columns: 1fr 1fr; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Vehicle Labeler</h1>
+        <div class="stats">
+            <span>Total: <span class="num" id="stat-total">0</span></span>
+            <span>Labeled: <span class="num" id="stat-labeled">0</span></span>
+            <span>Remaining: <span class="num" id="stat-unlabeled">0</span></span>
+            <span>Classes: <span class="num" id="stat-classes">0</span></span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card" id="labeler-card">
+            <div class="image-container">
+                <img id="vehicle-img" src="" alt="Vehicle">
+            </div>
+
+            <div class="suggestion" id="suggestion-bar">
+                <span>SigLIP guess: <span class="guess" id="suggestion-text">Loading...</span></span>
+                <span class="conf" id="suggestion-conf"></span>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Type</label>
+                    <select id="sel-type">
+                        <option value="">-- Select --</option>
+                        <option value="Truck">Truck</option>
+                        <option value="Tipper">Tipper</option>
+                        <option value="Tractor">Tractor</option>
+                        <option value="Tanker">Tanker</option>
+                        <option value="Mixer">Mixer</option>
+                        <option value="Trailer">Trailer</option>
+                        <option value="Container">Container</option>
+                        <option value="Bus">Bus</option>
+                        <option value="LCV">LCV</option>
+                        <option value="Car">Car</option>
+                        <option value="Auto">Auto</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Brand</label>
+                    <select id="sel-brand">
+                        <option value="">-- Select --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Model / Class</label>
+                    <select id="sel-class">
+                        <option value="">-- Select --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-skip" onclick="skip()">Skip (S)</button>
+                <button class="btn btn-confirm" onclick="confirmSuggestion()">Confirm Guess (Enter)</button>
+                <button class="btn btn-save" onclick="saveLabel()">Save Custom (Space)</button>
+            </div>
+
+            <div class="progress" id="progress-text"></div>
+            <div class="keyboard-hint">Keyboard: Enter = confirm guess, Space = save custom, S = skip, N = new class</div>
+
+            <button class="btn btn-add" onclick="toggleNewClass()" style="margin-top: 12px;">+ New Class (N)</button>
+            <div class="new-class-form" id="new-class-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Brand</label>
+                        <input id="new-brand" placeholder="e.g. Tata">
+                    </div>
+                    <div class="form-group">
+                        <label>Model</label>
+                        <input id="new-model" placeholder="e.g. Prima 4928">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Type</label>
+                        <input id="new-type" placeholder="e.g. Truck">
+                    </div>
+                    <div class="form-group">
+                        <label>Description (for zero-shot)</label>
+                        <input id="new-prompt" placeholder="e.g. a Tata Prima heavy truck with flat cabin">
+                    </div>
+                </div>
+                <button class="btn btn-save" onclick="addNewClass()" style="margin-top: 12px;">Add Class</button>
+            </div>
+        </div>
+
+        <div class="empty-state" id="empty-state" style="display: none;">
+            <h2>All caught up!</h2>
+            <p>No unlabeled vehicle captures. They'll appear as vehicles pass through the weighbridge.</p>
+        </div>
+    </div>
+
+    <script>
+        const API = window.location.origin;
+        let items = [];
+        let currentIdx = 0;
+        let classes = [];
+        let currentSuggestion = null;
+
+        async function load() {
+            const [statsRes, unlabeledRes, classesRes] = await Promise.all([
+                fetch(`${API}/labeler/stats`).then(r => r.json()),
+                fetch(`${API}/labeler/unlabeled?limit=100`).then(r => r.json()),
+                fetch(`${API}/labeler/classes`).then(r => r.json()),
+            ]);
+
+            document.getElementById('stat-total').textContent = statsRes.total;
+            document.getElementById('stat-labeled').textContent = statsRes.labeled;
+            document.getElementById('stat-unlabeled').textContent = statsRes.unlabeled;
+            document.getElementById('stat-classes').textContent = statsRes.num_classes;
+
+            items = unlabeledRes.items || [];
+            classes = classesRes.classes || [];
+            currentIdx = 0;
+
+            populateDropdowns();
+            showCurrent();
+        }
+
+        function populateDropdowns() {
+            const brands = [...new Set(classes.map(c => c.brand))].sort();
+            const brandSel = document.getElementById('sel-brand');
+            brandSel.innerHTML = '<option value="">-- Select --</option>';
+            brands.forEach(b => {
+                brandSel.innerHTML += `<option value="${b}">${b}</option>`;
+            });
+
+            brandSel.onchange = () => {
+                const filtered = classes.filter(c => c.brand === brandSel.value);
+                const classSel = document.getElementById('sel-class');
+                classSel.innerHTML = '<option value="">-- Select --</option>';
+                filtered.forEach(c => {
+                    classSel.innerHTML += `<option value="${c.id}">${c.model} (${c.type})</option>`;
+                });
+            };
+        }
+
+        function showCurrent() {
+            if (currentIdx >= items.length) {
+                document.getElementById('labeler-card').style.display = 'none';
+                document.getElementById('empty-state').style.display = 'block';
+                return;
+            }
+
+            document.getElementById('labeler-card').style.display = 'block';
+            document.getElementById('empty-state').style.display = 'none';
+
+            const item = items[currentIdx];
+            const img = document.getElementById('vehicle-img');
+            if (item.thumbnail_b64) {
+                img.src = `data:image/jpeg;base64,${item.thumbnail_b64}`;
+            } else {
+                img.src = '';
+            }
+
+            currentSuggestion = item.suggestion;
+            const suggText = document.getElementById('suggestion-text');
+            const suggConf = document.getElementById('suggestion-conf');
+
+            if (currentSuggestion) {
+                suggText.textContent = `${currentSuggestion.brand} ${currentSuggestion.model} (${currentSuggestion.type})`;
+                suggConf.textContent = `${(item.suggestion_confidence * 100).toFixed(0)}%`;
+
+                // Pre-fill dropdowns
+                document.getElementById('sel-type').value = currentSuggestion.type || '';
+                document.getElementById('sel-brand').value = currentSuggestion.brand || '';
+                document.getElementById('sel-brand').onchange();
+                setTimeout(() => {
+                    document.getElementById('sel-class').value = currentSuggestion.id || '';
+                }, 50);
+            } else {
+                suggText.textContent = 'No guess';
+                suggConf.textContent = '';
+            }
+
+            document.getElementById('progress-text').textContent =
+                `${currentIdx + 1} of ${items.length} unlabeled`;
+        }
+
+        async function confirmSuggestion() {
+            if (!currentSuggestion) return;
+            await labelCurrent(currentSuggestion.id);
+        }
+
+        async function saveLabel() {
+            const classId = document.getElementById('sel-class').value;
+            if (!classId) {
+                alert('Select a class first');
+                return;
+            }
+            await labelCurrent(classId);
+        }
+
+        async function labelCurrent(classId) {
+            const item = items[currentIdx];
+            await fetch(`${API}/labeler/label`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({capture_id: item.id, class_id: classId}),
+            });
+            currentIdx++;
+            showCurrent();
+            updateStats();
+        }
+
+        function skip() {
+            currentIdx++;
+            showCurrent();
+        }
+
+        function toggleNewClass() {
+            document.getElementById('new-class-form').classList.toggle('visible');
+        }
+
+        async function addNewClass() {
+            const brand = document.getElementById('new-brand').value.trim();
+            const model = document.getElementById('new-model').value.trim();
+            const type = document.getElementById('new-type').value.trim();
+            const prompt = document.getElementById('new-prompt').value.trim();
+
+            if (!brand || !prompt) {
+                alert('Brand and prompt are required');
+                return;
+            }
+
+            const id = `${brand}_${model}`.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+            await fetch(`${API}/labeler/classes/add`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id, brand, model, type, prompt}),
+            });
+
+            document.getElementById('new-class-form').classList.remove('visible');
+            document.getElementById('new-brand').value = '';
+            document.getElementById('new-model').value = '';
+            document.getElementById('new-type').value = '';
+            document.getElementById('new-prompt').value = '';
+
+            // Reload classes
+            const classesRes = await fetch(`${API}/labeler/classes`).then(r => r.json());
+            classes = classesRes.classes || [];
+            populateDropdowns();
+        }
+
+        async function updateStats() {
+            const stats = await fetch(`${API}/labeler/stats`).then(r => r.json());
+            document.getElementById('stat-total').textContent = stats.total;
+            document.getElementById('stat-labeled').textContent = stats.labeled;
+            document.getElementById('stat-unlabeled').textContent = stats.unlabeled;
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            if (e.key === 'Enter') confirmSuggestion();
+            else if (e.key === ' ') { e.preventDefault(); saveLabel(); }
+            else if (e.key === 's' || e.key === 'S') skip();
+            else if (e.key === 'n' || e.key === 'N') toggleNewClass();
+        });
+
+        load();
+    </script>
+</body>
+</html>

@@ -43,3 +43,17 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Large ML models and datasets
+python_sidecar/models/
+python_sidecar/datasets/
+
+# Environment files
+.env
+functions/.env
+
+# Screenshots
+flutter_*.png
+
+# Midjourney assets
+midjourney/

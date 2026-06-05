@@ -49,9 +49,11 @@ class WeighbridgeContextBar extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 8),
+      margin: const EdgeInsets.fromLTRB(24, 8, 24, 0),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: 0.08),
-        border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.15))),
+        borderRadius: AppRadius.card,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.15)),
       ),
       child: Row(
         children: [

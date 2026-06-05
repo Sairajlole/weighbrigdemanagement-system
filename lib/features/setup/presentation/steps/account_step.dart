@@ -14,6 +14,7 @@ import 'package:weighbridgemanagement/shared/providers/connectivity_provider.dar
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
+import 'package:weighbridgemanagement/shared/widgets/digilocker_verify_card.dart';
 import '../../application/setup_wizard_provider.dart';
 import '../../application/setup_wizard_state.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
@@ -1077,7 +1078,6 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
     final subtitle = isAdmin
         ? 'Set up your administrator account.'
         : 'Fill in your details to register.';
-    final icon = isAdmin ? Icons.shield_rounded : Icons.badge_rounded;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
@@ -1088,20 +1088,30 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
             key: _formKey,
             child: Column(
               children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.1),
-                    borderRadius: AppRadius.dialog,
-                    border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
-                  ),
-                  child: Icon(icon, size: 28, color: scheme.primary),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 3.5,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppTheme.brandTeal,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    SizedBox(width: 14.rs),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                          SizedBox(height: 4.rs),
+                          Text(subtitle, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.4)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 20.rs),
-                Text(title, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                SizedBox(height: AppSpacing.sm),
-                Text(subtitle, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant), textAlign: TextAlign.center),
                 SizedBox(height: 28.rs),
 
                 if (_error != null) ...[
@@ -1249,23 +1259,32 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.1),
-                borderRadius: AppRadius.dialog,
-                border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
-              ),
-              child: Icon(Icons.vpn_key_rounded, size: 28, color: scheme.primary),
-            ),
-            SizedBox(height: 20.rs),
-            Text('Enter Company Code', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-            SizedBox(height: AppSpacing.sm),
-            Text(
-              'Ask your administrator for the system code to join their company.',
-              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              textAlign: TextAlign.center,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 3.5,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppTheme.brandTeal,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                SizedBox(width: 14.rs),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Enter Company Code', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                      SizedBox(height: 4.rs),
+                      Text(
+                        'Ask your administrator for the system code to join their company.',
+                        style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             SizedBox(height: AppSpacing.xxl),
             Container(
@@ -1416,217 +1435,78 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
         ),
         SizedBox(height: 20.rs),
 
-        // Step 1: ID Verification card
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(20.rs),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLow.withValues(alpha: 0.7),
-            borderRadius: AppRadius.dialog,
-            border: Border.all(color: _idVerified
-                ? AppTheme.successColor.withValues(alpha: 0.4)
-                : scheme.outlineVariant.withValues(alpha: 0.3)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    _idVerified ? Icons.check_circle_rounded : Icons.badge_rounded,
-                    size: 20,
-                    color: _idVerified ? AppTheme.successColor : scheme.onSurfaceVariant,
-                  ),
-                  SizedBox(width: 10.rs),
-                  Expanded(
-                    child: Text('Government ID', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                  ),
-                  if (_idVerified) ...[
-                    TextButton(
-                      onPressed: () => setState(() { _idVerified = false; _idError = null; _idCorrectedName = null; }),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text('Change', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
+        // Step 1: Identity Verification via DigiLocker
+        DigiLockerVerifyCard(
+          purpose: 'operator_verification',
+          onVerified: (result) {
+            setState(() {
+              _idVerified = true;
+              _idError = null;
+              if (result.name != null && result.name!.isNotEmpty) {
+                _name.text = result.name!;
+              }
+            });
+          },
+        ),
+
+        if (_existingOperatorFound) ...[
+          SizedBox(height: AppSpacing.lg),
+          Container(
+            width: double.infinity,
+            padding: AppSpacing.cardPadding,
+            decoration: BoxDecoration(
+              color: _existingOperatorApproved
+                  ? AppTheme.successColor.withValues(alpha: 0.08)
+                  : Colors.orange.withValues(alpha: 0.08),
+              borderRadius: AppRadius.card,
+              border: Border.all(
+                color: _existingOperatorApproved
+                    ? AppTheme.successColor.withValues(alpha: 0.3)
+                    : Colors.orange.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      _existingOperatorApproved ? Icons.check_circle_rounded : Icons.hourglass_top_rounded,
+                      size: 20,
+                      color: _existingOperatorApproved ? AppTheme.successColor : Colors.orange.shade700,
                     ),
-                    SizedBox(width: 6.rs),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppTheme.successColor.withValues(alpha: 0.1),
-                        borderRadius: AppRadius.chip,
+                    SizedBox(width: 10.rs),
+                    Expanded(
+                      child: Text(
+                        _existingOperatorApproved ? 'Account Already Exists' : 'Registration Already Submitted',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: _existingOperatorApproved ? AppTheme.successColor : Colors.orange.shade800,
+                        ),
                       ),
-                      child: Text('Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
                     ),
                   ],
-                ],
-              ),
-              SizedBox(height: AppSpacing.xs),
-              Text(
-                'Enter your name and upload a government ID to verify your identity.',
-                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
-              ),
-
-              if (!_idVerified) ...[
-                SizedBox(height: AppSpacing.lg),
-                _buildField('Full Name (as on ID)', _name, 'Enter your full name', Icons.person_outline_rounded),
-                SizedBox(height: AppSpacing.lg),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _documentTypes.map((type) {
-                    final selected = _selectedDocType == type;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedDocType = type),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: selected ? scheme.primary.withValues(alpha: 0.1) : scheme.surface,
-                          borderRadius: AppRadius.button,
-                          border: Border.all(
-                            color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4),
-                            width: selected ? 1.5 : 1,
-                          ),
-                        ),
-                        child: Text(
-                          type,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                            color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                ),
+                SizedBox(height: AppSpacing.sm),
+                Text(
+                  _existingOperatorMessage ?? '',
+                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
                 ),
                 SizedBox(height: AppSpacing.md),
-                Container(
-                  padding: EdgeInsets.all(10.rs),
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer.withValues(alpha: 0.12),
-                    borderRadius: AppRadius.button,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline_rounded, size: 13, color: scheme.primary),
-                      SizedBox(width: AppSpacing.sm),
-                      Expanded(child: Text(_uploadHint, style: TextStyle(fontSize: 10, color: scheme.primary))),
-                    ],
-                  ),
-                ),
-                SizedBox(height: AppSpacing.md),
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: OutlinedButton.icon(
-                    onPressed: _idScanning ? null : _uploadAndScanId,
-                    icon: _idScanning
-                        ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary))
-                        : const Icon(Icons.upload_file_rounded, size: 18),
-                    label: Text(_idScanning ? 'Scanning...' : 'Upload & Verify', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.rs)),
+                Row(
+                  children: [
+                    Icon(Icons.arrow_forward_rounded, size: 14, color: scheme.primary),
+                    SizedBox(width: 6.rs),
+                    Text(
+                      'Redirecting to sign in in $_redirectCountdown seconds...',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary),
                     ),
-                  ),
+                  ],
                 ),
               ],
-
-              if (_idError != null) ...[
-                SizedBox(height: AppSpacing.md),
-                Container(
-                  padding: EdgeInsets.all(10.rs),
-                  decoration: BoxDecoration(
-                    color: scheme.errorContainer.withValues(alpha: 0.2),
-                    borderRadius: AppRadius.button,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.warning_amber_rounded, size: 14, color: scheme.error),
-                      SizedBox(width: AppSpacing.sm),
-                      Expanded(child: Text(_idError!, style: TextStyle(fontSize: 11, color: scheme.error))),
-                    ],
-                  ),
-                ),
-                if (_idCorrectedName != null) ...[
-                  SizedBox(height: 10.rs),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.tonal(
-                      onPressed: () => _acceptCorrectedName(_idCorrectedName!),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
-                      ),
-                      child: Text('Use "$_idCorrectedName" from ID', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                ],
-              ],
-
-              if (_existingOperatorFound) ...[
-                SizedBox(height: AppSpacing.lg),
-                Container(
-                  width: double.infinity,
-                  padding: AppSpacing.cardPadding,
-                  decoration: BoxDecoration(
-                    color: _existingOperatorApproved
-                        ? AppTheme.successColor.withValues(alpha: 0.08)
-                        : Colors.orange.withValues(alpha: 0.08),
-                    borderRadius: AppRadius.card,
-                    border: Border.all(
-                      color: _existingOperatorApproved
-                          ? AppTheme.successColor.withValues(alpha: 0.3)
-                          : Colors.orange.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            _existingOperatorApproved ? Icons.check_circle_rounded : Icons.hourglass_top_rounded,
-                            size: 20,
-                            color: _existingOperatorApproved ? AppTheme.successColor : Colors.orange.shade700,
-                          ),
-                          SizedBox(width: 10.rs),
-                          Expanded(
-                            child: Text(
-                              _existingOperatorApproved ? 'Account Already Exists' : 'Registration Already Submitted',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: _existingOperatorApproved ? AppTheme.successColor : Colors.orange.shade800,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: AppSpacing.sm),
-                      Text(
-                        _existingOperatorMessage ?? '',
-                        style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-                      ),
-                      SizedBox(height: AppSpacing.md),
-                      Row(
-                        children: [
-                          Icon(Icons.arrow_forward_rounded, size: 14, color: scheme.primary),
-                          SizedBox(width: 6.rs),
-                          Text(
-                            'Redirecting to sign in in $_redirectCountdown seconds...',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
-        ),
+        ],
         SizedBox(height: 20.rs),
 
         // Step 2: Registration fields (shown after ID verification)

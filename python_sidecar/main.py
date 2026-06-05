@@ -61,32 +61,58 @@ async def _run_inference(fn, *args, **kwargs):
     return await loop.run_in_executor(_inference_executor, lambda: fn(*args, **kwargs))
 
 
+_enabled_features: set = set()
+_config_path = Path.home() / ".weighbridge" / "sidecar_config.json"
+
+
+def _read_enabled_features() -> set:
+    """Read enabled features from config file (written by Flutter app)."""
+    try:
+        if _config_path.exists():
+            import json
+            data = json.loads(_config_path.read_text())
+            return set(data.get("enabled", []))
+    except Exception:
+        pass
+    return {"anpr", "face", "material"}
+
+
 def _load_models():
-    global _models
-    # Plate-specific detector (priority-based: finetuned > pretrained)
-    plate_det = PlateDetector(hw_tier=_hw_tier)
-    if plate_det.load():
-        _models["plate_detector"] = plate_det
+    global _models, _enabled_features
+    _enabled_features = _read_enabled_features()
+    print(f"  [Models] Enabled features: {_enabled_features}")
 
-    # Material classifier: only load if site-specific trained model exists
-    site_material_path = Path.home() / ".weighbridge" / "models" / "material_classifier.pt"
-    if site_material_path.exists():
-        try:
-            from ultralytics import YOLO
-            _models["material_classifier"] = YOLO(str(site_material_path))
-            print(f"  [Models] Loaded site-trained material classifier: {site_material_path}")
-        except ImportError:
-            pass
+    if "anpr" in _enabled_features:
+        plate_det = PlateDetector(hw_tier=_hw_tier)
+        if plate_det.load():
+            _models["plate_detector"] = plate_det
 
-    # OCR: PARSeq only (frame-consensus replaces need for secondary engine)
-    parseq = ParseqOCR()
-    if parseq.load():
-        _models["ocr"] = parseq
+        parseq = ParseqOCR()
+        if parseq.load():
+            _models["ocr"] = parseq
+    else:
+        print("  [Models] ANPR disabled — skipping plate detector + OCR")
 
-    # Face: ArcFace GlintR100 + SCRFD
-    face_engine = get_face_engine()
-    if face_engine.load():
-        _models["face"] = face_engine
+    if "material" in _enabled_features:
+        site_material_path = Path.home() / ".weighbridge" / "models" / "material_classifier.pt"
+        if site_material_path.exists():
+            try:
+                from ultralytics import YOLO
+                _models["material_classifier"] = YOLO(str(site_material_path))
+                print(f"  [Models] Loaded site-trained material classifier: {site_material_path}")
+            except ImportError:
+                pass
+        else:
+            print("  [Models] Material model not found — skipping (needs site-specific training)")
+    else:
+        print("  [Models] Material recognition disabled — skipping")
+
+    if "face" in _enabled_features or "customer" in _enabled_features or "driver" in _enabled_features:
+        face_engine = get_face_engine()
+        if face_engine.load():
+            _models["face"] = face_engine
+    else:
+        print("  [Models] Face/customer/driver disabled — skipping face engine")
 
 
 def _log_gpu_status():
@@ -236,6 +262,78 @@ _ocr_max_variants = {
 
 _use_multiscale = _hw_tier not in ("budget", "low")
 
+
+
+@app.post("/config")
+async def update_config(body: dict):
+    """Update enabled features and reload models as needed."""
+    import json
+    global _enabled_features, _models
+
+    new_features = set(body.get("enabled", []))
+    if new_features == _enabled_features:
+        return {"status": "unchanged", "enabled": list(_enabled_features)}
+
+    # Write config for next startup
+    _config_path.parent.mkdir(parents=True, exist_ok=True)
+    _config_path.write_text(json.dumps({"enabled": list(new_features)}))
+
+    # Unload models for disabled features
+    import gc
+    removed = _enabled_features - new_features
+    freed = False
+    if "anpr" in removed:
+        _models.pop("plate_detector", None)
+        _models.pop("ocr", None)
+        freed = True
+        print("[Config] Unloaded ANPR models")
+    if "material" in removed:
+        _models.pop("material_classifier", None)
+        freed = True
+        print("[Config] Unloaded material classifier")
+    if "face" in removed and "customer" in removed and "driver" in removed:
+        _models.pop("face", None)
+        freed = True
+        print("[Config] Unloaded face engine")
+    if freed:
+        gc.collect()
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
+
+    # Load models for newly enabled features
+    added = new_features - _enabled_features
+    _enabled_features = new_features
+
+    if "anpr" in added and "plate_detector" not in _models:
+        plate_det = PlateDetector(hw_tier=_hw_tier)
+        if plate_det.load():
+            _models["plate_detector"] = plate_det
+        parseq = ParseqOCR()
+        if parseq.load():
+            _models["ocr"] = parseq
+        print("[Config] Loaded ANPR models")
+
+    if "material" in added and "material_classifier" not in _models:
+        site_material_path = Path.home() / ".weighbridge" / "models" / "material_classifier.pt"
+        if site_material_path.exists():
+            try:
+                from ultralytics import YOLO
+                _models["material_classifier"] = YOLO(str(site_material_path))
+                print("[Config] Loaded material classifier")
+            except ImportError:
+                pass
+
+    if any(f in added for f in ("face", "customer", "driver")) and "face" not in _models:
+        face_engine = get_face_engine()
+        if face_engine.load():
+            _models["face"] = face_engine
+        print("[Config] Loaded face engine")
+
+    return {"status": "updated", "enabled": list(_enabled_features), "models_loaded": list(_models.keys())}
 
 
 @app.get("/health", response_model=HealthResponse)

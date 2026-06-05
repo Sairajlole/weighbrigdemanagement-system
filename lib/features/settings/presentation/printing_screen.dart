@@ -1164,32 +1164,40 @@ if (\$bins.Count -eq 0) {
                   // Print Rules — always visible
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                    margin: const EdgeInsets.fromLTRB(24, 8, 24, 0),
                     decoration: BoxDecoration(
                       color: scheme.surface,
-                      border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.15))),
+                      borderRadius: AppRadius.card,
+                      border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.15)),
                     ),
                     child: _buildPrintRulesBar(scheme, text),
                   ),
                   // Printer Assignment bar
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                    margin: const EdgeInsets.fromLTRB(24, 8, 24, 0),
                     decoration: BoxDecoration(
                       color: scheme.surface,
-                      border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.15))),
+                      borderRadius: AppRadius.card,
+                      border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.15)),
                     ),
                     child: _buildPrinterAssignmentBar(scheme, text),
                   ),
                   // Tabs
                   Container(
+                    margin: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                    clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
                       color: scheme.surface,
-                      border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
+                      borderRadius: AppRadius.card,
+                      border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
                     ),
                     child: TabBar(
                       controller: _tabController,
                       labelStyle: text.labelMedium?.copyWith(fontWeight: FontWeight.w600),
                       unselectedLabelStyle: text.labelMedium,
                       indicatorSize: TabBarIndicatorSize.label,
+                      dividerHeight: 0,
                       tabs: const [
                         Tab(text: 'Dot Matrix'),
                         Tab(text: 'Thermal'),
@@ -1223,7 +1231,8 @@ if (\$bins.Count -eq 0) {
   Widget _buildHeader(ColorScheme scheme, TextTheme text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-      decoration: BoxDecoration(color: scheme.surface, border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2)))),
+      margin: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      decoration: BoxDecoration(color: scheme.surface, borderRadius: AppRadius.card, border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)), boxShadow: AppElevation.card(scheme.shadow)),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

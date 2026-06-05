@@ -1,3 +1,4 @@
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -130,7 +131,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
 
   void _disposeAllFeeds() {
     for (final player in _players.values) {
-      player.dispose();
+      try { player.dispose(); } catch (_) {}
     }
     _players.clear();
     _videoControllers.clear();
@@ -326,7 +327,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
   }
 
   Future<void> _stopFeed(String key) async {
-    _players[key]?.dispose();
+    try { _players[key]?.dispose(); } catch (_) {}
     _players.remove(key);
     _videoControllers.remove(key);
     _feedErrors.remove(key);
@@ -403,7 +404,7 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('${cam.label} connected successfully'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF059669),
+          backgroundColor: AppTheme.successColor,
         ));
       }
     } catch (e) {
@@ -754,9 +755,9 @@ class _CamerasStepState extends ConsumerState<CamerasStep> {
                       if (locked) ...[SizedBox(width: 6.rs), _buildProBadge('PRO', scheme)],
                       if (tested && !isExpanded) ...[
                         SizedBox(width: AppSpacing.sm),
-                        Container(width: 6, height: 6, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF059669))),
+                        Container(width: 6, height: 6, decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.successColor)),
                         SizedBox(width: AppSpacing.xs),
-                        Text('Connected', style: TextStyle(fontSize: 10, color: const Color(0xFF059669), fontWeight: FontWeight.w500)),
+                        Text('Connected', style: TextStyle(fontSize: 10, color: AppTheme.successColor, fontWeight: FontWeight.w500)),
                       ],
                     ],
                   ),

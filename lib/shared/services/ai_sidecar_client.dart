@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
@@ -171,31 +172,6 @@ class AnprFrameDetection {
   bool get hasDetection => plateText.isNotEmpty && confidence > 0.3;
 }
 
-class VehicleDescription {
-  final String vehicleType;
-  final String color;
-  final String size;
-  final String descriptor;
-  final double confidence;
-
-  const VehicleDescription({
-    required this.vehicleType,
-    required this.color,
-    required this.size,
-    required this.descriptor,
-    required this.confidence,
-  });
-
-  factory VehicleDescription.fromJson(Map<String, dynamic> json) => VehicleDescription(
-    vehicleType: json['vehicle_type'] as String? ?? 'Vehicle',
-    color: json['color'] as String? ?? 'Unknown',
-    size: json['size'] as String? ?? 'Unknown',
-    descriptor: json['descriptor'] as String? ?? '',
-    confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
-  );
-
-  bool get hasDescription => descriptor.isNotEmpty && descriptor != 'Unknown Vehicle';
-}
 
 class PersonDetection {
   final int count;
@@ -419,6 +395,21 @@ class AiSidecarClient {
     return h?.isHealthy ?? false;
   }
 
+  Future<void> updateConfig(List<String> enabledFeatures) async {
+    try {
+      final uri = Uri.parse('$baseUrl/config');
+      final response = await _client.post(uri,
+        headers: {'Content-Type': 'application/json'},
+        body: '{"enabled": ${enabledFeatures.map((e) => '"$e"').toList()}}',
+      );
+      if (response.statusCode == 200) {
+        debugPrint('[Sidecar] Config updated: $enabledFeatures');
+      }
+    } catch (e) {
+      debugPrint('[Sidecar] Config update failed: $e');
+    }
+  }
+
   Future<AnprResult?> detectPlate(Uint8List imageBytes, {String filename = 'frame.jpg'}) async {
     return _postImage('/anpr', imageBytes, filename, AnprResult.fromJson);
   }
@@ -496,9 +487,6 @@ class AiSidecarClient {
     return null;
   }
 
-  Future<VehicleDescription?> describeVehicle(Uint8List imageBytes, {String filename = 'frame.jpg'}) async {
-    return _postImage('/vehicle/describe', imageBytes, filename, VehicleDescription.fromJson);
-  }
 
   Future<bool> submitAnprCorrection(Uint8List imageBytes, String correctPlate, {List<double>? bbox}) async {
     try {

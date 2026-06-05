@@ -39,6 +39,9 @@ import 'package:weighbridgemanagement/shared/services/training_data_service.dart
 import 'package:weighbridgemanagement/shared/utils/app_shortcuts.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
+import 'package:weighbridgemanagement/shared/providers/traffic_signal_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/voice_guidance_provider.dart';
+import 'package:weighbridgemanagement/shared/services/traffic_signal_service.dart';
 
 class WeighmentScreen extends ConsumerStatefulWidget {
   const WeighmentScreen({super.key});
@@ -68,7 +71,15 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     super.initState();
     Future.microtask(() => ref.read(gateWeightTriggerProvider));
     Future.microtask(() => _checkSessionFaceVerification());
+    Future.microtask(() => _setTrafficSignalIdle());
     _registerShortcuts();
+  }
+
+  void _setTrafficSignalIdle() {
+    final machine = ref.read(weighmentMachineProvider);
+    if (machine.session == null) {
+      ref.read(trafficSignalServiceProvider).setIdle();
+    }
   }
 
   void _registerShortcuts() {
@@ -233,6 +244,11 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
 
     ref.read(weighmentMachineProvider.notifier).startNew();
     _startTimer();
+
+    // Traffic signal: both red when session starts (truck on platform)
+    final signal = ref.read(trafficSignalServiceProvider);
+    signal.setEntrySignal(SignalState.red);
+    signal.setExitSignal(SignalState.red);
 
     // Stagger ANPR start to avoid concurrent inference with face verification
     if (needsVerify) {
@@ -478,9 +494,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
               frame: frame,
             );
           } else {
-            // No plate found after max frames — try vehicle description fallback
             _stopAnprScan();
-            _attemptVehicleDescription(frame);
           }
         }
       } else {
@@ -519,46 +533,6 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
 
 
 
-  Future<void> _attemptVehicleDescription(Uint8List frame) async {
-    if (!mounted) return;
-    final sidecar = ref.read(sidecarClientProvider);
-    final desc = await sidecar.describeVehicle(frame);
-    if (desc == null || !desc.hasDescription || !mounted) return;
-
-    // Show snackbar offering the vehicle description
-    final session = ref.read(weighmentMachineProvider).session;
-    if (session == null || session.vehicleNumber.isNotEmpty) return;
-
-    if (!mounted) return;
-    final scheme = Theme.of(context).colorScheme;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.directions_car_outlined, color: scheme.onInverseSurface, size: 18),
-            SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                'No plate found. Vehicle: ${desc.descriptor}',
-                style: TextStyle(color: scheme.onInverseSurface, fontSize: 13),
-              ),
-            ),
-          ],
-        ),
-        action: SnackBarAction(
-          label: 'USE',
-          onPressed: () {
-            ref.read(weighmentMachineProvider.notifier).updateSession(
-              (s) => s.copyWith(vehicleNumber: desc.descriptor),
-            );
-          },
-        ),
-        duration: const Duration(seconds: 8),
-        behavior: SnackBarBehavior.floating,
-        width: 400,
-      ),
-    );
-  }
 
   Future<void> _runMaterialDetection() async {
     final ai = ref.read(aiDetectionServiceProvider);
@@ -668,6 +642,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
 
     final notifier = ref.read(weighmentMachineProvider.notifier);
     final gateAuto = ref.read(gateAutomationProvider);
+    final signal = ref.read(trafficSignalServiceProvider);
 
     if (session.firstWeight == null) {
       notifier.captureFirstWeight(weight);
@@ -678,6 +653,9 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       _captureDriverFace();
       _sendToDisplayBoard(weight, session.vehicleNumber);
       _runMaterialDetection();
+      // First weight captured: Entry stays red, Exit → Yellow (preparing)
+      signal.setEntrySignal(SignalState.red);
+      signal.setExitSignal(SignalState.yellow);
     } else {
       if (!_validateMinWeightDiff(weight, session.firstWeight!)) return;
       notifier.captureSecondWeight(weight);
@@ -686,6 +664,8 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       _captureWeightSnapshots('second');
       _verifyDriver();
       _handlePostCapture();
+      // Second weight captured: Exit → Green (can leave)
+      signal.setExitSignal(SignalState.green);
     }
   }
 
@@ -699,6 +679,8 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
 
     final notifier = ref.read(weighmentMachineProvider.notifier);
     final gateAuto = ref.read(gateAutomationProvider);
+    final speak = ref.read(voiceGuidanceSpeakProvider);
+    final signal = ref.read(trafficSignalServiceProvider);
 
     if (session.firstWeight == null) {
       notifier.captureFirstWeight(reading.weight);
@@ -709,6 +691,10 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       _captureDriverFace();
       _sendToDisplayBoard(reading.weight, session.vehicleNumber);
       _runMaterialDetection();
+      speak('weight_captured', replacements: {'weight': reading.weight.toStringAsFixed(0)});
+      // First weight captured: Entry stays red, Exit → Yellow (preparing)
+      signal.setEntrySignal(SignalState.red);
+      signal.setExitSignal(SignalState.yellow);
     } else {
       if (!_validateMinWeightDiff(reading.weight, session.firstWeight!)) return;
       notifier.captureSecondWeight(reading.weight);
@@ -717,6 +703,9 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       _captureWeightSnapshots('second');
       _verifyDriver();
       _handlePostCapture();
+      speak('weight_captured', replacements: {'weight': reading.weight.toStringAsFixed(0)});
+      // Second weight captured: Exit → Green (can leave)
+      signal.setExitSignal(SignalState.green);
     }
   }
 
@@ -736,6 +725,25 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
 
     final gateAuto = ref.read(gateAutomationProvider);
     gateAuto.onWeighmentComplete(vehicleNumber: session.vehicleNumber);
+
+    final signal = ref.read(trafficSignalServiceProvider);
+    final yellowDuration = signal.config.yellowDuration;
+    final interlockWithBarrier = signal.config.interlockWithBarrier;
+
+    ref.read(voiceGuidanceSpeakProvider)('exit_proceed');
+
+    // On save complete: Exit → Green, then after yellowDuration → idle
+    signal.setExitSignal(SignalState.green);
+    if (interlockWithBarrier) {
+      // Wait for gate service barrier open before confirming green
+      final gateService = ref.read(gateServiceProvider);
+      await gateService.openGate(GateId.exit);
+    }
+    Future.delayed(Duration(seconds: yellowDuration), () {
+      if (mounted) {
+        ref.read(trafficSignalServiceProvider).setIdle();
+      }
+    });
 
     final postService = ref.read(postWeighmentServiceProvider);
     final updatedSession = ref.read(weighmentMachineProvider).session;
@@ -955,6 +963,8 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     ref.read(customerFaceProvider.notifier).state = CustomerFaceState.empty;
     ref.read(anprDetectionOverlayProvider.notifier).state = {};
     ref.read(weighmentMachineProvider.notifier).reset();
+    // Set traffic signal to idle immediately on cancel/clear
+    ref.read(trafficSignalServiceProvider).setIdle();
     setState(() {
       _showCustomerSearch = false;
       _showPrintSearch = false;

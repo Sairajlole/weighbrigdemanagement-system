@@ -1,6 +1,5 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
   final VoidCallback onComplete;
@@ -16,8 +15,10 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   late AnimationController _glowController;
   late AnimationController _textController;
   late AnimationController _fadeOutController;
+
   late Animation<double> _logoScale;
-  late Animation<double> _logoRotate;
+  late Animation<double> _logoOpacity;
+  late Animation<double> _glowScale;
   late Animation<double> _glowOpacity;
   late Animation<double> _textOpacity;
   late Animation<Offset> _textSlide;
@@ -27,24 +28,28 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   void initState() {
     super.initState();
 
-    _logoController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
-    _glowController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
-    _textController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _fadeOutController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _logoController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
+    _glowController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
+    _textController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _fadeOutController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
 
-    _logoScale = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _logoController, curve: Curves.elasticOut),
-    );
-    _logoRotate = Tween<double>(begin: -0.1, end: 0.0).animate(
+    _logoScale = Tween<double>(begin: 0.5, end: 1.0).animate(
       CurvedAnimation(parent: _logoController, curve: Curves.easeOutBack),
     );
-    _glowOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
+    _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _logoController, curve: const Interval(0.0, 0.5, curve: Curves.easeOut)),
     );
+    _glowScale = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(parent: _glowController, curve: Curves.easeOutCubic),
+    );
+    _glowOpacity = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.8), weight: 3),
+      TweenSequenceItem(tween: Tween(begin: 0.8, end: 0.4), weight: 2),
+    ]).animate(_glowController);
     _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _textController, curve: Curves.easeOut),
     );
-    _textSlide = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+    _textSlide = Tween<Offset>(begin: const Offset(0, 0.4), end: Offset.zero).animate(
       CurvedAnimation(parent: _textController, curve: Curves.easeOutCubic),
     );
     _fadeOut = Tween<double>(begin: 1.0, end: 0.0).animate(
@@ -55,15 +60,15 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 
   Future<void> _startSequence() async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    await Future.delayed(const Duration(milliseconds: 300));
     _logoController.forward();
     await Future.delayed(const Duration(milliseconds: 400));
     _glowController.forward();
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 600));
     _textController.forward();
-    await Future.delayed(const Duration(milliseconds: 1500));
+    await Future.delayed(const Duration(milliseconds: 1800));
     _fadeOutController.forward();
-    await Future.delayed(const Duration(milliseconds: 400));
+    await Future.delayed(const Duration(milliseconds: 500));
     widget.onComplete();
   }
 
@@ -86,213 +91,80 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         opacity: _fadeOut.value,
         child: Material(
           color: scheme.surface,
-          child: Stack(
-            children: [
-              // Background gradient orbs
-              const _BackgroundOrbs(),
-              // Dot grid
-              const _DotGrid(),
-              // Center content
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Logo with glow
-                    AnimatedBuilder(
-                      animation: Listenable.merge([_logoController, _glowController]),
-                      builder: (_, __) => Transform.scale(
-                        scale: _logoScale.value,
-                        child: Transform.rotate(
-                          angle: _logoRotate.value,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // Glow ring
-                              Opacity(
-                                opacity: _glowOpacity.value,
-                                child: Container(
-                                  width: 120,
-                                  height: 120,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: RadialGradient(
-                                      colors: [
-                                        scheme.primary.withValues(alpha: 0.3),
-                                        scheme.primary.withValues(alpha: 0.0),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              // Logo container
-                              Container(
-                                width: 80,
-                                height: 80,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Logo with glow
+                AnimatedBuilder(
+                  animation: Listenable.merge([_logoController, _glowController]),
+                  builder: (_, __) => Transform.scale(
+                    scale: _logoScale.value,
+                    child: Opacity(
+                      opacity: _logoOpacity.value,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Glow behind logo
+                          Transform.scale(
+                            scale: _glowScale.value,
+                            child: Opacity(
+                              opacity: _glowOpacity.value,
+                              child: Container(
+                                width: 140,
+                                height: 140,
                                 decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [Color(0xFF1E3A5F), Color(0xFF0D9488)],
+                                  shape: BoxShape.circle,
+                                  gradient: RadialGradient(
+                                    colors: [
+                                      AppTheme.brandTeal.withValues(alpha: 0.25),
+                                      AppTheme.brandTeal.withValues(alpha: 0.0),
+                                    ],
                                   ),
-                                  borderRadius: BorderRadius.circular(22),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: scheme.primary.withValues(alpha: 0.4),
-                                      blurRadius: 24,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
                                 ),
-                                child: Icon(Icons.scale_rounded, size: 40, color: scheme.onPrimary),
                               ),
-                            ],
+                            ),
                           ),
-                        ),
+                          // Logo
+                          SizedBox(
+                            width: 80,
+                            height: 74,
+                            child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 32),
-                    // Text
-                    AnimatedBuilder(
-                      animation: _textController,
-                      builder: (_, __) => Opacity(
-                        opacity: _textOpacity.value,
-                        child: SlideTransition(
-                          position: _textSlide,
-                          child: Column(
-                            children: [
-                              Text(
-                                'tulanam',
-                                style: TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w800,
-                                  color: scheme.onSurface,
-                                  letterSpacing: -1,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'SMART WEIGHMENT SYSTEM',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: scheme.onSurfaceVariant,
-                                  letterSpacing: 2.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 28),
+                // Brand name
+                AnimatedBuilder(
+                  animation: _textController,
+                  builder: (_, __) => Opacity(
+                    opacity: _textOpacity.value,
+                    child: SlideTransition(
+                      position: _textSlide,
+                      child: Column(
+                        children: [
+                          Text(
+                            'tulanam',
+                            style: TextStyle(
+                              fontSize: 38,
+                              fontWeight: FontWeight.w800,
+                              color: scheme.onSurface,
+                              letterSpacing: -2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-}
-
-class _BackgroundOrbs extends StatefulWidget {
-  const _BackgroundOrbs();
-
-  @override
-  State<_BackgroundOrbs> createState() => _BackgroundOrbsState();
-}
-
-class _BackgroundOrbsState extends State<_BackgroundOrbs> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, __) {
-        final t = _controller.value;
-        return Stack(
-          children: [
-            Positioned(
-              top: -50 + 20 * t,
-              right: -30 + 15 * t,
-              child: Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [scheme.primary.withValues(alpha: 0.08), Colors.transparent],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -80 + 30 * t,
-              left: -60 + 20 * t,
-              child: Container(
-                width: 260,
-                height: 260,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [scheme.tertiary.withValues(alpha: 0.06), Colors.transparent],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _DotGrid extends StatelessWidget {
-  const _DotGrid();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Opacity(
-      opacity: 0.15,
-      child: CustomPaint(
-        size: Size.infinite,
-        painter: _DotGridPainter(color: scheme.onSurfaceVariant),
-      ),
-    );
-  }
-}
-
-class _DotGridPainter extends CustomPainter {
-  final Color color;
-
-  _DotGridPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    const spacing = 32.0;
-    for (var x = 0.0; x < size.width; x += spacing) {
-      for (var y = 0.0; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), 0.8, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

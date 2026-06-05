@@ -1,0 +1,986 @@
+<mxfile host="drawio-plugin" modified="2026-06-03T22:57:43.547Z" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36" version="22.1.22" etag="gfzE9WpLK59hxw9ULGLt" type="embed" pages="5">
+  <diagram id="page1" name="1. App Overview &amp; Initialization">
+    <mxGraphModel dx="1189" dy="889" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3300" pageHeight="2400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title1" value="TULANAM WEIGHBRIDGE — APP OVERVIEW &amp; INITIALIZATION" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=24;fontStyle=1;fontColor=#2D7B7B;" parent="1" vertex="1">
+          <mxGeometry x="800" y="20" width="700" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="start" value="App Launch&#xa;(main.dart)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=14;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="80" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="init1" value="1. WidgetsFlutterBinding&#xa;ensureInitialized()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="200" width="200" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="start" target="init1" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="init2" value="2. Firebase.initializeApp()&#xa;Firestore + Auth + Storage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="280" width="200" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="init1" target="init2" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="init3" value="3. WindowManager Setup&#xa;(Desktop: min size, title bar)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="360" width="200" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="init2" target="init3" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="init4" value="4. Anonymous Firebase Auth&#xa;(Pre-login Firestore access)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="440" width="200" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="init3" target="init4" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="init5" value="5. runApp()&#xa;ProviderScope → WeighbridgeApp&#xa;(MaterialApp.router)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="520" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="init4" target="init5" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="vgate" value="Version Gate&#xa;Check?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFB366;fontColor=#000000;strokeColor=#cc8a3d;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="620" width="200" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="init5" target="vgate" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="vgate_block" value="FORCED UPDATE&#xa;DIALOG&#xa;(Block app usage)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="635" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="e_vgate_block" value="Update Required" style="edgeStyle=orthogonalEdgeStyle;fontColor=#E74C3C;fontSize=10;" parent="1" source="vgate" target="vgate_block" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="router" value="GoRouter&#xa;Redirect Logic" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=14;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="770" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="OK" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" parent="1" source="vgate" target="router" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="r_lockdown" value="Lockdown&#xa;Mode?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFB366;fontColor=#000000;strokeColor=#cc8a3d;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="880" width="160" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="er1" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="router" target="r_lockdown" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="lockdown_screen" value="/lockdown&#xa;Emergency Lockdown&#xa;(Admin action only)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="895" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="er1y" value="Yes" style="edgeStyle=orthogonalEdgeStyle;fontColor=#E74C3C;fontSize=10;" parent="1" source="r_lockdown" target="lockdown_screen" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="r_site" value="Site&#xa;Configured?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFB366;fontColor=#000000;strokeColor=#cc8a3d;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="1020" width="160" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="er2" value="No" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" parent="1" source="r_lockdown" target="r_site" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="r_auth" value="User&#xa;Authenticated?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFB366;fontColor=#000000;strokeColor=#cc8a3d;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="1160" width="160" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="er3" value="Yes" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" parent="1" source="r_site" target="r_auth" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="setup_redirect" value="/setup&#xa;Setup Wizard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=12;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="1035" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="er2y" value="No" style="edgeStyle=orthogonalEdgeStyle;fontColor=#9B59B6;fontSize=10;" parent="1" source="r_site" target="setup_redirect" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="r_license" value="License&#xa;Expired?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFB366;fontColor=#000000;strokeColor=#cc8a3d;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="1300" width="160" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="er4" value="Yes" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" parent="1" source="r_auth" target="r_license" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="auth_redirect" value="/setup&#xa;(with ?signin=1)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="1175" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="er3y" value="No" style="edgeStyle=orthogonalEdgeStyle;fontColor=#9B59B6;fontSize=10;" parent="1" source="r_auth" target="auth_redirect" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="license_redirect" value="/settings/license&#xa;(Renew plan)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="1315" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="er4y" value="Yes (past grace)" style="edgeStyle=orthogonalEdgeStyle;fontColor=#F39C12;fontSize=10;" parent="1" source="r_license" target="license_redirect" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="r_perm" value="Has Permission&#xa;for Route?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFB366;fontColor=#000000;strokeColor=#cc8a3d;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="1440" width="160" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="er5" value="No" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" parent="1" source="r_license" target="r_perm" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="perm_redirect" value="/dashboard&#xa;(Fallback)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="1455" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="er5y" value="No" style="edgeStyle=orthogonalEdgeStyle;fontColor=#95A5A6;fontSize=10;" parent="1" source="r_perm" target="perm_redirect" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="appshell" value="APP SHELL&#xa;(Sidebar + Content Area)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=14;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1025" y="1600" width="250" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="er6" value="Yes — Route Allowed" style="edgeStyle=orthogonalEdgeStyle;fontColor=#2D7B7B;fontSize=10;fontStyle=1;" parent="1" source="r_perm" target="appshell" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="sidebar_group" value="SIDEBAR (Collapsible)" style="swimlane;startSize=30;fillColor=#f0fafa;strokeColor=#2D7B7B;fontSize=12;fontStyle=1;fontColor=#2D7B7B;" parent="1" vertex="1">
+          <mxGeometry x="200" y="1750" width="350" height="600" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_logo" value="Tulanam Logo&#xa;(Rotating, Morse code animation)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=10;" parent="sidebar_group" vertex="1">
+          <mxGeometry x="25" y="40" width="300" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_dash" value="Dashboard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;" parent="sidebar_group" vertex="1">
+          <mxGeometry x="25" y="100" width="300" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_weigh" value="Weighment  [hidden if admin/deactivated]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;" parent="sidebar_group" vertex="1">
+          <mxGeometry x="25" y="145" width="300" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_weighments" value="Weighments List  [canViewWeighments]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;" parent="sidebar_group" vertex="1">
+          <mxGeometry x="25" y="190" width="300" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_cust" value="Customers  [canManageCustomers]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;" parent="sidebar_group" vertex="1">
+          <mxGeometry x="25" y="235" width="300" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_ops" value="Operators  [isAdmin + pending badge]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;" parent="sidebar_group" vertex="1">
+          <mxGeometry x="25" y="280" width="300" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_reports" value="Reports  [canViewReports]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;" parent="sidebar_group" vertex="1">
+          <mxGeometry x="25" y="325" width="300" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_settings" value="Settings  [canAccessSettings]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;" parent="sidebar_group" vertex="1">
+          <mxGeometry x="25" y="370" width="300" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_profile" value="Profile (Avatar + Name)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=11;" parent="sidebar_group" vertex="1">
+          <mxGeometry x="25" y="435" width="300" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_logout" value="Logout Button" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=11;" parent="sidebar_group" vertex="1">
+          <mxGeometry x="25" y="480" width="300" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_connectivity" value="Connectivity Dot → Status Panel Overlay&#xa;(Pending sync, alerts, device stats, CPU/RAM/temp)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=10;" parent="sidebar_group" vertex="1">
+          <mxGeometry x="25" y="535" width="300" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="content_group" value="CONTENT AREA" style="swimlane;startSize=30;fillColor=#f0fafa;strokeColor=#2D7B7B;fontSize=12;fontStyle=1;fontColor=#2D7B7B;" parent="1" vertex="1">
+          <mxGeometry x="650" y="1750" width="400" height="600" as="geometry" />
+        </mxCell>
+        <mxCell id="ca_deact" value="Deactivation Warning Banner&#xa;(if operator deactivated)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;" parent="content_group" vertex="1">
+          <mxGeometry x="25" y="40" width="350" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="ca_bg" value="Background Art Layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;" parent="content_group" vertex="1">
+          <mxGeometry x="25" y="95" width="350" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="ca_inact" value="Inactivity Wrapper&#xa;(Auto-lock after timeout)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=10;" parent="content_group" vertex="1">
+          <mxGeometry x="25" y="145" width="350" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="ca_security" value="Security Overlay&#xa;(PIN re-entry, session lock)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;" parent="content_group" vertex="1">
+          <mxGeometry x="25" y="200" width="350" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="ca_content" value="SCREEN CONTENT&#xa;(Route-specific widget)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=12;fontStyle=1;" parent="content_group" vertex="1">
+          <mxGeometry x="25" y="270" width="350" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="screens_group" value="MAIN SCREENS (7 Primary)" style="swimlane;startSize=30;fillColor=#f5f0fa;strokeColor=#9B59B6;fontSize=12;fontStyle=1;fontColor=#9B59B6;" parent="1" vertex="1">
+          <mxGeometry x="1150" y="1750" width="500" height="600" as="geometry" />
+        </mxCell>
+        <mxCell id="scr_dash" value="/dashboard — Quick stats, recent weighments, system status" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="screens_group" vertex="1">
+          <mxGeometry x="25" y="40" width="450" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="scr_weigh" value="/weighment — Core weighment flow (21 steps) [SEE PAGE 3]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=10;fontStyle=1;" parent="screens_group" vertex="1">
+          <mxGeometry x="25" y="90" width="450" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="scr_weighments" value="/weighments — History, filters, export, detailed view per weighment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="screens_group" vertex="1">
+          <mxGeometry x="25" y="140" width="450" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="scr_cust" value="/customers — Master data CRUD, face enrollment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="screens_group" vertex="1">
+          <mxGeometry x="25" y="190" width="450" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="scr_ops" value="/operators — Admin: manage accounts, roles, shifts, face enroll, deactivate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="screens_group" vertex="1">
+          <mxGeometry x="25" y="240" width="450" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="scr_reports" value="/reports — Analytics: weight trends, anomalies, operator performance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="screens_group" vertex="1">
+          <mxGeometry x="25" y="290" width="450" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="scr_profile" value="/profile — User details, change password, avatar, session info" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="screens_group" vertex="1">
+          <mxGeometry x="25" y="340" width="450" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="scr_settings" value="/settings — 14 sub-screens [SEE PAGE 4]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;fontStyle=1;" parent="screens_group" vertex="1">
+          <mxGeometry x="25" y="390" width="450" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="auth_group" value="AUTH FLOWS (No Shell)" style="swimlane;startSize=30;fillColor=#fdf0f0;strokeColor=#E74C3C;fontSize=12;fontStyle=1;fontColor=#E74C3C;" parent="1" vertex="1">
+          <mxGeometry x="1750" y="1750" width="400" height="600" as="geometry" />
+        </mxCell>
+        <mxCell id="auth_forgot" value="/forgot-password&#xa;Step 1: Email → sendPasswordResetOTP&#xa;Step 2: OTP verify (6-digit) → verifyPasswordResetOTP&#xa;Step 3: New password → resetPasswordWithOTP&#xa;Step 4: Success → /setup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;align=left;spacingLeft=10;" parent="auth_group" vertex="1">
+          <mxGeometry x="25" y="45" width="350" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="auth_linkage" value="/linkage-pending&#xa;Operator pre-invited by admin&#xa;Awaiting admin approval&#xa;Can retry linking → Redirect on approval" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=10;align=left;spacingLeft=10;" parent="auth_group" vertex="1">
+          <mxGeometry x="25" y="170" width="350" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="auth_mfa" value="MFA Verification (Optional)&#xa;Triggered during login if MFA enabled&#xa;SMS or email code entry&#xa;Temporary session → Full auth on success" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;align=left;spacingLeft=10;" parent="auth_group" vertex="1">
+          <mxGeometry x="25" y="275" width="350" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="auth_session" value="SESSION MANAGEMENT&#xa;• sessionLoggedInProvider: hash-based auth state&#xa;• authStateProvider: Firebase auth state stream&#xa;• Reset on cold start (forces fresh login)&#xa;• Anonymous auth for pre-login Firestore queries" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;align=left;spacingLeft=10;" parent="auth_group" vertex="1">
+          <mxGeometry x="25" y="380" width="350" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="e_shell_sidebar" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#2D7B7B;" parent="1" source="appshell" target="sidebar_group" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_shell_content" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#2D7B7B;" parent="1" source="appshell" target="content_group" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_shell_screens" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#9B59B6;" parent="1" source="appshell" target="screens_group" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="legend1" value="LEGEND" style="swimlane;startSize=25;fillColor=#fafafa;strokeColor=#333333;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="2250" y="80" width="250" height="350" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_start" value="Start / End" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=10;" parent="legend1" vertex="1">
+          <mxGeometry x="15" y="35" width="220" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_process" value="Process Step" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="legend1" vertex="1">
+          <mxGeometry x="15" y="75" width="220" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_decision" value="Decision" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFB366;fontColor=#000000;strokeColor=#cc8a3d;fontSize=10;" parent="legend1" vertex="1">
+          <mxGeometry x="15" y="115" width="220" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_ai" value="AI / ML" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;" parent="legend1" vertex="1">
+          <mxGeometry x="15" y="155" width="220" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_hw" value="Hardware" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;" parent="legend1" vertex="1">
+          <mxGeometry x="15" y="195" width="220" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_data" value="Data / Firebase" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=10;" parent="legend1" vertex="1">
+          <mxGeometry x="15" y="235" width="220" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_user" value="User Action" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=10;" parent="legend1" vertex="1">
+          <mxGeometry x="15" y="275" width="220" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_error" value="Error / Block" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;" parent="legend1" vertex="1">
+          <mxGeometry x="15" y="315" width="220" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="page2" name="2. Setup Wizard (14 Steps)">
+    <mxGraphModel dx="3568" dy="2668" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3300" pageHeight="4000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="s_title" value="SETUP WIZARD — COMPLETE FLOW (14 Steps)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=24;fontStyle=1;fontColor=#2D7B7B;" parent="1" vertex="1">
+          <mxGeometry x="900" y="20" width="600" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s_start" value="Setup Wizard&#xa;Launched" style="ellipse;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=13;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="80" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="s0" value="STEP 0: WELCOME&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Fullscreen mode (sidebar hidden)&#xa;• Role selection dialog" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="975" y="190" width="350" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="es0" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s_start" target="s0" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s_role" value="Role?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFB366;fontColor=#000000;strokeColor=#cc8a3d;fontSize=13;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1075" y="310" width="150" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="es_role" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s0" target="s_role" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="admin_label" value="ADMIN PATH" style="text;html=1;align=center;verticalAlign=middle;fontSize=14;fontStyle=1;fontColor=#2D7B7B;" parent="1" vertex="1">
+          <mxGeometry x="550" y="310" width="150" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="op_label" value="OPERATOR PATH" style="text;html=1;align=center;verticalAlign=middle;fontSize=14;fontStyle=1;fontColor=#9B59B6;" parent="1" vertex="1">
+          <mxGeometry x="1600" y="310" width="180" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="ret_label" value="RETURNING USER" style="text;html=1;align=center;verticalAlign=middle;fontSize=14;fontStyle=1;fontColor=#F39C12;" parent="1" vertex="1">
+          <mxGeometry x="1600" y="450" width="180" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="s_returning" value="Redirect to Sign-In&#xa;(?signin=1 param)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1550" y="480" width="200" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="es_ret" value="Returning" style="edgeStyle=orthogonalEdgeStyle;fontColor=#F39C12;fontSize=10;" parent="1" source="s_role" target="s_returning" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s1a" value="STEP 1: COMPANY INFO [Admin Only]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• GSTIN registration number&#xa;• Company name&#xa;• Company address (full)&#xa;• Self-contained navigation&#xa;• REQUIRED step" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="400" y="430" width="350" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="es1a" value="Admin" style="edgeStyle=orthogonalEdgeStyle;fontColor=#2D7B7B;fontSize=10;fontStyle=1;" parent="1" source="s_role" target="s1a" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s2o" value="STEP 2: COMPANY CODE [Operator Only]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Enter company code (from admin)&#xa;• Links operator to company&#xa;• REQUIRED step" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="1500" y="340" width="350" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="es2o" value="Operator" style="edgeStyle=orthogonalEdgeStyle;fontColor=#9B59B6;fontSize=10;fontStyle=1;" parent="1" source="s_role" target="s2o" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="STEP 3: ACCOUNT [Both Roles]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Email address&#xa;• Password + confirmation&#xa;• Document upload (Aadhaar/PAN/Passport)&#xa;• Profile photo (base64 capture)&#xa;• Self-contained navigation&#xa;• REQUIRED step" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="975" y="600" width="350" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="es3a" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s1a" target="s3" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="es3o" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s2o" target="s3" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s4_dec" value="Role?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFB366;fontColor=#000000;strokeColor=#cc8a3d;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1075" y="770" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="es4d" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s3" target="s4_dec" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" value="STEP 4: FACE ENROLLMENT [Operator Only]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Live video capture&#xa;• Capture 8+ face angles&#xa;• Enroll into biometric system&#xa;• Self-contained navigation&#xa;• REQUIRED (operator)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="1400" y="755" width="350" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="es4" value="Operator" style="edgeStyle=orthogonalEdgeStyle;fontColor=#9B59B6;fontSize=10;" parent="1" source="s4_dec" target="s4" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s5" value="STEP 5: SITE [Both Roles]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Select existing site OR create new&#xa;• Select weighbridge (if multiple)&#xa;• Self-contained navigation&#xa;• REQUIRED step" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="975" y="910" width="350" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="es5a" value="Admin (skip)" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" parent="1" source="s4_dec" target="s5" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="es5o" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s4" target="s5" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s6_dec" value="Admin?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFB366;fontColor=#000000;strokeColor=#cc8a3d;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1075" y="1050" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="es6d" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s5" target="s6_dec" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s6" value="STEP 6: LICENSE [Admin Only]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Choose plan: Free / Trial (30d) / Pro&#xa;• Tier determines feature visibility&#xa;• Affects subsequent wizard steps&#xa;• REQUIRED (admin)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="400" y="1040" width="350" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="es6" value="Yes" style="edgeStyle=orthogonalEdgeStyle;fontColor=#2D7B7B;fontSize=10;" parent="1" source="s6_dec" target="s6" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s_tier" value="Tier&#xa;Selected?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFB366;fontColor=#000000;strokeColor=#cc8a3d;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="500" y="1180" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="es_tier" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s6" target="s_tier" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="opt_header" value="OPTIONAL STEPS (Admin Only, with Navigation Bar)" style="text;html=1;align=center;verticalAlign=middle;fontSize=14;fontStyle=1;fontColor=#3498DB;" parent="1" vertex="1">
+          <mxGeometry x="800" y="1290" width="500" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="s7" value="STEP 7: SCALE CONFIGURATION [Admin, Optional]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• RS-232 / RS-485 connection type&#xa;• COM port selection&#xa;• Baud rate, parity, stop bits&#xa;• Indicator model (make + model)&#xa;• Test connection / live reading&#xa;• Navigation bar (skip/next)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="400" y="1330" width="380" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="es7" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s_tier" target="s7" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s8" value="STEP 8: MATERIALS [Admin, Optional]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Add products handled at site&#xa;• Categories &amp; descriptions&#xa;• Unit of measurement&#xa;• Used in weighment material detection&#xa;• Navigation bar (skip/next)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="400" y="1500" width="380" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="es8" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s7" target="s8" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s9" value="STEP 9: GATES [Admin, PRO/TRIAL Only, Optional]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Configure entry/exit gates&#xa;• Gate controller type (Modbus/proprietary)&#xa;• RFID reader setup (Wiegand protocol)&#xa;• Gate automation rules&#xa;• minimumTier: trial&#xa;• Navigation bar (skip/next)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="400" y="1660" width="380" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="es9" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s8" target="s9" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s9_note" value="⚠ Hidden if Free tier" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#E74C3C;fontStyle=2;" parent="1" vertex="1">
+          <mxGeometry x="790" y="1710" width="140" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="s10" value="STEP 10: CAMERAS [Admin, Optional]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• IP camera setup (RTSP URL)&#xa;• Camera types: ANPR, CCTV, Operator, Customer&#xa;• Camera naming &amp; positioning&#xa;• Test stream preview&#xa;• Navigation bar (skip/next)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="400" y="1830" width="380" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="es10" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s9" target="s10" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s11" value="STEP 11: PRINTING [Admin, Optional]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Docket printer setup&#xa;• Thermal printer models (ESC/POS)&#xa;• Sticker printer config&#xa;• Paper size, margins&#xa;• Test print&#xa;• Navigation bar (skip/next)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="400" y="1990" width="380" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="es11" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s10" target="s11" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s12" value="STEP 12: SECURITY [Admin, Optional]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• MFA settings (SMS/email)&#xa;• Role-based access control&#xa;• IP whitelist (CIDR rules)&#xa;• Session timeout&#xa;• Password policies&#xa;• Navigation bar (skip/next)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="400" y="2150" width="380" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="es12" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s11" target="s12" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s13" value="STEP 13: REVIEW &amp; COMPLETE [Both Roles]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Summary of ALL configuration&#xa;• Review company info, account, hardware&#xa;• Final confirmation button&#xa;• Submit → mark site as configured&#xa;• Self-contained navigation&#xa;• REQUIRED step" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=11;align=left;spacingLeft=10;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="975" y="2350" width="380" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="es13a" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s12" target="s13" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="es13o" value="Operator (skip optional)" style="edgeStyle=orthogonalEdgeStyle;fontColor=#9B59B6;fontSize=10;dashed=1;" parent="1" source="s6_dec" target="s13" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1350" y="1090" />
+              <mxPoint x="1350" y="2415" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="s_complete" value="SETUP COMPLETE&#xa;Site marked configured&#xa;→ Redirect to /dashboard" style="ellipse;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=12;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="2530" width="230" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="es_complete" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="s13" target="s_complete" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s_persist" value="PERSISTENCE&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Progress saved to disk (SharedPreferences)&#xa;• Current step index persisted&#xa;• Role &amp; tier persisted&#xa;• Resumable on app restart&#xa;• Sidebar shows step progress&#xa;• Steps can be revisited (back button)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="1550" y="1000" width="350" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="s_sidebar_note" value="WIZARD SIDEBAR&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Step list with completion status&#xa;• Current step highlighted&#xa;• Role-filtered (only shows visible steps)&#xa;• Tier-filtered (pro steps hidden on free)&#xa;• Click to navigate (completed steps only)&#xa;• Progress percentage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="1550" y="1160" width="350" height="120" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="page3" name="3. Weighment Flow (21 Steps)">
+    <mxGraphModel dx="3568" dy="2668" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3300" pageHeight="5500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="w_title" value="WEIGHMENT SESSION — COMPLETE 21-STEP FLOW" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=24;fontStyle=1;fontColor=#2D7B7B;" parent="1" vertex="1">
+          <mxGeometry x="800" y="20" width="700" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="w_start" value="NEW SESSION&#xa;(F1/F2 or Button)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=13;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="80" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="w0" value="STEP 0: RETRY QUEUE [Automatic]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Sync pending offline weighments before new session&#xa;• Types: weighments, audit, operator_updates, sessions&#xa;• Timeout: 10 seconds&#xa;• Can skip (auto-skip if online &amp; queue empty)&#xa;• Retry count tracked per item" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="190" width="500" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="ew0" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w_start" target="w0" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w1" value="STEP 1: OPERATOR VERIFICATION [AI]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Face verification of current operator&#xa;• Uses operator camera (configured in settings)&#xa;• Compares against enrolled face embeddings&#xa;• Confidence threshold check&#xa;• Timeout: 30 seconds&#xa;• Can skip (F8 to retry)&#xa;• Requires: operator camera + face model&#xa;• Logs: operator ID, confidence, timestamp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="340" width="500" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="ew1" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w0" target="w1" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w2" value="STEP 2: CCTV / ANPR DETECTION [AI + Hardware]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Automatic Number Plate Recognition&#xa;• Runs continuously until match or timeout&#xa;• Adaptive polling interval (faster when motion detected)&#xa;• Minimum votes threshold (configurable)&#xa;• Best candidate applied if timeout&#xa;• ANPR crop saved as evidence&#xa;• Bounding box overlay on camera feed&#xa;• Timeout: 60 seconds&#xa;• Can skip → manual vehicle number entry&#xa;• Confidence score logged&#xa;• Multiple camera support (best of N)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="530" width="500" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="ew2" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w1" target="w2" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w3" value="STEP 3: WEIGHT CHECK [Hardware]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Verify scale is near-zero (empty platform)&#xa;• OR verify weight is above threshold (vehicle present)&#xa;• Serial connection to indicator (RS-232/485)&#xa;• Timeout: 5 seconds&#xa;• Automatic (no user action needed)&#xa;• Checks scale health/connection" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="760" width="500" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ew3" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w2" target="w3" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w4" value="STEP 4: VEHICLE ENTRY [Hardware]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Automatic gate open (if gate automation enabled)&#xa;• Traffic signal → GREEN&#xa;• F6 manual gate open&#xa;• Automatic — can skip&#xa;• Skipped if no gate controller configured" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="920" width="500" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="ew4" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w3" target="w4" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w5" value="STEP 5: STABILIZATION [Hardware + User]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Wait for weight to stabilize on platform&#xa;• Live weight displayed in banner (real-time)&#xa;• Stability threshold: weight variance &lt; X kg for Y seconds&#xa;• Visual indicator: pulsing → stable&#xa;• Timeout: 60 seconds&#xa;• Manual trigger by operator (override)&#xa;• Requires: active scale connection&#xa;• Voice guidance: &#39;Vehicle detected, stabilizing...&#39;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="1070" width="500" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="ew5" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w4" target="w5" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w6" value="STEP 6: FIRST WEIGHT CAPTURE [User Action]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Operator presses F5 or capture button&#xa;• Weight locked and stored with timestamp&#xa;• Snapshots taken from ALL configured cameras&#xa;• Camera crops saved (ANPR, wide, zoomed)&#xa;• First weigh type recorded: &#39;gross&#39; or &#39;tare&#39;&#xa;• Weight snapshot array populated&#xa;• Voice guidance: &#39;Weight captured: XX,XXX kg&#39;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=11;align=left;spacingLeft=10;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="900" y="1260" width="500" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="ew6" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w5" target="w6" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w7" value="STEP 7: MATERIAL DETECTION [AI]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Analyze vehicle/cargo for material type&#xa;• Uses camera snapshot + ML model&#xa;• Confidence score returned&#xa;• Suggest from configured materials list&#xa;• Can skip → manual material selection&#xa;• Training data collection (save for model improvement)&#xa;• Auto-apply if confidence &gt; threshold" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="1440" width="500" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="ew7" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w6" target="w7" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w8" value="STEP 8: CUSTOMER LOOKUP [User + Data]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Search/select customer (F10)&#xa;• Auto-populate from face recognition&#xa;• Auto-populate from RFID tag match&#xa;• Auto-populate from vehicle history&#xa;• Create new customer inline&#xa;• Customer address, phone auto-filled&#xa;• Can skip&#xa;• Linked to customer master data" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="1610" width="500" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="ew8" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w7" target="w8" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w9" value="STEP 9: DRIVER / CUSTOMER FACE ASSIST [AI]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Face verification of driver/customer&#xa;• Uses customer camera&#xa;• Compare against customer DB embeddings&#xa;• Confidence threshold for auto-match&#xa;• Can skip if disabled&#xa;• F9 to retry&#xa;• Enrollment option for new faces&#xa;• Links face to customer record" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="1800" width="500" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="ew9" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w8" target="w9" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w_await" value="SESSION STATUS: awaitingSecondWeight&#xa;Vehicle leaves platform → returns for 2nd weighing&#xa;(Could be hours/days later — session persisted to disk)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=11;align=center;fontStyle=2;" parent="1" vertex="1">
+          <mxGeometry x="900" y="1990" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ew_await" style="edgeStyle=orthogonalEdgeStyle;dashed=1;" parent="1" source="w9" target="w_await" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w10" value="STEP 10: SECOND WEIGHT CAPTURE [User Action]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Vehicle returns to platform&#xa;• Stabilize again (same logic as step 5)&#xa;• Operator presses F5 to capture&#xa;• Timeout: 60 seconds&#xa;• Snapshots taken again (all cameras)&#xa;• GROSS / TARE / NET auto-calculated:&#xa;  ├─ If first was loaded: first=gross, second=tare&#xa;  └─ If first was empty: first=tare, second=gross&#xa;  └─ NET = |gross - tare|&#xa;• Voice guidance: &#39;Net weight: XX,XXX kg&#39;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=11;align=left;spacingLeft=10;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="900" y="2090" width="500" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="ew10" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w_await" target="w10" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w11" value="STEP 11: RST ASSIGNMENT [Automatic]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Assign Road Tax Stamp number&#xa;• Auto-increment from last used&#xa;• Manual override available&#xa;• Unique per site per day&#xa;• Format configurable" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="2310" width="500" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="ew11" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w10" target="w11" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w12" value="STEP 12: SAVE TO FIRESTORE [Automatic]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Upload complete weighment document&#xa;• Path: companies/{id}/sites/{id}/weighments/{id}&#xa;• All data: weights, snapshots, AI predictions, customer, material&#xa;• Retry queue if offline (queued with timestamp)&#xa;• Audit trail entry created&#xa;• Operator session logged" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="2460" width="500" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ew12" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w11" target="w12" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w13" value="STEP 13: GENERATE DOCKET PDF [Automatic]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Create docket PDF with all weighment data&#xa;• Embed camera snapshots&#xa;• Company logo + header&#xa;• Custom fields included&#xa;• QR code for verification&#xa;• Can skip" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="2620" width="500" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ew13" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w12" target="w13" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w14" value="STEP 14: PRINT DOCKET [User Action]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Send PDF to configured printer&#xa;• ESC/POS thermal or standard printer&#xa;• F4 shortcut&#xa;• Can skip&#xa;• Print count tracked" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="2780" width="500" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="ew14" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w13" target="w14" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w15" value="STEP 15: PRINT STICKER [User Action]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Print weight sticker (small label)&#xa;• Vehicle number + net weight + date&#xa;• F11 shortcut&#xa;• Can skip&#xa;• Separate printer config" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="2920" width="500" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="ew15" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w14" target="w15" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w16" value="STEP 16: GOOGLE SHEETS SYNC [Automatic]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Sync weighment to configured Google Sheet&#xa;• Append row with all fields&#xa;• Uses Sheets API (OAuth)&#xa;• Can skip&#xa;• Skipped if integration not enabled&#xa;• Retry on failure" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="3060" width="500" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="ew16" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w15" target="w16" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w17" value="STEP 17: WHATSAPP NOTIFICATION [Automatic]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Send docket via WhatsApp to customer&#xa;• Uses WhatsApp Business API&#xa;• PDF attachment + summary text&#xa;• Can skip&#xa;• Skipped if integration not enabled&#xa;• Customer phone required" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="3210" width="500" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="ew17" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w16" target="w17" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w18" value="STEP 18: VEHICLE EXIT [Hardware]&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;• Automatic exit gate open&#xa;• Traffic signal → GREEN (exit)&#xa;• F7 manual gate close after exit&#xa;• Can skip&#xa;• Skipped if no gate controller&#xa;• Auto-close timer (configurable delay)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="900" y="3360" width="500" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="ew18" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w17" target="w18" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w_end" value="SESSION COMPLETE&#xa;Status: completed&#xa;Ready for next vehicle" style="ellipse;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=13;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1025" y="3520" width="250" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="ew_end" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="w18" target="w_end" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w_keys" value="KEYBOARD SHORTCUTS&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;F1 / F2  — New Weighment&#xa;F3       — Manual Entry Mode&#xa;F4       — Save / Print (context-aware)&#xa;F5       — Capture Weight&#xa;F6       — Open Gate&#xa;F7       — Close Gate&#xa;F8       — Retry Operator Verify&#xa;F9       — Retry Customer Verify&#xa;F10      — Customer Search&#xa;F11      — Print Slip&#xa;Esc      — Cancel / Back" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="100" y="200" width="350" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="w_model" value="WEIGHMENT SESSION DATA MODEL&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;Identity:&#xa;  • UUID, started_at, status, elapsed&#xa;  • Status: active → awaitingSecondWeight → completed → cancelled&#xa;&#xa;Vehicle:&#xa;  • Number (ANPR or manual), RFID tag&#xa;  • Direction: inbound / outbound&#xa;&#xa;Customer:&#xa;  • Name, address, phone&#xa;  • Face embedding / customer ID&#xa;&#xa;Material:&#xa;  • Type (AI or manual), direction&#xa;&#xa;Weights:&#xa;  • First weight + timestamp&#xa;  • Second weight + timestamp&#xa;  • Gross / Tare / Net (calculated)&#xa;  • Weight snapshots (per camera)&#xa;  • First weigh type: &#39;gross&#39; or &#39;tare&#39;&#xa;&#xa;AI Predictions:&#xa;  • ANPR: plate + confidence + crop&#xa;  • Material: type + confidence&#xa;  • Driver face: embedding&#xa;  • Customer face: embedding + ID&#xa;  • Training data flag&#xa;&#xa;Post-Weighment:&#xa;  • RST number&#xa;  • Docket PDF generated&#xa;  • Sticker printed&#xa;  • Sheets sync status&#xa;  • WhatsApp sent status&#xa;  • Completed_at timestamp&#xa;&#xa;Custom Fields:&#xa;  • Site-specific key-value pairs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=10;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="100" y="500" width="350" height="620" as="geometry" />
+        </mxCell>
+        <mxCell id="w_ui" value="WEIGHMENT SCREEN UI COMPONENTS&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;┌─────────────────────────────────────┐&#xa;│ LIVE WEIGHT BANNER (real-time)      │&#xa;│ Shows: current kg, stability, unit  │&#xa;├─────────────────────────────────────┤&#xa;│ PHASE STEPPER (visual progress)     │&#xa;│ Shows: current step, completed, next│&#xa;├──────────────┬──────────────────────┤&#xa;│ LEFT PANEL   │  RIGHT PANEL         │&#xa;│              │                      │&#xa;│ Vehicle form │  Camera carousel     │&#xa;│ Material sel │  ANPR crops          │&#xa;│ Customer sel │  Identity cameras    │&#xa;│ Custom fields│  Weighbridge cams    │&#xa;│              │  Pending queue       │&#xa;├──────────────┴──────────────────────┤&#xa;│ ACTION BAR (F-key shortcuts)        │&#xa;│ STATUS BAR (connection, sync)       │&#xa;└─────────────────────────────────────┘&#xa;&#xa;Overlays:&#xa;• AI confirmation dialogs&#xa;• PIN entry banner (if security on)&#xa;• ANPR bounding box overlay&#xa;• Face verification overlay" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;align=left;spacingLeft=10;fontFamily=Courier New;" parent="1" vertex="1">
+          <mxGeometry x="100" y="1170" width="380" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="w_cancel" value="CANCEL / ERROR HANDLING&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;Esc key → Cancel confirmation dialog&#xa;  • Discard session (no save)&#xa;  • Status: cancelled&#xa;&#xa;Offline during save:&#xa;  • Queue to retry queue&#xa;  • Continue to next steps&#xa;  • Sync when back online&#xa;&#xa;Scale disconnection:&#xa;  • Show error in status bar&#xa;  • Block weight capture&#xa;  • Auto-reconnect attempts&#xa;&#xa;Camera failure:&#xa;  • Skip snapshot gracefully&#xa;  • Log camera error&#xa;  • Continue flow (non-blocking)&#xa;&#xa;AI timeout:&#xa;  • Apply best candidate if any&#xa;  • Skip if no candidate&#xa;  • Manual entry fallback" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;align=left;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="100" y="1690" width="380" height="400" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="page4" name="4. Navigation &amp; Permissions">
+    <mxGraphModel dx="892" dy="667" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3300" pageHeight="3000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="n_title" value="NAVIGATION MAP &amp; PERMISSION MODEL" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=24;fontStyle=1;fontColor=#2D7B7B;" parent="1" vertex="1">
+          <mxGeometry x="900" y="20" width="600" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="perm_group" value="PERMISSION MODEL (PermissionService)" style="swimlane;startSize=30;fillColor=#fdf5f0;strokeColor=#F39C12;fontSize=12;fontStyle=1;fontColor=#F39C12;" parent="1" vertex="1">
+          <mxGeometry x="100" y="80" width="500" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="perm_admin" value="isAdmin: bool — Full access to all features" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=10;" parent="perm_group" vertex="1">
+          <mxGeometry x="20" y="40" width="460" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="perm_deact" value="isDeactivated: bool — Blocks /weighment, shows warning banner" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;" parent="perm_group" vertex="1">
+          <mxGeometry x="20" y="80" width="460" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="perm_lock" value="isLockdown: bool — Redirects ALL routes to /lockdown" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;" parent="perm_group" vertex="1">
+          <mxGeometry x="20" y="120" width="460" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="perm_weighments" value="canViewWeighments: bool — Access to /weighments list" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="perm_group" vertex="1">
+          <mxGeometry x="20" y="160" width="460" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="perm_customers" value="canManageCustomers: bool — Access to /customers CRUD" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="perm_group" vertex="1">
+          <mxGeometry x="20" y="200" width="460" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="perm_reports" value="canViewReports: bool — Access to /reports analytics" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="perm_group" vertex="1">
+          <mxGeometry x="20" y="240" width="460" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="perm_settings" value="canAccessSettings: bool — Access to /settings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="perm_group" vertex="1">
+          <mxGeometry x="20" y="280" width="460" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="perm_hw" value="canAccessPrinting / canAccessGateControl / canAccessCameras / canAccessWeighbridge" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;" parent="perm_group" vertex="1">
+          <mxGeometry x="20" y="320" width="460" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="perm_enforce" value="ENFORCEMENT: Router redirects → Sidebar visibility → Feature gating → API checks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;fontStyle=2;" parent="perm_group" vertex="1">
+          <mxGeometry x="20" y="360" width="460" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="tier_group" value="LICENSE TIERS" style="swimlane;startSize=30;fillColor=#f5f0fa;strokeColor=#9B59B6;fontSize=12;fontStyle=1;fontColor=#9B59B6;" parent="1" vertex="1">
+          <mxGeometry x="700" y="80" width="550" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="tier_free" value="FREE TIER&#xa;• Basic weighment only&#xa;• No: gates, cameras, integrations, notifications, MFA&#xa;• Limited weighments/month" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;align=left;spacingLeft=10;" parent="tier_group" vertex="1">
+          <mxGeometry x="20" y="40" width="510" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="tier_trial" value="TRIAL TIER (30 days)&#xa;• ALL features enabled&#xa;• Full pro-tier access&#xa;• Auto-downgrades to free after expiry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=10;align=left;spacingLeft=10;" parent="tier_group" vertex="1">
+          <mxGeometry x="20" y="130" width="510" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="tier_pro" value="PRO TIER&#xa;• Unlimited weighments&#xa;• Gates, cameras, ANPR, face recognition&#xa;• Integrations: Tally, Google Sheets, WhatsApp&#xa;• Security: MFA, IP whitelist, audit logs&#xa;• Notifications: email/SMS alerts&#xa;• Priority support &amp; updates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=10;align=left;spacingLeft=10;" parent="tier_group" vertex="1">
+          <mxGeometry x="20" y="220" width="510" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="tier_check" value="License checks at: Router level, Setup wizard visibility, Settings tiles (grey/locked)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;fontStyle=2;" parent="tier_group" vertex="1">
+          <mxGeometry x="20" y="350" width="510" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="settings_group" value="SETTINGS SUB-ROUTES (/settings/*)" style="swimlane;startSize=30;fillColor=#f0fafa;strokeColor=#2D7B7B;fontSize=12;fontStyle=1;fontColor=#2D7B7B;" parent="1" vertex="1">
+          <mxGeometry x="100" y="530" width="1150" height="650" as="geometry" />
+        </mxCell>
+        <mxCell id="set_gen_label" value="GENERAL" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#4DB8B8;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="40" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="set_general" value="/settings/general — Company info, site defaults, weighment preferences" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="65" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_appearance" value="/settings/appearance — Theme (dark/light/system), language, font scale" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="100" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_fields" value="/settings/custom-fields — Docket field configuration (add/remove/reorder)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="135" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_materials" value="/settings/materials — Product master data (name, category, unit)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="170" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_hw_label" value="HARDWARE" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#3498DB;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="215" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="set_scale" value="/settings/weighbridge — Scale connection (RS-232/485), indicator model, baud, parity" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="240" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_gate" value="/settings/gate-control — Gate automation, RFID, traffic signals [PRO ONLY]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="275" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_cameras" value="/settings/cameras — IP camera setup (ANPR + CCTV + Operator + Customer) [PRO ONLY]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="310" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_printing" value="/settings/printing — Docket + sticker printers (ESC/POS, paper size, margins)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="345" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_voice" value="/settings/voice-guidance — Speaker output, voice prompts, language" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="380" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_sys_label" value="SYSTEM" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#27AE60;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="425" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="set_license" value="/settings/license — Plan management, tier info, renewal, update check" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="450" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_mfa" value="/settings/mfa — 2FA setup, IP whitelist, RBAC, session mgmt [PRO ONLY]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="485" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_notif" value="/settings/notifications — Email/SMS alerts configuration [PRO ONLY]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="520" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_backup" value="/settings/backup — Cloud backup, data retention, restore" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="555" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_integ" value="/settings/integrations — Tally Prime, webhooks, API keys [PRO ONLY]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;" parent="settings_group" vertex="1">
+          <mxGeometry x="20" y="590" width="530" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="set_pro_note" value="Purple = PRO/TRIAL tier only (greyed out on Free)" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#9B59B6;fontStyle=2;" parent="settings_group" vertex="1">
+          <mxGeometry x="600" y="275" width="300" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_group" value="ROUTE → PERMISSION MATRIX" style="swimlane;startSize=30;fillColor=#fafafa;strokeColor=#333333;fontSize=12;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="100" y="1230" width="1150" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_header" value="Route                          │ Permission Check              │ Fallback        │ Additional Gate" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;fontStyle=1;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="40" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_dash" value="/dashboard                     │ (always accessible)           │ —               │ —" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="65" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_weigh" value="/weighment                     │ !isDeactivated &amp;&amp; !isAdmin    │ /dashboard      │ Active scale connection" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="90" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_weighments" value="/weighments                    │ canViewWeighments             │ /dashboard      │ —" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="115" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_cust" value="/customers                     │ canManageCustomers            │ /dashboard      │ —" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="140" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_ops" value="/operators                     │ isAdmin                       │ /dashboard      │ —" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="165" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_reports" value="/reports                       │ canViewReports                │ /dashboard      │ —" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="190" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_settings" value="/settings/*                    │ canAccessSettings             │ /dashboard      │ Sub-route tier checks" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="215" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_gate" value="/settings/gate-control         │ canAccessSettings + PRO tier  │ /settings       │ canAccessGateControl" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="240" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_cam" value="/settings/cameras              │ canAccessSettings + PRO tier  │ /settings       │ canAccessCameras" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="265" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_mfa2" value="/settings/mfa                  │ canAccessSettings + PRO tier  │ /settings       │ —" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="290" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_integ2" value="/settings/integrations         │ canAccessSettings + PRO tier  │ /settings       │ —" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="315" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_notif2" value="/settings/notifications        │ canAccessSettings + PRO tier  │ /settings       │ —" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="340" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_sep" value="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="365" width="1100" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_forgot" value="/forgot-password               │ (no auth required)            │ —               │ Rate limited (Cloud Function)" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="385" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_link" value="/linkage-pending               │ (no auth required)            │ —               │ Pre-invited operators only" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="410" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_lockd" value="/lockdown                      │ isLockdown (forced)           │ —               │ Admin can exit via Cloud Fn" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="435" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix_setup2" value="/setup                         │ (no auth / setup incomplete)  │ —               │ Resumable, progress persisted" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" parent="matrix_group" vertex="1">
+          <mxGeometry x="20" y="460" width="1100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="offline_group" value="OFFLINE &amp; SYNC" style="swimlane;startSize=30;fillColor=#f0faf5;strokeColor=#27AE60;fontSize=12;fontStyle=1;fontColor=#27AE60;" parent="1" vertex="1">
+          <mxGeometry x="100" y="1780" width="600" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="off_queue" value="Offline Queue Provider:&#xa;• Track pending weighments (queued on save failure)&#xa;• Retry on connection restore (automatic)&#xa;• Breakdown: weighments, audit, operator_updates, sessions&#xa;• Last sync timestamp + success flag&#xa;• Manual sync trigger from status panel&#xa;• Retry count per item (exponential backoff)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=10;align=left;spacingLeft=10;" parent="offline_group" vertex="1">
+          <mxGeometry x="20" y="40" width="560" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="off_conn" value="Connectivity Status:&#xa;• Green dot = online, Red dot = offline&#xa;• Badge count: pending items + alerts&#xa;• Status panel overlay (hover/click):&#xa;  ├─ Sync status per category&#xa;  ├─ Pending breakdown by type&#xa;  ├─ Last successful sync time&#xa;  ├─ Device stats (CPU / RAM / temperature)&#xa;  └─ &#39;Sync Now&#39; manual button" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4DB8B8;fontColor=#ffffff;strokeColor=#2D7B7B;fontSize=10;align=left;spacingLeft=10;" parent="offline_group" vertex="1">
+          <mxGeometry x="20" y="165" width="560" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="persist_group" value="LOCAL PERSISTENCE" style="swimlane;startSize=30;fillColor=#f5f0fa;strokeColor=#9B59B6;fontSize=12;fontStyle=1;fontColor=#9B59B6;" parent="1" vertex="1">
+          <mxGeometry x="750" y="1780" width="500" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="persist_session" value="Weighment Sessions:&#xa;Path: ~/.tulanam/{siteId}/{weighbridgeId}/session.json&#xa;• Auto-saved on every state change&#xa;• Auto-loaded on app restart&#xa;• Allows resume of in-progress weighment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;align=left;spacingLeft=10;" parent="persist_group" vertex="1">
+          <mxGeometry x="20" y="40" width="460" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="persist_setup" value="Setup Progress:&#xa;• Current step index (SharedPreferences)&#xa;• Selected role &amp; license tier&#xa;• Resumable on restart / crash" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;align=left;spacingLeft=10;" parent="persist_group" vertex="1">
+          <mxGeometry x="20" y="135" width="460" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="persist_cache" value="Local Cache:&#xa;• User preferences, camera configs, material list&#xa;• Operator face embeddings (for offline verify)&#xa;• Customer database snapshot" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;align=left;spacingLeft=10;" parent="persist_group" vertex="1">
+          <mxGeometry x="20" y="220" width="460" height="65" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="page5" name="5. Integrations &amp; State">
+    <mxGraphModel dx="892" dy="667" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3300" pageHeight="3500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="i_title" value="INTEGRATIONS, STATE MANAGEMENT &amp; EXTERNAL SYSTEMS" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=24;fontStyle=1;fontColor=#2D7B7B;" parent="1" vertex="1">
+          <mxGeometry x="700" y="20" width="900" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="i_app" value="TULANAM&#xa;WEIGHBRIDGE&#xa;APP" style="ellipse;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=16;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="400" width="200" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="fb_group" value="FIREBASE SERVICES" style="swimlane;startSize=30;fillColor=#f0faf5;strokeColor=#27AE60;fontSize=12;fontStyle=1;fontColor=#27AE60;" parent="1" vertex="1">
+          <mxGeometry x="100" y="100" width="500" height="380" as="geometry" />
+        </mxCell>
+        <mxCell id="fb_auth" value="Firebase Auth&#xa;• Email/password authentication&#xa;• Anonymous auth (pre-login queries)&#xa;• Session management&#xa;• Password reset (via Cloud Functions)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=10;align=left;spacingLeft=10;" parent="fb_group" vertex="1">
+          <mxGeometry x="20" y="40" width="460" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="fb_firestore" value="Cloud Firestore&#xa;• Primary database (NoSQL)&#xa;• Collections: companies, sites, weighbridges, weighments, operators, customers&#xa;• Real-time listeners for config changes&#xa;• Offline persistence enabled" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=10;align=left;spacingLeft=10;" parent="fb_group" vertex="1">
+          <mxGeometry x="20" y="120" width="460" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="fb_functions" value="Cloud Functions&#xa;• sendPasswordResetOTP, verifyPasswordResetOTP, resetPasswordWithOTP&#xa;• Admin operations (lockdown, deactivate, invite)&#xa;• Webhook handlers&#xa;• Scheduled jobs (license expiry check)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=10;align=left;spacingLeft=10;" parent="fb_group" vertex="1">
+          <mxGeometry x="20" y="210" width="460" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="fb_storage" value="Cloud Storage&#xa;• Backup archives&#xa;• Document uploads (Aadhaar/PAN)&#xa;• Profile photos&#xa;• Camera snapshots (if cloud storage enabled)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#27AE60;fontColor=#ffffff;strokeColor=#1e8449;fontSize=10;align=left;spacingLeft=10;" parent="fb_group" vertex="1">
+          <mxGeometry x="20" y="300" width="460" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="e_fb" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#27AE60;strokeWidth=2;" parent="1" source="fb_group" target="i_app" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ai_group" value="AI / ML SERVICES (Sidecar)" style="swimlane;startSize=30;fillColor=#f5f0fa;strokeColor=#9B59B6;fontSize=12;fontStyle=1;fontColor=#9B59B6;" parent="1" vertex="1">
+          <mxGeometry x="700" y="100" width="500" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="ai_anpr" value="ANPR Engine&#xa;• Number plate detection (YOLO/custom)&#xa;• OCR for plate text&#xa;• Confidence scoring + vote system&#xa;• Bounding box coordinates&#xa;• Crop extraction for evidence" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;align=left;spacingLeft=10;" parent="ai_group" vertex="1">
+          <mxGeometry x="20" y="40" width="460" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="ai_face" value="Face Recognition&#xa;• Face detection + embedding extraction&#xa;• 1:N matching against enrolled database&#xa;• Operator verification (shift start)&#xa;• Customer identification (auto-fill)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;align=left;spacingLeft=10;" parent="ai_group" vertex="1">
+          <mxGeometry x="20" y="140" width="225" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="ai_material" value="Material Detection&#xa;• Cargo classification&#xa;• Confidence scoring&#xa;• Training data collection&#xa;• Model improvement loop" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;align=left;spacingLeft=10;" parent="ai_group" vertex="1">
+          <mxGeometry x="255" y="140" width="225" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ai" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#9B59B6;strokeWidth=2;" parent="1" source="ai_group" target="i_app" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="hw_group" value="HARDWARE INTEGRATIONS" style="swimlane;startSize=30;fillColor=#f0f5fa;strokeColor=#3498DB;fontSize=12;fontStyle=1;fontColor=#3498DB;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="100" width="500" height="450" as="geometry" />
+        </mxCell>
+        <mxCell id="hw_scale" value="Weight Indicator&#xa;• RS-232 / RS-485 / USB serial&#xa;• Continuous weight streaming&#xa;• Stability detection&#xa;• Multiple indicator models supported&#xa;• Configurable baud, parity, stop bits" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;align=left;spacingLeft=10;" parent="hw_group" vertex="1">
+          <mxGeometry x="20" y="40" width="460" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="hw_gate" value="Gate / Barrier Controllers&#xa;• Modbus protocol&#xa;• Proprietary serial protocols&#xa;• Open/close commands&#xa;• Status feedback (open/closed/fault)&#xa;• Auto-close timer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;align=left;spacingLeft=10;" parent="hw_group" vertex="1">
+          <mxGeometry x="20" y="140" width="225" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="hw_camera" value="IP Cameras&#xa;• RTSP streams&#xa;• Snapshot capture (JPEG)&#xa;• Types: ANPR, CCTV, Operator, Customer&#xa;• Multiple cameras per type" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;align=left;spacingLeft=10;" parent="hw_group" vertex="1">
+          <mxGeometry x="255" y="140" width="225" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="hw_printer" value="Printers&#xa;• Thermal (ESC/POS protocol)&#xa;• Standard (system print)&#xa;• Docket printing (A4/A5)&#xa;• Sticker printing (label)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;align=left;spacingLeft=10;" parent="hw_group" vertex="1">
+          <mxGeometry x="20" y="250" width="225" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="hw_rfid" value="RFID Readers&#xa;• Wiegand protocol&#xa;• Vehicle tag identification&#xa;• Auto-lookup vehicle/customer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;align=left;spacingLeft=10;" parent="hw_group" vertex="1">
+          <mxGeometry x="255" y="250" width="225" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="hw_signal" value="Traffic Signal Controllers&#xa;• RS-232/485 control&#xa;• Red/Green/Amber states&#xa;• Synced with gate open/close" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;align=left;spacingLeft=10;" parent="hw_group" vertex="1">
+          <mxGeometry x="20" y="345" width="225" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="hw_speaker" value="Voice Guidance Speaker&#xa;• TTS output&#xa;• Weight announcements&#xa;• Step prompts&#xa;• Configurable language" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;align=left;spacingLeft=10;" parent="hw_group" vertex="1">
+          <mxGeometry x="255" y="345" width="225" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="e_hw" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#3498DB;strokeWidth=2;" parent="1" source="hw_group" target="i_app" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="api_group" value="EXTERNAL API INTEGRATIONS" style="swimlane;startSize=30;fillColor=#fdf5f0;strokeColor=#F39C12;fontSize=12;fontStyle=1;fontColor=#F39C12;" parent="1" vertex="1">
+          <mxGeometry x="100" y="550" width="500" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="api_sheets" value="Google Sheets API&#xa;• OAuth authentication&#xa;• Append weighment data as rows&#xa;• Configurable sheet + columns&#xa;• Retry on failure" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=10;align=left;spacingLeft=10;" parent="api_group" vertex="1">
+          <mxGeometry x="20" y="40" width="460" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="api_whatsapp" value="WhatsApp Business API&#xa;• Send docket PDF to customer&#xa;• Summary text message&#xa;• Requires customer phone number&#xa;• Template-based messaging" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=10;align=left;spacingLeft=10;" parent="api_group" vertex="1">
+          <mxGeometry x="20" y="120" width="460" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="api_tally" value="Tally Prime API&#xa;• Accounting sync (vouchers)&#xa;• Party master sync&#xa;• Item master sync&#xa;• Real-time or batch mode" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=10;align=left;spacingLeft=10;" parent="api_group" vertex="1">
+          <mxGeometry x="20" y="200" width="225" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="api_webhook" value="Webhooks&#xa;• Custom HTTP endpoints&#xa;• Event-driven (weighment complete)&#xa;• Configurable payload&#xa;• Retry with backoff" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F39C12;fontColor=#ffffff;strokeColor=#b87309;fontSize=10;align=left;spacingLeft=10;" parent="api_group" vertex="1">
+          <mxGeometry x="255" y="200" width="225" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="e_api" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#F39C12;strokeWidth=2;" parent="1" source="api_group" target="i_app" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="state_group" value="STATE MANAGEMENT (Riverpod Providers)" style="swimlane;startSize=30;fillColor=#f0fafa;strokeColor=#2D7B7B;fontSize=12;fontStyle=1;fontColor=#2D7B7B;" parent="1" vertex="1">
+          <mxGeometry x="100" y="920" width="1150" height="700" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_auth_label" value="AUTHENTICATION" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#E74C3C;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="35" width="150" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_auth1" value="authStateProvider (StreamProvider) — Firebase auth state stream" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="60" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_auth2" value="firebaseAuthProvider (Provider) — FirebaseAuth singleton instance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="90" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_auth3" value="permissionServiceProvider (Provider) — User permissions (role + tier checks)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="120" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_auth4" value="isAdminProvider (Provider) — Boolean admin role check" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="150" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_auth5" value="sessionLoggedInProvider — Hash-based login state (resets on cold start)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="180" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_weigh_label" value="WEIGHMENT" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#2D7B7B;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="220" width="150" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_w1" value="weighmentMachineProvider (StateNotifierProvider) — Session state machine (21 steps)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="245" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_w2" value="anprDetectionOverlayProvider — ANPR bounding box coordinates for camera feed overlay" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="275" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_w3" value="anprScanningProvider — ANPR scan active/inactive status" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="305" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_w4" value="inlineVerificationProvider — Face verification state (operator/customer)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="335" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_setup_label" value="SETUP" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#9B59B6;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="375" width="150" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_s1" value="setupWizardProvider (StateNotifierProvider) — Wizard state machine (14 steps)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="400" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_s2" value="wizardProgressProvider (StateNotifierProvider) — Disk-persisted progress tracking" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;fontColor=#ffffff;strokeColor=#7d3c98;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="430" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_hw_label" value="HARDWARE / SERVICES" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#3498DB;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="470" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_h1" value="scaleProvider — Scale service (continuous weight reading, connection status)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="495" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_h2" value="gateProvider — Gate control service (open/close/status per gate)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="525" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_h3" value="cameraProvider — Camera list, config, stream URLs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="555" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_h4" value="printProvider — Printer service (docket + sticker, ESC/POS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="585" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_h5" value="trafficSignalServiceProvider — Traffic signal control (red/green/amber)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="615" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_h6" value="voiceGuidanceProvider — Voice output (TTS, announcements)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3498DB;fontColor=#ffffff;strokeColor=#2176a9;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="20" y="645" width="540" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_data_label" value="DATA &amp; UI" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#95A5A6;" parent="state_group" vertex="1">
+          <mxGeometry x="600" y="35" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_d1" value="firestorePathsProvider — Collection references" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="600" y="60" width="530" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_d2" value="siteContextProvider — Current site + weighbridge" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="600" y="90" width="530" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_d3" value="offlineQueueProvider — Offline sync queue" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="600" y="120" width="530" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_d4" value="sidebarCollapsedProvider — Sidebar open/collapsed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="600" y="150" width="530" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_d5" value="appearanceProvider — Theme, language, font scale" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="600" y="180" width="530" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_d6" value="connectivityProvider — Online/offline status" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="600" y="210" width="530" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_d7" value="systemStatsProvider — CPU, RAM, temperature monitoring" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="600" y="240" width="530" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sp_d8" value="unreadNotificationsProvider — Alert badge count" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#95A5A6;fontColor=#ffffff;strokeColor=#717d7e;fontSize=10;" parent="state_group" vertex="1">
+          <mxGeometry x="600" y="270" width="530" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="sec_group" value="SECURITY FEATURES" style="swimlane;startSize=30;fillColor=#fdf0f0;strokeColor=#E74C3C;fontSize=12;fontStyle=1;fontColor=#E74C3C;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="620" width="500" height="350" as="geometry" />
+        </mxCell>
+        <mxCell id="sec1" value="Multi-Factor Authentication (MFA)&#xa;• SMS OTP / Email OTP&#xa;• Required on login (if enabled)&#xa;• Configurable per operator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;align=left;spacingLeft=10;" parent="sec_group" vertex="1">
+          <mxGeometry x="20" y="40" width="460" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="sec2" value="Shift-Based Login Restriction&#xa;• Operators can only log in during assigned shifts&#xa;• Auto-logout at shift end" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;align=left;spacingLeft=10;" parent="sec_group" vertex="1">
+          <mxGeometry x="20" y="110" width="460" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="sec3" value="IP Whitelist (CIDR rules)&#xa;• Block access from unauthorized networks&#xa;• Admin configurable" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;align=left;spacingLeft=10;" parent="sec_group" vertex="1">
+          <mxGeometry x="20" y="170" width="460" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="sec4" value="Audit Trail Logging&#xa;• Every weighment, login, config change logged&#xa;• Tamper-evident (Firestore server timestamps)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;align=left;spacingLeft=10;" parent="sec_group" vertex="1">
+          <mxGeometry x="20" y="225" width="460" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="sec5" value="Emergency Lockdown&#xa;• Admin triggers via Cloud Function&#xa;• ALL users redirected to /lockdown&#xa;• No weighments possible until lifted" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E74C3C;fontColor=#ffffff;strokeColor=#a93226;fontSize=10;align=left;spacingLeft=10;" parent="sec_group" vertex="1">
+          <mxGeometry x="20" y="280" width="460" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sec" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#E74C3C;strokeWidth=2;" parent="1" source="i_app" target="sec_group" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_group" value="DATA FLOW SUMMARY" style="swimlane;startSize=30;fillColor=#fafafa;strokeColor=#333333;fontSize=12;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="100" y="1680" width="1150" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="flow1" value="WEIGHMENT DATA PIPELINE:&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;&#xa;[Scale] ──weight──▶ [App State Machine] ──capture──▶ [Local Session JSON] ──save──▶ [Firestore]&#xa;                                                                                      │&#xa;[Cameras] ──snap──▶ [AI Sidecar] ──predict──▶ [App State] ──store──▶ [Session] ──────────┤&#xa;                                                                                      │&#xa;[RFID] ──tag──▶ [Customer Lookup] ──match──▶ [Auto-fill form]                            │&#xa;                                                                                      ▼&#xa;                                                                              [Cloud Functions]&#xa;                                                                                      │&#xa;                                                                    ┌─────────┬────────┼────────┐&#xa;                                                                    ▼         ▼        ▼        ▼&#xa;                                                              [G.Sheets] [WhatsApp] [Tally] [Webhook]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7B7B;fontColor=#ffffff;strokeColor=#1a5c5c;fontSize=10;align=left;spacingLeft=10;fontFamily=Courier New;" parent="flow_group" vertex="1">
+          <mxGeometry x="20" y="35" width="1110" height="200" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

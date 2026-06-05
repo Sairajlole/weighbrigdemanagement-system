@@ -1,0 +1,320 @@
+{
+  "version": 1,
+  "classes": [
+    {
+      "id": "tata_prima",
+      "brand": "Tata",
+      "model": "Prima",
+      "type": "Truck",
+      "prompt": "a Tata Prima heavy truck with flat front cabin"
+    },
+    {
+      "id": "tata_signa",
+      "brand": "Tata",
+      "model": "Signa",
+      "type": "Truck",
+      "prompt": "a Tata Signa heavy truck"
+    },
+    {
+      "id": "tata_ultra",
+      "brand": "Tata",
+      "model": "Ultra",
+      "type": "Truck",
+      "prompt": "a Tata Ultra medium commercial truck"
+    },
+    {
+      "id": "tata_lpt",
+      "brand": "Tata",
+      "model": "LPT",
+      "type": "Truck",
+      "prompt": "a Tata LPT cargo truck"
+    },
+    {
+      "id": "tata_intra",
+      "brand": "Tata",
+      "model": "Intra",
+      "type": "LCV",
+      "prompt": "a Tata Intra small commercial vehicle pickup"
+    },
+    {
+      "id": "tata_ace",
+      "brand": "Tata",
+      "model": "Ace",
+      "type": "LCV",
+      "prompt": "a Tata Ace mini truck small pickup"
+    },
+    {
+      "id": "tata_yodha",
+      "brand": "Tata",
+      "model": "Yodha",
+      "type": "LCV",
+      "prompt": "a Tata Yodha pickup truck"
+    },
+    {
+      "id": "tata_lpk_tipper",
+      "brand": "Tata",
+      "model": "LPK Tipper",
+      "type": "Tipper",
+      "prompt": "a Tata LPK tipper dump truck"
+    },
+    {
+      "id": "tata_signa_tipper",
+      "brand": "Tata",
+      "model": "Signa Tipper",
+      "type": "Tipper",
+      "prompt": "a Tata Signa tipper dump truck"
+    },
+    {
+      "id": "ashok_leyland_boss",
+      "brand": "Ashok Leyland",
+      "model": "Boss",
+      "type": "Truck",
+      "prompt": "an Ashok Leyland Boss heavy truck"
+    },
+    {
+      "id": "ashok_leyland_captain",
+      "brand": "Ashok Leyland",
+      "model": "Captain",
+      "type": "Truck",
+      "prompt": "an Ashok Leyland Captain heavy truck"
+    },
+    {
+      "id": "ashok_leyland_ecomet",
+      "brand": "Ashok Leyland",
+      "model": "Ecomet",
+      "type": "Truck",
+      "prompt": "an Ashok Leyland Ecomet medium truck"
+    },
+    {
+      "id": "ashok_leyland_utruck",
+      "brand": "Ashok Leyland",
+      "model": "U-Truck",
+      "type": "Truck",
+      "prompt": "an Ashok Leyland U-Truck heavy haulage truck"
+    },
+    {
+      "id": "ashok_leyland_dost",
+      "brand": "Ashok Leyland",
+      "model": "Dost",
+      "type": "LCV",
+      "prompt": "an Ashok Leyland Dost small commercial vehicle"
+    },
+    {
+      "id": "ashok_leyland_tipper",
+      "brand": "Ashok Leyland",
+      "model": "Tipper",
+      "type": "Tipper",
+      "prompt": "an Ashok Leyland tipper dump truck"
+    },
+    {
+      "id": "bharatbenz_heavy",
+      "brand": "BharatBenz",
+      "model": "Heavy Duty",
+      "type": "Truck",
+      "prompt": "a BharatBenz heavy duty truck with Mercedes-style cabin"
+    },
+    {
+      "id": "bharatbenz_medium",
+      "brand": "BharatBenz",
+      "model": "Medium Duty",
+      "type": "Truck",
+      "prompt": "a BharatBenz medium duty commercial truck"
+    },
+    {
+      "id": "bharatbenz_tipper",
+      "brand": "BharatBenz",
+      "model": "Tipper",
+      "type": "Tipper",
+      "prompt": "a BharatBenz tipper dump truck"
+    },
+    {
+      "id": "eicher_pro",
+      "brand": "Eicher",
+      "model": "Pro",
+      "type": "Truck",
+      "prompt": "an Eicher Pro series commercial truck"
+    },
+    {
+      "id": "volvo_fm",
+      "brand": "Volvo",
+      "model": "FM/FMX",
+      "type": "Truck",
+      "prompt": "a Volvo FM or FMX heavy truck with European cabin"
+    },
+    {
+      "id": "scania_truck",
+      "brand": "Scania",
+      "model": "P/R Series",
+      "type": "Truck",
+      "prompt": "a Scania heavy truck with European cabin design"
+    },
+    {
+      "id": "man_truck",
+      "brand": "MAN",
+      "model": "CLA",
+      "type": "Truck",
+      "prompt": "a MAN CLA heavy truck"
+    },
+    {
+      "id": "amw_truck",
+      "brand": "AMW",
+      "model": "Heavy",
+      "type": "Truck",
+      "prompt": "an AMW heavy truck"
+    },
+    {
+      "id": "mahindra_arjun",
+      "brand": "Mahindra",
+      "model": "Arjun",
+      "type": "Tractor",
+      "prompt": "a Mahindra Arjun agricultural tractor"
+    },
+    {
+      "id": "mahindra_jivo",
+      "brand": "Mahindra",
+      "model": "Jivo",
+      "type": "Tractor",
+      "prompt": "a Mahindra Jivo compact tractor"
+    },
+    {
+      "id": "mahindra_yuvo",
+      "brand": "Mahindra",
+      "model": "Yuvo",
+      "type": "Tractor",
+      "prompt": "a Mahindra Yuvo agricultural tractor"
+    },
+    {
+      "id": "mahindra_bolero_pickup",
+      "brand": "Mahindra",
+      "model": "Bolero Pickup",
+      "type": "LCV",
+      "prompt": "a Mahindra Bolero Pickup truck"
+    },
+    {
+      "id": "sonalika_tractor",
+      "brand": "Sonalika",
+      "model": "DI/Tiger",
+      "type": "Tractor",
+      "prompt": "a Sonalika agricultural tractor"
+    },
+    {
+      "id": "swaraj_tractor",
+      "brand": "Swaraj",
+      "model": "Swaraj",
+      "type": "Tractor",
+      "prompt": "a Swaraj agricultural tractor"
+    },
+    {
+      "id": "john_deere_tractor",
+      "brand": "John Deere",
+      "model": "5000 Series",
+      "type": "Tractor",
+      "prompt": "a green John Deere agricultural tractor"
+    },
+    {
+      "id": "new_holland_tractor",
+      "brand": "New Holland",
+      "model": "New Holland",
+      "type": "Tractor",
+      "prompt": "a blue New Holland agricultural tractor"
+    },
+    {
+      "id": "tafe_tractor",
+      "brand": "TAFE",
+      "model": "TAFE",
+      "type": "Tractor",
+      "prompt": "a TAFE agricultural tractor"
+    },
+    {
+      "id": "escorts_farmtrac",
+      "brand": "Escorts",
+      "model": "Farmtrac",
+      "type": "Tractor",
+      "prompt": "an Escorts Farmtrac agricultural tractor"
+    },
+    {
+      "id": "kubota_tractor",
+      "brand": "Kubota",
+      "model": "Kubota",
+      "type": "Tractor",
+      "prompt": "an orange Kubota agricultural tractor"
+    },
+    {
+      "id": "vst_tractor",
+      "brand": "VST",
+      "model": "Shakti",
+      "type": "Tractor",
+      "prompt": "a VST Shakti compact tractor"
+    },
+    {
+      "id": "tanker_generic",
+      "brand": "Generic",
+      "model": "Tanker",
+      "type": "Tanker",
+      "prompt": "a cylindrical fuel or water tanker truck"
+    },
+    {
+      "id": "cement_mixer",
+      "brand": "Generic",
+      "model": "Cement Mixer",
+      "type": "Mixer",
+      "prompt": "a concrete cement mixer truck with rotating drum"
+    },
+    {
+      "id": "trailer_flatbed",
+      "brand": "Generic",
+      "model": "Flatbed Trailer",
+      "type": "Trailer",
+      "prompt": "a flatbed trailer truck for cargo transport"
+    },
+    {
+      "id": "container_truck",
+      "brand": "Generic",
+      "model": "Container",
+      "type": "Container",
+      "prompt": "a shipping container truck"
+    },
+    {
+      "id": "bus_tata",
+      "brand": "Tata",
+      "model": "Starbus",
+      "type": "Bus",
+      "prompt": "a Tata Starbus passenger bus"
+    },
+    {
+      "id": "bus_ashok",
+      "brand": "Ashok Leyland",
+      "model": "Viking/Lynx",
+      "type": "Bus",
+      "prompt": "an Ashok Leyland passenger bus"
+    },
+    {
+      "id": "piaggio_auto",
+      "brand": "Piaggio",
+      "model": "Ape",
+      "type": "Auto",
+      "prompt": "a Piaggio Ape three-wheeler cargo auto"
+    },
+    {
+      "id": "car_suv",
+      "brand": "Generic",
+      "model": "SUV",
+      "type": "Car",
+      "prompt": "an SUV car"
+    },
+    {
+      "id": "car_sedan",
+      "brand": "Generic",
+      "model": "Sedan",
+      "type": "Car",
+      "prompt": "a sedan car"
+    },
+    {
+      "id": "car_hatchback",
+      "brand": "Generic",
+      "model": "Hatchback",
+      "type": "Car",
+      "prompt": "a small hatchback car"
+    }
+  ]
+}

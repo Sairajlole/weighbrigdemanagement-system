@@ -25,6 +25,7 @@ import 'package:weighbridgemanagement/features/settings/presentation/security_sc
 import 'package:weighbridgemanagement/features/settings/presentation/integrations_screen.dart';
 import 'package:weighbridgemanagement/features/settings/presentation/appearance_screen.dart';
 import 'package:weighbridgemanagement/features/settings/presentation/license_screen.dart';
+import 'package:weighbridgemanagement/features/settings/presentation/voice_guidance_screen.dart';
 import 'package:weighbridgemanagement/shared/models/license_model.dart';
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
@@ -173,6 +174,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'integrations', pageBuilder: (_, state) => _noTransitionPage(const IntegrationsScreen(), state)),
               GoRoute(path: 'appearance', pageBuilder: (_, state) => _noTransitionPage(const AppearanceScreen(), state)),
               GoRoute(path: 'license', pageBuilder: (_, state) => _noTransitionPage(const LicenseScreen(), state)),
+              GoRoute(path: 'voice-guidance', pageBuilder: (_, state) => _noTransitionPage(const VoiceGuidanceScreen(), state)),
             ],
           ),
         ],

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart';
+import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import '../application/setup_wizard_provider.dart';
 import '../application/setup_wizard_state.dart';
 import 'steps/account_step.dart';
@@ -32,54 +36,21 @@ class SetupWizardScreen extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? scheme.surface : const Color(0xFFF8FAFB),
       body: Stack(
         children: [
-          // Same themed background as welcome/sign-in
+          // Subtle grid pattern background
           Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isDark
-                      ? [
-                          scheme.surface,
-                          scheme.primary.withValues(alpha: 0.05),
-                          scheme.surface,
-                        ]
-                      : [
-                          scheme.primary.withValues(alpha: 0.03),
-                          scheme.surface,
-                          scheme.primaryContainer.withValues(alpha: 0.1),
-                        ],
-                ),
+            child: CustomPaint(
+              painter: _SetupBackgroundPainter(
+                isDark: isDark,
+                primaryColor: AppTheme.brandTeal,
+                navyColor: AppTheme.brandNavy,
               ),
             ),
           ),
-          Positioned(
-            top: -60,
-            right: -40,
-            child: Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: scheme.primary.withValues(alpha: isDark ? 0.04 : 0.06),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -80,
-            left: -60,
-            child: Container(
-              width: 240,
-              height: 240,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: scheme.tertiary.withValues(alpha: isDark ? 0.03 : 0.05),
-              ),
-            ),
-          ),
+          // Logo watermark
+          const Positioned.fill(child: _LogoWatermark()),
           // Foreground content
           Row(
             children: [
@@ -99,7 +70,9 @@ class SetupWizardScreen extends ConsumerWidget {
                             widthFactor: state.progress,
                             child: Container(
                               decoration: BoxDecoration(
-                                color: scheme.primary,
+                                gradient: const LinearGradient(
+                                  colors: AppTheme.brandGradient,
+                                ),
                                 borderRadius: const BorderRadius.only(
                                   topRight: Radius.circular(2),
                                   bottomRight: Radius.circular(2),
@@ -125,6 +98,26 @@ class SetupWizardScreen extends ConsumerWidget {
                 ),
               ),
             ],
+          ),
+          // Theme toggle — top right, always visible
+          Positioned(
+            top: 12,
+            right: 16,
+            child: _ThemeToggle(ref: ref),
+          ),
+          // Website — bottom right, always visible
+          Positioned(
+            bottom: 14,
+            right: 16,
+            child: Text(
+              'tulanam.com',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+                letterSpacing: 0.3,
+              ),
+            ),
           ),
         ],
       ),
@@ -156,6 +149,7 @@ class SetupWizardScreen extends ConsumerWidget {
     // These steps handle their own navigation internally
     if (stepId == WizardStepId.welcome ||
         stepId == WizardStepId.companyCode ||
+        stepId == WizardStepId.companyInfo ||
         stepId == WizardStepId.account ||
         stepId == WizardStepId.faceEnroll ||
         stepId == WizardStepId.site ||
@@ -166,6 +160,169 @@ class SetupWizardScreen extends ConsumerWidget {
     return WizardNavigationBar(
       canProceed: true,
       showBack: stepId != WizardStepId.companyInfo,
+    );
+  }
+}
+
+class _SetupBackgroundPainter extends CustomPainter {
+  final bool isDark;
+  final Color primaryColor;
+  final Color navyColor;
+
+  _SetupBackgroundPainter({
+    required this.isDark,
+    required this.primaryColor,
+    required this.navyColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Soft gradient base
+    final bgPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topRight,
+        end: Alignment.bottomLeft,
+        colors: isDark
+            ? [const Color(0xFF0F1A2E), const Color(0xFF121212)]
+            : [const Color(0xFFF8FAFB), const Color(0xFFF0F7F6)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+
+    // Subtle dot grid
+    final dotPaint = Paint()
+      ..color = (isDark ? Colors.white : navyColor).withValues(alpha: isDark ? 0.04 : 0.04);
+    const spacing = 48.0;
+    for (var x = 24.0; x < size.width; x += spacing) {
+      for (var y = 24.0; y < size.height; y += spacing) {
+        canvas.drawCircle(Offset(x, y), 1.0, dotPaint);
+      }
+    }
+
+  }
+
+  @override
+  bool shouldRepaint(covariant _SetupBackgroundPainter oldDelegate) =>
+      isDark != oldDelegate.isDark;
+}
+
+class _LogoWatermark extends StatefulWidget {
+  const _LogoWatermark();
+
+  @override
+  State<_LogoWatermark> createState() => _LogoWatermarkState();
+}
+
+class _LogoWatermarkState extends State<_LogoWatermark> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 120),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final opacity = isDark ? 0.03 : 0.05;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final rows = (constraints.maxHeight / 160).ceil() + 1;
+        final totalWidth = constraints.maxWidth;
+        return AnimatedBuilder(
+          animation: _controller,
+          builder: (_, __) {
+            final shift = _controller.value * (totalWidth + 200);
+            return ClipRect(
+              child: Opacity(
+                opacity: opacity,
+                child: ColorFiltered(
+                  colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.srcIn),
+                  child: Stack(
+                    children: List.generate(rows, (row) {
+                      return Positioned(
+                        top: row * 160.0 - 80,
+                        left: shift - totalWidth - 200,
+                        width: totalWidth * 3,
+                        height: 140,
+                        child: OverflowBox(
+                          alignment: Alignment.centerLeft,
+                          maxWidth: double.infinity,
+                          child: Row(
+                            children: List.generate(24, (col) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 40),
+                                child: SizedBox(
+                                  width: 100,
+                                  height: 92,
+                                  child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _ThemeToggle extends StatelessWidget {
+  final WidgetRef ref;
+  const _ThemeToggle({required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = ref.watch(appearanceProvider);
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh.withValues(alpha: 0.8),
+        borderRadius: AppRadius.button,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildChip(Icons.light_mode_rounded, ThemeMode.light, settings.themeMode, scheme),
+          _buildChip(Icons.dark_mode_rounded, ThemeMode.dark, settings.themeMode, scheme),
+          _buildChip(Icons.brightness_auto_rounded, ThemeMode.system, settings.themeMode, scheme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChip(IconData icon, ThemeMode mode, ThemeMode current, ColorScheme scheme) {
+    final selected = current == mode;
+    return GestureDetector(
+      onTap: () => ref.read(appearanceProvider.notifier).setThemeMode(mode),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: EdgeInsets.all(6.rs),
+        decoration: BoxDecoration(
+          color: selected ? scheme.primary.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: AppRadius.chip,
+        ),
+        child: Icon(icon, size: 16, color: selected ? scheme.primary : scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -56,10 +57,10 @@ class _NavItem {
 List<_NavItem> _buildNavItems(AppStrings s) => [
   _NavItem(icon: Icons.space_dashboard_outlined, selectedIcon: Icons.space_dashboard_rounded, label: s.dashboard, path: '/dashboard'),
   _NavItem(icon: Icons.scale_outlined, selectedIcon: Icons.scale_rounded, label: s.weighment, path: '/weighment'),
-  _NavItem(icon: Icons.list_alt_outlined, selectedIcon: Icons.list_alt_rounded, label: s.weighments, path: '/weighments'),
-  _NavItem(icon: Icons.people_outline_rounded, selectedIcon: Icons.people_rounded, label: s.customers, path: '/customers'),
+  _NavItem(icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long_rounded, label: s.weighments, path: '/weighments'),
+  _NavItem(icon: Icons.groups_outlined, selectedIcon: Icons.groups_rounded, label: s.customers, path: '/customers'),
   _NavItem(icon: Icons.badge_outlined, selectedIcon: Icons.badge_rounded, label: s.operators, path: '/operators'),
-  _NavItem(icon: Icons.assessment_outlined, selectedIcon: Icons.assessment_rounded, label: s.reports, path: '/reports'),
+  _NavItem(icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart_rounded, label: s.reports, path: '/reports'),
   _NavItem(icon: Icons.settings_outlined, selectedIcon: Icons.settings_rounded, label: s.settings, path: '/settings'),
 ];
 
@@ -110,9 +111,10 @@ class AppShell extends ConsumerWidget {
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            width: hideSidebar ? 0 : 64,
+            width: hideSidebar ? 0 : 92,
             clipBehavior: Clip.hardEdge,
             decoration: const BoxDecoration(),
+            padding: const EdgeInsets.only(left: 8, top: 36, bottom: 8),
             child: _Sidebar(
               navItems: navItems,
               selectedIndex: selectedIndex,
@@ -156,6 +158,7 @@ class _Sidebar extends ConsumerStatefulWidget {
   final ValueChanged<String> onItemTap;
   final VoidCallback onProfileTap;
   final bool isProfileSelected;
+  final bool horizontal;
 
   const _Sidebar({
     required this.navItems,
@@ -163,6 +166,7 @@ class _Sidebar extends ConsumerStatefulWidget {
     required this.onItemTap,
     required this.onProfileTap,
     required this.isProfileSelected,
+    this.horizontal = false,
   });
 
   @override
@@ -172,40 +176,213 @@ class _Sidebar extends ConsumerStatefulWidget {
 class _SidebarState extends ConsumerState<_Sidebar> {
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final profile = ref.watch(profileProvider).valueOrNull;
+    if (widget.horizontal) return _buildHorizontal(context);
+    return _buildVertical(context);
+  }
 
-    return Container(
-      width: 64,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppTheme.brandNavy,
-            AppTheme.brandNavy.withValues(alpha: 0.95),
-          ],
+  Widget _buildHorizontal(BuildContext context) {
+    final profile = ref.watch(profileProvider).valueOrNull;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return ClipRRect(
+      borderRadius: AppRadius.card,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          height: 80,
+          decoration: BoxDecoration(
+            color: isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.65),
+            borderRadius: AppRadius.card,
+            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.06)),
+            boxShadow: AppElevation.card(scheme.shadow),
+          ),
+          child: Row(
+            children: [
+              SizedBox(width: AppSpacing.xl),
+              Text('tulanam', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 2, color: scheme.onSurface.withValues(alpha: 0.85))),
+              SizedBox(width: AppSpacing.xl),
+              Container(width: 1, height: 40, color: scheme.outlineVariant.withValues(alpha: 0.15)),
+              SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  children: [
+                    ...widget.navItems.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final item = entry.value;
+                      final isSelected = i == widget.selectedIndex;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _NavChip(
+                          icon: isSelected ? item.selectedIcon : item.icon,
+                          label: item.label,
+                          isSelected: isSelected,
+                          onTap: () => widget.onItemTap(item.path),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              Container(width: 1, height: 40, color: scheme.outlineVariant.withValues(alpha: 0.15)),
+              SizedBox(width: AppSpacing.lg),
+              // Settings
+              GestureDetector(
+                onTap: () => widget.onItemTap('/settings'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: GoRouterState.of(context).matchedLocation.startsWith('/settings') ? scheme.primaryContainer.withValues(alpha: 0.5) : Colors.transparent,
+                    borderRadius: AppRadius.button,
+                  ),
+                  child: Icon(Icons.settings_rounded, size: 20, color: GoRouterState.of(context).matchedLocation.startsWith('/settings') ? scheme.primary : scheme.onSurfaceVariant),
+                ),
+              ),
+              SizedBox(width: AppSpacing.sm),
+              // Profile
+              _ProfileTile(
+                isSelected: widget.isProfileSelected,
+                onTap: widget.onProfileTap,
+                profile: profile,
+                compact: true,
+              ),
+              SizedBox(width: AppSpacing.sm),
+              // Logout
+              GestureDetector(
+                onTap: () async {
+                  await ref.read(firebaseAuthProvider).signOut();
+                  await ref.read(siteContextProvider.notifier).clear();
+                  await LocalCacheService.clearCurrentUser();
+                  ref.read(setupWizardProvider.notifier).reset();
+                  if (context.mounted) context.go('/setup');
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    borderRadius: AppRadius.button,
+                  ),
+                  child: Icon(Icons.logout_rounded, size: 18, color: scheme.error.withValues(alpha: 0.7)),
+                ),
+              ),
+              SizedBox(width: AppSpacing.md),
+              // Notifications
+              PopupMenuButton<String>(
+                offset: const Offset(0, 50),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.card),
+                color: scheme.surface,
+                elevation: 8,
+                constraints: const BoxConstraints(minWidth: 320, maxWidth: 360),
+                onSelected: (v) {
+                  if (v == 'view_all') widget.onItemTap('/notifications');
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    enabled: false,
+                    child: Row(
+                      children: [
+                        Text('Notifications', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () { Navigator.pop(context); widget.onItemTap('/notifications'); },
+                          child: Text('View All', style: text.labelSmall?.copyWith(color: scheme.primary, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    enabled: false,
+                    child: _NotificationItem(icon: Icons.scale_rounded, title: 'Weighment completed', subtitle: 'Vehicle MH-12-AB-1234 — 12,500 kg', time: '2m ago', scheme: scheme, text: text),
+                  ),
+                  PopupMenuItem(
+                    enabled: false,
+                    child: _NotificationItem(icon: Icons.person_rounded, title: 'New operator login', subtitle: 'Rajesh signed in from PC-01', time: '15m ago', scheme: scheme, text: text),
+                  ),
+                  PopupMenuItem(
+                    enabled: false,
+                    child: _NotificationItem(icon: Icons.warning_rounded, title: 'Scale disconnected', subtitle: 'COM3 connection lost', time: '1h ago', scheme: scheme, text: text, isWarning: true),
+                  ),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(borderRadius: AppRadius.button),
+                  child: Icon(Icons.notifications_outlined, size: 20, color: scheme.onSurfaceVariant),
+                ),
+              ),
+              SizedBox(width: AppSpacing.xl),
+            ],
+          ),
         ),
       ),
-      child: Column(
-        children: [
-          SizedBox(height: AppSpacing.lg),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10.rs),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+    );
+  }
+
+  Widget _buildVertical(BuildContext context) {
+    final profile = ref.watch(profileProvider).valueOrNull;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          width: 76,
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.4)
+                : Colors.white.withValues(alpha: 0.65),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.black.withValues(alpha: 0.06),
             ),
-            child: const Icon(Icons.scale_rounded, color: Colors.white, size: 18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          SizedBox(height: AppSpacing.md),
-          Divider(height: 1, indent: 14, endIndent: 14, color: Colors.white.withValues(alpha: 0.1)),
-          SizedBox(height: AppSpacing.sm),
+          child: Column(
+            children: [
+              SizedBox(height: AppSpacing.lg),
+              Center(
+                child: RotatedBox(
+                  quarterTurns: 3,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'tulanam',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: scheme.onSurface.withValues(alpha: 0.85),
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        width: 120,
+                        child: _SidebarMorse(color: scheme.onSurfaceVariant.withValues(alpha: 0.2)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: AppSpacing.lg),
+              Divider(height: 1, indent: 16, endIndent: 16, color: scheme.outlineVariant.withValues(alpha: 0.15)),
+              SizedBox(height: AppSpacing.lg),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               children: [
                 ...widget.navItems.asMap().entries.map((entry) {
                   final i = entry.key;
@@ -228,10 +405,10 @@ class _SidebarState extends ConsumerState<_Sidebar> {
               ],
             ),
           ),
-          Divider(height: 1, indent: 14, endIndent: 14, color: Colors.white.withValues(alpha: 0.1)),
+          Divider(height: 1, indent: 16, endIndent: 16, color: scheme.outlineVariant.withValues(alpha: 0.15)),
           SizedBox(height: AppSpacing.sm),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: _ProfileTile(
               isSelected: widget.isProfileSelected,
               onTap: widget.onProfileTap,
@@ -240,25 +417,13 @@ class _SidebarState extends ConsumerState<_Sidebar> {
           ),
           SizedBox(height: AppSpacing.xs),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: _NavTile(
               icon: Icons.logout_rounded,
               label: 'Logout',
               isSelected: false,
               isDestructive: true,
               onTap: () async {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Sign out?'),
-                    content: const Text('You will need to log in again to access this weighbridge.'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign out')),
-                    ],
-                  ),
-                );
-                if (confirmed != true) return;
                 await ref.read(firebaseAuthProvider).signOut();
                 await ref.read(siteContextProvider.notifier).clear();
                 await LocalCacheService.clearCurrentUser();
@@ -272,9 +437,87 @@ class _SidebarState extends ConsumerState<_Sidebar> {
           SizedBox(height: 14.rs),
         ],
       ),
+      ),
+    ),
     );
   }
 
+}
+
+class _NotificationItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String time;
+  final ColorScheme scheme;
+  final TextTheme text;
+  final bool isWarning;
+
+  const _NotificationItem({required this.icon, required this.title, required this.subtitle, required this.time, required this.scheme, required this.text, this.isWarning = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(
+              color: (isWarning ? scheme.error : scheme.primary).withValues(alpha: 0.1),
+              borderRadius: AppRadius.button,
+            ),
+            child: Icon(icon, size: 16, color: isWarning ? scheme.error : scheme.primary),
+          ),
+          SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                Text(subtitle, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+              ],
+            ),
+          ),
+          Text(time, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _NavChip({required this.icon, required this.label, required this.isSelected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? scheme.primaryContainer.withValues(alpha: 0.5) : Colors.transparent,
+          borderRadius: AppRadius.button,
+          border: isSelected ? Border.all(color: scheme.primary.withValues(alpha: 0.2)) : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: AppSizes.iconMd, color: isSelected ? scheme.primary : scheme.onSurfaceVariant),
+            SizedBox(width: AppSpacing.sm),
+            Text(label, style: text.bodySmall?.copyWith(fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500, color: isSelected ? scheme.primary : scheme.onSurfaceVariant)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _NavTile extends StatefulWidget {
@@ -304,27 +547,30 @@ class _NavTileState extends State<_NavTile> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final accent = widget.isDestructive ? const Color(0xFFEF4444) : AppTheme.brandTealLight;
-    final iconColor = widget.isSelected ? Colors.white : _hovered ? Colors.white.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.5);
+    final iconColor = widget.isSelected
+        ? AppTheme.brandTeal
+        : _hovered
+            ? scheme.onSurface.withValues(alpha: 0.8)
+            : scheme.onSurfaceVariant.withValues(alpha: 0.5);
 
     final child = AnimatedContainer(
       duration: const Duration(milliseconds: 180),
-      width: 42,
-      height: 42,
+      width: 48,
+      height: 48,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: widget.isSelected
-            ? Colors.white.withValues(alpha: 0.12)
+            ? AppTheme.brandTeal.withValues(alpha: 0.1)
             : _hovered
-                ? Colors.white.withValues(alpha: 0.06)
+                ? scheme.onSurface.withValues(alpha: 0.05)
                 : Colors.transparent,
-        borderRadius: BorderRadius.circular(10.rs),
-        border: widget.isSelected ? Border.all(color: AppTheme.brandTealLight.withValues(alpha: 0.4)) : null,
+        borderRadius: BorderRadius.circular(14.rs),
+        border: widget.isSelected ? Border.all(color: AppTheme.brandTeal.withValues(alpha: 0.3)) : null,
       ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Icon(widget.icon, size: 20, color: iconColor),
+          Icon(widget.icon, size: 22, color: iconColor),
           if (widget.badge > 0)
             Positioned(
               right: -8, top: -6,
@@ -334,7 +580,7 @@ class _NavTileState extends State<_NavTile> {
                 decoration: BoxDecoration(
                   color: scheme.error,
                   borderRadius: AppRadius.button,
-                  border: Border.all(color: AppTheme.brandNavy, width: 1.5),
+                  border: Border.all(color: scheme.surface, width: 1.5),
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -354,7 +600,29 @@ class _NavTileState extends State<_NavTile> {
         message: widget.label,
         preferBelow: false,
         waitDuration: const Duration(milliseconds: 400),
-        child: GestureDetector(onTap: widget.onTap, child: child),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              child,
+              // Accent line on left edge when selected
+              if (widget.isSelected && !widget.isDestructive)
+                Positioned(
+                  left: -10,
+                  top: 12,
+                  bottom: 12,
+                  child: Container(
+                    width: 3,
+                    decoration: BoxDecoration(
+                      color: AppTheme.brandTeal,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -364,8 +632,9 @@ class _ProfileTile extends StatefulWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final Map<String, dynamic>? profile;
+  final bool compact;
 
-  const _ProfileTile({required this.isSelected, required this.onTap, this.profile});
+  const _ProfileTile({required this.isSelected, required this.onTap, this.profile, this.compact = false});
 
   @override
   State<_ProfileTile> createState() => _ProfileTileState();
@@ -903,3 +1172,53 @@ class _DeviceStatRow extends StatelessWidget {
     );
   }
 }
+
+class _SidebarMorse extends StatelessWidget {
+  final Color color;
+  const _SidebarMorse({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    // t=- u=..- l=.-.. a=.- n=-. a=.- m=--
+    // dash=3 units, dot=1 unit, intra-char gap=1, inter-char gap=3
+    const symbols = <(int, bool)>[
+      (3, true),  // t: -
+      (3, false), // gap
+      (1, true), (1, false), (1, true), (1, false), (3, true), // u: ..-
+      (3, false), // gap
+      (1, true), (1, false), (3, true), (1, false), (1, true), (1, false), (1, true), // l: .-..
+      (3, false), // gap
+      (1, true), (1, false), (3, true), // a: .-
+      (3, false), // gap
+      (3, true), (1, false), (1, true), // n: -.
+      (3, false), // gap
+      (1, true), (1, false), (3, true), // a: .-
+      (3, false), // gap
+      (3, true), (1, false), (3, true), // m: --
+    ];
+
+    final totalUnits = symbols.fold<int>(0, (sum, s) => sum + s.$1);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final unitW = constraints.maxWidth / totalUnits;
+        return SizedBox(
+          height: 2.5,
+          child: Row(
+            children: [
+              for (final s in symbols)
+                Container(
+                  width: s.$1 * unitW,
+                  height: 2.5,
+                  decoration: s.$2
+                      ? BoxDecoration(color: color, borderRadius: BorderRadius.circular(1))
+                      : null,
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+

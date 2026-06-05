@@ -137,6 +137,9 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
   bool _operatorFaceVerification = true;
   bool _driverAssist = true;
   bool _customerRecognition = true;
+  bool _trafficSignalEnabled = false;
+  bool _voiceGuidanceEnabled = false;
+  String _voiceLanguage = 'en';
   bool _recordDuringWeighment = true;
   bool _snapshotOnEvent = true;
   int _retentionDays = 30;
@@ -175,7 +178,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
 
   void _disposeAllFeeds() {
     for (final player in _players.values) {
-      player.dispose();
+      try { player.dispose(); } catch (_) {}
     }
     _players.clear();
     _videoControllers.clear();
@@ -197,6 +200,10 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
     _operatorFaceVerification = data['operatorFaceVerification'] as bool? ?? true;
     _driverAssist = data['driverAssist'] as bool? ?? true;
     _customerRecognition = data['customerRecognition'] as bool? ?? true;
+    _trafficSignalEnabled = (data['trafficSignal'] as Map<String, dynamic>?)?['enabled'] as bool? ?? false;
+    final voiceData = data['voiceGuidance'] as Map<String, dynamic>?;
+    _voiceGuidanceEnabled = voiceData?['enabled'] as bool? ?? false;
+    _voiceLanguage = voiceData?['language'] as String? ?? 'en';
     _recordDuringWeighment = data['recordDuringWeighment'] as bool? ?? true;
     _snapshotOnEvent = data['snapshotOnEvent'] as bool? ?? true;
     _retentionDays = data['retentionDays'] as int? ?? 30;
@@ -295,7 +302,7 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
   }
 
   Future<void> _stopFeedAsync(String key) async {
-    _players[key]?.dispose();
+    try { _players[key]?.dispose(); } catch (_) {}
     _players.remove(key);
     _videoControllers.remove(key);
     _localTimers[key]?.cancel();
@@ -690,6 +697,8 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
         'operatorFaceVerification': _operatorFaceVerification,
         'driverAssist': isFree ? false : _driverAssist,
         'customerRecognition': isFree ? false : _customerRecognition,
+        'trafficSignal': {'enabled': _trafficSignalEnabled},
+        'voiceGuidance': {'enabled': _voiceGuidanceEnabled, 'language': _voiceLanguage},
         'recordDuringWeighment': _recordDuringWeighment,
         'snapshotOnEvent': _snapshotOnEvent,
         'retentionDays': _retentionDays,
@@ -844,9 +853,12 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
     }
 
     return Container(
+      margin: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       decoration: BoxDecoration(
         color: scheme.surface,
-        border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
+        borderRadius: AppRadius.card,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+        boxShadow: AppElevation.card(scheme.shadow),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1000,7 +1012,14 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
 
   Widget _buildSettingsHeader(ColorScheme scheme, TextTheme text) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      margin: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+        boxShadow: AppElevation.card(scheme.shadow),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1102,9 +1121,9 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(child: _buildWeighbridgeCamerasCard(scheme, text)),
+          Expanded(flex: 2, child: _buildWeighbridgeCamerasCard(scheme, text)),
           SizedBox(width: 20.rs),
-          Expanded(child: _buildIdentityCamerasCard(scheme, text)),
+          Expanded(flex: 1, child: _buildIdentityCamerasCard(scheme, text)),
         ],
       ),
     );
@@ -1452,10 +1471,21 @@ class _CamerasAiScreenState extends ConsumerState<CamerasAiScreen> {
             scheme, text,
           ),
           SizedBox(height: 14.rs),
-          ...wbCams.map((entry) => Padding(
-            padding: EdgeInsets.only(bottom: entry.key != wbCams.last.key ? 10 : 0),
-            child: _buildWbCameraCard(entry.key, entry.value, scheme, text),
-          )),
+          for (int i = 0; i < wbCams.length; i += 2)
+            Padding(
+              padding: EdgeInsets.only(bottom: i + 2 < wbCams.length ? 10.0 : 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _buildWbCameraCard(wbCams[i].key, wbCams[i].value, scheme, text)),
+                  SizedBox(width: 10.rs),
+                  if (i + 1 < wbCams.length)
+                    Expanded(child: _buildWbCameraCard(wbCams[i + 1].key, wbCams[i + 1].value, scheme, text))
+                  else
+                    const Expanded(child: SizedBox()),
+                ],
+              ),
+            ),
         ],
       ),
     );

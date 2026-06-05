@@ -219,10 +219,14 @@ public class MultiCameraPlugin: NSObject, FlutterPlugin {
             result(FlutterError(code: "NO_SESSION", message: "Session not found", details: nil))
             return
         }
-        guard let buffer = session.latestBuffer else {
+
+        session.bufferLock.lock()
+        guard let buffer = session._latestBuffer else {
+            session.bufferLock.unlock()
             result(FlutterError(code: "NO_FRAME", message: "No frame available yet", details: nil))
             return
         }
+        session.bufferLock.unlock()
 
         CVPixelBufferLockBaseAddress(buffer, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
@@ -245,7 +249,8 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, Flu
 
     private var captureSession: AVCaptureSession?
     var textureId: Int64?
-    var latestBuffer: CVPixelBuffer?
+    var _latestBuffer: CVPixelBuffer?
+    let bufferLock = NSLock()
     var outputWidth: Int = 0
     var outputHeight: Int = 0
 
@@ -287,17 +292,15 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, Flu
 
         session.commitConfiguration()
 
-        // Register texture
-        textureId = registry.register(self)
-
-        // Get actual output dimensions
+        // Get actual output dimensions from the selected format
         let dims = CMVideoFormatDescriptionGetDimensions(device.activeFormat.formatDescription)
         outputWidth = Int(dims.width)
         outputHeight = Int(dims.height)
 
-        // Start
-        session.startRunning()
+        // Register texture and start capture
+        textureId = registry.register(self)
         captureSession = session
+        session.startRunning()
     }
 
     func stop(registry: FlutterTextureRegistry) {
@@ -314,13 +317,17 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, Flu
             registry.unregisterTexture(tid)
             textureId = nil
         }
-        latestBuffer = nil
+        bufferLock.lock()
+        _latestBuffer = nil
+        bufferLock.unlock()
     }
 
     // MARK: - FlutterTexture
 
     public func copyPixelBuffer() -> Unmanaged<CVPixelBuffer>? {
-        guard let buffer = latestBuffer else { return nil }
+        bufferLock.lock()
+        guard let buffer = _latestBuffer else { bufferLock.unlock(); return nil }
+        bufferLock.unlock()
         return Unmanaged.passRetained(buffer)
     }
 
@@ -328,7 +335,9 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, Flu
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        latestBuffer = imageBuffer
+        bufferLock.lock()
+        _latestBuffer = imageBuffer
+        bufferLock.unlock()
         if let tid = textureId, let reg = registry {
             DispatchQueue.main.async {
                 reg.textureFrameAvailable(tid)

@@ -25,7 +25,7 @@ class AppTheme {
 
   static ThemeData _build(Color seed, Brightness brightness) {
     final scheme = ColorScheme.fromSeed(seedColor: seed, brightness: brightness);
-    final fontFamily = GoogleFonts.ibmPlexSans().fontFamily;
+    final fontFamily = GoogleFonts.inter().fontFamily;
 
     return ThemeData(
       useMaterial3: true,
@@ -118,15 +118,10 @@ class AppTheme {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
-      scrollbarTheme: ScrollbarThemeData(
-        thickness: WidgetStateProperty.resolveWith((states) =>
-            states.contains(WidgetState.hovered) ? 8.0 : 4.0),
-        radius: const Radius.circular(4),
-        thumbColor: WidgetStateProperty.resolveWith((states) =>
-            states.contains(WidgetState.hovered)
-                ? scheme.onSurfaceVariant.withValues(alpha: 0.5)
-                : scheme.onSurfaceVariant.withValues(alpha: 0.25)),
-        minThumbLength: 48,
+      scrollbarTheme: const ScrollbarThemeData(
+        thumbVisibility: WidgetStatePropertyAll(false),
+        trackVisibility: WidgetStatePropertyAll(false),
+        thickness: WidgetStatePropertyAll(0),
       ),
     );
   }

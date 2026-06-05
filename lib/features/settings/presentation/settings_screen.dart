@@ -168,12 +168,12 @@ List<_SettingsSection> _buildSections(AppStrings s) => [
     _SettingsItemData(
       icon: Icons.sensor_door_rounded,
       title: s.gateControl,
-      subtitle: 'Barriers & RFID',
+      subtitle: 'Barriers, signals & RFID',
       route: 'gate-control',
       proOnly: true,
       adminOnly: true,
       permissionKey: 'gateControl',
-      proDescription: 'Automated boom barrier control with RFID tag validation, vehicle queue management, interlock safety systems, and real-time gate event logging — prevents unauthorized entry/exit and ensures accurate vehicle tracking without manual intervention at busy weighbridge facilities.',
+      proDescription: 'Automated boom barrier control with RFID tag validation, traffic signal automation, vehicle queue management, interlock safety systems, and real-time gate event logging.',
     ),
     _SettingsItemData(
       icon: Icons.videocam_rounded,
@@ -192,6 +192,13 @@ List<_SettingsSection> _buildSections(AppStrings s) => [
       route: 'printing',
       adminOnly: true,
       permissionKey: 'printing',
+    ),
+    _SettingsItemData(
+      icon: Icons.record_voice_over_rounded,
+      title: 'Voice Guidance',
+      subtitle: 'Speaker & voice prompts',
+      route: 'voice-guidance',
+      adminOnly: true,
     ),
   ]),
   _SettingsSection('SYSTEM', [

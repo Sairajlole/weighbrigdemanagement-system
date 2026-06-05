@@ -413,9 +413,12 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
           // ── Header ──
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+            margin: const EdgeInsets.fromLTRB(24, 16, 24, 0),
             decoration: BoxDecoration(
               color: scheme.surface,
-              border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
+              borderRadius: AppRadius.card,
+              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+              boxShadow: AppElevation.card(scheme.shadow),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -576,7 +579,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               SizedBox(width: AppSpacing.sm),
               Text('Admin', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700, color: scheme.primary)),
               const Spacer(),
-              Text('Full access to all features', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+              Text('Full access — does not perform weighments', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
             ],
           ),
         ),
@@ -588,30 +591,42 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
         ),
         if (_requireKycForSensitiveOps)
           Padding(
-            padding: const EdgeInsets.only(left: 42, bottom: 8),
+            padding: const EdgeInsets.only(left: 46, bottom: 8),
             child: Text('Operators must have verified ID to: void, edit, manual weight, export, delete', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
           ),
-        SizedBox(height: AppSpacing.md),
-        Text('Operator Permissions', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+
+        SizedBox(height: AppSpacing.lg),
+        Text('Weighment Operations', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
         SizedBox(height: AppSpacing.sm),
         _PermissionToggle(label: 'Void weighments', value: _opCanVoidWeighment, onChanged: (v) { setState(() => _opCanVoidWeighment = v); _markDirty(); }),
-        _PermissionToggle(label: 'Edit weighments', value: _opCanEditWeighment, onChanged: (v) { setState(() => _opCanEditWeighment = v); _markDirty(); }),
+        _PermissionToggle(label: 'Edit weighment records', value: _opCanEditWeighment, onChanged: (v) { setState(() => _opCanEditWeighment = v); _markDirty(); }),
         _PermissionToggle(label: 'Manual weight entry (override scale)', value: _opCanManualWeight, onChanged: (v) { setState(() => _opCanManualWeight = v); _markDirty(); }, danger: true),
-        _PermissionToggle(label: 'Reprint dockets', value: _opCanReprint, onChanged: (v) { setState(() => _opCanReprint = v); _markDirty(); }),
-        _PermissionToggle(label: 'Export data', value: _opCanExportData, onChanged: (v) { setState(() => _opCanExportData = v); _markDirty(); }),
-        _PermissionToggle(label: 'View reports', value: _opCanViewReports, onChanged: (v) { setState(() => _opCanViewReports = v); _markDirty(); }),
-        _PermissionToggle(label: 'View CCTV snapshots & recordings', value: _opCanViewCctv, onChanged: (v) { setState(() => _opCanViewCctv = v); _markDirty(); }),
-        _PermissionToggle(label: 'Access settings page', value: _opCanChangeSettings, onChanged: (v) { setState(() => _opCanChangeSettings = v); _markDirty(); }),
-        _PermissionToggle(label: 'Manage customers', value: _opCanManageCustomers, onChanged: (v) { setState(() => _opCanManageCustomers = v); _markDirty(); }),
-        _PermissionToggle(label: 'Manage materials', value: _opCanManageMaterials, onChanged: (v) { setState(() => _opCanManageMaterials = v); _markDirty(); }),
-        _PermissionToggle(label: 'Delete records', value: _opCanDeleteRecords, onChanged: (v) { setState(() => _opCanDeleteRecords = v); _markDirty(); }, danger: true),
-        SizedBox(height: AppSpacing.md),
-        Text('Settings Access', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+        _PermissionToggle(label: 'Delete weighment records', value: _opCanDeleteRecords, onChanged: (v) { setState(() => _opCanDeleteRecords = v); _markDirty(); }, danger: true),
+
+        SizedBox(height: AppSpacing.lg),
+        Text('Data & Reports', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
         SizedBox(height: AppSpacing.sm),
-        _PermissionToggle(label: 'Printing settings', value: _opCanAccessPrinting, onChanged: (v) { setState(() => _opCanAccessPrinting = v); _markDirty(); }),
-        _PermissionToggle(label: 'Gate control settings', value: _opCanAccessGateControl, onChanged: (v) { setState(() => _opCanAccessGateControl = v); _markDirty(); }),
-        _PermissionToggle(label: 'Cameras & AI settings', value: _opCanAccessCameras, onChanged: (v) { setState(() => _opCanAccessCameras = v); _markDirty(); }),
-        _PermissionToggle(label: 'Weighbridge settings', value: _opCanAccessWeighbridge, onChanged: (v) { setState(() => _opCanAccessWeighbridge = v); _markDirty(); }),
+        _PermissionToggle(label: 'View reports & analytics', value: _opCanViewReports, onChanged: (v) { setState(() => _opCanViewReports = v); _markDirty(); }),
+        _PermissionToggle(label: 'Export data (CSV, PDF)', value: _opCanExportData, onChanged: (v) { setState(() => _opCanExportData = v); _markDirty(); }),
+        _PermissionToggle(label: 'Reprint dockets', value: _opCanReprint, onChanged: (v) { setState(() => _opCanReprint = v); _markDirty(); }),
+        _PermissionToggle(label: 'View CCTV snapshots & recordings', value: _opCanViewCctv, onChanged: (v) { setState(() => _opCanViewCctv = v); _markDirty(); }),
+
+        SizedBox(height: AppSpacing.lg),
+        Text('Master Data Management', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+        SizedBox(height: AppSpacing.sm),
+        _PermissionToggle(label: 'Manage customers / parties', value: _opCanManageCustomers, onChanged: (v) { setState(() => _opCanManageCustomers = v); _markDirty(); }),
+        _PermissionToggle(label: 'Manage materials / products', value: _opCanManageMaterials, onChanged: (v) { setState(() => _opCanManageMaterials = v); _markDirty(); }),
+
+        SizedBox(height: AppSpacing.lg),
+        Text('Settings Access', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+        SizedBox(height: 2.rs),
+        Text('Which settings screens the operator can access', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+        SizedBox(height: AppSpacing.sm),
+        _PermissionToggle(label: 'General & appearance', value: _opCanChangeSettings, onChanged: (v) { setState(() => _opCanChangeSettings = v); _markDirty(); }),
+        _PermissionToggle(label: 'Weighbridge / scale', value: _opCanAccessWeighbridge, onChanged: (v) { setState(() => _opCanAccessWeighbridge = v); _markDirty(); }),
+        _PermissionToggle(label: 'Gate control & traffic signals', value: _opCanAccessGateControl, onChanged: (v) { setState(() => _opCanAccessGateControl = v); _markDirty(); }),
+        _PermissionToggle(label: 'Cameras & AI', value: _opCanAccessCameras, onChanged: (v) { setState(() => _opCanAccessCameras = v); _markDirty(); }),
+        _PermissionToggle(label: 'Printing & docket layout', value: _opCanAccessPrinting, onChanged: (v) { setState(() => _opCanAccessPrinting = v); _markDirty(); }),
       ],
     );
   }
@@ -1622,41 +1637,25 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: AppSpacing.cardPadding,
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: AppRadius.dialog,
+        borderRadius: AppRadius.card,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: AppElevation.card(scheme.shadow),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            decoration: BoxDecoration(
-              color: scheme.primaryContainer.withValues(alpha: 0.15),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.15))),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 28, height: 28,
-                  decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(7.rs)),
-                  child: Icon(icon, size: 15, color: scheme.primary),
-                ),
-                SizedBox(width: 10.rs),
-                Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.2)),
-              ],
-            ),
+          Row(
+            children: [
+              Icon(icon, size: 18, color: scheme.primary),
+              SizedBox(width: AppSpacing.sm),
+              Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            ],
           ),
-          Padding(
-            padding: AppSpacing.pagePadding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: children,
-            ),
-          ),
+          SizedBox(height: AppSpacing.lg),
+          ...children,
         ],
       ),
     );
@@ -1674,16 +1673,17 @@ class _PermissionToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
           SizedBox(
-            height: 18, width: 32,
+            height: 20, width: 36,
             child: FittedBox(child: Switch(value: value, onChanged: onChanged, activeTrackColor: danger ? scheme.error.withValues(alpha: 0.3) : null, activeThumbColor: danger ? scheme.error : null)),
           ),
           SizedBox(width: 10.rs),
-          Expanded(child: Text(label, style: TextStyle(fontSize: 12, color: danger ? scheme.error : scheme.onSurface))),
+          Expanded(child: Text(label, style: text.bodySmall?.copyWith(color: danger ? scheme.error : scheme.onSurface))),
         ],
       ),
     );
@@ -1700,22 +1700,23 @@ class _ChipGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: options.map((opt) {
         final selected = opt == value;
         return Padding(
-          padding: const EdgeInsets.only(right: 4),
+          padding: const EdgeInsets.only(right: 6),
           child: GestureDetector(
             onTap: () => onChanged(opt),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: selected ? scheme.primaryContainer : Colors.transparent,
+                color: selected ? scheme.primaryContainer.withValues(alpha: 0.4) : Colors.transparent,
                 borderRadius: AppRadius.chip,
-                border: Border.all(color: selected ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.4)),
+                border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.3)),
               ),
-              child: Text(opt, style: TextStyle(fontSize: 10, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
+              child: Text(opt, style: text.labelSmall?.copyWith(fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
             ),
           ),
         );
