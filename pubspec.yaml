@@ -41,6 +41,7 @@ dependencies:
   media_kit_video: ^2.0.1
   media_kit_libs_macos_video: ^1.1.4
   media_kit_libs_windows_video: ^1.0.9
+  media_kit_libs_linux: any
   flutter_libserialport: ^0.4.0
 
   # Charts

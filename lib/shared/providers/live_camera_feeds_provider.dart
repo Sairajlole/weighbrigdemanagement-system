@@ -138,6 +138,9 @@ class LiveCameraFeedsNotifier extends StateNotifier<LiveCameraFeedsState> {
       native.setProperty('hwdec-codecs', 'all');
       native.setProperty('gpu-context', 'd3d11');
       native.setProperty('vo', 'gpu');
+    } else if (Platform.isLinux) {
+      native.setProperty('hwdec-codecs', 'all');
+      native.setProperty('vo', 'gpu');
     }
     native.setProperty('cache', 'no');
     native.setProperty('cache-pause', 'no');
@@ -315,7 +318,7 @@ final eagerCameraWarmupProvider = FutureProvider<void>((ref) async {
   Map<String, dynamic> settings;
   try {
     DocumentSnapshot<Map<String, dynamic>> doc;
-    if (!Platform.isWindows) {
+    if (!Platform.isWindows && !Platform.isLinux) {
       try {
         doc = await paths.camerasAiSettings.get(const GetOptions(source: Source.cache));
       } catch (_) {

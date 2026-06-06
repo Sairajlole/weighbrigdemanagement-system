@@ -20,7 +20,7 @@ final _cameraSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async
   if (!paths.isConfigured) return {};
   try {
     DocumentSnapshot<Map<String, dynamic>> doc;
-    if (!Platform.isWindows) {
+    if (!Platform.isWindows && !Platform.isLinux) {
       try {
         doc = await paths.camerasAiSettings.get(const GetOptions(source: Source.cache));
       } catch (_) {

@@ -10,15 +10,17 @@ class CloudFunctionsService {
   static const _projectId = 'weighbridge-management';
   static const _region = 'us-central1';
 
+  static bool get _useHttp => Platform.isWindows || Platform.isLinux;
+
   /// Calls a Firebase Cloud Function by name.
-  /// On Windows, uses direct HTTP since the cloud_functions plugin
-  /// doesn't support Windows desktop (no platform channel).
-  /// On other platforms, uses the standard plugin.
+  /// On Windows/Linux, uses direct HTTP since the cloud_functions plugin
+  /// has no platform channel for those platforms.
+  /// On iOS/macOS/Android, uses the standard plugin.
   static Future<Map<String, dynamic>> call(
     String functionName, [
     Map<String, dynamic>? parameters,
   ]) async {
-    if (!Platform.isWindows) {
+    if (!_useHttp) {
       final fn = FirebaseFunctions.instance.httpsCallable(functionName);
       final result = await fn.call(parameters);
       return result.data is Map

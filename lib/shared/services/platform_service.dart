@@ -45,6 +45,19 @@ class PlatformService {
           SoundType.notification => r'C:\Windows\Media\Windows Notify Email.wav',
         };
         await Process.run('powershell', ['-c', '(New-Object Media.SoundPlayer "$file").PlaySync()']);
+      } else if (Platform.isLinux) {
+        final sound = switch (type) {
+          SoundType.capture => 'dialog-information',
+          SoundType.complete => 'complete',
+          SoundType.error => 'dialog-error',
+          SoundType.notification => 'message-new-instant',
+        };
+        final result = await Process.run('which', ['canberra-gtk-play']);
+        if (result.exitCode == 0) {
+          await Process.run('canberra-gtk-play', ['-i', sound]);
+        } else {
+          await Process.run('paplay', ['/usr/share/sounds/freedesktop/stereo/$sound.oga']);
+        }
       }
     } catch (_) {}
   }
@@ -76,8 +89,10 @@ class PlatformService {
 
   static Future<void> configureSerialPort(String port, int baudRate) async {
     try {
-      if (Platform.isMacOS || Platform.isLinux) {
+      if (Platform.isMacOS) {
         await Process.run('stty', ['-f', port, '$baudRate', 'cs8', '-parenb', '-cstopb']);
+      } else if (Platform.isLinux) {
+        await Process.run('stty', ['-F', port, '$baudRate', 'cs8', '-parenb', '-cstopb']);
       } else if (Platform.isWindows) {
         await Process.run('mode', ['$port:', 'baud=$baudRate', 'parity=n', 'data=8', 'stop=1']);
       }
@@ -144,6 +159,7 @@ class PlatformService {
   static Future<({double cpu, double mem, double? temp})> getSystemStats() async {
     if (Platform.isMacOS) return _getStatsMac();
     if (Platform.isWindows) return _getStatsWindows();
+    if (Platform.isLinux) return _getStatsLinux();
     return (cpu: 0.0, mem: 0.0, temp: null);
   }
 
@@ -184,6 +200,32 @@ class PlatformService {
     }
   }
 
+  static Future<({double cpu, double mem, double? temp})> _getStatsLinux() async {
+    try {
+      // CPU from /proc/stat (idle percentage via top single-iteration)
+      final cpuResult = await Process.run('bash', ['-c',
+        r"top -bn1 | grep '%Cpu' | awk '{print 100 - $8}'"]);
+      final cpu = double.tryParse((cpuResult.stdout as String).trim()) ?? 0;
+
+      // Memory from /proc/meminfo
+      final memResult = await Process.run('bash', ['-c',
+        'free | awk \'/Mem:/{printf "%.1f", (\$3/\$2)*100}\'']);
+      final mem = double.tryParse((memResult.stdout as String).trim()) ?? 0;
+
+      // Temperature from thermal zone
+      double? temp;
+      final tempFile = File('/sys/class/thermal/thermal_zone0/temp');
+      if (tempFile.existsSync()) {
+        final raw = int.tryParse(tempFile.readAsStringSync().trim());
+        if (raw != null && raw > 0) temp = raw / 1000.0;
+      }
+
+      return (cpu: cpu, mem: mem, temp: temp);
+    } catch (_) {
+      return (cpu: 0.0, mem: 0.0, temp: null);
+    }
+  }
+
   // ─── Process Control (kill remote apps like AnyDesk) ───────────────────────
 
   static Future<void> killProcess(String processName) async {
@@ -202,7 +244,7 @@ class PlatformService {
 
   static Future<List<String>> listPrinters() async {
     try {
-      if (Platform.isMacOS) {
+      if (Platform.isMacOS || Platform.isLinux) {
         final result = await Process.run('lpstat', ['-a']);
         if (result.exitCode == 0) {
           return (result.stdout as String)

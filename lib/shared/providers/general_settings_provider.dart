@@ -11,7 +11,7 @@ final generalSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async
   ref.watch(settingsRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return {};
-  if (!Platform.isWindows) {
+  if (!Platform.isWindows && !Platform.isLinux) {
     try {
       final snap = await paths.generalSettings.get(const GetOptions(source: Source.cache));
       if (snap.exists) return snap.data()!;
@@ -29,7 +29,7 @@ final scaleSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   ref.watch(settingsRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return {};
-  if (!Platform.isWindows) {
+  if (!Platform.isWindows && !Platform.isLinux) {
     try {
       final snap = await paths.scaleSettings.get(const GetOptions(source: Source.cache));
       if (snap.exists) return snap.data()!;
@@ -47,7 +47,7 @@ final printSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   ref.watch(settingsRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return {};
-  if (!Platform.isWindows) {
+  if (!Platform.isWindows && !Platform.isLinux) {
     try {
       final snap = await paths.printingSettings.get(const GetOptions(source: Source.cache));
       if (snap.exists) return snap.data()!;

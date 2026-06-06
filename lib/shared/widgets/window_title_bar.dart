@@ -10,7 +10,7 @@ class WindowTitleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!Platform.isWindows) return const SizedBox.shrink();
+    if (!Platform.isWindows && !Platform.isLinux) return const SizedBox.shrink();
 
     final scheme = Theme.of(context).colorScheme;
 

@@ -36,8 +36,8 @@ final sidebarCollapsedProvider = StateProvider<bool>((ref) => false);
 final _pendingOperatorsCountProvider = StreamProvider<int>((ref) async* {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return;
-  // On Windows, wait for auth queries to complete before opening streams
-  if (Platform.isWindows) {
+  // On Windows/Linux, wait for auth queries to complete before opening streams
+  if (Platform.isWindows || Platform.isLinux) {
     await ref.watch(currentOperatorDocProvider.future);
     await Future<void>.delayed(const Duration(milliseconds: 1500));
   }
@@ -95,9 +95,9 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // On Windows, defer sidecar/camera Firestore queries until auth queries
-    // complete — concurrent channel responses crash the Windows plugin.
-    if (!Platform.isWindows || ref.watch(currentOperatorDocProvider).hasValue) {
+    // On Windows/Linux, defer sidecar/camera Firestore queries until auth queries
+    // complete — concurrent channel responses crash the native plugin.
+    if ((!Platform.isWindows && !Platform.isLinux) || ref.watch(currentOperatorDocProvider).hasValue) {
       ref.watch(sidecarAutoStartProvider);
       ref.watch(sidecarEmbeddingSyncProvider);
       ref.watch(eagerCameraWarmupProvider);

@@ -180,8 +180,8 @@ final securitySettingsProvider = FutureProvider<SecuritySettings>((ref) async {
   ref.watch(securityRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return const SecuritySettings();
-  // Skip cache on Windows — persistence is disabled so cache reads time out.
-  if (!Platform.isWindows) {
+  // Skip cache on Windows/Linux — persistence is disabled so cache reads time out.
+  if (!Platform.isWindows && !Platform.isLinux) {
     try {
       final snap = await paths.securitySettings.get(const GetOptions(source: Source.cache));
       if (snap.exists) return SecuritySettings.fromMap(snap.data()!);
@@ -197,9 +197,9 @@ final securitySettingsProvider = FutureProvider<SecuritySettings>((ref) async {
 // Single Firestore query for the current operator document — all operator
 // attribute providers derive from this to avoid duplicate network calls.
 final currentOperatorDocProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
-  // On Windows, serialize Firestore queries to avoid native threading crash:
+  // On Windows/Linux, serialize Firestore queries to avoid native threading crash:
   // wait for securitySettings to finish before issuing the operator query.
-  if (Platform.isWindows) await ref.watch(securitySettingsProvider.future);
+  if (Platform.isWindows || Platform.isLinux) await ref.watch(securitySettingsProvider.future);
   final paths = ref.watch(firestorePathsProvider);
   final user = FirebaseAuth.instance.currentUser;
   final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();

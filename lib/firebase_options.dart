@@ -29,10 +29,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.windows:
         return windows;
       case TargetPlatform.linux:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return linux;
       default:
         throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.',
@@ -84,5 +81,14 @@ class DefaultFirebaseOptions {
     authDomain: 'weighbridge-management.firebaseapp.com',
     storageBucket: 'weighbridge-management.firebasestorage.app',
     measurementId: 'G-Y98QMZ1TC5',
+  );
+
+  static const FirebaseOptions linux = FirebaseOptions(
+    apiKey: 'AIzaSyDXIs-6_oUPoHXl6BOX3SVAWRAtA1xpDds',
+    appId: '1:189506147559:web:65fd04d8f472a07d18fe42',
+    messagingSenderId: '189506147559',
+    projectId: 'weighbridge-management',
+    authDomain: 'weighbridge-management.firebaseapp.com',
+    storageBucket: 'weighbridge-management.firebasestorage.app',
   );
 }

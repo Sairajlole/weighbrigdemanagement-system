@@ -90,7 +90,7 @@ class _WelcomeStepState extends ConsumerState<WelcomeStep> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Spacer(flex: 3),
+            Spacer(flex: _view == _WelcomeView.resumeSignIn ? 1 : 3),
             // Brand name with Morse code underneath
             Column(
               mainAxisSize: MainAxisSize.min,
@@ -528,7 +528,7 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
           'Sign in to continue where you left off',
           style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
         ),
-        SizedBox(height: 28.rs),
+        SizedBox(height: 16.rs),
 
         // Info bar — explains what happened
         ConstrainedBox(
@@ -554,7 +554,7 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
             ),
           ),
         ),
-        SizedBox(height: 20.rs),
+        SizedBox(height: 14.rs),
 
         // Company/GSTIN details card
         if (!_loadingDetails && _gstin != null)
@@ -631,13 +631,13 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
             child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
           ),
 
-        SizedBox(height: AppSpacing.xl),
+        SizedBox(height: AppSpacing.md),
 
         // Sign-in form
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 640),
           child: Container(
-            padding: AppSpacing.pagePadding,
+            padding: AppSpacing.cardPadding,
             decoration: BoxDecoration(
               color: scheme.surface,
               borderRadius: BorderRadius.circular(18.rs),
@@ -723,7 +723,7 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
           ),
         ),
 
-        SizedBox(height: 20.rs),
+        SizedBox(height: 14.rs),
 
         // Options row
         ConstrainedBox(
