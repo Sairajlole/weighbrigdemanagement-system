@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:weighbridgemanagement/shared/widgets/digilocker_verify_card.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -660,7 +661,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
         setState(() { _codeStep = 'locked'; _codeOtpError = 'Admin email not available.'; });
         return;
       }
-      await FirebaseFunctions.instance.httpsCallable('sendEmailOTP').call({'email': email});
+      await CloudFunctionsService.call('sendEmailOTP', {'email': email});
       if (mounted) {
         setState(() => _codeStep = 'otp');
         Future.delayed(Duration.zero, () { _codeOtpFocusNodes[0].requestFocus(); });
@@ -683,7 +684,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
   Future<void> _verifyCodeOtp(String otp) async {
     try {
       final email = await _getAdminEmailForCode();
-      await FirebaseFunctions.instance.httpsCallable('verifyEmailOTP').call({'email': email, 'otp': otp});
+      await CloudFunctionsService.call('verifyEmailOTP', {'email': email, 'otp': otp});
       if (mounted) {
         setState(() => _codeStep = 'revealed');
         Future.delayed(const Duration(minutes: 1), () {
@@ -3051,9 +3052,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     }
     setState(() { _changeError = null; _otpVerifying = true; });
     try {
-      await FirebaseFunctions.instance
-          .httpsCallable('sendEmailOTP')
-          .call({'email': adminEmail});
+      await CloudFunctionsService.call('sendEmailOTP', {'email': adminEmail});
       setState(() => _otpSent = true);
     } catch (e) {
       setState(() => _changeError = 'Failed to send OTP to admin.');
@@ -3073,9 +3072,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
 
     setState(() { _otpVerifying = true; _changeError = null; });
     try {
-      await FirebaseFunctions.instance
-          .httpsCallable('verifyEmailOTP')
-          .call({'email': adminEmail, 'otp': otp});
+      await CloudFunctionsService.call('verifyEmailOTP', {'email': adminEmail, 'otp': otp});
 
       // OTP verified — apply the change
       final db = widget.ref.read(firestorePathsProvider);
@@ -3094,9 +3091,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
         final opUid = widget.operator['uid'] as String? ?? '';
         if (opUid.isNotEmpty) {
           try {
-            await FirebaseFunctions.instance
-                .httpsCallable('updateOperatorEmail')
-                .call({'uid': opUid, 'newEmail': newVal.toLowerCase()});
+            await CloudFunctionsService.call('updateOperatorEmail', {'uid': opUid, 'newEmail': newVal.toLowerCase()});
           } catch (_) {}
         }
       }
@@ -4038,9 +4033,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                   final companyId = paths.context.companyId;
                   final email = op['email'] as String? ?? '';
 
-                  await FirebaseFunctions.instance
-                      .httpsCallable('setOperatorPin')
-                      .call({'pin': pin, 'companyId': companyId, 'operatorEmail': email});
+                  await CloudFunctionsService.call('setOperatorPin', {'pin': pin, 'companyId': companyId, 'operatorEmail': email});
 
                   if (dialogCtx.mounted) Navigator.of(dialogCtx).pop(true);
                 } catch (e) {
@@ -4130,17 +4123,13 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
       final operatorName = widget.operator['name'] as String? ?? '';
 
       final paths = widget.ref.read(firestorePathsProvider);
-      final response = await FirebaseFunctions.instance
-          .httpsCallable('verifyOperatorId', options: HttpsCallableOptions(timeout: const Duration(seconds: 90)))
-          .call({
+      final data = await CloudFunctionsService.call('verifyOperatorId', {
         'images': images,
         'documentType': _idDocumentType,
         'operatorName': operatorName,
         'operatorId': widget.operator['id'] as String? ?? '',
         'companyId': paths.context.companyId,
       });
-
-      final data = response.data as Map<String, dynamic>;
 
       if (data['valid'] != true) {
         setState(() => _kycError = data['message'] as String? ?? 'Verification failed.');
@@ -5115,11 +5104,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
       if (referenceFrames != null && referenceFrames.isNotEmpty) {
         payload['referenceImages'] = referenceFrames.map((f) => base64Encode(f)).toList();
       }
-      final response = await FirebaseFunctions.instance
-          .httpsCallable('validateFaceConsistency', options: HttpsCallableOptions(timeout: const Duration(seconds: 120)))
-          .call(payload);
-
-      final data = Map<String, dynamic>.from(response.data as Map);
+      final data = await CloudFunctionsService.call('validateFaceConsistency', payload);
       if (data['success'] == true) {
         setState(() => _enrolling = false);
         onSuccess();
@@ -5190,7 +5175,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
   Future<void> _sendOtp(String email) async {
     setState(() { _otpSending = true; _otpError = null; });
     try {
-      await FirebaseFunctions.instance.httpsCallable('sendEmailOTP').call({'email': email});
+      await CloudFunctionsService.call('sendEmailOTP', {'email': email});
       setState(() => _otpSending = false);
     } catch (e) {
       setState(() { _otpSending = false; _otpError = 'Failed to send OTP.'; });
@@ -5205,7 +5190,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
     }
     setState(() { _otpVerifying = true; _otpError = null; });
     try {
-      await FirebaseFunctions.instance.httpsCallable('verifyEmailOTP').call({'email': email, 'otp': otp});
+      await CloudFunctionsService.call('verifyEmailOTP', {'email': email, 'otp': otp});
       setState(() => _otpVerifying = false);
       return true;
     } on FirebaseFunctionsException catch (e) {
@@ -5303,11 +5288,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
           ? 'trainOperatorFace'
           : 'enrollOperatorFace';
 
-      final response = await FirebaseFunctions.instance
-          .httpsCallable(functionName, options: HttpsCallableOptions(timeout: const Duration(seconds: 120)))
-          .call({'images': images, 'companyId': companyId, 'operatorEmail': operatorEmail});
-
-      final data = Map<String, dynamic>.from(response.data as Map);
+      final data = await CloudFunctionsService.call(functionName, {'images': images, 'companyId': companyId, 'operatorEmail': operatorEmail});
       if (data['success'] == true) {
         // Generate local AdaFace embedding via sidecar, then refresh parent UI
         _generateSidecarEmbedding(allFrames, widget.operatorId, operatorEmail, opDoc.data()?['name'] as String? ?? '').then((_) {

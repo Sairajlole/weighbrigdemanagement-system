@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:weighbridgemanagement/shared/services/platform_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -435,10 +435,10 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                 setDlgState(() { otpSent = true; sending = false; });
                 return;
               }
-              final fn = FirebaseFunctions.instance.httpsCallable(
+              await CloudFunctionsService.call(
                 verifyVia == 'email' ? 'sendEmailOTP' : 'sendPhoneOTP',
+                verifyVia == 'email' ? {'email': email} : {'phone': phone},
               );
-              await fn.call(verifyVia == 'email' ? {'email': email} : {'phone': phone});
               setDlgState(() { otpSent = true; sending = false; });
             } catch (_) {
               setDlgState(() { error = 'Failed to send OTP'; sending = false; });
@@ -457,13 +457,11 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
             }
             setDlgState(() { error = null; });
             try {
-              final verifyFn = FirebaseFunctions.instance.httpsCallable('verifyOTP');
-              final result = await verifyFn.call({
+              final data = await CloudFunctionsService.call('verifyOTP', {
                 'target': verifyVia == 'email' ? email : phone,
                 'otp': otp,
                 'type': verifyVia,
               });
-              final data = Map<String, dynamic>.from(result.data as Map);
               if (data['valid'] == true) {
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } else {
@@ -735,14 +733,12 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
         if (gstin.isNotEmpty || pan.isNotEmpty) {
           try {
-            final fn = FirebaseFunctions.instance.httpsCallable('verifyDocument');
-            final verifyResult = await fn.call({
+            final verifyData = await CloudFunctionsService.call('verifyDocument', {
               'imageBase64': b64,
               'documentType': docType == 'GSTIN Certificate' ? 'gstin_certificate' : 'pan_card',
               'expectedGstin': docType == 'GSTIN Certificate' ? gstin : null,
               'expectedPan': pan,
             });
-            final verifyData = Map<String, dynamic>.from(verifyResult.data as Map);
             if (verifyData['valid'] != true) {
               final msg = verifyData['message'] as String? ?? 'Document verification failed';
               final hadPrev = (docType == 'GSTIN Certificate' && prevGstinCert != null) || (docType == 'PAN Card' && prevPanCard != null);
@@ -915,15 +911,13 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                 setDlgState(() { step = 1; sending = false; });
                 return;
               }
-              final fn = FirebaseFunctions.instance.httpsCallable(
+              await CloudFunctionsService.call(
                 verifyVia == 'email' ? 'sendEmailOTP' : 'sendPhoneOTP',
+                verifyVia == 'email' ? {'email': getVerifyTarget()} : {'phone': getVerifyTarget()},
               );
-              await fn.call(verifyVia == 'email' ? {'email': getVerifyTarget()} : {'phone': getVerifyTarget()});
               setDlgState(() { step = 1; sending = false; });
-            } on FirebaseFunctionsException catch (e) {
-              setDlgState(() { error = e.message; sending = false; });
             } catch (e) {
-              setDlgState(() { error = 'Failed to send OTP'; sending = false; });
+              setDlgState(() { error = e.toString().contains('CloudFunction') ? e.toString() : 'Failed to send OTP'; sending = false; });
             }
           }
 
@@ -939,10 +933,10 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
               setDlgState(() { verifying = true; error = null; });
               try {
                 if (const bool.fromEnvironment('dart.vm.product')) {
-                  final sendFn = FirebaseFunctions.instance.httpsCallable(
+                  await CloudFunctionsService.call(
                     isEmail ? 'sendEmailOTP' : 'sendPhoneOTP',
+                    isEmail ? {'email': getNewValue()} : {'phone': getNewValue()},
                   );
-                  await sendFn.call(isEmail ? {'email': getNewValue()} : {'phone': getNewValue()});
                 }
                 setDlgState(() { step = 2; verifying = false; });
               } catch (_) {
@@ -953,28 +947,24 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
             setDlgState(() { verifying = true; error = null; });
             try {
-              final verifyFn = FirebaseFunctions.instance.httpsCallable('verifyOTP');
-              final result = await verifyFn.call({
+              final data = await CloudFunctionsService.call('verifyOTP', {
                 'target': getVerifyTarget(),
                 'otp': otp,
                 'type': verifyVia,
               });
-              final data = Map<String, dynamic>.from(result.data as Map);
               if (data['valid'] != true) {
                 setDlgState(() { error = 'Invalid code. Please try again.'; verifying = false; });
                 return;
               }
 
               // Send OTP to new value
-              final sendFn = FirebaseFunctions.instance.httpsCallable(
+              await CloudFunctionsService.call(
                 isEmail ? 'sendEmailOTP' : 'sendPhoneOTP',
+                isEmail ? {'email': getNewValue()} : {'phone': getNewValue()},
               );
-              await sendFn.call(isEmail ? {'email': getNewValue()} : {'phone': getNewValue()});
               setDlgState(() { step = 2; verifying = false; });
-            } on FirebaseFunctionsException catch (e) {
-              setDlgState(() { error = e.message; verifying = false; });
             } catch (e) {
-              setDlgState(() { error = 'Verification failed'; verifying = false; });
+              setDlgState(() { error = e.toString().contains('CloudFunction') ? e.toString() : 'Verification failed'; verifying = false; });
             }
           }
 
@@ -992,8 +982,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
               // Test bypass: 000000 skips cloud verification
               if (otp != '000000') {
-                final fn = FirebaseFunctions.instance.httpsCallable('updateCompanyContact');
-                await fn.call({
+                await CloudFunctionsService.call('updateCompanyContact', {
                   'companyId': siteCtx.companyId,
                   'siteId': siteCtx.siteId,
                   'weighbridgeId': siteCtx.weighbridgeId,
@@ -1020,10 +1009,8 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
               ref.invalidate(_generalSettingsProvider);
               if (ctx.mounted) Navigator.pop(ctx);
               _showHeaderMsg('${isEmail ? 'Email' : 'Phone'} updated successfully');
-            } on FirebaseFunctionsException catch (e) {
-              setDlgState(() { error = e.message; verifying = false; });
             } catch (e) {
-              setDlgState(() { error = 'Verification failed'; verifying = false; });
+              setDlgState(() { error = e.toString().contains('CloudFunction') ? e.toString() : 'Verification failed'; verifying = false; });
             }
           }
 
@@ -2953,13 +2940,11 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                   setDlgState(() { otpSent = true; sending = false; });
                   return;
                 }
-                final fn = FirebaseFunctions.instance.httpsCallable(
+                await CloudFunctionsService.call(
                   verifyVia == 'email' ? 'sendEmailOTP' : 'sendPhoneOTP',
+                  verifyVia == 'email' ? {'email': email} : {'phone': phone},
                 );
-                await fn.call(verifyVia == 'email' ? {'email': email} : {'phone': phone});
                 setDlgState(() { otpSent = true; sending = false; });
-              } on FirebaseFunctionsException catch (e) {
-                setDlgState(() { error = e.message; sending = false; });
               } catch (_) {
                 setDlgState(() { error = 'Failed to send OTP'; sending = false; });
               }
@@ -2978,20 +2963,16 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
               }
               setDlgState(() { verifying = true; error = null; });
               try {
-                final verifyFn = FirebaseFunctions.instance.httpsCallable('verifyOTP');
-                final result = await verifyFn.call({
+                final data = await CloudFunctionsService.call('verifyOTP', {
                   'target': verifyVia == 'email' ? email : phone,
                   'otp': otp,
                   'type': verifyVia,
                 });
-                final data = Map<String, dynamic>.from(result.data as Map);
                 if (data['valid'] == true) {
                   if (ctx.mounted) Navigator.pop(ctx, true);
                 } else {
                   setDlgState(() { error = 'Invalid code. Please try again.'; verifying = false; });
                 }
-              } on FirebaseFunctionsException catch (e) {
-                setDlgState(() { error = e.message; verifying = false; });
               } catch (_) {
                 setDlgState(() { error = 'Verification failed'; verifying = false; });
               }

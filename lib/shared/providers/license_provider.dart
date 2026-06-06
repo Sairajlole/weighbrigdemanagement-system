@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/models/license_model.dart';
@@ -60,15 +60,11 @@ class LicenseNotifier extends StateNotifier<License> {
       final fingerprint = await DeviceFingerprintService.getFingerprint();
       final ctx = _ref.read(siteContextProvider);
 
-      final result = await FirebaseFunctions.instance
-          .httpsCallable('validateLicense')
-          .call({
+      final data = await CloudFunctionsService.call('validateLicense', {
         'licenseKey': state.key,
         'companyId': ctx.companyId,
         'deviceFingerprint': fingerprint,
       });
-
-      final data = result.data as Map<String, dynamic>;
       if (data['valid'] == true) {
         state = state.copyWith(
           status: LicenseStatus.active,
@@ -102,16 +98,12 @@ class LicenseNotifier extends StateNotifier<License> {
     try {
       final fingerprint = await DeviceFingerprintService.getFingerprint();
 
-      final result = await FirebaseFunctions.instance
-          .httpsCallable('activateLicense')
-          .call({
+      final data = await CloudFunctionsService.call('activateLicense', {
         'licenseKey': licenseKey,
         'gstin': gstin,
         'companyId': companyId,
         'deviceFingerprint': fingerprint,
       });
-
-      final data = result.data as Map<String, dynamic>;
       if (data['success'] == true) {
         state = License(
           key: licenseKey,

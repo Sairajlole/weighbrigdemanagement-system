@@ -3,7 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -783,9 +783,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
         final faceFrames = ref.read(wizardFaceFramesProvider);
         if (faceFrames != null && faceFrames.isNotEmpty && companyId.isNotEmpty) {
           try {
-            await FirebaseFunctions.instance
-                .httpsCallable('enrollOperatorFace', options: HttpsCallableOptions(timeout: const Duration(seconds: 120)))
-                .call({'images': faceFrames, 'companyId': companyId, 'operatorEmail': email});
+            await CloudFunctionsService.call('enrollOperatorFace', {'images': faceFrames, 'companyId': companyId, 'operatorEmail': email});
           } catch (e) {
             debugPrint('[ReviewStep] Face enrollment failed (non-blocking): $e');
           }

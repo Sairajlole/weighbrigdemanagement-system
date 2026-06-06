@@ -1,4 +1,4 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,10 +50,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      final result = await FirebaseFunctions.instance
-          .httpsCallable('sendPasswordResetOTP')
-          .call({'email': email});
-      final data = result.data as Map<String, dynamic>;
+      final data = await CloudFunctionsService.call('sendPasswordResetOTP', {'email': email});
       if (mounted) {
         setState(() {
           _phoneSent = data['phoneSent'] == true;
@@ -61,8 +58,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           _step = _ResetStep.otp;
         });
       }
-    } on FirebaseFunctionsException catch (e) {
-      if (mounted) setState(() => _error = e.message ?? 'Failed to send OTP.');
     } catch (e) {
       if (mounted) setState(() => _error = 'Failed to send OTP. Check the email address.');
     } finally {
@@ -79,16 +74,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      final result = await FirebaseFunctions.instance
-          .httpsCallable('verifyPasswordResetOTP')
-          .call({'email': _email.text.trim(), 'otp': otp});
-      final data = result.data as Map<String, dynamic>;
+      final data = await CloudFunctionsService.call('verifyPasswordResetOTP', {'email': _email.text.trim(), 'otp': otp});
       if (mounted) {
         _verificationToken = data['verificationToken'] as String? ?? 'otp_verified';
         setState(() => _step = _ResetStep.newPassword);
       }
-    } on FirebaseFunctionsException catch (e) {
-      if (mounted) setState(() => _error = e.message ?? 'Invalid OTP.');
     } catch (e) {
       if (mounted) setState(() => _error = 'Verification failed. Try again.');
     } finally {
@@ -110,16 +100,12 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      await FirebaseFunctions.instance
-          .httpsCallable('resetUserPassword')
-          .call({
+      await CloudFunctionsService.call('resetUserPassword', {
         'email': _email.text.trim(),
         'newPassword': pw,
         'verificationToken': _verificationToken,
       });
       if (mounted) setState(() => _step = _ResetStep.success);
-    } on FirebaseFunctionsException catch (e) {
-      if (mounted) setState(() => _error = e.message ?? 'Failed to reset password.');
     } catch (e) {
       if (mounted) setState(() => _error = 'Something went wrong. Try again.');
     } finally {

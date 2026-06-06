@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -426,9 +427,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       setSt(() { loading = true; error = null; });
       try {
         if (verifyMethod == 'email') {
-          await FirebaseFunctions.instance.httpsCallable('sendEmailOTP').call({'email': email});
+          await CloudFunctionsService.call('sendEmailOTP', {'email': email});
         } else {
-          await FirebaseFunctions.instance.httpsCallable('sendPhoneOTP').call({'phone': phone});
+          await CloudFunctionsService.call('sendPhoneOTP', {'phone': phone});
         }
         setSt(() { otpSent = true; loading = false; });
         startCooldown(setSt);
@@ -456,8 +457,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         final payload = verifyMethod == 'email'
             ? {'email': email, 'otp': code}
             : {'phone': phone, 'otp': code};
-        final result = await FirebaseFunctions.instance.httpsCallable(callable).call(payload);
-        if (result.data['verified'] == true) {
+        final result = await CloudFunctionsService.call(callable, payload);
+        if (result['verified'] == true) {
           setSt(() { otpVerified = true; loading = false; });
         } else {
           setSt(() { error = 'Invalid or expired code. Try again.'; loading = false; });
@@ -473,7 +474,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       setSt(() { loading = true; error = null; });
       try {
         final currentUser = FirebaseAuth.instance.currentUser;
-        await FirebaseFunctions.instance.httpsCallable('resetUserPassword').call({
+        await CloudFunctionsService.call('resetUserPassword', {
           'email': email,
           'uid': currentUser?.uid ?? user?.uid ?? '',
           'newPassword': newCtrl.text,

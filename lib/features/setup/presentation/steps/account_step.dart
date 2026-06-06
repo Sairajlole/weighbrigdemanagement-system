@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -347,16 +348,12 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
 
       final companyId = ref.read(wizardCompanyIdProvider) ?? _resolvedCompanyId ?? '';
 
-      final response = await FirebaseFunctions.instance
-          .httpsCallable('verifyOperatorId', options: HttpsCallableOptions(timeout: const Duration(seconds: 90)))
-          .call({
+      final data = await CloudFunctionsService.call('verifyOperatorId', {
         'images': images,
         'documentType': _selectedDocType,
         'operatorName': _name.text.trim(),
         'companyId': companyId,
       });
-
-      final data = response.data as Map<String, dynamic>;
 
       // Always store cropped face if returned (regardless of name match)
       final croppedFace = data['idCroppedFaceBase64'] as String?;
@@ -749,8 +746,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
   Future<void> _sendEmailOtp() async {
     setState(() { _sendingEmailOtp = true; _emailOtpError = null; });
     try {
-      final fn = FirebaseFunctions.instance.httpsCallable('sendEmailOTP');
-      await fn.call({'email': _email.text.trim()});
+      await CloudFunctionsService.call('sendEmailOTP', {'email': _email.text.trim()});
     } catch (e) {
       debugPrint('Email OTP send error (non-blocking): $e');
     }
@@ -760,8 +756,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
   Future<void> _sendPhoneOtp() async {
     setState(() { _sendingPhoneOtp = true; _phoneOtpError = null; });
     try {
-      final fn = FirebaseFunctions.instance.httpsCallable('sendPhoneOTP');
-      await fn.call({'phone': _fullPhone});
+      await CloudFunctionsService.call('sendPhoneOTP', {'phone': _fullPhone});
     } catch (e) {
       debugPrint('Phone OTP send error (non-blocking): $e');
     }
@@ -780,8 +775,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
     }
     setState(() { _verifyingEmailOtp = true; _emailOtpError = null; });
     try {
-      final fn = FirebaseFunctions.instance.httpsCallable('verifyEmailOTP');
-      await fn.call({'email': _email.text.trim(), 'otp': _emailOtp.text.trim()});
+      await CloudFunctionsService.call('verifyEmailOTP', {'email': _email.text.trim(), 'otp': _emailOtp.text.trim()});
       if (mounted) setState(() { _emailVerified = true; _verifyingEmailOtp = false; });
       _tryFinalize();
     } catch (e) {
@@ -801,8 +795,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
     }
     setState(() { _verifyingPhoneOtp = true; _phoneOtpError = null; });
     try {
-      final fn = FirebaseFunctions.instance.httpsCallable('verifyPhoneOTP');
-      await fn.call({'phone': _fullPhone, 'otp': _phoneOtp.text.trim()});
+      await CloudFunctionsService.call('verifyPhoneOTP', {'phone': _fullPhone, 'otp': _phoneOtp.text.trim()});
       if (mounted) setState(() { _phoneVerified = true; _verifyingPhoneOtp = false; });
       _tryFinalize();
     } catch (e) {

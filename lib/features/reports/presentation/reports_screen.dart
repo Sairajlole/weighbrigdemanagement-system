@@ -15,7 +15,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:weighbridgemanagement/features/reports/presentation/widgets/report_charts.dart';
 
 // ─── Report Tabs ────────────────────────────────────────────────────────────
@@ -479,12 +479,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         if (recipient.isEmpty) return;
                         try {
                           final paths = ref.read(firestorePathsProvider);
-                          final result = await FirebaseFunctions.instance.httpsCallable('sendReportEmail').call({
+                          final result = await CloudFunctionsService.call('sendReportEmail', {
                             'companyId': paths.context.companyId,
                             'recipient': recipient,
                             'period': _emailScheduleFrequency,
                           });
-                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Test email sent! ${result.data['weighments']} weighments, ${result.data['tonnage']}T')));
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Test email sent! ${result['weighments']} weighments, ${result['tonnage']}T')));
                         } catch (e) {
                           if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
                         }

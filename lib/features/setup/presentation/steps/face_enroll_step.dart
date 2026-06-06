@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -199,11 +200,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
         payload['referenceImages'] = referenceFrames.map((f) => base64Encode(f)).toList();
         debugPrint('[FaceEnroll] Including ${referenceFrames.length} reference frames for cross-phase check');
       }
-      final response = await FirebaseFunctions.instance
-          .httpsCallable('validateFaceConsistency', options: HttpsCallableOptions(timeout: const Duration(seconds: 120)))
-          .call(payload);
-
-      final data = Map<String, dynamic>.from(response.data as Map);
+      final data = await CloudFunctionsService.call('validateFaceConsistency', payload);
       final facesDetected = data['facesDetected'] ?? 0;
       final avgConf = data['avgConfidence'] ?? 0;
       final avgSim = data['avgSimilarity'] ?? 0;

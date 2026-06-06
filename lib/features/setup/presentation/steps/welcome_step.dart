@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -28,11 +28,7 @@ String _hashPassword(String password) => sha256.convert(utf8.encode(password)).t
 
 Future<void> _ensureFirebaseAuthAccount(String email, String password) async {
   try {
-    final callable = FirebaseFunctions.instance.httpsCallable(
-      'ensureFirebaseAuth',
-      options: HttpsCallableOptions(timeout: const Duration(seconds: 8)),
-    );
-    await callable.call({'email': email, 'password': password}).timeout(const Duration(seconds: 8));
+    await CloudFunctionsService.call('ensureFirebaseAuth', {'email': email, 'password': password});
     await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
   } catch (e) {
   }

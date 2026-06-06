@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/face_verification_provider.dart';
@@ -128,10 +129,7 @@ class VerificationLogicNotifier extends StateNotifier<VerificationDialogState> {
       // Fall back to cloud function
       if (data == null) {
         final imageBase64 = base64Encode(frame);
-        final response = await FirebaseFunctions.instance
-            .httpsCallable('verifyOperatorFace', options: HttpsCallableOptions(timeout: const Duration(seconds: 20)))
-            .call({'image': imageBase64, 'companyId': companyId});
-        data = Map<String, dynamic>.from(response.data as Map);
+        data = await CloudFunctionsService.call('verifyOperatorFace', {'image': imageBase64, 'companyId': companyId});
         source = 'cloud';
       }
 
@@ -263,11 +261,7 @@ class VerificationLogicNotifier extends StateNotifier<VerificationDialogState> {
     state = state.copyWith(status: VerifyStatus.verifying, clearError: true);
 
     try {
-      final response = await FirebaseFunctions.instance
-          .httpsCallable('verifyOperatorPin', options: HttpsCallableOptions(timeout: const Duration(seconds: 10)))
-          .call({'pin': pin, 'companyId': companyId, 'operatorEmail': currentOperatorEmail});
-
-      final data = Map<String, dynamic>.from(response.data as Map);
+      final data = await CloudFunctionsService.call('verifyOperatorPin', {'pin': pin, 'companyId': companyId, 'operatorEmail': currentOperatorEmail});
 
       if (data['match'] == true) {
         state = state.copyWith(status: VerifyStatus.success, verificationSource: 'pin');

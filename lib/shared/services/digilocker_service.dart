@@ -1,5 +1,5 @@
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -66,8 +66,6 @@ class StakeholderResult {
 }
 
 class DigiLockerService {
-  final _functions = FirebaseFunctions.instance;
-
   Future<({String consentId, String url})> initiateConsent({
     required String purpose,
     required String redirectUrl,
@@ -80,19 +78,14 @@ class DigiLockerService {
     debugPrint('[DigiLocker]   companyId: $companyId');
     debugPrint('[DigiLocker]   uid: $uid');
 
-    final callable = _functions.httpsCallable(
-      'initiateDigiLockerConsent',
-      options: HttpsCallableOptions(timeout: const Duration(seconds: 15)),
-    );
     try {
-      final result = await callable.call({
+      final data = await CloudFunctionsService.call('initiateDigiLockerConsent', {
         'purpose': purpose,
         'redirectUrl': redirectUrl,
         'companyId': companyId,
         'uid': uid,
       });
-      debugPrint('[DigiLocker] initiateConsent response: ${result.data}');
-      final data = Map<String, dynamic>.from(result.data as Map);
+      debugPrint('[DigiLocker] initiateConsent response: $data');
       debugPrint('[DigiLocker]   consentId: ${data['consentId']}');
       debugPrint('[DigiLocker]   url: ${data['url']}');
       return (consentId: data['consentId'] as String, url: data['url'] as String);
@@ -105,17 +98,13 @@ class DigiLockerService {
 
   Future<DigiLockerVerificationResult> processConsent(String consentId) async {
     debugPrint('[DigiLocker] processConsent called, consentId: $consentId');
-    final callable = _functions.httpsCallable(
-      'processDigiLockerConsent',
-      options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
-    );
     try {
-      final result = await callable.call({
+      final data = await CloudFunctionsService.call('processDigiLockerConsent', {
         'consentId': consentId,
         'uid': FirebaseAuth.instance.currentUser?.uid,
       });
-      debugPrint('[DigiLocker] processConsent response: ${result.data}');
-      return DigiLockerVerificationResult.fromMap(Map<String, dynamic>.from(result.data as Map));
+      debugPrint('[DigiLocker] processConsent response: $data');
+      return DigiLockerVerificationResult.fromMap(data);
     } catch (e, stack) {
       debugPrint('[DigiLocker] processConsent ERROR: $e');
       debugPrint('[DigiLocker]   stack: $stack');
@@ -129,19 +118,15 @@ class DigiLockerService {
     String? companyId,
   }) async {
     debugPrint('[DigiLocker] verifyStakeholder called, consentId: $consentId, gstin: $gstin');
-    final callable = _functions.httpsCallable(
-      'verifyStakeholder',
-      options: HttpsCallableOptions(timeout: const Duration(seconds: 15)),
-    );
     try {
-      final result = await callable.call({
+      final data = await CloudFunctionsService.call('verifyStakeholder', {
         'consentId': consentId,
         'gstin': gstin,
         'companyId': companyId,
         'uid': FirebaseAuth.instance.currentUser?.uid,
       });
-      debugPrint('[DigiLocker] verifyStakeholder response: ${result.data}');
-      return StakeholderResult.fromMap(Map<String, dynamic>.from(result.data as Map));
+      debugPrint('[DigiLocker] verifyStakeholder response: $data');
+      return StakeholderResult.fromMap(data);
     } catch (e, stack) {
       debugPrint('[DigiLocker] verifyStakeholder ERROR: $e');
       debugPrint('[DigiLocker]   stack: $stack');

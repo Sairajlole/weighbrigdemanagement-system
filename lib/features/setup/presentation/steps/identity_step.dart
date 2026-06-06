@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -111,16 +112,12 @@ class _IdentityStepState extends ConsumerState<IdentityStep> {
         }
       }
 
-      final response = await FirebaseFunctions.instance
-          .httpsCallable('verifyOperatorId', options: HttpsCallableOptions(timeout: const Duration(seconds: 90)))
-          .call({
+      final data = await CloudFunctionsService.call('verifyOperatorId', {
         'images': images,
         'documentType': _selectedDocType,
         'operatorName': operatorName,
         'companyId': companyId,
       });
-
-      final data = response.data as Map<String, dynamic>;
 
       if (data['valid'] != true) {
         setState(() { _scanning = false; _error = data['message'] as String? ?? 'Verification failed.'; });

@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/connectivity_provider.dart';
@@ -145,11 +145,9 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
     setState(() { _lookingUp = true; _lookupResult = null; });
 
     try {
-      final fn = FirebaseFunctions.instance.httpsCallable('lookupGstin');
-      final result = await fn.call({'gstin': gstin});
-      debugPrint('GSTIN lookup raw response: ${result.data}');
-      final responseData = result.data;
-      if (responseData == null || responseData['data'] == null) {
+      final responseData = await CloudFunctionsService.call('lookupGstin', {'gstin': gstin});
+      debugPrint('GSTIN lookup raw response: $responseData');
+      if (responseData['data'] == null) {
         debugPrint('GSTIN lookup: no data in response');
         if (mounted) setState(() => _lookingUp = false);
         return;

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -241,11 +241,7 @@ class InlineVerificationNotifier extends StateNotifier<InlineVerificationState> 
     state = state.copyWith(statusMessage: 'Verifying PIN...', clearError: true);
 
     try {
-      final response = await FirebaseFunctions.instance
-          .httpsCallable('verifyOperatorPin', options: HttpsCallableOptions(timeout: const Duration(seconds: 10)))
-          .call({'pin': pin, 'companyId': companyId, 'operatorEmail': currentOperatorEmail});
-
-      final data = Map<String, dynamic>.from(response.data as Map);
+      final data = await CloudFunctionsService.call('verifyOperatorPin', {'pin': pin, 'companyId': companyId, 'operatorEmail': currentOperatorEmail});
       if (data['match'] == true) {
         final isSame = data['isSameOperator'] as bool? ?? true;
         final matchedEmail = data['operatorEmail'] as String? ?? '';

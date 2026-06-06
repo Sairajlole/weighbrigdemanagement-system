@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/gate_service.dart';
@@ -87,7 +87,7 @@ Future<void> logGateEvent({
   int? responseTimeMs,
 }) async {
   try {
-    await FirebaseFunctions.instance.httpsCallable('logGateEvent').call({
+    await CloudFunctionsService.call('logGateEvent', {
       'gateId': gateId,
       'action': action,
       'success': success,
@@ -133,11 +133,11 @@ class RfidValidationResult {
 
 Future<RfidValidationResult> validateRfidTag(String tagId, {String? gateId}) async {
   try {
-    final result = await FirebaseFunctions.instance.httpsCallable('validateRfidTag').call({
+    final result = await CloudFunctionsService.call('validateRfidTag', {
       'tagId': tagId,
       if (gateId != null) 'gateId': gateId,
     });
-    return RfidValidationResult.fromMap(Map<String, dynamic>.from(result.data as Map));
+    return RfidValidationResult.fromMap(result);
   } catch (e) {
     return RfidValidationResult(valid: false, reason: 'Validation failed: $e');
   }
@@ -147,14 +147,12 @@ Future<RfidValidationResult> validateRfidTag(String tagId, {String? gateId}) asy
 
 Future<String> triggerGateRemote(String gateId, String action) async {
   try {
-    final result = await FirebaseFunctions.instance.httpsCallable('triggerGate').call({
+    final data = await CloudFunctionsService.call('triggerGate', {
       'gateId': gateId,
       'action': action,
     });
-    final data = Map<String, dynamic>.from(result.data as Map);
     return data['message'] as String? ?? 'Command sent';
   } catch (e) {
-    if (e is FirebaseFunctionsException) return e.message ?? 'Failed';
     return 'Failed: $e';
   }
 }
