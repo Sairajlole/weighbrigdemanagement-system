@@ -14,33 +14,35 @@ class WindowTitleBar extends StatelessWidget {
 
     final scheme = Theme.of(context).colorScheme;
 
-    return GestureDetector(
-      onDoubleTap: () async {
-        if (await windowManager.isMaximized()) {
-          await windowManager.unmaximize();
-        } else {
-          await windowManager.maximize();
-        }
-      },
-      child: DragToMoveArea(
-        child: Container(
-          height: _kTitleBarHeight,
-          color: scheme.surfaceContainerLow,
-          child: Row(
-            children: [
-              const SizedBox(width: 12),
-              Text(
-                'tulanam',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: scheme.onSurfaceVariant,
-                  letterSpacing: 0.5,
+    return Material(
+      color: scheme.surfaceContainerLow,
+      child: GestureDetector(
+        onDoubleTap: () async {
+          if (await windowManager.isMaximized()) {
+            await windowManager.unmaximize();
+          } else {
+            await windowManager.maximize();
+          }
+        },
+        child: DragToMoveArea(
+          child: SizedBox(
+            height: _kTitleBarHeight,
+            child: Row(
+              children: [
+                const SizedBox(width: 12),
+                Text(
+                  'tulanam',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurfaceVariant,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              const _WindowButtons(),
-            ],
+                const Spacer(),
+                const _WindowButtons(),
+              ],
+            ),
           ),
         ),
       ),
