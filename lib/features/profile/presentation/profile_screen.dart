@@ -33,13 +33,12 @@ final profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   if (email == null || email.isEmpty) return {'role': 'admin'};
 
   try {
-    // Check site-scoped operators first
-    final snap = await db.operators.where('email', isEqualTo: email).limit(1).get();
-    if (snap.docs.isNotEmpty) {
-      final data = snap.docs.first.data();
-      final rawRole = data['role'] as String? ?? 'operator';
+    // Use consolidated operator doc (avoids duplicate Firestore query)
+    final opData = await ref.watch(currentOperatorDocProvider.future);
+    if (opData != null) {
+      final rawRole = opData['role'] as String? ?? 'operator';
       final role = (rawRole == 'companyAdmin' || rawRole == 'admin') ? 'admin' : rawRole;
-      final result = {'id': snap.docs.first.id, ...data, 'role': role};
+      final result = <String, dynamic>{...opData, 'role': role};
       if (role == 'admin') {
         try {
           final adminDoc = await db.adminProfileSettings.get();

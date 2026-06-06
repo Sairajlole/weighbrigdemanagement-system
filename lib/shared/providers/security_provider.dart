@@ -191,20 +191,26 @@ final securitySettingsProvider = FutureProvider<SecuritySettings>((ref) async {
   return const SecuritySettings();
 });
 
-final currentUserRoleProvider = FutureProvider<String>((ref) async {
+// Single Firestore query for the current operator document — all operator
+// attribute providers derive from this to avoid duplicate network calls.
+final currentOperatorDocProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   final paths = ref.watch(firestorePathsProvider);
   final user = FirebaseAuth.instance.currentUser;
   final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
-  if (email == null || email.isEmpty) return Platform.isMacOS ? 'admin' : 'operator';
-  if (!paths.isConfigured) return 'admin';
+  if (email == null || email.isEmpty) return null;
+  if (!paths.isConfigured) return null;
   try {
-    final doc = await paths.operators.where('email', isEqualTo: email).limit(1).get();
-    if (doc.docs.isNotEmpty) {
-      final role = doc.docs.first.data()['role'] as String? ?? 'operator';
-      return (role == 'companyAdmin' || role == 'admin') ? 'admin' : role;
-    }
+    final snap = await paths.operators.where('email', isEqualTo: email).limit(1).get();
+    if (snap.docs.isNotEmpty) return snap.docs.first.data();
   } catch (_) {}
-  return 'admin';
+  return null;
+});
+
+final currentUserRoleProvider = FutureProvider<String>((ref) async {
+  final doc = await ref.watch(currentOperatorDocProvider.future);
+  if (doc == null) return Platform.isMacOS ? 'admin' : 'operator';
+  final role = doc['role'] as String? ?? 'operator';
+  return (role == 'companyAdmin' || role == 'admin') ? 'admin' : role;
 });
 
 final isAdminProvider = Provider<bool>((ref) {
@@ -215,32 +221,17 @@ final isAdminProvider = Provider<bool>((ref) {
 // ─── KYC Status Provider ────────────────────────────────────────────────────
 
 final currentOperatorKycProvider = FutureProvider<bool>((ref) async {
-  final paths = ref.watch(firestorePathsProvider);
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return true;
-  if (!paths.isConfigured) return true;
-  try {
-    final snap = await paths.operators.where('email', isEqualTo: user.email).limit(1).get();
-    if (snap.docs.isEmpty) return true; // admin (not in operators collection)
-    return snap.docs.first.data()['idStatus'] == 'verified';
-  } catch (_) {}
-  return false;
+  final doc = await ref.watch(currentOperatorDocProvider.future);
+  if (doc == null) return true; // admin (not in operators collection)
+  return doc['idStatus'] == 'verified';
 });
 
 // ─── Operator Active Status ─────────────────────────────────────────────────
 
 final currentOperatorActiveProvider = FutureProvider<bool>((ref) async {
-  final paths = ref.watch(firestorePathsProvider);
-  final user = FirebaseAuth.instance.currentUser;
-  final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
-  if (email == null || email.isEmpty) return true;
-  if (!paths.isConfigured) return true;
-  try {
-    final snap = await paths.operators.where('email', isEqualTo: email).limit(1).get();
-    if (snap.docs.isEmpty) return true;
-    return snap.docs.first.data()['isActive'] as bool? ?? true;
-  } catch (_) {}
-  return true;
+  final doc = await ref.watch(currentOperatorDocProvider.future);
+  if (doc == null) return true;
+  return doc['isActive'] as bool? ?? true;
 });
 
 // ─── Current Operator Name ──────────────────────────────────────────────────
@@ -257,32 +248,16 @@ final currentOperatorNameProvider = Provider<String>((ref) {
 
 final _operatorNameFutureProvider = FutureProvider<String>((ref) async {
   ref.watch(operatorIdentityRefreshProvider);
-  final paths = ref.watch(firestorePathsProvider);
+  final doc = await ref.watch(currentOperatorDocProvider.future);
+  if (doc != null) return doc['name'] as String? ?? '';
   final user = FirebaseAuth.instance.currentUser;
   final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
-  if (email == null || email.isEmpty) return '';
-  if (!paths.isConfigured) return '';
-  try {
-    final snap = await paths.operators.where('email', isEqualTo: email).limit(1).get();
-    if (snap.docs.isNotEmpty) {
-      return snap.docs.first.data()['name'] as String? ?? '';
-    }
-  } catch (_) {}
-  return user?.displayName ?? email;
+  return user?.displayName ?? email ?? '';
 });
 
 final currentOperatorProfilePicProvider = FutureProvider<String>((ref) async {
-  final paths = ref.watch(firestorePathsProvider);
-  final user = FirebaseAuth.instance.currentUser;
-  final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
-  if (email == null || email.isEmpty) return '';
-  if (!paths.isConfigured) return '';
-  try {
-    final snap = await paths.operators.where('email', isEqualTo: email).limit(1).get();
-    if (snap.docs.isNotEmpty) {
-      return snap.docs.first.data()['profilePic'] as String? ?? '';
-    }
-  } catch (_) {}
+  final doc = await ref.watch(currentOperatorDocProvider.future);
+  if (doc != null) return doc['profilePic'] as String? ?? '';
   return '';
 });
 
@@ -312,17 +287,9 @@ class OperatorPermissions {
 }
 
 final currentOperatorPermissionsProvider = FutureProvider<OperatorPermissions>((ref) async {
-  final paths = ref.watch(firestorePathsProvider);
-  final user = FirebaseAuth.instance.currentUser;
-  final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
-  if (email == null || email.isEmpty) return const OperatorPermissions();
-  if (!paths.isConfigured) return const OperatorPermissions();
-  try {
-    final snap = await paths.operators.where('email', isEqualTo: email).limit(1).get();
-    if (snap.docs.isEmpty) return const OperatorPermissions();
-    return OperatorPermissions.fromMap(snap.docs.first.data());
-  } catch (_) {}
-  return const OperatorPermissions();
+  final doc = await ref.watch(currentOperatorDocProvider.future);
+  if (doc == null) return const OperatorPermissions();
+  return OperatorPermissions.fromMap(doc);
 });
 
 // ─── Permission Check Service ────────────────────────────────────────────────

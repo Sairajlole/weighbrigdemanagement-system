@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -16,20 +17,22 @@ import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 // ─── Providers ─────────────────────────────────────────────────────────────────
 
-final _weighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+final _weighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) async* {
   final paths = ref.watch(firestorePathsProvider);
-  if (!paths.isConfigured) return const Stream.empty();
-  return paths.weighments
+  if (!paths.isConfigured) return;
+  if (Platform.isWindows) await Future<void>.delayed(const Duration(seconds: 1));
+  yield* paths.weighments
       .orderBy('createdAt', descending: true)
       .limit(100)
       .snapshots()
       .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
 });
 
-final _customersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+final _customersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) async* {
   final paths = ref.watch(firestorePathsProvider);
-  if (!paths.isConfigured) return const Stream.empty();
-  return paths.customers
+  if (!paths.isConfigured) return;
+  if (Platform.isWindows) await Future<void>.delayed(const Duration(seconds: 2));
+  yield* paths.customers
       .orderBy('totalWeighments', descending: true)
       .limit(10)
       .snapshots()

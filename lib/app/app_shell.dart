@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 
@@ -32,10 +33,12 @@ import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 final sidebarCollapsedProvider = StateProvider<bool>((ref) => false);
 
-final _pendingOperatorsCountProvider = StreamProvider<int>((ref) {
+final _pendingOperatorsCountProvider = StreamProvider<int>((ref) async* {
   final paths = ref.watch(firestorePathsProvider);
-  if (!paths.isConfigured) return const Stream.empty();
-  return paths.operators.where('isVerified', isEqualTo: false).snapshots().map(
+  if (!paths.isConfigured) return;
+  // Stagger stream startup on Windows to avoid Firestore threading crash
+  if (Platform.isWindows) await Future<void>.delayed(const Duration(seconds: 2));
+  yield* paths.operators.where('isVerified', isEqualTo: false).snapshots().map(
     (snap) => snap.docs.where((d) {
       final data = d.data();
       if (data['isArchived'] == true) return false;

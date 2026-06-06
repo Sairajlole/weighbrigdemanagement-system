@@ -1,10 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 
-final unreadNotificationsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+final unreadNotificationsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) async* {
   final paths = ref.watch(firestorePathsProvider);
-  if (!paths.isConfigured) return const Stream.empty();
-  return paths.notifications
+  if (!paths.isConfigured) return;
+  if (Platform.isWindows) await Future<void>.delayed(const Duration(seconds: 3));
+  yield* paths.notifications
       .where('read', isEqualTo: false)
       .orderBy('createdAt', descending: true)
       .limit(20)
