@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:weighbridgemanagement/shared/widgets/window_title_bar.dart';
 import 'package:weighbridgemanagement/firebase_options.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
@@ -55,8 +56,8 @@ void main() async {
   }
 
   await windowManager.waitUntilReadyToShow(
-    WindowOptions(
-      titleBarStyle: Platform.isWindows ? TitleBarStyle.normal : TitleBarStyle.hidden,
+    const WindowOptions(
+      titleBarStyle: TitleBarStyle.hidden,
       title: 'Tulanam',
     ),
     () async {
@@ -104,7 +105,12 @@ class _WeighbridgeAppState extends ConsumerState<WeighbridgeApp> {
           data: MediaQuery.of(context).copyWith(
             textScaler: TextScaler.linear(appearance.fontScale),
           ),
-          child: _VersionGate(child: child!),
+          child: Column(
+            children: [
+              const WindowTitleBar(),
+              Expanded(child: _VersionGate(child: child!)),
+            ],
+          ),
         );
       },
     );
