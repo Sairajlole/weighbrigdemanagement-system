@@ -36,6 +36,12 @@ class _GatesStepState extends ConsumerState<GatesStep> {
   bool _entryAutoClose = true;
   bool _exitAutoClose = true;
 
+  // ── RFID config ──
+  bool _rfidEnabled = false;
+  String _rfidProtocol = 'Wiegand 26';
+  final _rfidIp = TextEditingController();
+  final _rfidTimeout = TextEditingController(text: '10');
+
   // ── Traffic Signal config ──
   bool _signalEnabled = false;
   String _signalType = 'serial';
@@ -70,6 +76,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
     _detectPorts();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(stepSaveCallbackProvider.notifier).state = _save;
+      _updateHasData();
     });
   }
 
@@ -79,6 +86,8 @@ class _GatesStepState extends ConsumerState<GatesStep> {
     _exitIp.dispose();
     _entryDuration.dispose();
     _exitDuration.dispose();
+    _rfidIp.dispose();
+    _rfidTimeout.dispose();
     _entryUrlCtrl.dispose();
     _exitUrlCtrl.dispose();
     super.dispose();
@@ -105,12 +114,13 @@ class _GatesStepState extends ConsumerState<GatesStep> {
   }
 
   void _updateHasData() {
-    final barrierConnected = _barrierEntryResult == 'ok' || _barrierExitResult == 'ok';
+    final barrierConfigured = _barrierEnabled && (_entryIp.text.trim().isNotEmpty || _exitIp.text.trim().isNotEmpty);
+    final rfidConfigured = _rfidEnabled && _rfidIp.text.trim().isNotEmpty;
     final signalConfigured = _signalEnabled && (
         _signalType == 'http'
             ? _entryUrlCtrl.text.trim().isNotEmpty || _exitUrlCtrl.text.trim().isNotEmpty
             : _entryPort.isNotEmpty || _exitPort.isNotEmpty);
-    ref.read(stepHasDataProvider.notifier).state = barrierConnected || signalConfigured || (!_barrierEnabled && !_signalEnabled);
+    ref.read(stepHasDataProvider.notifier).state = barrierConfigured || rfidConfigured || signalConfigured || (!_barrierEnabled && !_rfidEnabled && !_signalEnabled);
   }
 
   Future<void> _loadData() async {
@@ -122,11 +132,9 @@ class _GatesStepState extends ConsumerState<GatesStep> {
     }
 
     try {
-      // Load barrier gate settings
       final gateSnap = await paths.gateControlSettings.get();
       final gateData = gateSnap.data() ?? {};
 
-      // Load traffic signal settings
       final signalSnap = await paths.camerasAiSettings.get();
       final signalData = (signalSnap.data()?['trafficSignal'] as Map<String, dynamic>?) ?? {};
 
@@ -142,6 +150,11 @@ class _GatesStepState extends ConsumerState<GatesStep> {
           _exitDuration.text = '${gateData['exitDuration'] ?? 30}';
           _entryAutoClose = gateData['entryAutoClose'] as bool? ?? true;
           _exitAutoClose = gateData['exitAutoClose'] as bool? ?? true;
+
+          _rfidEnabled = gateData['rfidEnabled'] as bool? ?? false;
+          _rfidProtocol = gateData['rfidProtocol'] as String? ?? 'Wiegand 26';
+          _rfidIp.text = gateData['rfidIp'] as String? ?? '';
+          _rfidTimeout.text = '${gateData['rfidTimeout'] ?? 10}';
 
           _signalEnabled = signalData['enabled'] as bool? ?? false;
           _signalType = signalData['type'] as String? ?? 'serial';
@@ -230,7 +243,6 @@ class _GatesStepState extends ConsumerState<GatesStep> {
     try {
       final paths = ref.read(firestorePathsProvider);
 
-      // Save barrier config
       await paths.gateControlSettings.set({
         'enabled': _barrierEnabled && (_barrierEntryResult == 'ok' || _barrierExitResult == 'ok'),
         'entryEnabled': true,
@@ -245,10 +257,13 @@ class _GatesStepState extends ConsumerState<GatesStep> {
         'exitChannel': _exitChannel,
         'exitDuration': int.tryParse(_exitDuration.text.trim()) ?? 30,
         'exitAutoClose': _exitAutoClose,
+        'rfidEnabled': _rfidEnabled,
+        'rfidProtocol': _rfidProtocol,
+        'rfidIp': _rfidIp.text.trim(),
+        'rfidTimeout': int.tryParse(_rfidTimeout.text.trim()) ?? 10,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      // Save traffic signal config
       final signalConfig = TrafficSignalConfig(
         enabled: _signalEnabled,
         type: _signalType,
@@ -282,42 +297,44 @@ class _GatesStepState extends ConsumerState<GatesStep> {
     if (!_loaded) return const AppLoading();
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(40.rs),
+      padding: EdgeInsets.symmetric(horizontal: 40.rs, vertical: 32.rs),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 620),
+          constraints: const BoxConstraints(maxWidth: 860),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Gate Control', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
               SizedBox(height: AppSpacing.sm),
               Text(
-                'Configure barrier gates and traffic signals for vehicle flow control.',
+                'Configure barrier gates, RFID scanners, and traffic signals for vehicle flow.',
                 style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
               ),
-              SizedBox(height: AppSpacing.xxl),
+              SizedBox(height: 32.rs),
 
-              // ── Barrier Gates Section ──
+              // Three sections stacked
               _buildBarrierSection(scheme, text),
-              SizedBox(height: AppSpacing.xl),
-
-              // ── Traffic Signals Section ──
+              SizedBox(height: 20.rs),
+              _buildRfidSection(scheme, text),
+              SizedBox(height: 20.rs),
               _buildTrafficSignalSection(scheme, text),
-              SizedBox(height: AppSpacing.xl),
+              SizedBox(height: 20.rs),
 
+              // Info note
               Container(
                 padding: EdgeInsets.all(12.rs),
                 decoration: BoxDecoration(
-                  color: scheme.primaryContainer.withValues(alpha: 0.2),
+                  color: scheme.primaryContainer.withValues(alpha: 0.15),
                   borderRadius: AppRadius.button,
+                  border: Border.all(color: scheme.primary.withValues(alpha: 0.1)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
+                    Icon(Icons.info_outline_rounded, size: 15, color: scheme.primary.withValues(alpha: 0.7)),
                     SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        'Advanced settings (safety interlocks, RFID, night mode) can be configured later in Settings.',
+                        'Advanced options (safety interlocks, night mode, failsafe) are available in Settings after setup.',
                         style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                       ),
                     ),
@@ -336,58 +353,48 @@ class _GatesStepState extends ConsumerState<GatesStep> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildBarrierSection(ColorScheme scheme, TextTheme text) {
-    return Container(
-      padding: AppSpacing.cardPadding,
-      decoration: BoxDecoration(
-        border: Border.all(color: _barrierEnabled ? scheme.primary.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.3)),
-        borderRadius: AppRadius.card,
-      ),
+    return _WizardSection(
+      scheme: scheme,
+      active: _barrierEnabled,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.garage_rounded, size: 20, color: _barrierEnabled ? scheme.primary : scheme.onSurfaceVariant),
-              SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Barrier Gates', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                    Text('Entry & exit boom barriers', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-              Switch(value: _barrierEnabled, onChanged: (v) { setState(() => _barrierEnabled = v); _updateHasData(); }),
-            ],
+          _buildSectionHeader(
+            icon: Icons.garage_rounded,
+            title: 'Barrier Gates',
+            subtitle: 'Entry & exit boom barriers',
+            enabled: _barrierEnabled,
+            onToggle: (v) { setState(() => _barrierEnabled = v); _updateHasData(); },
+            scheme: scheme,
+            text: text,
           ),
           if (_barrierEnabled) ...[
-            SizedBox(height: AppSpacing.lg),
-            _buildDropdown('Protocol', _barrierProtocol, _protocols, (v) => setState(() => _barrierProtocol = v!), scheme, text),
-            SizedBox(height: AppSpacing.lg),
-
-            // Entry gate
-            _buildBarrierGateRow('Entry', _entryIp, _entryChannel, _entryDuration, _entryAutoClose,
-                _testingBarrierEntry, _barrierEntryResult, true, scheme, text),
-            SizedBox(height: AppSpacing.md),
-
-            // Exit gate
-            _buildBarrierGateRow('Exit', _exitIp, _exitChannel, _exitDuration, _exitAutoClose,
-                _testingBarrierExit, _barrierExitResult, false, scheme, text),
+            SizedBox(height: 16.rs),
+            _buildCompactDropdown('Protocol', _barrierProtocol, _protocols, (v) => setState(() => _barrierProtocol = v!), scheme, text),
+            SizedBox(height: 16.rs),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildGateCard('Entry', _entryIp, _entryChannel, _entryDuration, _entryAutoClose, _testingBarrierEntry, _barrierEntryResult, true, scheme, text)),
+                SizedBox(width: 14.rs),
+                Expanded(child: _buildGateCard('Exit', _exitIp, _exitChannel, _exitDuration, _exitAutoClose, _testingBarrierExit, _barrierExitResult, false, scheme, text)),
+              ],
+            ),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildBarrierGateRow(String label, TextEditingController ipCtrl, String channel,
+  Widget _buildGateCard(String label, TextEditingController ipCtrl, String channel,
       TextEditingController durationCtrl, bool autoClose, bool testing, String? testResult,
       bool isEntry, ColorScheme scheme, TextTheme text) {
     return Container(
-      padding: EdgeInsets.all(12.rs),
+      padding: EdgeInsets.all(14.rs),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLow.withValues(alpha: 0.5),
-        borderRadius: AppRadius.button,
+        borderRadius: BorderRadius.circular(10.rs),
+        border: Border.all(color: testResult == 'ok' ? AppTheme.successColor.withValues(alpha: 0.3) : scheme.outlineVariant.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,32 +403,60 @@ class _GatesStepState extends ConsumerState<GatesStep> {
             children: [
               Icon(isEntry ? Icons.login_rounded : Icons.logout_rounded, size: 14, color: scheme.onSurfaceVariant),
               SizedBox(width: 6.rs),
-              Text(label, style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+              Text(label, style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+              const Spacer(),
               if (testResult != null) ...[
-                SizedBox(width: AppSpacing.sm),
                 Container(
                   width: 7, height: 7,
                   decoration: BoxDecoration(shape: BoxShape.circle, color: testResult == 'ok' ? AppTheme.successColor : scheme.error),
                 ),
                 SizedBox(width: 4.rs),
-                Text(testResult == 'ok' ? 'Connected' : 'Failed',
-                    style: TextStyle(fontSize: 10, color: testResult == 'ok' ? AppTheme.successColor : scheme.error, fontWeight: FontWeight.w500)),
+                Text(testResult == 'ok' ? 'OK' : 'Fail',
+                    style: TextStyle(fontSize: 10, color: testResult == 'ok' ? AppTheme.successColor : scheme.error, fontWeight: FontWeight.w600)),
               ],
             ],
           ),
-          SizedBox(height: AppSpacing.sm),
+          SizedBox(height: 10.rs),
+          _buildCompactIpField(ipCtrl, isEntry ? '192.168.1.150' : '192.168.1.151', scheme, text),
+          SizedBox(height: 8.rs),
           Row(
             children: [
-              Expanded(child: _buildIpField('IP Address', ipCtrl, isEntry ? '192.168.1.150' : '192.168.1.151', scheme, text)),
-              SizedBox(width: AppSpacing.sm),
-              SizedBox(
-                width: 120,
-                child: _buildDropdown('Channel', channel, _channels, (v) => setState(() {
+              Expanded(
+                child: _buildCompactDropdown('Channel', channel, _channels, (v) => setState(() {
                   if (isEntry) _entryChannel = v!; else _exitChannel = v!;
                 }), scheme, text),
               ),
-              SizedBox(width: AppSpacing.sm),
-              _buildTestButton(
+              SizedBox(width: 8.rs),
+              SizedBox(
+                width: 60,
+                child: TextField(
+                  controller: durationCtrl,
+                  style: const TextStyle(fontSize: 12),
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Sec',
+                    labelStyle: const TextStyle(fontSize: 10),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    border: OutlineInputBorder(borderRadius: AppRadius.button),
+                    enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4))),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 10.rs),
+          Row(
+            children: [
+              _buildMiniChip(
+                autoClose ? 'Auto-close' : 'Manual',
+                autoClose ? Icons.timer_rounded : Icons.timer_off_rounded,
+                autoClose,
+                () => setState(() { if (isEntry) _entryAutoClose = !autoClose; else _exitAutoClose = !autoClose; }),
+                scheme,
+              ),
+              const Spacer(),
+              _buildTestBtn(
                 testing: testing,
                 enabled: ipCtrl.text.trim().isNotEmpty && isValidHostOrIp(ipCtrl.text.trim()),
                 onPressed: () => _testBarrier(isEntry),
@@ -435,58 +470,117 @@ class _GatesStepState extends ConsumerState<GatesStep> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // ── RFID ──────────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildRfidSection(ColorScheme scheme, TextTheme text) {
+    return _WizardSection(
+      scheme: scheme,
+      active: _rfidEnabled,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(
+            icon: Icons.nfc_rounded,
+            title: 'RFID / Tag Scanner',
+            subtitle: 'Automatic vehicle identification at gates',
+            enabled: _rfidEnabled,
+            onToggle: (v) { setState(() => _rfidEnabled = v); _updateHasData(); },
+            scheme: scheme,
+            text: text,
+          ),
+          if (_rfidEnabled) ...[
+            SizedBox(height: 16.rs),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: _buildCompactDropdown('Protocol', _rfidProtocol, ['Wiegand 26', 'Wiegand 34', 'RS-485', 'TCP/IP', 'USB HID'], (v) => setState(() => _rfidProtocol = v!), scheme, text),
+                ),
+                SizedBox(width: 14.rs),
+                Expanded(
+                  flex: 2,
+                  child: _buildCompactIpField(_rfidIp, '192.168.1.200', scheme, text),
+                ),
+                SizedBox(width: 14.rs),
+                SizedBox(
+                  width: 80,
+                  child: TextField(
+                    controller: _rfidTimeout,
+                    style: const TextStyle(fontSize: 12),
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => _updateHasData(),
+                    decoration: InputDecoration(
+                      labelText: 'Timeout',
+                      labelStyle: const TextStyle(fontSize: 10),
+                      suffixText: 's',
+                      suffixStyle: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: AppRadius.button),
+                      enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4))),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 10.rs),
+            Text(
+              'Tags scanned at gate auto-identify vehicles. Unregistered or blacklisted tags block the gate.',
+              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant, height: 1.4),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // ── Traffic Signals ────────────────────────────────────────────────────────
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildTrafficSignalSection(ColorScheme scheme, TextTheme text) {
-    return Container(
-      padding: AppSpacing.cardPadding,
-      decoration: BoxDecoration(
-        border: Border.all(color: _signalEnabled ? scheme.primary.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.3)),
-        borderRadius: AppRadius.card,
-      ),
+    return _WizardSection(
+      scheme: scheme,
+      active: _signalEnabled,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.traffic_rounded, size: 20, color: _signalEnabled ? scheme.primary : scheme.onSurfaceVariant),
-              SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Traffic Signals', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                    Text('Red/yellow/green entry & exit lights', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-              Switch(value: _signalEnabled, onChanged: (v) { setState(() => _signalEnabled = v); _updateHasData(); }),
-            ],
+          _buildSectionHeader(
+            icon: Icons.traffic_rounded,
+            title: 'Traffic Signals',
+            subtitle: 'Red/yellow/green entry & exit lights',
+            enabled: _signalEnabled,
+            onToggle: (v) { setState(() => _signalEnabled = v); _updateHasData(); },
+            scheme: scheme,
+            text: text,
           ),
           if (_signalEnabled) ...[
-            SizedBox(height: AppSpacing.lg),
+            SizedBox(height: 16.rs),
 
-            // Connection type chips
+            // Connection type
             Wrap(
-              spacing: AppSpacing.sm,
+              spacing: 8,
               children: [
-                _buildTypeChip('serial', 'Serial', Icons.usb_rounded, scheme, text),
-                _buildTypeChip('http', 'HTTP', Icons.language_rounded, scheme, text),
-                _buildTypeChip('gpio', 'GPIO', Icons.developer_board_rounded, scheme, text),
+                _buildTypeChip('serial', 'Serial', Icons.usb_rounded, scheme),
+                _buildTypeChip('http', 'HTTP', Icons.language_rounded, scheme),
+                _buildTypeChip('gpio', 'GPIO', Icons.developer_board_rounded, scheme),
               ],
             ),
-            SizedBox(height: AppSpacing.lg),
+            SizedBox(height: 16.rs),
 
-            // Entry signal config
-            _buildSignalRow('Entry', SignalId.entry, scheme, text),
-            SizedBox(height: AppSpacing.md),
-
-            // Exit signal config
-            _buildSignalRow('Exit', SignalId.exit, scheme, text),
+            // Entry & Exit in a row
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildSignalCard('Entry', SignalId.entry, true, scheme, text)),
+                SizedBox(width: 14.rs),
+                Expanded(child: _buildSignalCard('Exit', SignalId.exit, false, scheme, text)),
+              ],
+            ),
 
             if (_signalTestMsg != null) ...[
-              SizedBox(height: AppSpacing.md),
+              SizedBox(height: 10.rs),
               Text(_signalTestMsg!, style: TextStyle(fontSize: 11, color: scheme.primary, fontWeight: FontWeight.w500)),
             ],
           ],
@@ -495,13 +589,13 @@ class _GatesStepState extends ConsumerState<GatesStep> {
     );
   }
 
-  Widget _buildSignalRow(String label, SignalId signalId, ColorScheme scheme, TextTheme text) {
-    final isEntry = signalId == SignalId.entry;
+  Widget _buildSignalCard(String label, SignalId signalId, bool isEntry, ColorScheme scheme, TextTheme text) {
     return Container(
-      padding: EdgeInsets.all(12.rs),
+      padding: EdgeInsets.all(14.rs),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLow.withValues(alpha: 0.5),
-        borderRadius: AppRadius.button,
+        borderRadius: BorderRadius.circular(10.rs),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -510,98 +604,236 @@ class _GatesStepState extends ConsumerState<GatesStep> {
             children: [
               Icon(isEntry ? Icons.login_rounded : Icons.logout_rounded, size: 14, color: scheme.onSurfaceVariant),
               SizedBox(width: 6.rs),
-              Text('$label Signal', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+              Text('$label Signal', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
             ],
           ),
-          SizedBox(height: AppSpacing.sm),
+          SizedBox(height: 10.rs),
           if (_signalType == 'http') ...[
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: isEntry ? _entryUrlCtrl : _exitUrlCtrl,
-                    style: const TextStyle(fontSize: 12),
-                    onChanged: (_) => _updateHasData(),
-                    decoration: InputDecoration(
-                      hintText: 'http://192.168.1.${isEntry ? "50" : "51"}/signal',
-                      prefixIcon: const Icon(Icons.link_rounded, size: 14),
-                      prefixIconConstraints: const BoxConstraints(minWidth: 36),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: AppRadius.button),
-                      enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
-                    ),
-                  ),
-                ),
-                SizedBox(width: AppSpacing.sm),
-                _buildSignalTestButtons(signalId, scheme),
-              ],
+            TextField(
+              controller: isEntry ? _entryUrlCtrl : _exitUrlCtrl,
+              style: const TextStyle(fontSize: 12),
+              onChanged: (_) => _updateHasData(),
+              decoration: InputDecoration(
+                hintText: 'http://192.168.1.${isEntry ? "50" : "51"}/signal',
+                hintStyle: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                prefixIcon: const Icon(Icons.link_rounded, size: 14),
+                prefixIconConstraints: const BoxConstraints(minWidth: 36),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: AppRadius.button),
+                enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4))),
+              ),
             ),
           ] else ...[
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _availablePorts.contains(isEntry ? _entryPort : _exitPort) ? (isEntry ? _entryPort : _exitPort) : null,
-                    items: _availablePorts.map((p) => DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 12)))).toList(),
-                    onChanged: (v) { setState(() { if (isEntry) _entryPort = v ?? ''; else _exitPort = v ?? ''; }); _updateHasData(); },
-                    decoration: InputDecoration(
-                      hintText: _availablePorts.isEmpty ? 'No ports' : 'Select port',
-                      hintStyle: const TextStyle(fontSize: 12),
-                      prefixIcon: Icon(_signalType == 'serial' ? Icons.usb_rounded : Icons.developer_board_rounded, size: 14),
-                      prefixIconConstraints: const BoxConstraints(minWidth: 36),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: AppRadius.button),
-                      enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
-                    ),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 14),
-                  ),
-                ),
-                SizedBox(width: AppSpacing.sm),
-                IconButton(
-                  onPressed: _detectPorts,
-                  icon: const Icon(Icons.refresh_rounded, size: 16),
-                  tooltip: 'Refresh ports',
-                  visualDensity: VisualDensity.compact,
-                ),
-                _buildSignalTestButtons(signalId, scheme),
-              ],
+            DropdownButtonFormField<String>(
+              initialValue: _availablePorts.contains(isEntry ? _entryPort : _exitPort) ? (isEntry ? _entryPort : _exitPort) : null,
+              items: _availablePorts.map((p) => DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 12)))).toList(),
+              onChanged: (v) { setState(() { if (isEntry) _entryPort = v ?? ''; else _exitPort = v ?? ''; }); _updateHasData(); },
+              decoration: InputDecoration(
+                hintText: _availablePorts.isEmpty ? 'No ports' : 'Select port',
+                hintStyle: const TextStyle(fontSize: 11),
+                prefixIcon: Icon(_signalType == 'serial' ? Icons.usb_rounded : Icons.developer_board_rounded, size: 14),
+                prefixIconConstraints: const BoxConstraints(minWidth: 36),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: AppRadius.button),
+                enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4))),
+              ),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 14),
             ),
             if (_signalType == 'serial') ...[
-              SizedBox(height: AppSpacing.sm),
+              SizedBox(height: 8.rs),
               SizedBox(
-                width: 140,
+                width: 120,
                 child: DropdownButtonFormField<int>(
-                  value: _baudRate,
+                  initialValue: _baudRate,
                   items: [9600, 19200, 38400, 115200].map((b) => DropdownMenuItem(value: b, child: Text('$b', style: const TextStyle(fontSize: 12)))).toList(),
                   onChanged: (v) => setState(() => _baudRate = v!),
                   decoration: InputDecoration(
                     labelText: 'Baud',
-                    labelStyle: const TextStyle(fontSize: 11),
+                    labelStyle: const TextStyle(fontSize: 10),
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     border: OutlineInputBorder(borderRadius: AppRadius.button),
-                    enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+                    enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4))),
                   ),
                   icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 14),
                 ),
               ),
             ],
           ],
+          SizedBox(height: 10.rs),
+          Row(
+            children: [
+              _buildSignalDot(signalId, SignalState.red, Colors.red, scheme),
+              SizedBox(width: 6.rs),
+              _buildSignalDot(signalId, SignalState.green, AppTheme.successColor, scheme),
+              const Spacer(),
+              if (_availablePorts.isNotEmpty || _signalType == 'http')
+                IconButton(
+                  onPressed: _signalType != 'http' ? _detectPorts : null,
+                  icon: const Icon(Icons.refresh_rounded, size: 14),
+                  tooltip: 'Refresh ports',
+                  visualDensity: VisualDensity.compact,
+                  style: IconButton.styleFrom(padding: const EdgeInsets.all(4)),
+                ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSignalTestButtons(SignalId signalId, ColorScheme scheme) {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ── Shared Widgets ─────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildSectionHeader({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool enabled,
+    required ValueChanged<bool> onToggle,
+    required ColorScheme scheme,
+    required TextTheme text,
+  }) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        _buildSignalDot(signalId, SignalState.red, Colors.red, scheme),
-        SizedBox(width: 4.rs),
-        _buildSignalDot(signalId, SignalState.green, AppTheme.successColor, scheme),
+        Icon(icon, size: 20, color: enabled ? scheme.primary : scheme.onSurfaceVariant),
+        SizedBox(width: 10.rs),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              Text(subtitle, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+            ],
+          ),
+        ),
+        Switch(value: enabled, onChanged: onToggle),
       ],
+    );
+  }
+
+  Widget _buildCompactDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged, ColorScheme scheme, TextTheme text) {
+    return DropdownButtonFormField<String>(
+      initialValue: items.contains(value) ? value : items.first,
+      items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12)))).toList(),
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        isDense: true,
+        border: OutlineInputBorder(borderRadius: AppRadius.button),
+        enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4))),
+      ),
+      icon: Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: scheme.onSurfaceVariant),
+    );
+  }
+
+  Widget _buildCompactIpField(TextEditingController ctrl, String hint, ColorScheme scheme, TextTheme text) {
+    final hasValue = ctrl.text.trim().isNotEmpty;
+    final valid = !hasValue || isValidHostOrIp(ctrl.text.trim());
+    return TextField(
+      controller: ctrl,
+      style: const TextStyle(fontSize: 12),
+      inputFormatters: [IpInputFormatter()],
+      onChanged: (_) { setState(() {}); _updateHasData(); },
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        isDense: true,
+        prefixIcon: Padding(
+          padding: const EdgeInsets.only(left: 8, right: 4),
+          child: Icon(
+            hasValue ? (valid ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded) : Icons.lan_outlined,
+            size: 14,
+            color: hasValue ? (valid ? AppTheme.successColor : scheme.error) : scheme.outlineVariant,
+          ),
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 28),
+        border: OutlineInputBorder(borderRadius: AppRadius.button),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: AppRadius.button,
+          borderSide: BorderSide(color: hasValue && !valid ? scheme.error.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.4)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTestBtn({required bool testing, required bool enabled, required VoidCallback onPressed, required ColorScheme scheme}) {
+    return FilledButton.tonal(
+      onPressed: (testing || !enabled) ? null : onPressed,
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: testing
+          ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: scheme.primary))
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.wifi_tethering_rounded, size: 12, color: scheme.primary),
+                SizedBox(width: 4.rs),
+                Text('Test', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildMiniChip(String label, IconData icon, bool active, VoidCallback onTap, ColorScheme scheme) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: active ? scheme.primaryContainer.withValues(alpha: 0.4) : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: AppRadius.chip,
+          border: Border.all(color: active ? scheme.primary.withValues(alpha: 0.3) : scheme.outlineVariant.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 11, color: active ? scheme.primary : scheme.onSurfaceVariant),
+            SizedBox(width: 4.rs),
+            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: active ? scheme.primary : scheme.onSurfaceVariant)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypeChip(String type, String label, IconData icon, ColorScheme scheme) {
+    final selected = _signalType == type;
+    return GestureDetector(
+      onTap: () => setState(() => _signalType = type),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? scheme.primaryContainer.withValues(alpha: 0.5) : scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(8.rs),
+          border: Border.all(
+            color: selected ? AppTheme.brandTeal.withValues(alpha: 0.6) : scheme.outlineVariant.withValues(alpha: 0.3),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: selected ? AppTheme.brandTeal : scheme.onSurfaceVariant),
+            SizedBox(width: 5.rs),
+            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: selected ? AppTheme.brandTeal : scheme.onSurface)),
+            if (selected) ...[
+              SizedBox(width: 4.rs),
+              Icon(Icons.check_circle_rounded, size: 11, color: AppTheme.brandTeal),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -625,118 +857,25 @@ class _GatesStepState extends ConsumerState<GatesStep> {
       ),
     );
   }
+}
 
-  Widget _buildTypeChip(String type, String label, IconData icon, ColorScheme scheme, TextTheme text) {
-    final selected = _signalType == type;
-    return GestureDetector(
-      onTap: () => setState(() => _signalType = type),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? scheme.primaryContainer.withValues(alpha: 0.5) : scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(8.rs),
-          border: Border.all(
-            color: selected ? AppTheme.brandTeal.withValues(alpha: 0.6) : scheme.outlineVariant.withValues(alpha: 0.3),
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: selected ? AppTheme.brandTeal : scheme.onSurfaceVariant),
-            SizedBox(width: 6.rs),
-            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: selected ? AppTheme.brandTeal : scheme.onSurface)),
-            if (selected) ...[
-              SizedBox(width: 4.rs),
-              Icon(Icons.check_circle_rounded, size: 12, color: AppTheme.brandTeal),
-            ],
-          ],
-        ),
+class _WizardSection extends StatelessWidget {
+  final ColorScheme scheme;
+  final bool active;
+  final Widget child;
+
+  const _WizardSection({required this.scheme, required this.active, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(20.rs),
+      decoration: BoxDecoration(
+        border: Border.all(color: active ? scheme.primary.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.3)),
+        borderRadius: AppRadius.card,
+        color: scheme.surface.withValues(alpha: 0.4),
       ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ── Shared Widgets ─────────────────────────────────────────────────────────
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildTestButton({required bool testing, required bool enabled, required VoidCallback onPressed, required ColorScheme scheme}) {
-    return FilledButton.tonal(
-      onPressed: (testing || !enabled) ? null : onPressed,
-      style: FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
-      ),
-      child: testing
-          ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.5, color: scheme.primary))
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.wifi_tethering_rounded, size: 14, color: scheme.primary),
-                SizedBox(width: 4.rs),
-                Text('Test', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged, ColorScheme scheme, TextTheme text) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-        SizedBox(height: 5.rs),
-        DropdownButtonFormField<String>(
-          value: items.contains(value) ? value : items.first,
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12)))).toList(),
-          onChanged: onChanged,
-          decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            isDense: true,
-            border: OutlineInputBorder(borderRadius: AppRadius.button),
-            enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
-          ),
-          icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: scheme.onSurfaceVariant),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildIpField(String label, TextEditingController ctrl, String hint, ColorScheme scheme, TextTheme text) {
-    final hasValue = ctrl.text.trim().isNotEmpty;
-    final valid = !hasValue || isValidHostOrIp(ctrl.text.trim());
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-        SizedBox(height: 5.rs),
-        TextField(
-          controller: ctrl,
-          style: const TextStyle(fontSize: 12),
-          inputFormatters: [IpInputFormatter()],
-          onChanged: (_) => setState(() {}),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(fontSize: 12),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            isDense: true,
-            prefixIcon: Padding(
-              padding: const EdgeInsets.only(left: 8, right: 4),
-              child: Icon(
-                hasValue ? (valid ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded) : Icons.lan_outlined,
-                size: 14,
-                color: hasValue ? (valid ? AppTheme.successColor : scheme.error) : scheme.outlineVariant,
-              ),
-            ),
-            prefixIconConstraints: const BoxConstraints(minWidth: 28),
-            border: OutlineInputBorder(borderRadius: AppRadius.button),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: AppRadius.button,
-              borderSide: BorderSide(color: hasValue && !valid ? scheme.error.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.5)),
-            ),
-          ),
-        ),
-      ],
+      child: child,
     );
   }
 }
