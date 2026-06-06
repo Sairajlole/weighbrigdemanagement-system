@@ -57,12 +57,13 @@ void main() async {
 
   await windowManager.waitUntilReadyToShow(
     const WindowOptions(
+      size: Size(1280, 800),
+      center: true,
       titleBarStyle: TitleBarStyle.hidden,
       title: 'Tulanam',
     ),
     () async {
       await windowManager.show();
-      await windowManager.maximize();
       await windowManager.focus();
     },
   );
