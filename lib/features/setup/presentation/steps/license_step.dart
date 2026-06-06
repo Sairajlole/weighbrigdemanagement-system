@@ -28,6 +28,7 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(stepSaveCallbackProvider.notifier).state = _save;
+      ref.read(stepHasDataProvider.notifier).state = true;
     });
   }
 
