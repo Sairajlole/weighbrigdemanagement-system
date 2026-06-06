@@ -30,7 +30,8 @@ final profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final user = FirebaseAuth.instance.currentUser;
   final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
 
-  if (email == null || email.isEmpty) return {'role': 'admin'};
+  if (email == null || email.isEmpty) return {'role': 'admin', 'name': 'Admin'};
+  if (!db.isConfigured) return {'role': 'admin', 'email': email, 'name': email};
 
   try {
     // Use consolidated operator doc (avoids duplicate Firestore query)
@@ -68,13 +69,19 @@ final profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   } catch (_) {}
 
   try {
-    final adminDoc = await db.adminProfileSettings.get();
-    final profile = <String, dynamic>{'role': 'admin', 'email': email, 'name': user?.displayName};
-    if (adminDoc.exists) profile.addAll(adminDoc.data()!);
+    final profile = <String, dynamic>{'role': 'admin', 'email': email};
+
+    // Fetch admin profile settings (optional — may not exist for new admins)
+    try {
+      final adminDoc = await db.adminProfileSettings.get()
+          .timeout(const Duration(seconds: 10));
+      if (adminDoc.exists) profile.addAll(adminDoc.data()!);
+    } catch (_) {}
 
     // Merge company doc data (phone, adminName, etc.)
     try {
-      final companyDoc = await db.firestore.doc(db.context.companyPath).get();
+      final companyDoc = await db.firestore.doc(db.context.companyPath).get()
+          .timeout(const Duration(seconds: 10));
       if (companyDoc.exists) {
         final cd = companyDoc.data()!;
         profile['phone'] ??= cd['phone'];
@@ -84,10 +91,11 @@ final profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
       }
     } catch (_) {}
 
-    if (adminDoc.exists || profile.length > 3) {
-      LocalCacheService.cacheAdminProfile(profile.map((k, v) => MapEntry(k, v?.toString())));
-      return profile;
-    }
+    // Fallback name
+    profile['name'] ??= user?.displayName ?? email;
+
+    LocalCacheService.cacheAdminProfile(profile.map((k, v) => MapEntry(k, v?.toString())));
+    return profile;
   } catch (_) {}
 
   final cached = await LocalCacheService.getCachedAdminProfile();
