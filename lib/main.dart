@@ -55,8 +55,9 @@ void main() async {
   }
 
   await windowManager.waitUntilReadyToShow(
-    const WindowOptions(
-      titleBarStyle: TitleBarStyle.hidden,
+    WindowOptions(
+      titleBarStyle: Platform.isWindows ? TitleBarStyle.normal : TitleBarStyle.hidden,
+      title: 'Tulanam',
     ),
     () async {
       await windowManager.show();
