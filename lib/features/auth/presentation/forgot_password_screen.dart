@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 enum _ResetStep { email, otp, newPassword, success }
 
@@ -59,6 +62,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         });
       }
     } catch (e) {
+      debugPrint('[ForgotPassword] sendOTP error: $e');
       if (mounted) setState(() => _error = 'Failed to send OTP. Check the email address.');
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -121,6 +125,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[ForgotPassword] build called, step=$_step');
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -141,75 +146,49 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               ),
             ),
           ),
-          Positioned(
-            top: -60,
-            right: -40,
-            child: Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: scheme.primary.withValues(alpha: isDark ? 0.04 : 0.06),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -80,
-            left: -60,
-            child: Container(
-              width: 240,
-              height: 240,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: scheme.tertiary.withValues(alpha: isDark ? 0.03 : 0.05),
-              ),
-            ),
-          ),
           Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32),
+              padding: AppSpacing.pagePadding,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 64,
-                    height: 64,
+                    width: 72.rs,
+                    height: 72.rs,
                     decoration: BoxDecoration(
                       color: scheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(AppRadius.xl),
                       border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
                     ),
-                    child: Icon(Icons.lock_reset_rounded, size: 28, color: scheme.primary),
+                    child: Icon(Icons.lock_reset_rounded, size: AppSizes.iconXl, color: scheme.primary),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: AppSpacing.xl),
                   Text('Reset Password', style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-                  const SizedBox(height: 8),
+                  SizedBox(height: AppSpacing.sm),
                   Text(
                     _stepSubtitle,
                     textAlign: TextAlign.center,
                     style: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
                   ),
-                  const SizedBox(height: 36),
+                  SizedBox(height: 36.rs),
                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
+                    constraints: BoxConstraints(maxWidth: 460.rs),
                     child: Container(
-                      padding: const EdgeInsets.all(32),
+                      padding: EdgeInsets.all(32.rs),
                       decoration: BoxDecoration(
                         color: scheme.surface,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: AppRadius.card,
                         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 8)),
-                        ],
+                        boxShadow: AppElevation.elevated(Colors.black),
                       ),
                       child: _buildStepContent(scheme, text),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: AppSpacing.xl),
                   TextButton.icon(
                     onPressed: () => context.go('/setup?signin=1'),
-                    icon: const Icon(Icons.arrow_back_rounded, size: 16),
-                    label: const Text('Back to Sign In'),
+                    icon: Icon(Icons.arrow_back_rounded, size: AppSizes.iconSm),
+                    label: Text('Back to Sign In', style: TextStyle(fontSize: 14.rs)),
                   ),
                 ],
               ),
@@ -251,19 +230,19 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Widget _buildError(ColorScheme scheme) {
     if (_error == null) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: EdgeInsets.only(bottom: AppSpacing.lg),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: AppSpacing.cardPadding,
         decoration: BoxDecoration(
           color: scheme.errorContainer.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: AppRadius.input,
           border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
-            const SizedBox(width: 8),
-            Expanded(child: Text(_error!, style: TextStyle(fontSize: 12, color: scheme.error, fontWeight: FontWeight.w500))),
+            Icon(Icons.warning_amber_rounded, size: AppSizes.iconMd, color: scheme.error),
+            SizedBox(width: AppSpacing.sm),
+            Expanded(child: Text(_error!, style: TextStyle(fontSize: 13.rs, color: scheme.error, fontWeight: FontWeight.w500))),
           ],
         ),
       ),
@@ -275,31 +254,28 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildError(scheme),
-        Text('Email Address', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-        const SizedBox(height: 6),
+        Text('Email Address', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
+        SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _email,
           keyboardType: TextInputType.emailAddress,
           autofocus: true,
-          style: text.bodyMedium,
+          style: text.bodyLarge,
           onSubmitted: (_) => _sendOTP(),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'you@company.com',
-            prefixIcon: Icon(Icons.email_outlined, size: 18),
+            prefixIcon: Icon(Icons.email_outlined, size: AppSizes.iconMd),
           ),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: AppSpacing.xl),
         SizedBox(
           width: double.infinity,
+          height: AppSizes.buttonHeight,
           child: FilledButton(
             onPressed: _loading ? null : _sendOTP,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
             child: _loading
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Send Verification Code'),
+                ? SizedBox(width: 20.rs, height: 20.rs, child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Text('Send Verification Code', style: TextStyle(fontSize: 15.rs, fontWeight: FontWeight.w600)),
           ),
         ),
       ],
@@ -312,21 +288,21 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         _buildError(scheme),
         if (_phoneSent && _maskedPhone != null)
           Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: EdgeInsets.only(bottom: AppSpacing.lg),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: AppSpacing.cardPadding,
               decoration: BoxDecoration(
                 color: scheme.primaryContainer.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: AppRadius.input,
               ),
               child: Row(
                 children: [
-                  Icon(Icons.phone_android_rounded, size: 16, color: scheme.primary),
-                  const SizedBox(width: 8),
+                  Icon(Icons.phone_android_rounded, size: AppSizes.iconMd, color: scheme.primary),
+                  SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
                       'Also sent via SMS to $_maskedPhone',
-                      style: TextStyle(fontSize: 12, color: scheme.primary, fontWeight: FontWeight.w500),
+                      style: TextStyle(fontSize: 13.rs, color: scheme.primary, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ],
@@ -337,9 +313,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(6, (i) {
             return Container(
-              width: 44,
-              height: 52,
-              margin: EdgeInsets.only(right: i < 5 ? 8 : 0),
+              width: 48.rs,
+              height: 56.rs,
+              margin: EdgeInsets.only(right: i < 5 ? 8.rs : 0),
               child: TextField(
                 controller: _otpControllers[i],
                 focusNode: _otpFocusNodes[i],
@@ -350,8 +326,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
                   counterText: '',
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: EdgeInsets.symmetric(vertical: 12.rs),
+                  border: OutlineInputBorder(borderRadius: AppRadius.input),
                 ),
                 onChanged: (val) {
                   if (val.isNotEmpty && i < 5) {
@@ -367,24 +343,21 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             );
           }),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: AppSpacing.xl),
         SizedBox(
           width: double.infinity,
+          height: AppSizes.buttonHeight,
           child: FilledButton(
             onPressed: _loading ? null : _verifyOTP,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
             child: _loading
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Verify Code'),
+                ? SizedBox(width: 20.rs, height: 20.rs, child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Text('Verify Code', style: TextStyle(fontSize: 15.rs, fontWeight: FontWeight.w600)),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: AppSpacing.md),
         TextButton(
           onPressed: _loading ? null : _resendOTP,
-          child: const Text('Resend Code'),
+          child: Text('Resend Code', style: TextStyle(fontSize: 14.rs)),
         ),
       ],
     );
@@ -395,50 +368,47 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildError(scheme),
-        Text('New Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-        const SizedBox(height: 6),
+        Text('New Password', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
+        SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _newPassword,
           obscureText: _obscureNew,
-          style: text.bodyMedium,
+          style: text.bodyLarge,
           decoration: InputDecoration(
             hintText: 'Minimum 8 characters',
-            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
+            prefixIcon: Icon(Icons.lock_outline_rounded, size: AppSizes.iconMd),
             suffixIcon: IconButton(
-              icon: Icon(_obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
+              icon: Icon(_obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: AppSizes.iconMd),
               onPressed: () => setState(() => _obscureNew = !_obscureNew),
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        Text('Confirm Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-        const SizedBox(height: 6),
+        SizedBox(height: AppSpacing.lg),
+        Text('Confirm Password', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
+        SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _confirmPassword,
           obscureText: _obscureConfirm,
-          style: text.bodyMedium,
+          style: text.bodyLarge,
           onSubmitted: (_) => _resetPassword(),
           decoration: InputDecoration(
             hintText: 'Re-enter your password',
-            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
+            prefixIcon: Icon(Icons.lock_outline_rounded, size: AppSizes.iconMd),
             suffixIcon: IconButton(
-              icon: Icon(_obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
+              icon: Icon(_obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: AppSizes.iconMd),
               onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: AppSpacing.xl),
         SizedBox(
           width: double.infinity,
+          height: AppSizes.buttonHeight,
           child: FilledButton(
             onPressed: _loading ? null : _resetPassword,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
             child: _loading
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Reset Password'),
+                ? SizedBox(width: 20.rs, height: 20.rs, child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Text('Reset Password', style: TextStyle(fontSize: 15.rs, fontWeight: FontWeight.w600)),
           ),
         ),
       ],
@@ -449,32 +419,29 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     return Column(
       children: [
         Container(
-          width: 56,
-          height: 56,
+          width: 64.rs,
+          height: 64.rs,
           decoration: BoxDecoration(
             color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF2E7D32), size: 28),
+          child: Icon(Icons.check_circle_outline_rounded, color: const Color(0xFF2E7D32), size: AppSizes.iconXl),
         ),
-        const SizedBox(height: 16),
-        Text('Password Reset!', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: const Color(0xFF2E7D32))),
-        const SizedBox(height: 8),
+        SizedBox(height: AppSpacing.lg),
+        Text('Password Reset!', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700, color: const Color(0xFF2E7D32))),
+        SizedBox(height: AppSpacing.sm),
         Text(
           'Your password has been changed. You can now sign in with your new password.',
           textAlign: TextAlign.center,
-          style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: AppSpacing.xl),
         SizedBox(
           width: double.infinity,
+          height: AppSizes.buttonHeight,
           child: FilledButton(
             onPressed: () => context.go('/setup?signin=1'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-            child: const Text('Go to Sign In'),
+            child: Text('Go to Sign In', style: TextStyle(fontSize: 15.rs, fontWeight: FontWeight.w600)),
           ),
         ),
       ],

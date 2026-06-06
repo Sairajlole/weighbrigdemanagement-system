@@ -1258,7 +1258,10 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
-              onTap: () => context.go('/forgot-password'),
+              onTap: () {
+                debugPrint('[Login] Navigating to /forgot-password');
+                GoRouter.of(context).go('/forgot-password');
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
