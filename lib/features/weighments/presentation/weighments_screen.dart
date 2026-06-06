@@ -2576,6 +2576,9 @@ class _WbNameLabel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ctx = ref.watch(siteContextProvider);
+    if (!ctx.isConfigured) {
+      return Text('Current WB', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: active ? scheme.onPrimary : scheme.onSurfaceVariant));
+    }
     final db = ref.watch(firestorePathsProvider);
     return FutureBuilder<String>(
       future: db.firestore

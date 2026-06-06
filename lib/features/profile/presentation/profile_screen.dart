@@ -48,19 +48,22 @@ final profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
       return result;
     }
     // Fallback: search across all operator collections (flat + nested)
-    final groupSnap = await db.firestore.collectionGroup('operators').where('email', isEqualTo: email).limit(1).get();
-    if (groupSnap.docs.isNotEmpty) {
-      final data = groupSnap.docs.first.data();
-      final rawRole = data['role'] as String? ?? 'operator';
-      final role = (rawRole == 'companyAdmin' || rawRole == 'admin') ? 'admin' : rawRole;
-      final result = {'id': groupSnap.docs.first.id, ...data, 'role': role};
-      if (role == 'admin') {
-        try {
-          final adminDoc = await db.adminProfileSettings.get();
-          if (adminDoc.exists) result.addAll(adminDoc.data()!);
-        } catch (_) {}
+    // Skip collectionGroup on Windows — it hangs without persistence.
+    if (!Platform.isWindows) {
+      final groupSnap = await db.firestore.collectionGroup('operators').where('email', isEqualTo: email).limit(1).get();
+      if (groupSnap.docs.isNotEmpty) {
+        final data = groupSnap.docs.first.data();
+        final rawRole = data['role'] as String? ?? 'operator';
+        final role = (rawRole == 'companyAdmin' || rawRole == 'admin') ? 'admin' : rawRole;
+        final result = {'id': groupSnap.docs.first.id, ...data, 'role': role};
+        if (role == 'admin') {
+          try {
+            final adminDoc = await db.adminProfileSettings.get();
+            if (adminDoc.exists) result.addAll(adminDoc.data()!);
+          } catch (_) {}
+        }
+        return result;
       }
-      return result;
     }
   } catch (_) {}
 

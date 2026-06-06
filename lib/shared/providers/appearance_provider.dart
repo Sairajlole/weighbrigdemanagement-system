@@ -5,6 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+int? _parseAccentColor(dynamic value) {
+  if (value is int) return value;
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
 Color _migrateAccentColor(int? saved) {
   // Brand color is fixed — always use Tulanam teal
   return AppTheme.defaultAccent;
@@ -32,7 +38,7 @@ class AppearanceSettings {
         'system' => ThemeMode.system,
         _ => ThemeMode.light,
       },
-      accentColor: _migrateAccentColor(data['accentColor'] as int?),
+      accentColor: _migrateAccentColor(_parseAccentColor(data['accentColor'])),
       backgroundArt: data['backgroundArt'] as String? ?? 'none',
       fontScale: (data['fontScale'] as num? ?? 1.0).toDouble(),
       locale: data['locale'] as String? ?? 'en',
