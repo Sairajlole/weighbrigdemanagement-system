@@ -183,6 +183,8 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
         _resolvedCompanyId = companyId;
         _companyData = Map<String, dynamic>.from(doc.data()!);
         _companyValidated = true;
+        final companyName = _companyData!['name'] as String? ?? '';
+        if (companyName.isNotEmpty) _name.text = companyName;
         setState(() {});
       }
     } catch (_) {}
@@ -1167,11 +1169,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [
-                    Expanded(child: _buildField('Full Name', _name, 'Your name', Icons.person_outline_rounded)),
-                    SizedBox(width: AppSpacing.lg),
-                    Expanded(child: _buildEmailField()),
-                  ]),
+                  _buildEmailField(),
 
                   if (_detectedDomain != null) ...[
                     SizedBox(height: AppSpacing.md),

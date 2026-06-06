@@ -571,6 +571,15 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                       _digiLockerResult = result;
                     });
                     _updateHasData();
+                    if (_canProceed) {
+                      Future.delayed(const Duration(milliseconds: 800), () {
+                        if (mounted) {
+                          ref.read(stepSaveCallbackProvider)?.call().then((ok) {
+                            if (ok && mounted) ref.read(setupWizardProvider.notifier).nextStep();
+                          });
+                        }
+                      });
+                    }
                   },
                   onStakeholderResult: (result) {
                     setState(() => _stakeholderResult = result);

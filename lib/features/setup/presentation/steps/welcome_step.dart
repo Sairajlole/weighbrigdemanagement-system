@@ -830,253 +830,17 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() { _loading = true; _error = null; });
 
     try {
       final db = ref.read(firestoreProvider);
       final email = _email.text.trim();
+      debugPrint('[Login] Platform.isWindows=${Platform.isWindows}, Platform.operatingSystem=${Platform.operatingSystem}');
 
-      bool firebaseAuthOk = false;
-      try {
-        await ref.read(firebaseAuthProvider).signInWithEmailAndPassword(
-          email: email,
-          password: _password.text,
-        );
-        firebaseAuthOk = true;
-      } catch (e) {
-      }
-      if (!mounted) { debugPrint('[Login] Not mounted after auth'); return; }
-
-      final operatorSnap = await db
-          .collectionGroup('operators')
-          .where('email', isEqualTo: email)
-          .limit(1)
-          .get()
-          .timeout(Duration(seconds: Platform.isWindows ? 20 : 8), onTimeout: () {
-            throw TimeoutException('Query timed out');
-          });
-
-      if (operatorSnap.docs.isEmpty) {
-        final companySnap = await db
-            .collection('companies')
-            .where('email', isEqualTo: email)
-            .limit(1)
-            .get();
-
-        if (companySnap.docs.isEmpty) {
-          setState(() { _error = 'No account found with this email.'; _loading = false; });
-          return;
-        }
-
-        // Company admin: verify password via Firebase Auth or hash fallback
-        if (!firebaseAuthOk) {
-          final companyData = companySnap.docs.first.data();
-          final storedHash = companyData['passwordHash'] as String?;
-          if (storedHash != null && storedHash != _hashPassword(_password.text)) {
-            setState(() { _error = 'Invalid email or password.'; _loading = false; });
-            return;
-          }
-          if (storedHash == null) {
-            companySnap.docs.first.reference.update({'passwordHash': _hashPassword(_password.text)});
-          }
-        }
-
-        await _ensureFirebaseAuthAccount(email, _password.text);
-        if (!mounted) return;
-        await LocalCacheService.cacheCurrentUserEmail(email);
-        final companyId = companySnap.docs.first.id;
-
-        final sitesSnap = await db.collection('companies/$companyId/sites').get();
-        if (!mounted) return;
-
-        final companyDoc = await db.doc('companies/$companyId').get();
-        final firstLoginDone = companyDoc.data()?['firstLoginComplete'] == true;
-
-        for (final site in sitesSnap.docs) {
-          final wbSnap = await db
-              .collection('companies/$companyId/sites/${site.id}/weighbridges')
-              .limit(1)
-              .get();
-          if (wbSnap.docs.isNotEmpty) {
-            await ref.read(siteContextProvider.notifier).configure(
-              companyId: companyId,
-              siteId: site.id,
-              weighbridgeId: wbSnap.docs.first.id,
-            );
-            if (!firstLoginDone) {
-              if (!mounted) return;
-              ref.read(sessionLoggedInProvider.notifier).state = true;
-              ref.read(wizardCompanyIdProvider.notifier).state = companyId;
-              final siteStepIndex = wizardSteps.indexWhere((s) => s.id == WizardStepId.site);
-              final resumed = ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
-              if (!resumed) {
-                ref.read(setupWizardProvider.notifier).setRole(WizardRole.admin);
-                ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
-              }
-              return;
-            }
-            await ref.read(wizardProgressProvider.notifier).markComplete();
-            ref.read(sessionLoggedInProvider.notifier).state = true;
-            final allowed = await _runPostLoginChecks(ref, email);
-            if (!allowed) return;
-            if (mounted) context.go('/dashboard');
-            return;
-          }
-        }
-
-        // No site with weighbridge — go to site setup
-        ref.read(wizardCompanyIdProvider.notifier).state = companyId;
-        ref.read(setupWizardProvider.notifier).setRole(WizardRole.returning);
-        ref.read(setupWizardProvider.notifier).nextStep();
-        return;
-      }
-
-      // Found operator record — verify password
-      final opDoc = operatorSnap.docs.first;
-      if (!firebaseAuthOk) {
-        final storedHash = opDoc.data()['passwordHash'] as String?;
-        if (storedHash != null && storedHash != _hashPassword(_password.text)) {
-          setState(() { _error = 'Invalid email or password.'; _loading = false; });
-          return;
-        }
-        if (storedHash == null) {
-          opDoc.reference.update({'passwordHash': _hashPassword(_password.text)});
-        }
-      }
-
-      final opData = opDoc.data();
-
-      // Status-based access control
-      final isDeleted = opData['isDeleted'] == true;
-      final isArchived = opData['isArchived'] == true;
-
-      if (isDeleted) {
-        setState(() { _error = 'Invalid email or password.'; _loading = false; });
-        return;
-      }
-
-      if (isArchived) {
-        setState(() { _error = 'Your account has been archived. Contact your administrator to restore access.'; _loading = false; });
-        return;
-      }
-
-      final isVerified = opData['isVerified'] as bool? ?? false;
-      final isActive = opData['isActive'] as bool? ?? false;
-      if (!isVerified || !isActive) {
-        setState(() { _error = 'Your account is pending approval. Please wait for your administrator to accept your request.'; _loading = false; });
-        return;
-      }
-
-      if (!firebaseAuthOk) await _ensureFirebaseAuthAccount(email, _password.text);
-      if (!mounted) return;
-      await LocalCacheService.cacheCurrentUserEmail(email);
-      ref.read(sessionLoggedInProvider.notifier).state = true;
-
-      final opRole = opData['role'] as String? ?? '';
-      final isOperatorRole = opRole == 'operator';
-
-      // Resolve company ID from path or doc data
-      final opPath = opDoc.reference.path;
-      final segments = opPath.split('/');
-      String? companyId;
-      String? siteIdFromPath;
-
-      // Path: companies/{companyId}/sites/{siteId}/operators/{opId} → 6 segments
-      // Path: companies/{companyId}/operators/{opId} → 4 segments
-      // Path: operators/{opId} → 2 segments (top-level, use doc data)
-      if (segments.length >= 6 && segments[0] == 'companies') {
-        companyId = segments[1];
-        siteIdFromPath = segments[3];
-      } else if (segments.length >= 4 && segments[0] == 'companies') {
-        companyId = segments[1];
-      }
-      companyId ??= opData['companyId'] as String?;
-
-      if (companyId == null || companyId.isEmpty) {
-        setState(() { _error = 'No company linked to this account.'; _loading = false; });
-        return;
-      }
-
-      final opCompanyDoc = await db.doc('companies/$companyId').get();
-      if (!mounted) return;
-      final opFirstLoginDone = opCompanyDoc.data()?['firstLoginComplete'] == true;
-
-      // Try site from path first
-      if (siteIdFromPath != null) {
-        final wbSnap = await db
-            .collection('companies/$companyId/sites/$siteIdFromPath/weighbridges')
-            .limit(1).get();
-        if (!mounted) return;
-        if (wbSnap.docs.isNotEmpty) {
-          await ref.read(siteContextProvider.notifier).configure(
-            companyId: companyId,
-            siteId: siteIdFromPath,
-            weighbridgeId: wbSnap.docs.first.id,
-          );
-          if (!mounted) return;
-          if (!opFirstLoginDone) {
-            ref.read(wizardCompanyIdProvider.notifier).state = companyId;
-            final siteStepIndex = wizardSteps.indexWhere((s) => s.id == WizardStepId.site);
-            final resumed = ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
-            if (!resumed) {
-              ref.read(setupWizardProvider.notifier).setRole(WizardRole.admin);
-              ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
-            }
-            return;
-          }
-          await ref.read(wizardProgressProvider.notifier).markComplete();
-          if (!mounted) return;
-          final allowed = await _runPostLoginChecks(ref, email);
-          if (!allowed || !mounted) return;
-          context.go('/dashboard');
-          return;
-        }
-      }
-
-      // Auto-resolve site: find first site with a weighbridge
-      final sitesSnap = await db.collection('companies/$companyId/sites').get();
-      if (!mounted) return;
-      for (final site in sitesSnap.docs) {
-        final wbSnap = await db
-            .collection('companies/$companyId/sites/${site.id}/weighbridges')
-            .limit(1).get();
-        if (!mounted) return;
-        if (wbSnap.docs.isNotEmpty) {
-          await ref.read(siteContextProvider.notifier).configure(
-            companyId: companyId,
-            siteId: site.id,
-            weighbridgeId: wbSnap.docs.first.id,
-          );
-          if (!mounted) return;
-          if (!opFirstLoginDone) {
-            ref.read(wizardCompanyIdProvider.notifier).state = companyId;
-            final siteStepIndex = wizardSteps.indexWhere((s) => s.id == WizardStepId.site);
-            final resumed = ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
-            if (!resumed) {
-              ref.read(setupWizardProvider.notifier).setRole(WizardRole.admin);
-              ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
-            }
-            return;
-          }
-          await ref.read(wizardProgressProvider.notifier).markComplete();
-          if (!mounted) return;
-          final allowed = await _runPostLoginChecks(ref, email);
-          if (!allowed || !mounted) return;
-          context.go('/dashboard');
-          return;
-        }
-      }
-
-      // No site with weighbridge found
-      if (!mounted) return;
-      if (isOperatorRole) {
-        setState(() { _error = 'No site assigned yet. Contact your admin.'; _loading = false; });
+      if (Platform.isWindows) {
+        await _submitWindows(db, email);
       } else {
-        // Admin with no site/weighbridge — send to site setup
-        ref.read(wizardCompanyIdProvider.notifier).state = companyId;
-        ref.read(setupWizardProvider.notifier).setRole(WizardRole.returning);
-        ref.read(setupWizardProvider.notifier).nextStep();
+        await _submitDefault(db, email);
       }
     } catch (e) {
       debugPrint('SignIn error: $e');
@@ -1085,6 +849,307 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
       setState(() => _error = _parseError(e.toString()));
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Windows login: Firebase Auth first, then resolve company/operator via
+  /// simple collection queries (no collectionGroup — avoids native threading issues).
+  Future<void> _submitWindows(FirebaseFirestore db, String email) async {
+    debugPrint('[Login-Win] Step 1: Firebase Auth...');
+    // Step 1: Authenticate with Firebase Auth — this validates credentials
+    // and establishes the gRPC channel before any Firestore queries.
+    try {
+      await ref.read(firebaseAuthProvider).signInWithEmailAndPassword(
+        email: email,
+        password: _password.text,
+      );
+      debugPrint('[Login-Win] Firebase Auth success');
+    } on FirebaseAuthException catch (e) {
+      debugPrint('[Login-Win] Firebase Auth error: ${e.code}');
+      if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        setState(() { _error = 'Invalid email or password.'; _loading = false; });
+        return;
+      }
+      rethrow;
+    }
+    if (!mounted) return;
+
+    await LocalCacheService.cacheCurrentUserEmail(email);
+
+    // Step 2: Find the company — check if this user is a company admin first.
+    debugPrint('[Login-Win] Step 2: Querying companies collection...');
+    final companySnap = await db
+        .collection('companies')
+        .where('email', isEqualTo: email)
+        .limit(1)
+        .get()
+        .timeout(const Duration(seconds: 30), onTimeout: () {
+          throw TimeoutException('Companies query timed out');
+        });
+    debugPrint('[Login-Win] Companies query done: ${companySnap.docs.length} docs');
+    if (!mounted) return;
+
+    String? companyId;
+    bool isCompanyAdmin = false;
+
+    if (companySnap.docs.isNotEmpty) {
+      companyId = companySnap.docs.first.id;
+      isCompanyAdmin = true;
+    } else {
+      // Not a company admin — find via collectionGroup with generous timeout.
+      final operatorSnap = await db
+          .collectionGroup('operators')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get(const GetOptions(source: Source.server))
+          .timeout(const Duration(seconds: 60), onTimeout: () {
+            throw TimeoutException('Could not reach server. Check your internet connection.');
+          });
+
+      if (operatorSnap.docs.isEmpty) {
+        setState(() { _error = 'No account found with this email.'; _loading = false; });
+        return;
+      }
+
+      final opDoc = operatorSnap.docs.first;
+      final opData = opDoc.data();
+
+      if (opData['isDeleted'] == true) {
+        setState(() { _error = 'Invalid email or password.'; _loading = false; });
+        return;
+      }
+      if (opData['isArchived'] == true) {
+        setState(() { _error = 'Your account has been archived. Contact your administrator to restore access.'; _loading = false; });
+        return;
+      }
+      final isVerified = opData['isVerified'] as bool? ?? false;
+      final isActive = opData['isActive'] as bool? ?? false;
+      if (!isVerified || !isActive) {
+        setState(() { _error = 'Your account is pending approval. Please wait for your administrator to accept your request.'; _loading = false; });
+        return;
+      }
+
+      // Resolve companyId from doc path
+      final segments = opDoc.reference.path.split('/');
+      if (segments.length >= 6 && segments[0] == 'companies') {
+        companyId = segments[1];
+      } else if (segments.length >= 4 && segments[0] == 'companies') {
+        companyId = segments[1];
+      }
+      companyId ??= opData['companyId'] as String?;
+    }
+
+    if (companyId == null || companyId.isEmpty) {
+      setState(() { _error = 'No company linked to this account.'; _loading = false; });
+      return;
+    }
+    if (!mounted) return;
+
+    // Step 3: Configure site context
+    await _configureSiteAndNavigate(db, companyId, email, isCompanyAdmin);
+  }
+
+  /// Default (mobile/macOS) login — original flow with collectionGroup.
+  Future<void> _submitDefault(FirebaseFirestore db, String email) async {
+    bool firebaseAuthOk = false;
+    try {
+      await ref.read(firebaseAuthProvider).signInWithEmailAndPassword(
+        email: email,
+        password: _password.text,
+      );
+      firebaseAuthOk = true;
+    } catch (e) {
+    }
+    if (!mounted) return;
+
+    final operatorSnap = await db
+        .collectionGroup('operators')
+        .where('email', isEqualTo: email)
+        .limit(1)
+        .get()
+        .timeout(const Duration(seconds: 8), onTimeout: () {
+          throw TimeoutException('Query timed out');
+        });
+
+    if (operatorSnap.docs.isEmpty) {
+      final companySnap = await db
+          .collection('companies')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (companySnap.docs.isEmpty) {
+        setState(() { _error = 'No account found with this email.'; _loading = false; });
+        return;
+      }
+
+      if (!firebaseAuthOk) {
+        final companyData = companySnap.docs.first.data();
+        final storedHash = companyData['passwordHash'] as String?;
+        if (storedHash != null && storedHash != _hashPassword(_password.text)) {
+          setState(() { _error = 'Invalid email or password.'; _loading = false; });
+          return;
+        }
+        if (storedHash == null) {
+          companySnap.docs.first.reference.update({'passwordHash': _hashPassword(_password.text)});
+        }
+      }
+
+      await _ensureFirebaseAuthAccount(email, _password.text);
+      if (!mounted) return;
+      await LocalCacheService.cacheCurrentUserEmail(email);
+      final companyId = companySnap.docs.first.id;
+
+      await _configureSiteAndNavigate(db, companyId, email, true);
+      return;
+    }
+
+    // Found operator record — verify password
+    final opDoc = operatorSnap.docs.first;
+    if (!firebaseAuthOk) {
+      final storedHash = opDoc.data()['passwordHash'] as String?;
+      if (storedHash != null && storedHash != _hashPassword(_password.text)) {
+        setState(() { _error = 'Invalid email or password.'; _loading = false; });
+        return;
+      }
+      if (storedHash == null) {
+        opDoc.reference.update({'passwordHash': _hashPassword(_password.text)});
+      }
+    }
+
+    final opData = opDoc.data();
+
+    if (opData['isDeleted'] == true) {
+      setState(() { _error = 'Invalid email or password.'; _loading = false; });
+      return;
+    }
+    if (opData['isArchived'] == true) {
+      setState(() { _error = 'Your account has been archived. Contact your administrator to restore access.'; _loading = false; });
+      return;
+    }
+    final isVerified = opData['isVerified'] as bool? ?? false;
+    final isActive = opData['isActive'] as bool? ?? false;
+    if (!isVerified || !isActive) {
+      setState(() { _error = 'Your account is pending approval. Please wait for your administrator to accept your request.'; _loading = false; });
+      return;
+    }
+
+    if (!firebaseAuthOk) await _ensureFirebaseAuthAccount(email, _password.text);
+    if (!mounted) return;
+    await LocalCacheService.cacheCurrentUserEmail(email);
+    ref.read(sessionLoggedInProvider.notifier).state = true;
+
+    final opRole = opData['role'] as String? ?? '';
+    final isOperatorRole = opRole == 'operator';
+
+    final opPath = opDoc.reference.path;
+    final segments = opPath.split('/');
+    String? companyId;
+    String? siteIdFromPath;
+
+    if (segments.length >= 6 && segments[0] == 'companies') {
+      companyId = segments[1];
+      siteIdFromPath = segments[3];
+    } else if (segments.length >= 4 && segments[0] == 'companies') {
+      companyId = segments[1];
+    }
+    companyId ??= opData['companyId'] as String?;
+
+    if (companyId == null || companyId.isEmpty) {
+      setState(() { _error = 'No company linked to this account.'; _loading = false; });
+      return;
+    }
+
+    final opCompanyDoc = await db.doc('companies/$companyId').get();
+    if (!mounted) return;
+    final opFirstLoginDone = opCompanyDoc.data()?['firstLoginComplete'] == true;
+
+    if (siteIdFromPath != null) {
+      final wbSnap = await db
+          .collection('companies/$companyId/sites/$siteIdFromPath/weighbridges')
+          .limit(1).get();
+      if (!mounted) return;
+      if (wbSnap.docs.isNotEmpty) {
+        await ref.read(siteContextProvider.notifier).configure(
+          companyId: companyId,
+          siteId: siteIdFromPath,
+          weighbridgeId: wbSnap.docs.first.id,
+        );
+        if (!mounted) return;
+        if (!opFirstLoginDone) {
+          ref.read(wizardCompanyIdProvider.notifier).state = companyId;
+          final siteStepIndex = wizardSteps.indexWhere((s) => s.id == WizardStepId.site);
+          final resumed = ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
+          if (!resumed) {
+            ref.read(setupWizardProvider.notifier).setRole(WizardRole.admin);
+            ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
+          }
+          return;
+        }
+        await ref.read(wizardProgressProvider.notifier).markComplete();
+        if (!mounted) return;
+        final allowed = await _runPostLoginChecks(ref, email);
+        if (!allowed || !mounted) return;
+        context.go('/dashboard');
+        return;
+      }
+    }
+
+    await _configureSiteAndNavigate(db, companyId, email, !isOperatorRole);
+  }
+
+  /// Shared: find first site with a weighbridge, configure context, navigate.
+  Future<void> _configureSiteAndNavigate(
+    FirebaseFirestore db, String companyId, String email, bool isAdmin,
+  ) async {
+    final companyDoc = await db.doc('companies/$companyId').get();
+    if (!mounted) return;
+    final firstLoginDone = companyDoc.data()?['firstLoginComplete'] == true;
+
+    final sitesSnap = await db.collection('companies/$companyId/sites').get();
+    if (!mounted) return;
+
+    for (final site in sitesSnap.docs) {
+      final wbSnap = await db
+          .collection('companies/$companyId/sites/${site.id}/weighbridges')
+          .limit(1)
+          .get();
+      if (!mounted) return;
+      if (wbSnap.docs.isNotEmpty) {
+        await ref.read(siteContextProvider.notifier).configure(
+          companyId: companyId,
+          siteId: site.id,
+          weighbridgeId: wbSnap.docs.first.id,
+        );
+        if (!mounted) return;
+        if (!firstLoginDone) {
+          ref.read(sessionLoggedInProvider.notifier).state = true;
+          ref.read(wizardCompanyIdProvider.notifier).state = companyId;
+          final siteStepIndex = wizardSteps.indexWhere((s) => s.id == WizardStepId.site);
+          final resumed = ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
+          if (!resumed) {
+            ref.read(setupWizardProvider.notifier).setRole(WizardRole.admin);
+            ref.read(setupWizardProvider.notifier).resumeFromProgress(minStep: siteStepIndex);
+          }
+          return;
+        }
+        await ref.read(wizardProgressProvider.notifier).markComplete();
+        ref.read(sessionLoggedInProvider.notifier).state = true;
+        if (!mounted) return;
+        final allowed = await _runPostLoginChecks(ref, email);
+        if (!allowed || !mounted) return;
+        context.go('/dashboard');
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    if (!isAdmin) {
+      setState(() { _error = 'No site assigned yet. Contact your admin.'; _loading = false; });
+    } else {
+      ref.read(wizardCompanyIdProvider.notifier).state = companyId;
+      ref.read(setupWizardProvider.notifier).setRole(WizardRole.returning);
+      ref.read(setupWizardProvider.notifier).nextStep();
     }
   }
 

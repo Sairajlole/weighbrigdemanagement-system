@@ -379,26 +379,12 @@ class _SiteStepState extends ConsumerState<SiteStep> {
                     color: scheme.primaryContainer.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10.rs),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
-                          SizedBox(width: AppSpacing.sm),
-                          Expanded(child: Text('1 weighbridge configured. All scale settings in this wizard will apply to it.',
-                              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant))),
-                        ],
-                      ),
-                      SizedBox(height: AppSpacing.sm),
-                      Row(
-                        children: [
-                          Icon(Icons.add_circle_outline_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                          SizedBox(width: AppSpacing.sm),
-                          Expanded(child: Text('Additional weighbridges can be added in Settings later, as per your license.',
-                              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)))),
-                        ],
-                      ),
+                      Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
+                      SizedBox(width: AppSpacing.sm),
+                      Expanded(child: Text('More weighbridges can be added in Settings later.',
+                          style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant))),
                     ],
                   ),
                 );

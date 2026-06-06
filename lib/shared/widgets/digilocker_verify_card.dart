@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -38,19 +39,25 @@ class _DigiLockerVerifyCardState extends ConsumerState<DigiLockerVerifyCard> {
   StakeholderResult? _stakeholderResult;
 
   Future<void> _startVerification() async {
+    debugPrint('[DigiLockerCard] _startVerification tapped');
+    debugPrint('[DigiLockerCard]   purpose: ${widget.purpose}');
+    debugPrint('[DigiLockerCard]   gstin: ${widget.gstin}');
+    debugPrint('[DigiLockerCard]   companyId: ${widget.companyId}');
     setState(() { _status = DigiLockerStatus.loading; _error = null; });
 
     try {
       final service = ref.read(digilockerServiceProvider);
+      debugPrint('[DigiLockerCard] calling initiateConsent...');
       final consent = await service.initiateConsent(
         purpose: widget.purpose,
         redirectUrl: 'https://tulanam.com/digilocker/callback',
         companyId: widget.companyId,
       );
       _consentId = consent.consentId;
+      debugPrint('[DigiLockerCard] got consent: id=${consent.consentId}, url=${consent.url}');
 
-      // Test mode: URL contains test=true, skip browser and auto-process
       if (consent.url.contains('test=true')) {
+        debugPrint('[DigiLockerCard] test mode detected, auto-processing...');
         await _checkStatus();
         return;
       }
@@ -58,10 +65,16 @@ class _DigiLockerVerifyCardState extends ConsumerState<DigiLockerVerifyCard> {
       setState(() => _status = DigiLockerStatus.awaitingConsent);
 
       final uri = Uri.parse(consent.url);
-      if (await canLaunchUrl(uri)) {
+      final canLaunch = await canLaunchUrl(uri);
+      debugPrint('[DigiLockerCard] canLaunchUrl: $canLaunch');
+      if (canLaunch) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        debugPrint('[DigiLockerCard] WARNING: cannot launch URL: $uri');
       }
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[DigiLockerCard] ERROR: $e');
+      debugPrint('[DigiLockerCard]   stack: $stack');
       setState(() { _status = DigiLockerStatus.failed; _error = e.toString(); });
     }
   }

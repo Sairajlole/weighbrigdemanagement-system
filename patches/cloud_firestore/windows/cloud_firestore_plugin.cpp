@@ -42,15 +42,16 @@ namespace cloud_firestore_windows {
 // ─── Platform Thread Dispatch ───────────────────────────────────────────────
 // The Firebase C++ SDK invokes OnCompletion/listener callbacks on internal gRPC
 // threads. Flutter requires all channel responses to be sent from the platform
-// (UI) thread. This helper queues lambdas to a message-only HWND whose WndProc
-// executes them on the platform thread's message pump.
-static HWND g_dispatch_hwnd = nullptr;
+// (UI) thread. We use a WM_USER message posted to Flutter's own top-level window
+// to dispatch queued callbacks on the platform thread's message pump.
+static HWND g_flutter_hwnd = nullptr;
+static WNDPROC g_original_wndproc = nullptr;
 static std::mutex g_queue_mutex;
 static std::vector<std::function<void()>> g_dispatch_queue;
-static constexpr UINT WM_DISPATCH = WM_APP + 1;
+static constexpr UINT WM_FIRESTORE_DISPATCH = WM_USER + 0x0F51;
 
-static LRESULT CALLBACK DispatchWndProc(HWND hwnd, UINT msg, WPARAM, LPARAM) {
-  if (msg == WM_DISPATCH) {
+static LRESULT CALLBACK FirestoreSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+  if (msg == WM_FIRESTORE_DISPATCH) {
     std::vector<std::function<void()>> tasks;
     {
       std::lock_guard<std::mutex> lock(g_queue_mutex);
@@ -61,30 +62,16 @@ static LRESULT CALLBACK DispatchWndProc(HWND hwnd, UINT msg, WPARAM, LPARAM) {
     }
     return 0;
   }
-  return DefWindowProc(hwnd, msg, 0, 0);
-}
-
-static void EnsureDispatchWindow() {
-  if (g_dispatch_hwnd) return;
-  WNDCLASSEX wc = {};
-  wc.cbSize = sizeof(WNDCLASSEX);
-  wc.lpfnWndProc = DispatchWndProc;
-  wc.hInstance = GetModuleHandle(nullptr);
-  wc.lpszClassName = L"FirestoreDispatch";
-  RegisterClassEx(&wc);
-  g_dispatch_hwnd = CreateWindowEx(0, L"FirestoreDispatch", nullptr, 0,
-                                   0, 0, 0, 0, HWND_MESSAGE, nullptr,
-                                   GetModuleHandle(nullptr), nullptr);
+  return CallWindowProc(g_original_wndproc, hwnd, msg, wParam, lParam);
 }
 
 // Post a callback to the platform thread. Safe to call from any thread.
 static void RunOnPlatformThread(std::function<void()> task) {
-  EnsureDispatchWindow();
   {
     std::lock_guard<std::mutex> lock(g_queue_mutex);
     g_dispatch_queue.push_back(std::move(task));
   }
-  PostMessage(g_dispatch_hwnd, WM_DISPATCH, 0, 0);
+  PostMessage(g_flutter_hwnd, WM_FIRESTORE_DISPATCH, 0, 0);
 }
 
 // Wraps a Pigeon result callback so it always runs on the platform thread.
@@ -104,6 +91,13 @@ static std::string kLibraryName = "flutter-fire-fst";
 // static
 void CloudFirestorePlugin::RegisterWithRegistrar(
     flutter::PluginRegistrarWindows* registrar) {
+  // Subclass Flutter's top-level window so we can receive WM_FIRESTORE_DISPATCH
+  // messages posted from gRPC background threads.
+  g_flutter_hwnd = registrar->GetView()->GetNativeWindow();
+  g_original_wndproc = reinterpret_cast<WNDPROC>(
+      SetWindowLongPtr(g_flutter_hwnd, GWLP_WNDPROC,
+                       reinterpret_cast<LONG_PTR>(FirestoreSubclassProc)));
+
   auto channel =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           registrar->messenger(), "cloud_firestore",

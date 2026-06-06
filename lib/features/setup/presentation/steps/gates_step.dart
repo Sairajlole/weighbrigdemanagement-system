@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/gate_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/traffic_signal_provider.dart';
 import 'package:weighbridgemanagement/shared/services/gate_service.dart';
+import 'package:weighbridgemanagement/shared/services/scale_service.dart';
+import 'package:weighbridgemanagement/shared/services/traffic_signal_service.dart';
 import 'package:weighbridgemanagement/shared/utils/ip_validator.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
@@ -20,55 +23,51 @@ class GatesStep extends ConsumerStatefulWidget {
 
 class _GatesStepState extends ConsumerState<GatesStep> {
   bool _loaded = false;
-  bool _enabled = false;
 
-  // Entry gate
-  bool _entryEnabled = true;
-  String _entryProtocol = 'HTTP Relay';
+  // ── Barrier Gate config ──
+  bool _barrierEnabled = false;
+  String _barrierProtocol = 'HTTP Relay';
   final _entryIp = TextEditingController();
-  String _entryChannel = 'Channel 01';
-  final _entryDuration = TextEditingController(text: '30');
-  String _entryTrigger = 'Weight Detected';
-  bool _entryAutoClose = true;
-
-  // Exit gate
-  bool _exitEnabled = false;
-  String _exitProtocol = 'HTTP Relay';
   final _exitIp = TextEditingController();
+  String _entryChannel = 'Channel 01';
   String _exitChannel = 'Channel 02';
+  final _entryDuration = TextEditingController(text: '30');
   final _exitDuration = TextEditingController(text: '30');
-  String _exitTrigger = 'Weighment Complete';
+  bool _entryAutoClose = true;
   bool _exitAutoClose = true;
 
-  // Safety
-  bool _sensorCheck = true;
-  bool _emergencyStop = true;
-  bool _audibleBuzzer = false;
-  bool _interlockGates = true;
-  bool _antiTailgating = false;
+  // ── Traffic Signal config ──
+  bool _signalEnabled = false;
+  String _signalType = 'serial';
+  int _baudRate = 9600;
+  String _entryPort = '';
+  String _exitPort = '';
+  final _entryUrlCtrl = TextEditingController();
+  final _exitUrlCtrl = TextEditingController();
 
-  // RFID
-  bool _rfidEnabled = false;
-  String _rfidProtocol = 'Wiegand 26';
-  final _rfidIp = TextEditingController();
-  final _rfidTimeout = TextEditingController(text: '10');
+  List<String> _availablePorts = [];
 
-  // Test results
-  bool _testingEntry = false;
-  bool _testingExit = false;
-  String? _entryTestResult;
-  String? _exitTestResult;
+  // ── Test state ──
+  bool _testingBarrierEntry = false;
+  bool _testingBarrierExit = false;
+  String? _barrierEntryResult;
+  String? _barrierExitResult;
+  final _testingSignals = <String>{};
+  String? _signalTestMsg;
 
   final _protocols = ['HTTP Relay', 'TCP Socket', 'RS-485 Serial', 'Dry Contact', 'Modbus RTU', 'MQTT'];
   final _channels = ['Channel 01', 'Channel 02', 'Channel 03', 'Channel 04'];
-  final _entryTriggers = ['Weight Detected', 'RFID Scan', 'Manual', 'IR Sensor'];
-  final _exitTriggers = ['Weighment Complete', 'Print Complete', 'Manual', 'RFID Scan'];
-  final _rfidProtocols = ['Wiegand 26', 'Wiegand 34', 'RS-485', 'TCP/IP', 'USB HID'];
+
+  static final _serialPortWhitelist = RegExp(
+    r'(usbserial|usbmodem|ttyUSB|ttyS\d|ttyACM|COM\d|serial|SLAB|CH34|PL23|FT23|CP21)',
+    caseSensitive: false,
+  );
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _detectPorts();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(stepSaveCallbackProvider.notifier).state = _save;
     });
@@ -77,134 +76,193 @@ class _GatesStepState extends ConsumerState<GatesStep> {
   @override
   void dispose() {
     _entryIp.dispose();
-    _entryDuration.dispose();
     _exitIp.dispose();
+    _entryDuration.dispose();
     _exitDuration.dispose();
-    _rfidIp.dispose();
-    _rfidTimeout.dispose();
+    _entryUrlCtrl.dispose();
+    _exitUrlCtrl.dispose();
     super.dispose();
   }
 
+  void _detectPorts() {
+    final all = ScaleService.availablePorts;
+    var detected = all.where((p) => _serialPortWhitelist.hasMatch(p)).toList();
+    if (detected.isEmpty) {
+      detected = all.where((p) {
+        final lower = p.toLowerCase();
+        return !lower.contains('bluetooth') &&
+            !lower.contains('buds') &&
+            !lower.contains('airpods') &&
+            !lower.contains('headphone') &&
+            !lower.contains('audio') &&
+            !lower.contains('speaker') &&
+            !lower.contains('beats') &&
+            !lower.contains('wlan') &&
+            !lower.contains('debug');
+      }).toList();
+    }
+    setState(() => _availablePorts = detected);
+  }
+
   void _updateHasData() {
-    final connected = _entryTestResult == 'ok' || _exitTestResult == 'ok';
-    ref.read(stepHasDataProvider.notifier).state = connected;
+    final barrierConnected = _barrierEntryResult == 'ok' || _barrierExitResult == 'ok';
+    final signalConfigured = _signalEnabled && (
+        _signalType == 'http'
+            ? _entryUrlCtrl.text.trim().isNotEmpty || _exitUrlCtrl.text.trim().isNotEmpty
+            : _entryPort.isNotEmpty || _exitPort.isNotEmpty);
+    ref.read(stepHasDataProvider.notifier).state = barrierConnected || signalConfigured || (!_barrierEnabled && !_signalEnabled);
   }
 
   Future<void> _loadData() async {
     final paths = ref.read(firestorePathsProvider);
     if (!paths.isConfigured) {
       setState(() => _loaded = true);
+      _updateHasData();
       return;
     }
 
     try {
-      final snap = await paths.gateControlSettings.get();
-      final data = snap.data() ?? {};
+      // Load barrier gate settings
+      final gateSnap = await paths.gateControlSettings.get();
+      final gateData = gateSnap.data() ?? {};
+
+      // Load traffic signal settings
+      final signalSnap = await paths.camerasAiSettings.get();
+      final signalData = (signalSnap.data()?['trafficSignal'] as Map<String, dynamic>?) ?? {};
+
       if (mounted) {
         setState(() {
-          _enabled = data['enabled'] as bool? ?? false;
-          _entryEnabled = data['entryEnabled'] as bool? ?? true;
-          _entryProtocol = data['entryProtocol'] as String? ?? 'HTTP Relay';
-          _entryIp.text = data['entryIp'] as String? ?? '';
-          _entryChannel = data['entryChannel'] as String? ?? 'Channel 01';
-          _entryDuration.text = '${data['entryDuration'] ?? 30}';
-          _entryTrigger = data['entryTrigger'] as String? ?? 'Weight Detected';
-          _entryAutoClose = data['entryAutoClose'] as bool? ?? true;
-          _exitEnabled = data['exitEnabled'] as bool? ?? false;
-          _exitProtocol = data['exitProtocol'] as String? ?? 'HTTP Relay';
-          _exitIp.text = data['exitIp'] as String? ?? '';
-          _exitChannel = data['exitChannel'] as String? ?? 'Channel 02';
-          _exitDuration.text = '${data['exitDuration'] ?? 30}';
-          _exitTrigger = data['exitTrigger'] as String? ?? 'Weighment Complete';
-          _exitAutoClose = data['exitAutoClose'] as bool? ?? true;
-          _sensorCheck = data['sensorCheck'] as bool? ?? true;
-          _emergencyStop = data['emergencyStop'] as bool? ?? true;
-          _audibleBuzzer = data['audibleBuzzer'] as bool? ?? false;
-          _interlockGates = data['interlockGates'] as bool? ?? true;
-          _antiTailgating = data['antiTailgating'] as bool? ?? false;
-          _rfidEnabled = data['rfidEnabled'] as bool? ?? false;
-          _rfidProtocol = data['rfidProtocol'] as String? ?? 'Wiegand 26';
-          _rfidIp.text = data['rfidIp'] as String? ?? '';
-          _rfidTimeout.text = '${data['rfidTimeout'] ?? 10}';
+          _barrierEnabled = gateData['enabled'] as bool? ?? false;
+          _barrierProtocol = gateData['entryProtocol'] as String? ?? 'HTTP Relay';
+          _entryIp.text = gateData['entryIp'] as String? ?? '';
+          _exitIp.text = gateData['exitIp'] as String? ?? '';
+          _entryChannel = gateData['entryChannel'] as String? ?? 'Channel 01';
+          _exitChannel = gateData['exitChannel'] as String? ?? 'Channel 02';
+          _entryDuration.text = '${gateData['entryDuration'] ?? 30}';
+          _exitDuration.text = '${gateData['exitDuration'] ?? 30}';
+          _entryAutoClose = gateData['entryAutoClose'] as bool? ?? true;
+          _exitAutoClose = gateData['exitAutoClose'] as bool? ?? true;
+
+          _signalEnabled = signalData['enabled'] as bool? ?? false;
+          _signalType = signalData['type'] as String? ?? 'serial';
+          _baudRate = signalData['baudRate'] as int? ?? 9600;
+          _entryPort = signalData['entryPort'] as String? ?? '';
+          _exitPort = signalData['exitPort'] as String? ?? '';
+          _entryUrlCtrl.text = signalData['entryUrl'] as String? ?? '';
+          _exitUrlCtrl.text = signalData['exitUrl'] as String? ?? '';
+
           _loaded = true;
         });
         _updateHasData();
       }
     } catch (_) {
       if (mounted) setState(() => _loaded = true);
+      _updateHasData();
     }
   }
 
-  Map<String, dynamic> _buildPayload() => {
-    'enabled': _enabled,
-    'entryEnabled': _entryEnabled,
-    'entryProtocol': _entryProtocol,
-    'entryIp': _entryIp.text.trim(),
-    'entryChannel': _entryChannel,
-    'entryDuration': int.tryParse(_entryDuration.text.trim()) ?? 30,
-    'entryTrigger': _entryTrigger,
-    'entryAutoClose': _entryAutoClose,
-    'exitEnabled': _exitEnabled,
-    'exitProtocol': _exitProtocol,
-    'exitIp': _exitIp.text.trim(),
-    'exitChannel': _exitChannel,
-    'exitDuration': int.tryParse(_exitDuration.text.trim()) ?? 30,
-    'exitTrigger': _exitTrigger,
-    'exitAutoClose': _exitAutoClose,
-    'sensorCheck': _sensorCheck,
-    'emergencyStop': _emergencyStop,
-    'audibleBuzzer': _audibleBuzzer,
-    'interlockGates': _interlockGates,
-    'antiTailgating': _antiTailgating,
-    'rfidEnabled': _rfidEnabled,
-    'rfidProtocol': _rfidProtocol,
-    'rfidIp': _rfidIp.text.trim(),
-    'rfidTimeout': int.tryParse(_rfidTimeout.text.trim()) ?? 10,
-  };
-
-  Future<void> _testGate(GateId gateId) async {
-    final isEntry = gateId == GateId.entry;
+  Future<void> _testBarrier(bool isEntry) async {
     setState(() {
-      if (isEntry) { _testingEntry = true; _entryTestResult = null; }
-      else { _testingExit = true; _exitTestResult = null; }
+      if (isEntry) { _testingBarrierEntry = true; _barrierEntryResult = null; }
+      else { _testingBarrierExit = true; _barrierExitResult = null; }
     });
 
+    final payload = {
+      'enabled': true,
+      'entryEnabled': true,
+      'entryProtocol': _barrierProtocol,
+      'entryIp': _entryIp.text.trim(),
+      'entryChannel': _entryChannel,
+      'entryDuration': int.tryParse(_entryDuration.text.trim()) ?? 30,
+      'entryAutoClose': _entryAutoClose,
+      'exitEnabled': true,
+      'exitProtocol': _barrierProtocol,
+      'exitIp': _exitIp.text.trim(),
+      'exitChannel': _exitChannel,
+      'exitDuration': int.tryParse(_exitDuration.text.trim()) ?? 30,
+      'exitAutoClose': _exitAutoClose,
+    };
+
     final service = ref.read(gateServiceProvider);
-    service.updateConfig(GateSystemConfig.fromMap(_buildPayload()));
-    final result = await service.testGate(gateId);
+    service.updateConfig(GateSystemConfig.fromMap(payload));
+    final result = await service.testGate(isEntry ? GateId.entry : GateId.exit);
 
     if (!mounted) return;
     setState(() {
-      if (isEntry) {
-        _testingEntry = false;
-        _entryTestResult = result.success ? 'ok' : 'fail';
-      } else {
-        _testingExit = false;
-        _exitTestResult = result.success ? 'ok' : 'fail';
-      }
+      if (isEntry) { _testingBarrierEntry = false; _barrierEntryResult = result.success ? 'ok' : 'fail'; }
+      else { _testingBarrierExit = false; _barrierExitResult = result.success ? 'ok' : 'fail'; }
     });
     _updateHasData();
+  }
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(result.success
-            ? '${isEntry ? "Entry" : "Exit"} gate reachable (${result.responseTimeMs ?? "?"}ms)'
-            : '${isEntry ? "Entry" : "Exit"}: ${result.message}'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: result.success ? AppTheme.successColor : Theme.of(context).colorScheme.error,
-      ));
+  Future<void> _testSignal(SignalId signalId, SignalState state) async {
+    final key = '${signalId.name}_${state.name}';
+    setState(() => _testingSignals.add(key));
+    try {
+      final config = TrafficSignalConfig(
+        enabled: true,
+        type: _signalType,
+        entryPort: _entryPort,
+        exitPort: _exitPort,
+        entryUrl: _entryUrlCtrl.text.trim(),
+        exitUrl: _exitUrlCtrl.text.trim(),
+        baudRate: _baudRate,
+      );
+      final service = ref.read(trafficSignalServiceProvider);
+      service.updateConfig(config);
+      final success = signalId == SignalId.entry
+          ? await service.setEntrySignal(state)
+          : await service.setExitSignal(state);
+      if (mounted) {
+        setState(() => _signalTestMsg = success
+            ? '${signalId.name} → ${state.name}'
+            : 'Failed to set ${signalId.name}');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _signalTestMsg = 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _testingSignals.remove(key));
     }
+    _updateHasData();
   }
 
   Future<bool> _save() async {
     try {
       final paths = ref.read(firestorePathsProvider);
-      final payload = _buildPayload();
-      payload['enabled'] = _entryTestResult == 'ok' || _exitTestResult == 'ok';
+
+      // Save barrier config
       await paths.gateControlSettings.set({
-        ...payload,
+        'enabled': _barrierEnabled && (_barrierEntryResult == 'ok' || _barrierExitResult == 'ok'),
+        'entryEnabled': true,
+        'entryProtocol': _barrierProtocol,
+        'entryIp': _entryIp.text.trim(),
+        'entryChannel': _entryChannel,
+        'entryDuration': int.tryParse(_entryDuration.text.trim()) ?? 30,
+        'entryAutoClose': _entryAutoClose,
+        'exitEnabled': true,
+        'exitProtocol': _barrierProtocol,
+        'exitIp': _exitIp.text.trim(),
+        'exitChannel': _exitChannel,
+        'exitDuration': int.tryParse(_exitDuration.text.trim()) ?? 30,
+        'exitAutoClose': _exitAutoClose,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      // Save traffic signal config
+      final signalConfig = TrafficSignalConfig(
+        enabled: _signalEnabled,
+        type: _signalType,
+        entryPort: _entryPort,
+        exitPort: _exitPort,
+        entryUrl: _entryUrlCtrl.text.trim(),
+        exitUrl: _exitUrlCtrl.text.trim(),
+        baudRate: _baudRate,
+      );
+      await paths.camerasAiSettings.set({
+        'trafficSignal': signalConfig.toMap(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
       return true;
     } catch (e) {
       if (mounted) {
@@ -231,69 +289,57 @@ class _GatesStepState extends ConsumerState<GatesStep> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-          Text('Gate Control', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          SizedBox(height: AppSpacing.sm),
-          Text(
-            'Configure automatic barrier gates and RFID scanners. Gate control is enabled automatically when a connection test passes.',
-            style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-          SizedBox(height: AppSpacing.xxl),
+              Text('Gate Control', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+              SizedBox(height: AppSpacing.sm),
+              Text(
+                'Configure barrier gates and traffic signals for vehicle flow control.',
+                style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+              SizedBox(height: AppSpacing.xxl),
 
-          // Entry gate
-          _buildGateSection('Entry Gate', Icons.login_rounded, true, scheme, text),
-          SizedBox(height: 20.rs),
+              // ── Barrier Gates Section ──
+              _buildBarrierSection(scheme, text),
+              SizedBox(height: AppSpacing.xl),
 
-          // Exit gate
-          _buildGateSection('Exit Gate', Icons.logout_rounded, false, scheme, text),
-          SizedBox(height: AppSpacing.xl),
+              // ── Traffic Signals Section ──
+              _buildTrafficSignalSection(scheme, text),
+              SizedBox(height: AppSpacing.xl),
 
-          // RFID
-          _buildRfidSection(scheme, text),
-          SizedBox(height: AppSpacing.xl),
-
-          Container(
-            padding: EdgeInsets.all(12.rs),
-            decoration: BoxDecoration(
-              color: scheme.primaryContainer.withValues(alpha: 0.2),
-              borderRadius: AppRadius.button,
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
-                SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    'Safety & protection settings can be configured in Settings after setup.',
-                    style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                  ),
+              Container(
+                padding: EdgeInsets.all(12.rs),
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer.withValues(alpha: 0.2),
+                  borderRadius: AppRadius.button,
                 ),
-              ],
-            ),
-          ),
-        ],
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded, size: 16, color: scheme.primary),
+                    SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Advanced settings (safety interlocks, RFID, night mode) can be configured later in Settings.',
+                        style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ── Barrier Gates ─────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildGateSection(String title, IconData icon, bool isEntry, ColorScheme scheme, TextTheme text) {
-    final enabled = isEntry ? _entryEnabled : _exitEnabled;
-    final protocol = isEntry ? _entryProtocol : _exitProtocol;
-    final ipCtrl = isEntry ? _entryIp : _exitIp;
-    final channel = isEntry ? _entryChannel : _exitChannel;
-    final durationCtrl = isEntry ? _entryDuration : _exitDuration;
-    final trigger = isEntry ? _entryTrigger : _exitTrigger;
-    final autoClose = isEntry ? _entryAutoClose : _exitAutoClose;
-    final triggers = isEntry ? _entryTriggers : _exitTriggers;
-    final testing = isEntry ? _testingEntry : _testingExit;
-    final testResult = isEntry ? _entryTestResult : _exitTestResult;
-
+  Widget _buildBarrierSection(ColorScheme scheme, TextTheme text) {
     return Container(
       padding: AppSpacing.cardPadding,
       decoration: BoxDecoration(
-        border: Border.all(color: enabled ? scheme.primary.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.3)),
+        border: Border.all(color: _barrierEnabled ? scheme.primary.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.3)),
         borderRadius: AppRadius.card,
       ),
       child: Column(
@@ -301,142 +347,338 @@ class _GatesStepState extends ConsumerState<GatesStep> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: enabled ? scheme.primary : scheme.onSurfaceVariant),
+              Icon(Icons.garage_rounded, size: 20, color: _barrierEnabled ? scheme.primary : scheme.onSurfaceVariant),
               SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    if (enabled && testResult != null)
-                      Row(children: [
-                        Container(
-                          width: 6, height: 6,
-                          decoration: BoxDecoration(shape: BoxShape.circle, color: testResult == 'ok' ? AppTheme.successColor : scheme.error),
-                        ),
-                        SizedBox(width: AppSpacing.xs),
-                        Text(testResult == 'ok' ? 'Connected' : 'Unreachable',
-                            style: TextStyle(fontSize: 10, color: testResult == 'ok' ? AppTheme.successColor : scheme.error, fontWeight: FontWeight.w500)),
-                      ]),
+                    Text('Barrier Gates', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    Text('Entry & exit boom barriers', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                   ],
                 ),
               ),
-              Switch(value: enabled, onChanged: (v) => setState(() { if (isEntry) _entryEnabled = v; else _exitEnabled = v; })),
+              Switch(value: _barrierEnabled, onChanged: (v) { setState(() => _barrierEnabled = v); _updateHasData(); }),
             ],
           ),
-          if (enabled) ...[
+          if (_barrierEnabled) ...[
             SizedBox(height: AppSpacing.lg),
-            Row(
-              children: [
-                Expanded(child: _buildDropdown('Protocol', protocol, _protocols, (v) => setState(() { if (isEntry) _entryProtocol = v!; else _exitProtocol = v!; }), scheme, text)),
-                SizedBox(width: AppSpacing.md),
-                Expanded(child: _buildIpField('IP Address', ipCtrl, isEntry ? '192.168.1.150' : '192.168.1.151', scheme, text)),
-              ],
-            ),
+            _buildDropdown('Protocol', _barrierProtocol, _protocols, (v) => setState(() => _barrierProtocol = v!), scheme, text),
+            SizedBox(height: AppSpacing.lg),
+
+            // Entry gate
+            _buildBarrierGateRow('Entry', _entryIp, _entryChannel, _entryDuration, _entryAutoClose,
+                _testingBarrierEntry, _barrierEntryResult, true, scheme, text),
             SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                Expanded(child: _buildDropdown('Channel', channel, _channels, (v) => setState(() { if (isEntry) _entryChannel = v!; else _exitChannel = v!; }), scheme, text)),
-                SizedBox(width: AppSpacing.md),
-                Expanded(child: _buildDropdown('Trigger', trigger, triggers, (v) => setState(() { if (isEntry) _entryTrigger = v!; else _exitTrigger = v!; }), scheme, text)),
-              ],
-            ),
-            SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                SizedBox(
-                  width: 120,
-                  child: _buildField('Duration (s)', durationCtrl, '30', scheme, text),
+
+            // Exit gate
+            _buildBarrierGateRow('Exit', _exitIp, _exitChannel, _exitDuration, _exitAutoClose,
+                _testingBarrierExit, _barrierExitResult, false, scheme, text),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBarrierGateRow(String label, TextEditingController ipCtrl, String channel,
+      TextEditingController durationCtrl, bool autoClose, bool testing, String? testResult,
+      bool isEntry, ColorScheme scheme, TextTheme text) {
+    return Container(
+      padding: EdgeInsets.all(12.rs),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow.withValues(alpha: 0.5),
+        borderRadius: AppRadius.button,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(isEntry ? Icons.login_rounded : Icons.logout_rounded, size: 14, color: scheme.onSurfaceVariant),
+              SizedBox(width: 6.rs),
+              Text(label, style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+              if (testResult != null) ...[
+                SizedBox(width: AppSpacing.sm),
+                Container(
+                  width: 7, height: 7,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: testResult == 'ok' ? AppTheme.successColor : scheme.error),
                 ),
-                SizedBox(width: AppSpacing.md),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                SizedBox(width: 4.rs),
+                Text(testResult == 'ok' ? 'Connected' : 'Failed',
+                    style: TextStyle(fontSize: 10, color: testResult == 'ok' ? AppTheme.successColor : scheme.error, fontWeight: FontWeight.w500)),
+              ],
+            ],
+          ),
+          SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Expanded(child: _buildIpField('IP Address', ipCtrl, isEntry ? '192.168.1.150' : '192.168.1.151', scheme, text)),
+              SizedBox(width: AppSpacing.sm),
+              SizedBox(
+                width: 120,
+                child: _buildDropdown('Channel', channel, _channels, (v) => setState(() {
+                  if (isEntry) _entryChannel = v!; else _exitChannel = v!;
+                }), scheme, text),
+              ),
+              SizedBox(width: AppSpacing.sm),
+              _buildTestButton(
+                testing: testing,
+                enabled: ipCtrl.text.trim().isNotEmpty && isValidHostOrIp(ipCtrl.text.trim()),
+                onPressed: () => _testBarrier(isEntry),
+                scheme: scheme,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ── Traffic Signals ────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildTrafficSignalSection(ColorScheme scheme, TextTheme text) {
+    return Container(
+      padding: AppSpacing.cardPadding,
+      decoration: BoxDecoration(
+        border: Border.all(color: _signalEnabled ? scheme.primary.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.3)),
+        borderRadius: AppRadius.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.traffic_rounded, size: 20, color: _signalEnabled ? scheme.primary : scheme.onSurfaceVariant),
+              SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Auto-close', style: TextStyle(fontSize: 12)),
-                    SizedBox(width: AppSpacing.xs),
-                    Switch(value: autoClose, onChanged: (v) => setState(() { if (isEntry) _entryAutoClose = v; else _exitAutoClose = v; })),
+                    Text('Traffic Signals', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    Text('Red/yellow/green entry & exit lights', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                   ],
                 ),
-                const Spacer(),
-                FilledButton.tonal(
-                  onPressed: (testing || ipCtrl.text.trim().isEmpty || !isValidHostOrIp(ipCtrl.text.trim())) ? null : () => _testGate(isEntry ? GateId.entry : GateId.exit),
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (testing)
-                        SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: scheme.primary))
-                      else
-                        Icon(Icons.wifi_tethering_rounded, size: 14, color: scheme.primary),
-                      SizedBox(width: 6.rs),
-                      Text(testing ? 'Testing...' : 'Test', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                    ],
+              ),
+              Switch(value: _signalEnabled, onChanged: (v) { setState(() => _signalEnabled = v); _updateHasData(); }),
+            ],
+          ),
+          if (_signalEnabled) ...[
+            SizedBox(height: AppSpacing.lg),
+
+            // Connection type chips
+            Wrap(
+              spacing: AppSpacing.sm,
+              children: [
+                _buildTypeChip('serial', 'Serial', Icons.usb_rounded, scheme, text),
+                _buildTypeChip('http', 'HTTP', Icons.language_rounded, scheme, text),
+                _buildTypeChip('gpio', 'GPIO', Icons.developer_board_rounded, scheme, text),
+              ],
+            ),
+            SizedBox(height: AppSpacing.lg),
+
+            // Entry signal config
+            _buildSignalRow('Entry', SignalId.entry, scheme, text),
+            SizedBox(height: AppSpacing.md),
+
+            // Exit signal config
+            _buildSignalRow('Exit', SignalId.exit, scheme, text),
+
+            if (_signalTestMsg != null) ...[
+              SizedBox(height: AppSpacing.md),
+              Text(_signalTestMsg!, style: TextStyle(fontSize: 11, color: scheme.primary, fontWeight: FontWeight.w500)),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignalRow(String label, SignalId signalId, ColorScheme scheme, TextTheme text) {
+    final isEntry = signalId == SignalId.entry;
+    return Container(
+      padding: EdgeInsets.all(12.rs),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow.withValues(alpha: 0.5),
+        borderRadius: AppRadius.button,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(isEntry ? Icons.login_rounded : Icons.logout_rounded, size: 14, color: scheme.onSurfaceVariant),
+              SizedBox(width: 6.rs),
+              Text('$label Signal', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+            ],
+          ),
+          SizedBox(height: AppSpacing.sm),
+          if (_signalType == 'http') ...[
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: isEntry ? _entryUrlCtrl : _exitUrlCtrl,
+                    style: const TextStyle(fontSize: 12),
+                    onChanged: (_) => _updateHasData(),
+                    decoration: InputDecoration(
+                      hintText: 'http://192.168.1.${isEntry ? "50" : "51"}/signal',
+                      prefixIcon: const Icon(Icons.link_rounded, size: 14),
+                      prefixIconConstraints: const BoxConstraints(minWidth: 36),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: AppRadius.button),
+                      enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+                    ),
                   ),
                 ),
+                SizedBox(width: AppSpacing.sm),
+                _buildSignalTestButtons(signalId, scheme),
               ],
             ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRfidSection(ColorScheme scheme, TextTheme text) {
-    return Container(
-      padding: AppSpacing.cardPadding,
-      decoration: BoxDecoration(
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-        borderRadius: AppRadius.card,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.nfc_rounded, size: 18, color: scheme.secondary),
-              SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('RFID / Tag Scanner', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    Text('Automatic vehicle identification', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-              Switch(value: _rfidEnabled, onChanged: (v) => setState(() => _rfidEnabled = v)),
-            ],
-          ),
-          if (_rfidEnabled) ...[
-            SizedBox(height: AppSpacing.lg),
+          ] else ...[
             Row(
               children: [
-                Expanded(child: _buildDropdown('Scanner Protocol', _rfidProtocol, _rfidProtocols, (v) => setState(() => _rfidProtocol = v!), scheme, text)),
-                SizedBox(width: AppSpacing.md),
-                Expanded(child: _buildIpField('Scanner IP', _rfidIp, '192.168.1.200', scheme, text)),
-                SizedBox(width: AppSpacing.md),
-                SizedBox(width: 100, child: _buildField('Timeout (s)', _rfidTimeout, '10', scheme, text)),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _availablePorts.contains(isEntry ? _entryPort : _exitPort) ? (isEntry ? _entryPort : _exitPort) : null,
+                    items: _availablePorts.map((p) => DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 12)))).toList(),
+                    onChanged: (v) { setState(() { if (isEntry) _entryPort = v ?? ''; else _exitPort = v ?? ''; }); _updateHasData(); },
+                    decoration: InputDecoration(
+                      hintText: _availablePorts.isEmpty ? 'No ports' : 'Select port',
+                      hintStyle: const TextStyle(fontSize: 12),
+                      prefixIcon: Icon(_signalType == 'serial' ? Icons.usb_rounded : Icons.developer_board_rounded, size: 14),
+                      prefixIconConstraints: const BoxConstraints(minWidth: 36),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: AppRadius.button),
+                      enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+                    ),
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 14),
+                  ),
+                ),
+                SizedBox(width: AppSpacing.sm),
+                IconButton(
+                  onPressed: _detectPorts,
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  tooltip: 'Refresh ports',
+                  visualDensity: VisualDensity.compact,
+                ),
+                _buildSignalTestButtons(signalId, scheme),
               ],
             ),
-            SizedBox(height: AppSpacing.sm),
-            Text(
-              'RFID tags on vehicles are scanned at the gate to auto-identify them.',
-              style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant),
-            ),
-          ],
-          if (!_rfidEnabled)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'Enable to allow automatic vehicle identification via RFID tags.',
-                style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant),
+            if (_signalType == 'serial') ...[
+              SizedBox(height: AppSpacing.sm),
+              SizedBox(
+                width: 140,
+                child: DropdownButtonFormField<int>(
+                  value: _baudRate,
+                  items: [9600, 19200, 38400, 115200].map((b) => DropdownMenuItem(value: b, child: Text('$b', style: const TextStyle(fontSize: 12)))).toList(),
+                  onChanged: (v) => setState(() => _baudRate = v!),
+                  decoration: InputDecoration(
+                    labelText: 'Baud',
+                    labelStyle: const TextStyle(fontSize: 11),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    border: OutlineInputBorder(borderRadius: AppRadius.button),
+                    enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+                  ),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 14),
+                ),
               ),
-            ),
+            ],
+          ],
         ],
       ),
     );
   }
 
+  Widget _buildSignalTestButtons(SignalId signalId, ColorScheme scheme) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildSignalDot(signalId, SignalState.red, Colors.red, scheme),
+        SizedBox(width: 4.rs),
+        _buildSignalDot(signalId, SignalState.green, AppTheme.successColor, scheme),
+      ],
+    );
+  }
+
+  Widget _buildSignalDot(SignalId signalId, SignalState state, Color color, ColorScheme scheme) {
+    final key = '${signalId.name}_${state.name}';
+    final testing = _testingSignals.contains(key);
+    return InkWell(
+      onTap: testing ? null : () => _testSignal(signalId, state),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color.withValues(alpha: 0.15),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
+        ),
+        child: testing
+            ? Padding(padding: const EdgeInsets.all(5), child: CircularProgressIndicator(strokeWidth: 1.5, color: color))
+            : Center(child: Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: color))),
+      ),
+    );
+  }
+
+  Widget _buildTypeChip(String type, String label, IconData icon, ColorScheme scheme, TextTheme text) {
+    final selected = _signalType == type;
+    return GestureDetector(
+      onTap: () => setState(() => _signalType = type),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? scheme.primaryContainer.withValues(alpha: 0.5) : scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(8.rs),
+          border: Border.all(
+            color: selected ? AppTheme.brandTeal.withValues(alpha: 0.6) : scheme.outlineVariant.withValues(alpha: 0.3),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: selected ? AppTheme.brandTeal : scheme.onSurfaceVariant),
+            SizedBox(width: 6.rs),
+            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: selected ? AppTheme.brandTeal : scheme.onSurface)),
+            if (selected) ...[
+              SizedBox(width: 4.rs),
+              Icon(Icons.check_circle_rounded, size: 12, color: AppTheme.brandTeal),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ── Shared Widgets ─────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildTestButton({required bool testing, required bool enabled, required VoidCallback onPressed, required ColorScheme scheme}) {
+    return FilledButton.tonal(
+      onPressed: (testing || !enabled) ? null : onPressed,
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
+      ),
+      child: testing
+          ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.5, color: scheme.primary))
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.wifi_tethering_rounded, size: 14, color: scheme.primary),
+                SizedBox(width: 4.rs),
+                Text('Test', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+              ],
+            ),
+    );
+  }
 
   Widget _buildDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged, ColorScheme scheme, TextTheme text) {
     return Column(
@@ -445,7 +687,7 @@ class _GatesStepState extends ConsumerState<GatesStep> {
         Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
         SizedBox(height: 5.rs),
         DropdownButtonFormField<String>(
-          initialValue: items.contains(value) ? value : items.first,
+          value: items.contains(value) ? value : items.first,
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12)))).toList(),
           onChanged: onChanged,
           decoration: InputDecoration(
@@ -455,28 +697,6 @@ class _GatesStepState extends ConsumerState<GatesStep> {
             enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
           ),
           icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: scheme.onSurfaceVariant),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildField(String label, TextEditingController ctrl, String hint, ColorScheme scheme, TextTheme text) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-        SizedBox(height: 5.rs),
-        TextField(
-          controller: ctrl,
-          style: const TextStyle(fontSize: 13),
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            hintText: hint,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            isDense: true,
-            border: OutlineInputBorder(borderRadius: AppRadius.button),
-            enabledBorder: OutlineInputBorder(borderRadius: AppRadius.button, borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
-          ),
         ),
       ],
     );
@@ -492,29 +712,28 @@ class _GatesStepState extends ConsumerState<GatesStep> {
         SizedBox(height: 5.rs),
         TextField(
           controller: ctrl,
-          style: const TextStyle(fontSize: 13),
+          style: const TextStyle(fontSize: 12),
           inputFormatters: [IpInputFormatter()],
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: const TextStyle(fontSize: 12),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             isDense: true,
             prefixIcon: Padding(
-              padding: const EdgeInsets.only(left: 10, right: 6),
+              padding: const EdgeInsets.only(left: 8, right: 4),
               child: Icon(
                 hasValue ? (valid ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded) : Icons.lan_outlined,
                 size: 14,
                 color: hasValue ? (valid ? AppTheme.successColor : scheme.error) : scheme.outlineVariant,
               ),
             ),
-            prefixIconConstraints: const BoxConstraints(minWidth: 30),
+            prefixIconConstraints: const BoxConstraints(minWidth: 28),
             border: OutlineInputBorder(borderRadius: AppRadius.button),
             enabledBorder: OutlineInputBorder(
               borderRadius: AppRadius.button,
               borderSide: BorderSide(color: hasValue && !valid ? scheme.error.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.5)),
             ),
-            errorText: hasValue && !valid ? 'Invalid IP' : null,
-            errorStyle: const TextStyle(fontSize: 10),
           ),
         ),
       ],

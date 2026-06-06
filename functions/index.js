@@ -4877,13 +4877,17 @@ const SETU_BASE = process.env.SETU_BASE_URL || "https://dg-sandbox.setu.co";
 const SETU_CLIENT_ID = process.env.SETU_CLIENT_ID || "";
 const SETU_CLIENT_SECRET = process.env.SETU_CLIENT_SECRET || "";
 const SETU_PRODUCT_ID = process.env.SETU_DIGILOCKER_PRODUCT_ID || SETU_CLIENT_ID;
-const DIGILOCKER_TEST_MODE = !SETU_CLIENT_ID;
+const DIGILOCKER_TEST_MODE = process.env.SETU_TEST_MODE === "true" || !SETU_CLIENT_ID;
 
 async function setuFetch(path, options = {}) {
   const fetch = (await import("node-fetch")).default;
   const url = `${SETU_BASE}${path}`;
+  functions.logger.info(`setuFetch: ${options.method || "GET"} ${url}`);
+  functions.logger.info(`setuFetch: client_id=${SETU_CLIENT_ID?.slice(0, 8)}..., product=${SETU_PRODUCT_ID?.slice(0, 8)}...`);
   const headers = {
     "Content-Type": "application/json",
+    "User-Agent": "TulanamWeighbridge/1.0",
+    "Accept": "application/json",
     "x-client-id": SETU_CLIENT_ID,
     "x-client-secret": SETU_CLIENT_SECRET,
     "x-product-instance-id": SETU_PRODUCT_ID,
@@ -4950,7 +4954,7 @@ exports.initiateDigiLockerConsent = functions.https.onCall(async (data, context)
     })),
   };
 
-  const result = await setuFetch("/api/digilocker/consent", {
+  const result = await setuFetch("/api/digilocker", {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -5018,21 +5022,25 @@ exports.processDigiLockerConsent = functions.runWith({ timeoutSeconds: 60 }).htt
   }
 
   // ── PRODUCTION: fetch from Setu ──
-  const consent = await setuFetch(`/api/digilocker/consent/${consentId}`);
+  const consent = await setuFetch(`/api/digilocker/${consentId}/status`);
 
-  if (consent.status !== "APPROVED") {
+  if (consent.status !== "authenticated") {
     await sessionDoc.ref.update({ status: consent.status });
     throw new functions.https.HttpsError("failed-precondition", `Consent not approved. Status: ${consent.status}`);
   }
 
   // Fetch documents
   const documents = {};
-  for (const doc of (consent.documents || [])) {
+  const docTypes = ["PANCR", "ADHAR"];
+  for (const docType of docTypes) {
     try {
-      const docData = await setuFetch(`/api/digilocker/consent/${consentId}/document/${doc.id}`);
-      documents[doc.type] = docData;
+      const docData = await setuFetch(`/api/digilocker/${consentId}/document`, {
+        method: "POST",
+        body: JSON.stringify({ documentType: docType, format: "json" }),
+      });
+      documents[docType] = docData;
     } catch (e) {
-      functions.logger.warn(`Failed to fetch ${doc.type}:`, e.message);
+      functions.logger.warn(`Failed to fetch ${docType}:`, e.message);
     }
   }
 
@@ -5204,7 +5212,10 @@ exports.verifyStakeholder = functions.runWith({ timeoutSeconds: 30 }).https.onCa
 
 async function _getPanFromSession(consentId) {
   try {
-    const docData = await setuFetch(`/api/digilocker/consent/${consentId}/document/PANCR`);
+    const docData = await setuFetch(`/api/digilocker/${consentId}/document`, {
+      method: "POST",
+      body: JSON.stringify({ documentType: "PANCR", format: "json" }),
+    });
     return docData.number || docData.pan_number || null;
   } catch {
     return null;
