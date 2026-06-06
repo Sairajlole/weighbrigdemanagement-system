@@ -32,9 +32,11 @@ void main() async {
     await FirebaseAuth.instance.setPersistence(Persistence.NONE);
   } catch (_) {}
 
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,
-    cacheSizeBytes: 100 * 1024 * 1024,
+  FirebaseFirestore.instance.settings = Settings(
+    // Disable persistence on Windows — the cloud_firestore C++ plugin sends
+    // persistence-layer responses on non-platform threads, crashing the app.
+    persistenceEnabled: !Platform.isWindows,
+    cacheSizeBytes: Platform.isWindows ? null : 100 * 1024 * 1024,
   );
 
   // Sign out on every cold start — user must sign in fresh
