@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
@@ -16,9 +18,13 @@ final activeWeighbridgeCamerasProvider = FutureProvider<List<ActiveCamera>>((ref
   if (!paths.isConfigured) return [];
   try {
     DocumentSnapshot<Map<String, dynamic>> doc;
-    try {
-      doc = await paths.camerasAiSettings.get(const GetOptions(source: Source.cache));
-    } catch (_) {
+    if (!Platform.isWindows) {
+      try {
+        doc = await paths.camerasAiSettings.get(const GetOptions(source: Source.cache));
+      } catch (_) {
+        doc = await paths.camerasAiSettings.get();
+      }
+    } else {
       doc = await paths.camerasAiSettings.get();
     }
     if (!doc.exists) return [];

@@ -180,10 +180,13 @@ final securitySettingsProvider = FutureProvider<SecuritySettings>((ref) async {
   ref.watch(securityRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return const SecuritySettings();
-  try {
-    final snap = await paths.securitySettings.get(const GetOptions(source: Source.cache));
-    if (snap.exists) return SecuritySettings.fromMap(snap.data()!);
-  } catch (_) {}
+  // Skip cache on Windows — persistence is disabled so cache reads time out.
+  if (!Platform.isWindows) {
+    try {
+      final snap = await paths.securitySettings.get(const GetOptions(source: Source.cache));
+      if (snap.exists) return SecuritySettings.fromMap(snap.data()!);
+    } catch (_) {}
+  }
   try {
     final snap = await paths.securitySettings.get();
     if (snap.exists) return SecuritySettings.fromMap(snap.data()!);

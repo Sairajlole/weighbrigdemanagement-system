@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 
@@ -852,7 +853,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
           .where('email', isEqualTo: email)
           .limit(1)
           .get()
-          .timeout(const Duration(seconds: 8), onTimeout: () {
+          .timeout(Duration(seconds: Platform.isWindows ? 20 : 8), onTimeout: () {
             throw TimeoutException('Query timed out');
           });
 

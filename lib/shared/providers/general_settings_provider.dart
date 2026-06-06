@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -9,10 +11,12 @@ final generalSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async
   ref.watch(settingsRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return {};
-  try {
-    final snap = await paths.generalSettings.get(const GetOptions(source: Source.cache));
-    if (snap.exists) return snap.data()!;
-  } catch (_) {}
+  if (!Platform.isWindows) {
+    try {
+      final snap = await paths.generalSettings.get(const GetOptions(source: Source.cache));
+      if (snap.exists) return snap.data()!;
+    } catch (_) {}
+  }
   try {
     final snap = await paths.generalSettings.get();
     return snap.exists ? snap.data()! : {};
@@ -25,10 +29,12 @@ final scaleSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   ref.watch(settingsRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return {};
-  try {
-    final snap = await paths.scaleSettings.get(const GetOptions(source: Source.cache));
-    if (snap.exists) return snap.data()!;
-  } catch (_) {}
+  if (!Platform.isWindows) {
+    try {
+      final snap = await paths.scaleSettings.get(const GetOptions(source: Source.cache));
+      if (snap.exists) return snap.data()!;
+    } catch (_) {}
+  }
   try {
     final snap = await paths.scaleSettings.get();
     return snap.exists ? snap.data()! : {};
@@ -41,10 +47,12 @@ final printSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   ref.watch(settingsRefreshProvider);
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return {};
-  try {
-    final snap = await paths.printingSettings.get(const GetOptions(source: Source.cache));
-    if (snap.exists) return snap.data()!;
-  } catch (_) {}
+  if (!Platform.isWindows) {
+    try {
+      final snap = await paths.printingSettings.get(const GetOptions(source: Source.cache));
+      if (snap.exists) return snap.data()!;
+    } catch (_) {}
+  }
   try {
     final snap = await paths.printingSettings.get();
     return snap.exists ? snap.data()! : {};

@@ -19,7 +19,16 @@ final _cameraSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return {};
   try {
-    final doc = await paths.camerasAiSettings.get(const GetOptions(source: Source.cache));
+    DocumentSnapshot<Map<String, dynamic>> doc;
+    if (!Platform.isWindows) {
+      try {
+        doc = await paths.camerasAiSettings.get(const GetOptions(source: Source.cache));
+      } catch (_) {
+        doc = await paths.camerasAiSettings.get();
+      }
+    } else {
+      doc = await paths.camerasAiSettings.get();
+    }
     return doc.exists ? doc.data()! : {};
   } catch (_) {
     try {

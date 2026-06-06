@@ -315,9 +315,13 @@ final eagerCameraWarmupProvider = FutureProvider<void>((ref) async {
   Map<String, dynamic> settings;
   try {
     DocumentSnapshot<Map<String, dynamic>> doc;
-    try {
-      doc = await paths.camerasAiSettings.get(const GetOptions(source: Source.cache));
-    } catch (_) {
+    if (!Platform.isWindows) {
+      try {
+        doc = await paths.camerasAiSettings.get(const GetOptions(source: Source.cache));
+      } catch (_) {
+        doc = await paths.camerasAiSettings.get();
+      }
+    } else {
       doc = await paths.camerasAiSettings.get();
     }
     if (!doc.exists) return;
