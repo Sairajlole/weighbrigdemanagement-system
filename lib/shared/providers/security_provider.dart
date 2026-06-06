@@ -214,7 +214,10 @@ final currentOperatorDocProvider = FutureProvider<Map<String, dynamic>?>((ref) a
 
 final currentUserRoleProvider = FutureProvider<String>((ref) async {
   final doc = await ref.watch(currentOperatorDocProvider.future);
-  if (doc == null) return Platform.isMacOS ? 'admin' : 'operator';
+  if (doc == null) {
+    // No operator doc means this is a company admin (they exist in companies collection)
+    return 'admin';
+  }
   final role = doc['role'] as String? ?? 'operator';
   return (role == 'companyAdmin' || role == 'admin') ? 'admin' : role;
 });
@@ -256,6 +259,17 @@ final _operatorNameFutureProvider = FutureProvider<String>((ref) async {
   ref.watch(operatorIdentityRefreshProvider);
   final doc = await ref.watch(currentOperatorDocProvider.future);
   if (doc != null) return doc['name'] as String? ?? '';
+  // Company admin — fetch name from company doc
+  final paths = ref.watch(firestorePathsProvider);
+  if (paths.isConfigured) {
+    try {
+      final companyDoc = await FirebaseFirestore.instance
+          .doc('companies/${paths.context.companyId}')
+          .get();
+      final name = companyDoc.data()?['name'] as String?;
+      if (name != null && name.isNotEmpty) return name;
+    } catch (_) {}
+  }
   final user = FirebaseAuth.instance.currentUser;
   final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
   return user?.displayName ?? email ?? '';
