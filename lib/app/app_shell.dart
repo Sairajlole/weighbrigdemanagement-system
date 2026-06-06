@@ -36,8 +36,11 @@ final sidebarCollapsedProvider = StateProvider<bool>((ref) => false);
 final _pendingOperatorsCountProvider = StreamProvider<int>((ref) async* {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return;
-  // Stagger stream startup on Windows to avoid Firestore threading crash
-  if (Platform.isWindows) await Future<void>.delayed(const Duration(seconds: 2));
+  // On Windows, wait for auth queries to complete before opening streams
+  if (Platform.isWindows) {
+    await ref.watch(currentOperatorDocProvider.future);
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+  }
   yield* paths.operators.where('isVerified', isEqualTo: false).snapshots().map(
     (snap) => snap.docs.where((d) {
       final data = d.data();
@@ -92,11 +95,13 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Auto-start sidecar if not running, then sync embeddings
-    ref.watch(sidecarAutoStartProvider);
-    ref.watch(sidecarEmbeddingSyncProvider);
-    // Eagerly start camera feeds so they're ready when navigating to weighment
-    ref.watch(eagerCameraWarmupProvider);
+    // On Windows, defer sidecar/camera Firestore queries until auth queries
+    // complete — concurrent channel responses crash the Windows plugin.
+    if (!Platform.isWindows || ref.watch(currentOperatorDocProvider).hasValue) {
+      ref.watch(sidecarAutoStartProvider);
+      ref.watch(sidecarEmbeddingSyncProvider);
+      ref.watch(eagerCameraWarmupProvider);
+    }
 
     final perms = ref.watch(permissionServiceProvider);
     final strings = ref.watch(stringsProvider);
@@ -114,10 +119,10 @@ class AppShell extends ConsumerWidget {
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            width: hideSidebar ? 0 : 92,
+            width: hideSidebar ? 0 : 76,
             clipBehavior: Clip.hardEdge,
             decoration: const BoxDecoration(),
-            padding: const EdgeInsets.only(left: 8, top: 36, bottom: 8),
+            padding: EdgeInsets.zero,
             child: _Sidebar(
               navItems: navItems,
               selectedIndex: selectedIndex,
@@ -203,10 +208,6 @@ class _SidebarState extends ConsumerState<_Sidebar> {
           ),
           child: Row(
             children: [
-              SizedBox(width: AppSpacing.xl),
-              Text('tulanam', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 2, color: scheme.onSurface.withValues(alpha: 0.85))),
-              SizedBox(width: AppSpacing.xl),
-              Container(width: 1, height: 40, color: scheme.outlineVariant.withValues(alpha: 0.15)),
               SizedBox(width: AppSpacing.lg),
               Expanded(
                 child: ListView(
@@ -326,122 +327,72 @@ class _SidebarState extends ConsumerState<_Sidebar> {
   Widget _buildVertical(BuildContext context) {
     final profile = ref.watch(profileProvider).valueOrNull;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final scheme = Theme.of(context).colorScheme;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
+    return Container(
           width: 76,
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.4)
-                : Colors.white.withValues(alpha: 0.65),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.1)
-                  : Colors.black.withValues(alpha: 0.06),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 12,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
+          color: scheme.surfaceContainerLowest,
           child: Column(
             children: [
-              SizedBox(height: AppSpacing.lg),
-              Center(
-                child: RotatedBox(
-                  quarterTurns: 3,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'tulanam',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: scheme.onSurface.withValues(alpha: 0.85),
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      SizedBox(
-                        width: 120,
-                        child: _SidebarMorse(color: scheme.onSurfaceVariant.withValues(alpha: 0.2)),
-                      ),
-                    ],
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 14, right: 6),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: widget.navItems.asMap().entries.map((entry) {
+                        final i = entry.key;
+                        final item = entry.value;
+                        final isSelected = i == widget.selectedIndex;
+                        final badge = item.path == '/operators'
+                            ? (ref.watch(_pendingOperatorsCountProvider).valueOrNull ?? 0)
+                            : 0;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: _NavTile(
+                            icon: isSelected ? item.selectedIcon : item.icon,
+                            label: item.label,
+                            isSelected: isSelected,
+                            onTap: () => widget.onItemTap(item.path),
+                            badge: badge,
+                          ),
+                        );
+                      }).toList(),
+                    ),
                   ),
                 ),
               ),
-              SizedBox(height: AppSpacing.lg),
-              Divider(height: 1, indent: 16, endIndent: 16, color: scheme.outlineVariant.withValues(alpha: 0.15)),
-              SizedBox(height: AppSpacing.lg),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              children: [
-                ...widget.navItems.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final item = entry.value;
-                  final isSelected = i == widget.selectedIndex;
-                  final badge = item.path == '/operators'
-                      ? (ref.watch(_pendingOperatorsCountProvider).valueOrNull ?? 0)
-                      : 0;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: _NavTile(
-                      icon: isSelected ? item.selectedIcon : item.icon,
-                      label: item.label,
-                      isSelected: isSelected,
-                      onTap: () => widget.onItemTap(item.path),
-                      badge: badge,
-                    ),
-                  );
-                }),
-              ],
-            ),
+              SizedBox(height: AppSpacing.sm),
+              Padding(
+                padding: const EdgeInsets.only(left: 14, right: 6),
+                child: _ProfileTile(
+                  isSelected: widget.isProfileSelected,
+                  onTap: widget.onProfileTap,
+                  profile: profile,
+                ),
+              ),
+              SizedBox(height: AppSpacing.xs),
+              Padding(
+                padding: const EdgeInsets.only(left: 14, right: 6),
+                child: _NavTile(
+                  icon: Icons.logout_rounded,
+                  label: 'Logout',
+                  isSelected: false,
+                  isDestructive: true,
+                  onTap: () async {
+                    await ref.read(firebaseAuthProvider).signOut();
+                    await ref.read(siteContextProvider.notifier).clear();
+                    await LocalCacheService.clearCurrentUser();
+                    ref.read(setupWizardProvider.notifier).reset();
+                    if (context.mounted) context.go('/setup');
+                  },
+                ),
+              ),
+              SizedBox(height: AppSpacing.sm),
+              _ConnectivityDot(ref: ref),
+              SizedBox(height: 14.rs),
+            ],
           ),
-          Divider(height: 1, indent: 16, endIndent: 16, color: scheme.outlineVariant.withValues(alpha: 0.15)),
-          SizedBox(height: AppSpacing.sm),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: _ProfileTile(
-              isSelected: widget.isProfileSelected,
-              onTap: widget.onProfileTap,
-              profile: profile,
-            ),
-          ),
-          SizedBox(height: AppSpacing.xs),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: _NavTile(
-              icon: Icons.logout_rounded,
-              label: 'Logout',
-              isSelected: false,
-              isDestructive: true,
-              onTap: () async {
-                await ref.read(firebaseAuthProvider).signOut();
-                await ref.read(siteContextProvider.notifier).clear();
-                await LocalCacheService.clearCurrentUser();
-                ref.read(setupWizardProvider.notifier).reset();
-                if (context.mounted) context.go('/setup');
-              },
-            ),
-          ),
-          SizedBox(height: AppSpacing.sm),
-          _ConnectivityDot(ref: ref),
-          SizedBox(height: 14.rs),
-        ],
-      ),
-      ),
-    ),
     );
   }
 
@@ -552,14 +503,16 @@ class _NavTileState extends State<_NavTile> {
     final scheme = Theme.of(context).colorScheme;
     final iconColor = widget.isSelected
         ? AppTheme.brandTeal
-        : _hovered
-            ? scheme.onSurface.withValues(alpha: 0.8)
-            : scheme.onSurfaceVariant.withValues(alpha: 0.5);
+        : widget.isDestructive
+            ? scheme.error.withValues(alpha: _hovered ? 0.9 : 0.6)
+            : _hovered
+                ? scheme.onSurface.withValues(alpha: 0.8)
+                : scheme.onSurfaceVariant.withValues(alpha: 0.5);
 
-    final child = AnimatedContainer(
+    final pill = AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       width: 48,
-      height: 48,
+      height: 40,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: widget.isSelected
@@ -567,8 +520,7 @@ class _NavTileState extends State<_NavTile> {
             : _hovered
                 ? scheme.onSurface.withValues(alpha: 0.05)
                 : Colors.transparent,
-        borderRadius: BorderRadius.circular(14.rs),
-        border: widget.isSelected ? Border.all(color: AppTheme.brandTeal.withValues(alpha: 0.3)) : null,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Stack(
         clipBehavior: Clip.none,
@@ -608,11 +560,10 @@ class _NavTileState extends State<_NavTile> {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              child,
-              // Accent line on left edge when selected
+              pill,
               if (widget.isSelected && !widget.isDestructive)
                 Positioned(
-                  left: -10,
+                  left: -12,
                   top: 12,
                   bottom: 12,
                   child: Container(
@@ -657,21 +608,21 @@ class _ProfileTileState extends State<_ProfileTile> {
       String raw = pic;
       if (raw.contains(',')) raw = raw.split(',').last;
       avatar = CircleAvatar(
-        radius: 15,
+        radius: 14,
         backgroundImage: MemoryImage(Uint8List.fromList(base64Decode(raw))),
       );
     } else {
       avatar = CircleAvatar(
-        radius: 15,
+        radius: 14,
         backgroundColor: scheme.primary.withValues(alpha: 0.12),
-        child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.primary)),
+        child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.primary)),
       );
     }
 
     final tile = AnimatedContainer(
       duration: const Duration(milliseconds: 180),
-      width: 42,
-      height: 42,
+      width: 36,
+      height: 36,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: widget.isSelected
@@ -679,7 +630,7 @@ class _ProfileTileState extends State<_ProfileTile> {
             : _hovered
                 ? scheme.surfaceContainerHighest.withValues(alpha: 0.5)
                 : Colors.transparent,
-        borderRadius: BorderRadius.circular(10.rs),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: avatar,
     );
@@ -747,7 +698,7 @@ class _ConnectivityDotState extends State<_ConnectivityDot> {
     final bottomFromScreen = screenHeight - pos.dy - size.height / 2;
 
     _overlayEntry = OverlayEntry(builder: (_) => _StatusPanelOverlay(
-      left: pos.dx + size.width + 12,
+      left: 82,
       bottom: bottomFromScreen.clamp(20.0, screenHeight - 60),
       ref: widget.ref,
       pendingCount: _pendingCount,
@@ -1176,52 +1127,4 @@ class _DeviceStatRow extends StatelessWidget {
   }
 }
 
-class _SidebarMorse extends StatelessWidget {
-  final Color color;
-  const _SidebarMorse({required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    // t=- u=..- l=.-.. a=.- n=-. a=.- m=--
-    // dash=3 units, dot=1 unit, intra-char gap=1, inter-char gap=3
-    const symbols = <(int, bool)>[
-      (3, true),  // t: -
-      (3, false), // gap
-      (1, true), (1, false), (1, true), (1, false), (3, true), // u: ..-
-      (3, false), // gap
-      (1, true), (1, false), (3, true), (1, false), (1, true), (1, false), (1, true), // l: .-..
-      (3, false), // gap
-      (1, true), (1, false), (3, true), // a: .-
-      (3, false), // gap
-      (3, true), (1, false), (1, true), // n: -.
-      (3, false), // gap
-      (1, true), (1, false), (3, true), // a: .-
-      (3, false), // gap
-      (3, true), (1, false), (3, true), // m: --
-    ];
-
-    final totalUnits = symbols.fold<int>(0, (sum, s) => sum + s.$1);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final unitW = constraints.maxWidth / totalUnits;
-        return SizedBox(
-          height: 2.5,
-          child: Row(
-            children: [
-              for (final s in symbols)
-                Container(
-                  width: s.$1 * unitW,
-                  height: 2.5,
-                  decoration: s.$2
-                      ? BoxDecoration(color: color, borderRadius: BorderRadius.circular(1))
-                      : null,
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
 

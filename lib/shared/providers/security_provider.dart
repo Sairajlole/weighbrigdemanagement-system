@@ -194,6 +194,9 @@ final securitySettingsProvider = FutureProvider<SecuritySettings>((ref) async {
 // Single Firestore query for the current operator document — all operator
 // attribute providers derive from this to avoid duplicate network calls.
 final currentOperatorDocProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
+  // On Windows, serialize Firestore queries to avoid native threading crash:
+  // wait for securitySettings to finish before issuing the operator query.
+  if (Platform.isWindows) await ref.watch(securitySettingsProvider.future);
   final paths = ref.watch(firestorePathsProvider);
   final user = FirebaseAuth.instance.currentUser;
   final email = user?.email ?? await LocalCacheService.getCachedCurrentUserEmail();

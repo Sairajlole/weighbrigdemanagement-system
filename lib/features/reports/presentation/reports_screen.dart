@@ -90,6 +90,10 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   bool _loading = false;
   Map<String, dynamic> _summary = {};
 
+  // Comparison period state
+  List<Map<String, dynamic>> _prevData = [];
+  bool _prevLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -189,13 +193,32 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       final startTs = Timestamp.fromDate(_dateRange.start);
       final endTs = Timestamp.fromDate(_dateRange.end.add(const Duration(days: 1)));
 
-      Query<Map<String, dynamic>> query = paths.weighments
-          .where('createdAt', isGreaterThanOrEqualTo: startTs)
-          .where('createdAt', isLessThan: endTs)
-          .orderBy('createdAt', descending: true);
+      Query<Map<String, dynamic>> query;
+      if (_scope == 'site') {
+        query = paths.firestore.collectionGroup('weighments')
+            .where('createdAt', isGreaterThanOrEqualTo: startTs)
+            .where('createdAt', isLessThan: endTs)
+            .orderBy('createdAt', descending: true);
+      } else if (_scope == 'all') {
+        query = paths.firestore.collectionGroup('weighments')
+            .where('createdAt', isGreaterThanOrEqualTo: startTs)
+            .where('createdAt', isLessThan: endTs)
+            .orderBy('createdAt', descending: true);
+      } else {
+        query = paths.weighments
+            .where('createdAt', isGreaterThanOrEqualTo: startTs)
+            .where('createdAt', isLessThan: endTs)
+            .orderBy('createdAt', descending: true);
+      }
 
       final snap = await query.get();
-      var docs = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+      final ctx = paths.context;
+      var docs = snap.docs.where((d) {
+        if (_scope == 'weighbridge') return true;
+        final path = d.reference.path;
+        if (_scope == 'site') return path.startsWith('companies/${ctx.companyId}/sites/${ctx.siteId}/');
+        return path.startsWith('companies/${ctx.companyId}/');
+      }).map((d) => {'id': d.id, ...d.data()}).toList();
 
       // Apply filters
       if (_materialFilter != 'All') {
@@ -1014,7 +1037,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 ),
                 SizedBox(height: AppSpacing.md),
                 SizedBox(
-                  height: 80,
+                  height: 100,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: withSnapshots.length,
@@ -1023,23 +1046,45 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       final veh = d['vehicleNumber'] as String? ?? '?';
                       final ts = d['createdAt'];
                       final time = ts is Timestamp ? DateFormat('HH:mm').format(ts.toDate()) : '';
+                      final snapMap = d['cameraSnapshots'] as Map;
+                      String? firstImagePath;
+                      for (final phase in snapMap.values) {
+                        if (phase is Map) {
+                          for (final path in phase.values) {
+                            if (path is String && path.isNotEmpty) { firstImagePath = path; break; }
+                          }
+                        }
+                        if (firstImagePath != null) break;
+                      }
                       return Container(
-                        width: 110,
+                        width: 130,
                         margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: scheme.surfaceContainerLow,
                           borderRadius: AppRadius.button,
                           border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.15)),
                         ),
+                        clipBehavior: Clip.antiAlias,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Icon(Icons.videocam_rounded, size: 18, color: scheme.primary.withValues(alpha: 0.7)),
-                            const Spacer(),
-                            Text(veh, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurface), overflow: TextOverflow.ellipsis),
-                            Text(time, style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant)),
+                            Expanded(
+                              child: firstImagePath != null && File(firstImagePath).existsSync()
+                                  ? Image.file(File(firstImagePath), fit: BoxFit.cover)
+                                  : Container(
+                                      color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                                      child: Icon(Icons.videocam_rounded, size: 24, color: scheme.primary.withValues(alpha: 0.5)),
+                                    ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              child: Row(
+                                children: [
+                                  Expanded(child: Text(veh, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.onSurface), overflow: TextOverflow.ellipsis)),
+                                  Text(time, style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant)),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       );
@@ -1441,18 +1486,58 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   // ─── Comparison Report (Current vs Previous Period) ──────────────────────────
 
+  Future<void> _loadPreviousPeriod() async {
+    final duration = _dateRange.duration;
+    final prevStart = _dateRange.start.subtract(duration);
+    setState(() => _prevLoading = true);
+    try {
+      final paths = ref.read(firestorePathsProvider);
+      final snap = await paths.weighments
+          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(prevStart))
+          .where('createdAt', isLessThan: Timestamp.fromDate(_dateRange.start))
+          .orderBy('createdAt', descending: true)
+          .get();
+      _prevData = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load previous period: $e')));
+    }
+    if (mounted) setState(() => _prevLoading = false);
+  }
+
   Widget _buildComparisonReport(ColorScheme scheme, TextTheme text) {
     final duration = _dateRange.duration;
     final prevStart = _dateRange.start.subtract(duration);
     final prevEnd = _dateRange.start.subtract(const Duration(seconds: 1));
 
-    // Current period stats
     final currentCompleted = _data.where((d) => d['status'] == 'completed').toList();
     final currentNet = currentCompleted.fold(0.0, (sum, d) => sum + ((d['netWeight'] as num?)?.toDouble() ?? 0));
     final currentVehicles = currentCompleted.map((d) => d['vehicleNumber']).toSet().length;
+    final currentAvgNet = currentCompleted.isNotEmpty ? currentNet / currentCompleted.length : 0.0;
 
-    // For previous period, we'd need another query — for now show placeholder with what we can compute
-    // In production this would be a separate Firestore query
+    final prevCompleted = _prevData.where((d) => d['status'] == 'completed').toList();
+    final prevNet = prevCompleted.fold(0.0, (sum, d) => sum + ((d['netWeight'] as num?)?.toDouble() ?? 0));
+    final prevVehicles = prevCompleted.map((d) => d['vehicleNumber']).toSet().length;
+    final prevAvgNet = prevCompleted.isNotEmpty ? prevNet / prevCompleted.length : 0.0;
+    final hasPrev = _prevData.isNotEmpty;
+
+    double pctChange(double current, double previous) {
+      if (previous == 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    }
+
+    Widget changeIndicator(double pct) {
+      if (pct == 0) return const SizedBox.shrink();
+      final isUp = pct > 0;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(isUp ? Icons.trending_up_rounded : Icons.trending_down_rounded, size: 14, color: isUp ? Colors.green : Colors.red),
+          const SizedBox(width: 2),
+          Text('${isUp ? '+' : ''}${pct.toStringAsFixed(1)}%', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: isUp ? Colors.green : Colors.red)),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1466,7 +1551,19 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Period Comparison', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              Row(
+                children: [
+                  Text('Period Comparison', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  if (!hasPrev && !_prevLoading)
+                    FilledButton.tonal(
+                      onPressed: _loadPreviousPeriod,
+                      child: const Text('Load Previous Period'),
+                    ),
+                  if (_prevLoading)
+                    const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                ],
+              ),
               SizedBox(height: AppSpacing.md),
               Row(
                 children: [
@@ -1497,53 +1594,72 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     child: Container(
                       padding: AppSpacing.cardPadding,
                       decoration: BoxDecoration(
-                        color: scheme.surfaceContainerLow,
+                        color: hasPrev ? scheme.tertiaryContainer.withValues(alpha: 0.1) : scheme.surfaceContainerLow,
                         borderRadius: AppRadius.button,
-                        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+                        border: Border.all(color: hasPrev ? scheme.tertiary.withValues(alpha: 0.2) : scheme.outlineVariant.withValues(alpha: 0.2)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Previous Period', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+                          Text('Previous Period', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: hasPrev ? scheme.tertiary : scheme.onSurfaceVariant)),
                           Text('${DateFormat('dd MMM').format(prevStart)} – ${DateFormat('dd MMM').format(prevEnd)}', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                           SizedBox(height: AppSpacing.sm),
-                          Text('— weighments', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: scheme.onSurfaceVariant)),
-                          Text('Load previous period data to compare', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                          if (hasPrev) ...[
+                            Text('${prevCompleted.length} weighments', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                            Text('${(prevNet / 1000).toStringAsFixed(1)} T net | $prevVehicles vehicles', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                          ] else ...[
+                            Text('—', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: scheme.onSurfaceVariant)),
+                            Text('Tap "Load" to compare', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                          ],
                         ],
                       ),
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: AppSpacing.md),
-              FilledButton.tonal(
-                onPressed: () async {
-                  // Load previous period
-                  try {
-                    final paths = ref.read(firestorePathsProvider);
-                    final snap = await paths.weighments
-                        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(prevStart))
-                        .where('createdAt', isLessThan: Timestamp.fromDate(_dateRange.start))
-                        .orderBy('createdAt', descending: true)
-                        .get();
-                    final prevDocs = snap.docs.where((d) => d.data()['status'] == 'completed').toList();
-                    final prevNet = prevDocs.fold(0.0, (sum, d) => sum + ((d.data()['netWeight'] as num?)?.toDouble() ?? 0));
-                    final prevVehicles = prevDocs.map((d) => d.data()['vehicleNumber']).toSet().length;
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Previous: ${prevDocs.length} weighments, ${(prevNet / 1000).toStringAsFixed(1)}T, $prevVehicles vehicles')));
-                    }
-                  } catch (e) {
-                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
-                  }
-                },
-                child: const Text('Load Previous Period'),
-              ),
+              if (hasPrev) ...[
+                SizedBox(height: AppSpacing.lg),
+                Row(
+                  children: [
+                    Expanded(child: _comparisonMetric(scheme, text, 'Weighments', currentCompleted.length.toDouble(), prevCompleted.length.toDouble(), pctChange, changeIndicator, isCount: true)),
+                    SizedBox(width: AppSpacing.md),
+                    Expanded(child: _comparisonMetric(scheme, text, 'Tonnage', currentNet / 1000, prevNet / 1000, pctChange, changeIndicator, suffix: 'T')),
+                    SizedBox(width: AppSpacing.md),
+                    Expanded(child: _comparisonMetric(scheme, text, 'Vehicles', currentVehicles.toDouble(), prevVehicles.toDouble(), pctChange, changeIndicator, isCount: true)),
+                    SizedBox(width: AppSpacing.md),
+                    Expanded(child: _comparisonMetric(scheme, text, 'Avg Net', currentAvgNet / 1000, prevAvgNet / 1000, pctChange, changeIndicator, suffix: 'T')),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
         SizedBox(height: AppSpacing.lg),
         _buildDailyReport(scheme, text),
       ],
+    );
+  }
+
+  Widget _comparisonMetric(ColorScheme scheme, TextTheme text, String label, double current, double previous, double Function(double, double) pctChange, Widget Function(double) changeIndicator, {bool isCount = false, String suffix = ''}) {
+    final pct = pctChange(current, previous);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: AppRadius.button,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600)),
+          SizedBox(height: AppSpacing.xs),
+          Text(isCount ? '${current.toInt()}' : '${current.toStringAsFixed(1)}$suffix', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+          Text(isCount ? 'was ${previous.toInt()}' : 'was ${previous.toStringAsFixed(1)}$suffix', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+          SizedBox(height: AppSpacing.xs),
+          changeIndicator(pct),
+        ],
+      ),
     );
   }
 

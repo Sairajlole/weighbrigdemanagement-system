@@ -20,7 +20,12 @@ import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 final _weighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) async* {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return;
-  if (Platform.isWindows) await Future<void>.delayed(const Duration(seconds: 1));
+  // On Windows, wait for auth queries to complete before opening streams
+  // to avoid concurrent Firestore channel messages crashing the app.
+  if (Platform.isWindows) {
+    await ref.watch(currentOperatorDocProvider.future);
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+  }
   yield* paths.weighments
       .orderBy('createdAt', descending: true)
       .limit(100)
@@ -31,7 +36,10 @@ final _weighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) asy
 final _customersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) async* {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return;
-  if (Platform.isWindows) await Future<void>.delayed(const Duration(seconds: 2));
+  if (Platform.isWindows) {
+    await ref.watch(currentOperatorDocProvider.future);
+    await Future<void>.delayed(const Duration(seconds: 1));
+  }
   yield* paths.customers
       .orderBy('totalWeighments', descending: true)
       .limit(10)

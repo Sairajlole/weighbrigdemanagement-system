@@ -2,11 +2,16 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 
 final unreadNotificationsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) async* {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return;
-  if (Platform.isWindows) await Future<void>.delayed(const Duration(seconds: 3));
+  // On Windows, wait for auth queries to complete before opening streams
+  if (Platform.isWindows) {
+    await ref.watch(currentOperatorDocProvider.future);
+    await Future<void>.delayed(const Duration(seconds: 2));
+  }
   yield* paths.notifications
       .where('read', isEqualTo: false)
       .orderBy('createdAt', descending: true)
