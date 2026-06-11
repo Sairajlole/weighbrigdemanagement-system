@@ -359,11 +359,29 @@ class EnrollResult {
   final int totalImages;
   final double avgQuality;
 
+  // In-house validation signals — present only on sidecar builds that include
+  // the local consistency/liveness checks. When [hasValidation] is false the
+  // running sidecar predates them and callers should fall back to the cloud
+  // validation rather than trusting the defaults below.
+  final bool hasValidation;
+  final bool consistent;
+  final int liveFrames;
+  final int outliers;
+  final double poseVariance;
+  // Per-INPUT-frame quality (aligned with the images passed to enrollFromImages).
+  final List<double> frameQualities;
+
   const EnrollResult({
     required this.embedding,
     required this.facesUsed,
     required this.totalImages,
     required this.avgQuality,
+    this.hasValidation = false,
+    this.consistent = true,
+    this.liveFrames = 0,
+    this.outliers = 0,
+    this.poseVariance = 0,
+    this.frameQualities = const [],
   });
 }
 
@@ -717,6 +735,12 @@ class AiSidecarClient {
           facesUsed: data['faces_used'] as int? ?? 0,
           totalImages: data['total_images'] as int? ?? images.length,
           avgQuality: (data['avg_quality'] as num?)?.toDouble() ?? 0.0,
+          hasValidation: data.containsKey('consistent'),
+          consistent: data['consistent'] as bool? ?? true,
+          liveFrames: data['live_frames'] as int? ?? 0,
+          outliers: data['outliers'] as int? ?? 0,
+          poseVariance: (data['pose_variance'] as num?)?.toDouble() ?? 0.0,
+          frameQualities: ((data['frame_qualities'] as List?) ?? []).map((e) => (e as num).toDouble()).toList(),
         );
       }
     } catch (_) {

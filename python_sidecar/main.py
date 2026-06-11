@@ -815,6 +815,9 @@ async def enroll_from_images(files: list[UploadFile] = File(...)):
 
     embeddings = []
     quality_scores = []
+    frame_qualities = []  # per INPUT frame (aligned with files) — for the gallery
+    poses = []  # (yaw, pitch) per accepted frame — for static-photo detection
+    live_count = 0
     debug_dir = Path("/tmp/face_debug/enroll")
     debug_dir.mkdir(parents=True, exist_ok=True)
     for i, f in enumerate(files):
@@ -823,15 +826,45 @@ async def enroll_from_images(files: list[UploadFile] = File(...)):
         result = engine.extract_best(img, quality_thresh=0.0)
         # For enrollment, compute quality without liveness penalty
         raw_quality = result.quality_score / (0.85 if not result.is_live else 1.0)
+        frame_qualities.append(round(float(raw_quality), 3))
         if result.embedding is not None and raw_quality >= 0.15:
-            embeddings.append(result.embedding)
+            emb = np.asarray(result.embedding, dtype=np.float64)
+            emb = emb / (np.linalg.norm(emb) or 1.0)
+            embeddings.append(emb)
             quality_scores.append(raw_quality)
+            poses.append((result.pose_yaw, result.pose_pitch))
+            if result.is_live:
+                live_count += 1
     print(f"[Enroll] Saved {len(files)} frames to {debug_dir}")
 
     if len(embeddings) < 3:
         raise HTTPException(
             400, f"Only {len(embeddings)} valid faces from {len(files)} images. Need at least 3."
         )
+
+    # Same-person consistency (in-house replacement for the old Vision landmark
+    # check): a frame is an outlier if it fails to match more than half the other
+    # frames by cosine similarity. Cross-person frames score near 0; same-session
+    # same-person frames score high. 0.45 matches the production /face/identify
+    # threshold for this model (GlintR100); same-session frames run higher still.
+    CONSISTENCY_THRESHOLD = 0.45
+    n = len(embeddings)
+    outlier_count = 0
+    for i in range(n):
+        failures = sum(
+            1 for j in range(n)
+            if i != j and float(np.dot(embeddings[i], embeddings[j])) < CONSISTENCY_THRESHOLD
+        )
+        if failures > n // 2:
+            outlier_count += 1
+    consistent = outlier_count <= 1
+
+    # Static-photo defense: a real person naturally varies head pose across the
+    # capture set; a printed/displayed photo stays nearly fixed. This replaces
+    # the old Vision pose/EAR liveness. Returned as a metric — the client gates.
+    yaws = [p[0] for p in poses]
+    pitches = [p[1] for p in poses]
+    pose_variance = round(float(np.var(yaws) + np.var(pitches)), 4) if len(poses) >= 2 else 0.0
 
     avg_embedding = np.mean(embeddings, axis=0)
     avg_embedding = avg_embedding / np.linalg.norm(avg_embedding)
@@ -841,6 +874,11 @@ async def enroll_from_images(files: list[UploadFile] = File(...)):
         "faces_used": len(embeddings),
         "total_images": len(files),
         "avg_quality": round(float(np.mean(quality_scores)), 3),
+        "live_frames": live_count,
+        "outliers": outlier_count,
+        "consistent": bool(consistent),
+        "frame_qualities": frame_qualities,
+        "pose_variance": pose_variance,
     }
 
 

@@ -5,8 +5,10 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   cloud_firestore
   connectivity_plus
+  desktop_webview_window
   firebase_auth
   firebase_core
+  flutter_inappwebview_windows
   flutter_libserialport
   media_kit_libs_windows_video
   media_kit_video

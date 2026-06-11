@@ -1,14 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
-import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
@@ -24,8 +23,6 @@ import '../../application/setup_wizard_state.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
-String _hashPassword(String password) => sha256.convert(utf8.encode(password)).toString();
-
 Future<void> _ensureFirebaseAuthAccount(String email, String password) async {
   try {
     await CloudFunctionsService.call('ensureFirebaseAuth', {'email': email, 'password': password});
@@ -36,16 +33,73 @@ Future<void> _ensureFirebaseAuthAccount(String email, String password) async {
 
 final _emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
 
-// tulanam in Morse: t=- u=..- l=.-.. a=.- n=-. a=.- m=--
-const _morseLetters = <List<int>>[
-  [1],         // t: -
-  [0, 0, 1],  // u: ..-
-  [0, 1, 0, 0], // l: .-..
-  [0, 1],     // a: .-
-  [1, 0],     // n: -.
-  [0, 1],     // a: .-
-  [1, 1],     // m: --
-];
+
+/// Calls `loginUser`; if the account has TOTP 2FA the server replies with
+/// `{mfaRequired: true}` instead of a session — this prompts for the 6-digit
+/// code and re-submits until it succeeds. Returns the final loginUser result,
+/// or null if the user cancels the 2FA prompt.
+Future<Map<String, dynamic>?> loginUserWithMfa(BuildContext context, String email, String password,
+    {Future<String?> Function({String? error})? getCode}) async {
+  final first = await CloudFunctionsService.call('loginUser', {'email': email, 'password': password});
+  if (first['mfaRequired'] != true) return first;
+  // Inline code entry when [getCode] is supplied; otherwise fall back to the dialog.
+  final prompt = getCode ?? (({String? error}) => _promptTotpCode(context, error: error));
+  String? error;
+  while (true) {
+    if (!context.mounted) return null;
+    final code = await prompt(error: error);
+    if (code == null || code.isEmpty) return null; // cancelled
+    try {
+      final r = await CloudFunctionsService.call(
+          'loginUser', {'email': email, 'password': password, 'totpCode': code});
+      if (r['mfaRequired'] == true) {
+        error = 'Invalid code. Try again.';
+        continue;
+      }
+      return r;
+    } catch (_) {
+      error = 'Invalid code. Try again.';
+    }
+  }
+}
+
+Future<String?> _promptTotpCode(BuildContext context, {String? error}) {
+  final ctrl = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Two-factor authentication'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Enter the 6-digit code from your authenticator app, or one of your recovery codes.'),
+          const SizedBox(height: 14),
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9-]')),
+              LengthLimitingTextInputFormatter(11),
+            ],
+            decoration: InputDecoration(hintText: '6-digit or recovery code', errorText: error, counterText: ''),
+            style: const TextStyle(fontSize: 18, letterSpacing: 2, fontWeight: FontWeight.w600),
+            textAlign: TextAlign.center,
+            onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Verify')),
+      ],
+    ),
+  );
+  // Controller intentionally not disposed — disposing on dialog close races the
+  // exit animation rebuilding the TextField; it's a lightweight, short-lived
+  // notifier collected with the closure.
+}
 
 class WelcomeStep extends ConsumerStatefulWidget {
   final bool initialSignIn;
@@ -55,7 +109,7 @@ class WelcomeStep extends ConsumerStatefulWidget {
   ConsumerState<WelcomeStep> createState() => _WelcomeStepState();
 }
 
-enum _WelcomeView { roles, signIn, resumeSignIn }
+enum _WelcomeView { roles, signIn, resumeSignIn, forgotPassword }
 
 class _WelcomeStepState extends ConsumerState<WelcomeStep> {
   late _WelcomeView _view = widget.initialSignIn ? _WelcomeView.signIn : _WelcomeView.roles;
@@ -90,27 +144,17 @@ class _WelcomeStepState extends ConsumerState<WelcomeStep> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Spacer(flex: _view == _WelcomeView.resumeSignIn ? 1 : 3),
-            // Brand name with Morse code underneath
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'tulanam',
-                  style: TextStyle(
-                    fontSize: 80,
-                    fontWeight: FontWeight.w800,
-                    color: contentScheme.onSurface,
-                    letterSpacing: 2,
-                    height: 1,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: 340,
-                  child: _MorseBar(color: contentScheme.onSurfaceVariant.withValues(alpha: 0.15)),
-                ),
-              ],
+            Spacer(flex: _view == _WelcomeView.resumeSignIn || _view == _WelcomeView.forgotPassword ? 1 : 3),
+            // Brand name
+            Text(
+              'tulanam',
+              style: TextStyle(
+                fontSize: 80,
+                fontWeight: FontWeight.w800,
+                color: contentScheme.onSurface,
+                letterSpacing: 2,
+                height: 1,
+              ),
             ),
             const SizedBox(height: 36),
             Flexible(
@@ -141,10 +185,15 @@ class _WelcomeStepState extends ConsumerState<WelcomeStep> {
                         _WelcomeView.signIn => _SignInContent(
                             key: const ValueKey('signin'),
                             onBack: () => setState(() => _view = _WelcomeView.roles),
+                            onForgotPassword: () => setState(() => _view = _WelcomeView.forgotPassword),
                           ),
                         _WelcomeView.resumeSignIn => _ResumeSignInContent(
                             key: const ValueKey('resume'),
                             onBack: () => setState(() => _view = _WelcomeView.roles),
+                          ),
+                        _WelcomeView.forgotPassword => _ForgotPasswordContent(
+                            key: const ValueKey('forgot'),
+                            onBack: () => setState(() => _view = _WelcomeView.signIn),
                           ),
                         _WelcomeView.roles => _RoleSelectionContent(
                             key: const ValueKey('roles'),
@@ -352,6 +401,8 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
   String? _gstin;
   String? _address;
   String? _entityType;
+  String? _pan;
+  String? _state;
   bool _loadingDetails = true;
 
   @override
@@ -385,6 +436,8 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
             _gstin = gstin;
             _address = data['address1'] as String? ?? '';
             _entityType = data['entityType'] as String? ?? '';
+            _pan = data['pan'] as String? ?? '';
+            _state = data['state'] as String? ?? '';
             _loadingDetails = false;
           });
 
@@ -416,6 +469,21 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
         firebaseAuthOk = true;
       } catch (_) {}
 
+      // Server-side password verification + single-session registration.
+      // loginUser stamps a new activeSessionId on the user doc (newest login
+      // wins). Failure is fatal only when real Firebase Auth didn't verify.
+      try {
+        final r = await loginUserWithMfa(context, email, _password.text);
+        if (r == null) { setState(() => _loading = false); return; } // 2FA cancelled
+        final sid = r['activeSessionId'] as String?;
+        if (sid != null) await LocalCacheService.cacheSessionId(sid);
+      } catch (e) {
+        if (!firebaseAuthOk) {
+          setState(() { _error = 'Invalid email or password.'; _loading = false; });
+          return;
+        }
+      }
+
       // Find operator by email
       final operatorSnap = await db
           .collectionGroup('operators')
@@ -433,33 +501,8 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
           setState(() { _error = 'No account found with this email.'; _loading = false; });
           return;
         }
-        // Company admin: verify password via hash
-        if (!firebaseAuthOk) {
-          final companyData = companySnap.docs.first.data();
-          final storedHash = companyData['passwordHash'] as String?;
-          if (storedHash != null && storedHash != _hashPassword(_password.text)) {
-            setState(() { _error = 'Invalid email or password.'; _loading = false; });
-            return;
-          }
-          // Migrate: store hash for accounts that don't have one yet
-          if (storedHash == null) {
-            companySnap.docs.first.reference.update({'passwordHash': _hashPassword(_password.text)});
-          }
-        }
         companyId = companySnap.docs.first.id;
       } else {
-        // Verify password via Firebase Auth or hash fallback
-        if (!firebaseAuthOk) {
-          final storedHash = operatorSnap.docs.first.data()['passwordHash'] as String?;
-          if (storedHash != null && storedHash != _hashPassword(_password.text)) {
-            setState(() { _error = 'Invalid email or password.'; _loading = false; });
-            return;
-          }
-          // Migrate: store hash for accounts that don't have one yet
-          if (storedHash == null) {
-            operatorSnap.docs.first.reference.update({'passwordHash': _hashPassword(_password.text)});
-          }
-        }
         companyId = operatorSnap.docs.first.data()['companyId'] as String? ?? '';
       }
 
@@ -559,7 +602,7 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
         // Company/GSTIN details card
         if (!_loadingDetails && _gstin != null)
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
+            constraints: const BoxConstraints(maxWidth: 640),
             child: Container(
               padding: AppSpacing.cardPadding,
               decoration: BoxDecoration(
@@ -591,21 +634,25 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
                               style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                               overflow: TextOverflow.ellipsis,
                             ),
-                            Text(
-                              _entityType ?? '',
-                              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-                            ),
                           ],
                         ),
                       ),
+                      SizedBox(width: AppSpacing.sm),
+                      _DetailChip(icon: Icons.assignment_ind_rounded, label: 'GSTIN: $_gstin', scheme: scheme),
                     ],
                   ),
                   SizedBox(height: AppSpacing.md),
                   Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
                   SizedBox(height: AppSpacing.md),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _DetailChip(icon: Icons.assignment_ind_rounded, label: 'GSTIN: $_gstin', scheme: scheme),
+                      if (_pan != null && _pan!.isNotEmpty)
+                        Flexible(child: _DetailChip(icon: Icons.badge_outlined, label: 'PAN: $_pan', scheme: scheme)),
+                      if (_entityType != null && _entityType!.isNotEmpty)
+                        Flexible(child: _DetailChip(icon: Icons.category_outlined, label: _entityType!, scheme: scheme)),
+                      if (_state != null && _state!.isNotEmpty)
+                        Flexible(child: _DetailChip(icon: Icons.location_on_outlined, label: _state!, scheme: scheme)),
                     ],
                   ),
                   if (_address != null && _address!.isNotEmpty) ...[
@@ -780,8 +827,9 @@ class _DetailChip extends StatelessWidget {
 
 class _SignInContent extends ConsumerStatefulWidget {
   final VoidCallback onBack;
+  final VoidCallback onForgotPassword;
 
-  const _SignInContent({super.key, required this.onBack});
+  const _SignInContent({super.key, required this.onBack, required this.onForgotPassword});
 
   @override
   ConsumerState<_SignInContent> createState() => _SignInContentState();
@@ -794,6 +842,12 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
   bool _obscure = true;
   bool _loading = false;
   String? _error;
+
+  // Inline 2FA (TOTP) — shown in-card instead of a dialog when MFA is required.
+  final _totp = TextEditingController();
+  bool _mfaPending = false;
+  String? _totpError;
+  Completer<String?>? _totpCompleter;
 
   // Force password change state
   bool _forcePasswordChange = false;
@@ -819,9 +873,31 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _totp.dispose();
     _newPassword.dispose();
     _confirmNewPassword.dispose();
     super.dispose();
+  }
+
+  /// Surfaces the inline TOTP field and waits for the user to submit/cancel it.
+  Future<String?> _inlineGetCode({String? error}) {
+    _totpCompleter = Completer<String?>();
+    setState(() { _mfaPending = true; _totpError = error; _loading = false; });
+    return _totpCompleter!.future;
+  }
+
+  void _verifyTotp() {
+    if (_totp.text.trim().isEmpty) {
+      setState(() => _totpError = 'Enter your code.');
+      return;
+    }
+    setState(() { _loading = true; _totpError = null; });
+    _totpCompleter?.complete(_totp.text.trim());
+  }
+
+  void _cancelTotp() {
+    _totpCompleter?.complete(null);
+    setState(() { _mfaPending = false; _loading = false; _totpError = null; _totp.clear(); });
   }
 
   Future<void> _submit() async {
@@ -831,15 +907,12 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
     try {
       final db = ref.read(firestoreProvider);
       final email = _email.text.trim();
-      debugPrint('[Login] Platform.isWindows=${Platform.isWindows}, Platform.operatingSystem=${Platform.operatingSystem}');
-
       if (Platform.isWindows) {
         await _submitWindows(db, email);
       } else {
         await _submitDefault(db, email);
       }
     } catch (e) {
-      debugPrint('SignIn error: $e');
       if (!mounted) return;
       _logLoginAttempt(ref, _email.text.trim(), false);
       setState(() => _error = _parseError(e.toString()));
@@ -851,7 +924,6 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
   /// Windows login: Firebase Auth first, then resolve company/operator via
   /// simple collection queries (no collectionGroup — avoids native threading issues).
   Future<void> _submitWindows(FirebaseFirestore db, String email) async {
-    debugPrint('[Login-Win] Step 1: Firebase Auth...');
     // Step 1: Authenticate with Firebase Auth — this validates credentials
     // and establishes the gRPC channel before any Firestore queries.
     try {
@@ -859,9 +931,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         email: email,
         password: _password.text,
       );
-      debugPrint('[Login-Win] Firebase Auth success');
     } on FirebaseAuthException catch (e) {
-      debugPrint('[Login-Win] Firebase Auth error: ${e.code}');
       if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
         setState(() { _error = 'Invalid email or password.'; _loading = false; });
         return;
@@ -873,7 +943,6 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
     await LocalCacheService.cacheCurrentUserEmail(email);
 
     // Step 2: Find the company — check if this user is a company admin first.
-    debugPrint('[Login-Win] Step 2: Querying companies collection...');
     final companySnap = await db
         .collection('companies')
         .where('email', isEqualTo: email)
@@ -882,7 +951,6 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         .timeout(const Duration(seconds: 30), onTimeout: () {
           throw TimeoutException('Companies query timed out');
         });
-    debugPrint('[Login-Win] Companies query done: ${companySnap.docs.length} docs');
     if (!mounted) return;
 
     String? companyId;
@@ -958,6 +1026,20 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
     }
     if (!mounted) return;
 
+    // Server-side password verification + single-session registration.
+    try {
+      final r = await loginUserWithMfa(context, email, _password.text, getCode: _inlineGetCode);
+      if (r == null) { setState(() { _loading = false; _mfaPending = false; }); return; } // 2FA cancelled
+      if (_mfaPending) setState(() { _mfaPending = false; _totp.clear(); });
+      final sid = r['activeSessionId'] as String?;
+      if (sid != null) await LocalCacheService.cacheSessionId(sid);
+    } catch (e) {
+      if (!firebaseAuthOk) {
+        setState(() { _error = 'Invalid email or password.'; _loading = false; });
+        return;
+      }
+    }
+
     final operatorSnap = await db
         .collectionGroup('operators')
         .where('email', isEqualTo: email)
@@ -979,18 +1061,6 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         return;
       }
 
-      if (!firebaseAuthOk) {
-        final companyData = companySnap.docs.first.data();
-        final storedHash = companyData['passwordHash'] as String?;
-        if (storedHash != null && storedHash != _hashPassword(_password.text)) {
-          setState(() { _error = 'Invalid email or password.'; _loading = false; });
-          return;
-        }
-        if (storedHash == null) {
-          companySnap.docs.first.reference.update({'passwordHash': _hashPassword(_password.text)});
-        }
-      }
-
       await _ensureFirebaseAuthAccount(email, _password.text);
       if (!mounted) return;
       await LocalCacheService.cacheCurrentUserEmail(email);
@@ -1000,19 +1070,8 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
       return;
     }
 
-    // Found operator record — verify password
+    // Found operator record (password already verified server-side above).
     final opDoc = operatorSnap.docs.first;
-    if (!firebaseAuthOk) {
-      final storedHash = opDoc.data()['passwordHash'] as String?;
-      if (storedHash != null && storedHash != _hashPassword(_password.text)) {
-        setState(() { _error = 'Invalid email or password.'; _loading = false; });
-        return;
-      }
-      if (storedHash == null) {
-        opDoc.reference.update({'passwordHash': _hashPassword(_password.text)});
-      }
-    }
-
     final opData = opDoc.data();
 
     if (opData['isDeleted'] == true) {
@@ -1220,6 +1279,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         SizedBox(height: 6.rs),
         TextFormField(
           controller: _email,
+          enabled: !_mfaPending,
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
           validator: (v) {
@@ -1238,6 +1298,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         SizedBox(height: 6.rs),
         TextFormField(
           controller: _password,
+          enabled: !_mfaPending,
           obscureText: _obscure,
           textInputAction: TextInputAction.done,
           onFieldSubmitted: (_) => _loading ? null : _submit(),
@@ -1253,43 +1314,71 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         ),
         SizedBox(height: AppSpacing.md),
 
-        Align(
-          alignment: Alignment.centerRight,
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () {
-                debugPrint('[Login] Navigating to /forgot-password');
-                GoRouter.of(context).go('/forgot-password');
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: 0.08),
-                  borderRadius: AppRadius.button,
-                  border: Border.all(color: scheme.primary.withValues(alpha: 0.25)),
+        if (_mfaPending) ...[
+          Text('Two-factor code', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
+          SizedBox(height: 6.rs),
+          TextFormField(
+            controller: _totp,
+            autofocus: true,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9-]')),
+              LengthLimitingTextInputFormatter(11),
+            ],
+            onFieldSubmitted: (_) => _loading ? null : _verifyTotp(),
+            style: const TextStyle(fontSize: 18, letterSpacing: 2, fontWeight: FontWeight.w600),
+            textAlign: TextAlign.start,
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.verified_user_outlined, size: 18),
+              errorText: _totpError,
+              counterText: '',
+            ),
+          ),
+          SizedBox(height: 20.rs),
+        ] else ...[
+          Align(
+            alignment: Alignment.centerRight,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: widget.onForgotPassword,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: 0.08),
+                    borderRadius: AppRadius.button,
+                    border: Border.all(color: scheme.primary.withValues(alpha: 0.25)),
+                  ),
+                  child: Text('Forgot Password?',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.primary)),
                 ),
-                child: Text('Forgot Password?',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.primary)),
               ),
             ),
           ),
-        ),
-        SizedBox(height: 20.rs),
+          SizedBox(height: 20.rs),
+        ],
 
         SizedBox(
           width: double.infinity,
           child: FilledButton(
-            onPressed: _loading ? null : _submit,
+            onPressed: _loading ? null : (_mfaPending ? _verifyTotp : _submit),
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
             child: _loading
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Sign In'),
+                : Text(_mfaPending ? 'Verify' : 'Sign In'),
           ),
         ),
+        if (_mfaPending) ...[
+          SizedBox(height: 8.rs),
+          Center(
+            child: TextButton(
+              onPressed: _loading ? null : _cancelTotp,
+              child: const Text('Use a different account'),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1413,9 +1502,10 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
           'mustChangePassword': false,
           'passwordLastChanged': FieldValue.serverTimestamp(),
         };
-        updateData['passwordHash'] = _hashPassword(_newPassword.text);
         await opSnap.docs.first.reference.update(updateData);
       }
+      // Store the new password as a salted server-side credential.
+      await CloudFunctionsService.call('registerCredential', {'email': email, 'password': _newPassword.text});
       setState(() {
         _loading = false;
         _changeSuccess = 'Password changed. Please sign in with your new password.';
@@ -1478,6 +1568,476 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
           onPressed: widget.onBack,
           icon: const Icon(Icons.arrow_back_rounded, size: 16),
           label: const Text('Back to options'),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Forgot Password (inline, same page) ──────────────────────────────────
+
+enum _ResetStep { email, otp, newPassword, success }
+
+class _ForgotPasswordContent extends ConsumerStatefulWidget {
+  final VoidCallback onBack;
+
+  const _ForgotPasswordContent({super.key, required this.onBack});
+
+  @override
+  ConsumerState<_ForgotPasswordContent> createState() => _ForgotPasswordContentState();
+}
+
+class _ForgotPasswordContentState extends ConsumerState<_ForgotPasswordContent> {
+  final _email = TextEditingController();
+  final _otpControllers = List.generate(6, (_) => TextEditingController());
+  final _otpFocusNodes = List.generate(6, (_) => FocusNode());
+  final _newPassword = TextEditingController();
+  final _confirmPassword = TextEditingController();
+
+  _ResetStep _step = _ResetStep.email;
+  bool _loading = false;
+  bool _mfaMode = false; // verify via authenticator instead of email/SMS reset code
+  String? _error;
+  String? _maskedPhone;
+  bool _phoneSent = false;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
+  String _verificationToken = '';
+
+  @override
+  void dispose() {
+    _email.dispose();
+    for (final c in _otpControllers) { c.dispose(); }
+    for (final f in _otpFocusNodes) { f.dispose(); }
+    _newPassword.dispose();
+    _confirmPassword.dispose();
+    super.dispose();
+  }
+
+  String get _otpValue => _otpControllers.map((c) => c.text).join();
+
+  Future<void> _sendOTP() async {
+    final email = _email.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _error = 'Please enter a valid email address.');
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+
+    try {
+      // Prefer the account's authenticator (2FA) over an emailed reset code.
+      try {
+        final mfa = await CloudFunctionsService.call('mfaStatus', {'email': email});
+        if (mfa['enabled'] == true) {
+          if (mounted) setState(() { _mfaMode = true; _loading = false; _step = _ResetStep.otp; });
+          return;
+        }
+      } catch (_) {/* fall through to email */}
+      _mfaMode = false;
+      final data = await CloudFunctionsService.call('sendPasswordResetOTP', {'email': email});
+      if (mounted) {
+        setState(() {
+          _phoneSent = data['phoneSent'] == true;
+          _maskedPhone = data['maskedPhone'] as String?;
+          _step = _ResetStep.otp;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Failed to send OTP. Check the email address.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Fallback to an emailed reset code when MFA was preferred.
+  Future<void> _useEmailReset() async {
+    setState(() { _mfaMode = false; _loading = true; _error = null; });
+    try {
+      final data = await CloudFunctionsService.call('sendPasswordResetOTP', {'email': _email.text.trim()});
+      if (mounted) setState(() { _phoneSent = data['phoneSent'] == true; _maskedPhone = data['maskedPhone'] as String?; });
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Failed to send code.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _verifyOTP() async {
+    final otp = _otpValue;
+    if (otp.length != 6) {
+      setState(() => _error = 'Please enter all 6 digits.');
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+
+    try {
+      final data = _mfaMode
+          ? await CloudFunctionsService.call('verifyMfaCode', {'email': _email.text.trim(), 'code': otp, 'mintResetToken': true})
+          : await CloudFunctionsService.call('verifyPasswordResetOTP', {'email': _email.text.trim(), 'otp': otp});
+      if (mounted) {
+        _verificationToken = data['verificationToken'] as String? ?? 'otp_verified';
+        setState(() => _step = _ResetStep.newPassword);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Verification failed. Try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _resetPassword() async {
+    final pw = _newPassword.text;
+    final confirm = _confirmPassword.text;
+    if (pw.length < 8) {
+      setState(() => _error = 'Password must be at least 8 characters.');
+      return;
+    }
+    if (pw != confirm) {
+      setState(() => _error = 'Passwords do not match.');
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+
+    try {
+      await CloudFunctionsService.call('resetUserPassword', {
+        'email': _email.text.trim(),
+        'newPassword': pw,
+        'verificationToken': _verificationToken,
+      });
+      if (mounted) setState(() => _step = _ResetStep.success);
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Something went wrong. Try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _resendOTP() async {
+    for (final c in _otpControllers) { c.clear(); }
+    setState(() => _error = null);
+    await _sendOTP();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: EdgeInsets.all(32.rs),
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(20.rs),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.15)),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 24, offset: const Offset(0, 8)),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40.rs,
+                    height: 40.rs,
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.1),
+                      borderRadius: AppRadius.button,
+                    ),
+                    child: Icon(Icons.lock_reset_rounded, size: AppSizes.iconMd, color: scheme.primary),
+                  ),
+                  SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Reset Password', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        SizedBox(height: 2.rs),
+                        Text(_stepSubtitle, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 24.rs),
+              Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
+              SizedBox(height: 24.rs),
+              _buildStepContent(scheme, text),
+            ],
+          ),
+        ),
+        SizedBox(height: AppSpacing.xl),
+        TextButton.icon(
+          onPressed: _step == _ResetStep.success ? widget.onBack : widget.onBack,
+          icon: const Icon(Icons.arrow_back_rounded, size: 16),
+          label: const Text('Back to Sign In'),
+        ),
+      ],
+    );
+  }
+
+  String get _stepSubtitle {
+    switch (_step) {
+      case _ResetStep.email:
+        return 'Enter your email to receive a verification code.';
+      case _ResetStep.otp:
+        return _mfaMode
+            ? 'Enter the code from your authenticator app.'
+            : (_phoneSent && _maskedPhone != null
+                ? 'Code sent to email and phone ($_maskedPhone).'
+                : 'Code sent to your email address.');
+      case _ResetStep.newPassword:
+        return 'Set your new password.';
+      case _ResetStep.success:
+        return 'Done! Your password has been reset.';
+    }
+  }
+
+  Widget _buildStepContent(ColorScheme scheme, TextTheme text) {
+    switch (_step) {
+      case _ResetStep.email:
+        return _buildEmailStep(scheme, text);
+      case _ResetStep.otp:
+        return _buildOtpStep(scheme, text);
+      case _ResetStep.newPassword:
+        return _buildNewPasswordStep(scheme, text);
+      case _ResetStep.success:
+        return _buildSuccessStep(scheme, text);
+    }
+  }
+
+  Widget _buildError(ColorScheme scheme) {
+    if (_error == null) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.only(bottom: AppSpacing.lg),
+      child: Container(
+        padding: EdgeInsets.all(12.rs),
+        decoration: BoxDecoration(
+          color: scheme.errorContainer.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(10.rs),
+          border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
+            SizedBox(width: AppSpacing.sm),
+            Expanded(child: Text(_error!, style: TextStyle(fontSize: 12, color: scheme.error, fontWeight: FontWeight.w500))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmailStep(ColorScheme scheme, TextTheme text) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildError(scheme),
+        Text('Email', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
+        SizedBox(height: 6.rs),
+        TextField(
+          controller: _email,
+          keyboardType: TextInputType.emailAddress,
+          autofocus: true,
+          style: text.bodyMedium,
+          onSubmitted: (_) => _sendOTP(),
+          decoration: const InputDecoration(
+            hintText: 'you@company.com',
+            prefixIcon: Icon(Icons.email_outlined, size: 18),
+          ),
+        ),
+        SizedBox(height: 20.rs),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _loading ? null : _sendOTP,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            child: _loading
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text('Send Verification Code'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOtpStep(ColorScheme scheme, TextTheme text) {
+    return Column(
+      children: [
+        _buildError(scheme),
+        if (_phoneSent && _maskedPhone != null)
+          Padding(
+            padding: EdgeInsets.only(bottom: AppSpacing.lg),
+            child: Container(
+              padding: EdgeInsets.all(12.rs),
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(10.rs),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.phone_android_rounded, size: 16, color: scheme.primary),
+                  SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'Also sent via SMS to $_maskedPhone',
+                      style: TextStyle(fontSize: 12, color: scheme.primary, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(6, (i) {
+            return Container(
+              width: 44.rs,
+              height: 52.rs,
+              margin: EdgeInsets.only(right: i < 5 ? 8.rs : 0),
+              child: TextField(
+                controller: _otpControllers[i],
+                focusNode: _otpFocusNodes[i],
+                textAlign: TextAlign.center,
+                keyboardType: TextInputType.number,
+                maxLength: 1,
+                style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(
+                  counterText: '',
+                  contentPadding: EdgeInsets.symmetric(vertical: 12.rs),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
+                ),
+                onChanged: (val) {
+                  if (val.isNotEmpty && i < 5) {
+                    _otpFocusNodes[i + 1].requestFocus();
+                  } else if (val.isEmpty && i > 0) {
+                    _otpFocusNodes[i - 1].requestFocus();
+                  }
+                  if (_otpValue.length == 6) {
+                    _verifyOTP();
+                  }
+                },
+              ),
+            );
+          }),
+        ),
+        SizedBox(height: 20.rs),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _loading ? null : _verifyOTP,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            child: _loading
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text('Verify Code'),
+          ),
+        ),
+        SizedBox(height: AppSpacing.md),
+        TextButton(
+          onPressed: _loading ? null : (_mfaMode ? _useEmailReset : _resendOTP),
+          child: Text(_mfaMode ? 'Send a code to my email instead' : 'Resend Code'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNewPasswordStep(ColorScheme scheme, TextTheme text) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildError(scheme),
+        Text('New Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
+        SizedBox(height: 6.rs),
+        TextField(
+          controller: _newPassword,
+          obscureText: _obscureNew,
+          style: text.bodyMedium,
+          decoration: InputDecoration(
+            hintText: 'Minimum 8 characters',
+            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
+            suffixIcon: IconButton(
+              icon: Icon(_obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
+              onPressed: () => setState(() => _obscureNew = !_obscureNew),
+            ),
+          ),
+        ),
+        SizedBox(height: AppSpacing.lg),
+        Text('Confirm Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
+        SizedBox(height: 6.rs),
+        TextField(
+          controller: _confirmPassword,
+          obscureText: _obscureConfirm,
+          style: text.bodyMedium,
+          onSubmitted: (_) => _resetPassword(),
+          decoration: InputDecoration(
+            hintText: 'Re-enter your password',
+            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
+            suffixIcon: IconButton(
+              icon: Icon(_obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
+              onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+            ),
+          ),
+        ),
+        SizedBox(height: 20.rs),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _loading ? null : _resetPassword,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            child: _loading
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text('Reset Password'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSuccessStep(ColorScheme scheme, TextTheme text) {
+    return Column(
+      children: [
+        Container(
+          width: 48.rs,
+          height: 48.rs,
+          decoration: BoxDecoration(
+            color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF2E7D32), size: 24),
+        ),
+        SizedBox(height: AppSpacing.lg),
+        Text('Password Reset!', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: const Color(0xFF2E7D32))),
+        SizedBox(height: AppSpacing.sm),
+        Text(
+          'You can now sign in with your new password.',
+          textAlign: TextAlign.center,
+          style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        SizedBox(height: 20.rs),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: widget.onBack,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            child: const Text('Go to Sign In'),
+          ),
         ),
       ],
     );
@@ -1673,160 +2233,7 @@ class _SubRoleChipState extends State<_SubRoleChip> {
 
 
 
-class _MorseBar extends StatelessWidget {
-  final Color color;
-  const _MorseBar({required this.color});
 
-  @override
-  Widget build(BuildContext context) {
-    // Total units: each dot=1, dash=3, intra-char gap=1, inter-char gap=3
-    // t(3) u(1+1+3=7) l(1+3+1+1=8) a(1+3=5) n(3+1=5) a(1+3=5) m(3+3=7)
-    // With gaps: 3+1 + 7+3 + 8+3 + 5+3 + 5+3 + 5+3 + 7 = 56 units
-    const symbols = <({int units, bool isDash, bool isGap})>[
-      // t: -
-      (units: 3, isDash: true, isGap: false),
-      (units: 3, isDash: false, isGap: true), // letter gap
-      // u: ..-
-      (units: 1, isDash: false, isGap: false),
-      (units: 1, isDash: false, isGap: true),
-      (units: 1, isDash: false, isGap: false),
-      (units: 1, isDash: false, isGap: true),
-      (units: 3, isDash: true, isGap: false),
-      (units: 3, isDash: false, isGap: true),
-      // l: .-..
-      (units: 1, isDash: false, isGap: false),
-      (units: 1, isDash: false, isGap: true),
-      (units: 3, isDash: true, isGap: false),
-      (units: 1, isDash: false, isGap: true),
-      (units: 1, isDash: false, isGap: false),
-      (units: 1, isDash: false, isGap: true),
-      (units: 1, isDash: false, isGap: false),
-      (units: 3, isDash: false, isGap: true),
-      // a: .-
-      (units: 1, isDash: false, isGap: false),
-      (units: 1, isDash: false, isGap: true),
-      (units: 3, isDash: true, isGap: false),
-      (units: 3, isDash: false, isGap: true),
-      // n: -.
-      (units: 3, isDash: true, isGap: false),
-      (units: 1, isDash: false, isGap: true),
-      (units: 1, isDash: false, isGap: false),
-      (units: 3, isDash: false, isGap: true),
-      // a: .-
-      (units: 1, isDash: false, isGap: false),
-      (units: 1, isDash: false, isGap: true),
-      (units: 3, isDash: true, isGap: false),
-      (units: 3, isDash: false, isGap: true),
-      // m: --
-      (units: 3, isDash: true, isGap: false),
-      (units: 1, isDash: false, isGap: true),
-      (units: 3, isDash: true, isGap: false),
-    ];
-
-    final totalUnits = symbols.fold<int>(0, (sum, s) => sum + s.units);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth;
-        final unitWidth = availableWidth / totalUnits;
-
-        return SizedBox(
-          height: 3,
-          child: Row(
-            children: [
-              for (final s in symbols)
-                Container(
-                  width: s.units * unitWidth,
-                  height: 3,
-                  decoration: s.isGap
-                      ? null
-                      : BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(1.5),
-                        ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _LogoWatermarkBackground extends StatefulWidget {
-  const _LogoWatermarkBackground();
-
-  @override
-  State<_LogoWatermarkBackground> createState() => _LogoWatermarkBackgroundState();
-}
-
-class _LogoWatermarkBackgroundState extends State<_LogoWatermarkBackground> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 120),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final opacity = isDark ? 0.04 : 0.06;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final rows = (constraints.maxHeight / 160).ceil() + 1;
-        final totalWidth = constraints.maxWidth;
-        return AnimatedBuilder(
-          animation: _controller,
-          builder: (_, __) {
-            final shift = _controller.value * (totalWidth + 200);
-            return ClipRect(
-              child: Opacity(
-                opacity: opacity,
-                child: ColorFiltered(
-                  colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.srcIn),
-                  child: Stack(
-                    children: List.generate(rows, (row) {
-                      return Positioned(
-                        top: row * 160.0 - 80,
-                        left: shift - totalWidth - 200,
-                        width: totalWidth * 3,
-                        height: 140,
-                        child: Row(
-                          children: List.generate(24, (col) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 40),
-                              child: SizedBox(
-                                width: 100,
-                                height: 92,
-                                child: Image.asset('assets/logo.png', fit: BoxFit.contain),
-                              ),
-                            );
-                          }),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
 
 class _ConnectivityPing extends ConsumerWidget {
   const _ConnectivityPing();

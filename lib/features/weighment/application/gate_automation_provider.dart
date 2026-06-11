@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/gate_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
+import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/services/gate_service.dart';
 
 const _weightThreshold = 500.0;
@@ -8,8 +10,9 @@ const _weightThreshold = 500.0;
 class GateAutomationService {
   final GateService _gateService;
   final GateSystemConfig _config;
+  final FirestorePaths _paths;
 
-  GateAutomationService(this._gateService, this._config);
+  GateAutomationService(this._gateService, this._config, this._paths);
 
   bool get isEnabled => _config.systemEnabled;
 
@@ -73,13 +76,28 @@ class GateAutomationService {
       vehicleNumber: vehicleNumber,
       weighmentId: weighmentId,
     );
+    // Interlock trip: the gate couldn't open because the other gate was open.
+    // Throttled heavily — it's the safety system working, surfaced for awareness.
+    if (!result.success && result.message.toLowerCase().contains('interlock')) {
+      AppNotifier.raise(
+        _paths,
+        category: 'security',
+        severity: 'warn',
+        link: '/settings/gate-control',
+        title: 'Gate interlock blocked an open',
+        body: "The exit gate couldn't open because the other gate was still open (interlock). Vehicles may be waiting — check the gates.",
+        throttleKey: 'gate-interlock',
+        throttle: const Duration(hours: 1),
+      );
+    }
   }
 }
 
 final gateAutomationProvider = Provider<GateAutomationService>((ref) {
   final gateService = ref.watch(gateServiceProvider);
   final config = ref.watch(gateConfigProvider).valueOrNull ?? const GateSystemConfig();
-  return GateAutomationService(gateService, config);
+  final paths = ref.watch(firestorePathsProvider);
+  return GateAutomationService(gateService, config, paths);
 });
 
 // Auto-trigger: monitors scale readings for weight detection

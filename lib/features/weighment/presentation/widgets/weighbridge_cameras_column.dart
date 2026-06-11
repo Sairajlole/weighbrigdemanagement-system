@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:weighbridgemanagement/features/weighment/application/weighment_providers.dart';
@@ -249,9 +250,14 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
         behavior: HitTestBehavior.opaque,
         child: Container(
           width: 48,
+          margin: EdgeInsets.fromLTRB(0, AppSpacing.lg, AppSpacing.lg, AppSpacing.lg),
           decoration: BoxDecoration(
-            border: Border(left: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
+            color: scheme.surface,
+            borderRadius: AppRadius.card,
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+            boxShadow: AppElevation.card(scheme.shadow),
           ),
+          clipBehavior: Clip.antiAlias,
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -281,9 +287,14 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
 
     return Container(
       width: panelWidth,
+      margin: EdgeInsets.fromLTRB(0, AppSpacing.lg, AppSpacing.lg, AppSpacing.lg),
       decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))),
+        color: scheme.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+        boxShadow: AppElevation.card(scheme.shadow),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           Padding(

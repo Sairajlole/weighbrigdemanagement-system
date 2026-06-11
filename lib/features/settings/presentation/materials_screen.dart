@@ -12,10 +12,17 @@ import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dar
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
+import 'package:weighbridgemanagement/shared/providers/settings_scope_provider.dart';
+import 'package:weighbridgemanagement/shared/widgets/settings_scope_selector.dart';
+import 'package:weighbridgemanagement/shared/widgets/scope_change_dialog.dart';
+
+const _matScopeArg = (feature: 'materials', fallback: CollectionScope.weighbridge);
 
 final _materialsMigrationProvider = FutureProvider<void>((ref) async {
   final db = ref.watch(firestorePathsProvider);
   if (!db.isConfigured) return;
+  final scope = ref.watch(settingsScopeProvider(_matScopeArg)).valueOrNull ?? CollectionScope.weighbridge;
+  if (scope != CollectionScope.weighbridge) return; // legacy flat→weighbridge migration only
   final wbSnap = await db.materials.limit(1).get();
   if (wbSnap.docs.isNotEmpty) return;
   final flatRef = db.firestore.collection('companies/${db.context.companyId}/materials');
@@ -35,14 +42,16 @@ final _materialsMigrationProvider = FutureProvider<void>((ref) async {
 final _materialsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   ref.watch(_materialsMigrationProvider);
   final db = ref.watch(firestorePathsProvider);
-  return db.materials.orderBy('order').snapshots().map(
+  final scope = ref.watch(settingsScopeProvider(_matScopeArg)).valueOrNull ?? CollectionScope.weighbridge;
+  return db.materialsForScope(scope).orderBy('order').snapshots().map(
       (snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
 });
 
 final _materialsSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
   if (!db.isConfigured) return {};
-  final doc = await db.materialsSettings.get();
+  final scope = ref.watch(settingsScopeProvider(_matScopeArg)).valueOrNull ?? CollectionScope.weighbridge;
+  final doc = await scopedSettingDoc(db, 'materials', scope).get();
   return doc.exists ? doc.data()! : {};
 });
 
@@ -57,6 +66,14 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
   final _nameCtrl = TextEditingController();
   bool _allowOther = true;
   bool _saving = false;
+
+  CollectionScope get _matScope =>
+      ref.read(settingsScopeProvider(_matScopeArg)).valueOrNull ?? CollectionScope.weighbridge;
+  CollectionReference<Map<String, dynamic>> get _matColl =>
+      ref.read(firestorePathsProvider).materialsForScope(_matScope);
+  DocumentReference<Map<String, dynamic>> get _matSettings =>
+      scopedSettingDoc(ref.read(firestorePathsProvider), 'materials', _matScope);
+
   bool _settingsLoaded = false;
   List<Map<String, dynamic>>? _localMaterials;
   bool _reordering = false;
@@ -85,11 +102,40 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
 
   Future<void> _saveAllowOther(bool value) async {
     setState(() => _allowOther = value);
-    final db = ref.read(firestorePathsProvider);
-    await db.materialsSettings.set({
+    await _matSettings.set({
       'allowOther': value,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  /// Materials saves inline (no Save button), so a scope change applies right
+  /// away after confirmation, copying the current materials + settings up/down.
+  Future<void> _changeMaterialsScope(CollectionScope to) async {
+    final saved = _matScope;
+    if (saved == to) return;
+    final ok = await showScopeChangeDialog(context, ref, from: saved, to: to, noun: 'materials', saveGated: false);
+    if (!ok) return;
+    final db = ref.read(firestorePathsProvider);
+    try {
+      final src = await db.materialsForScope(saved).get();
+      final batch = db.batch();
+      for (final d in src.docs) {
+        batch.set(db.materialsForScope(to).doc(d.id), d.data());
+      }
+      final srcSettings = await scopedSettingDoc(db, 'materials', saved).get();
+      if (srcSettings.exists && srcSettings.data() != null) {
+        batch.set(scopedSettingDoc(db, 'materials', to), srcSettings.data()!, SetOptions(merge: true));
+      }
+      await batch.commit();
+      await db.companySetting('settingsScope').set({'materials': to.name}, SetOptions(merge: true));
+      ref.invalidate(_materialsProvider);
+      ref.invalidate(_materialsSettingsProvider);
+      ref.invalidate(settingsScopeProvider(_matScopeArg));
+      if (mounted) setState(() { _settingsLoaded = false; _localMaterials = null; });
+      _showHeaderMsg('Materials now apply to ${to.label}');
+    } catch (e) {
+      if (mounted) _showHeaderMsg('Failed to change scope: $e', isError: true);
+    }
   }
 
   Future<void> _addMaterial() async {
@@ -98,9 +144,8 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
 
     setState(() => _saving = true);
     try {
-      final db = ref.read(firestorePathsProvider);
       final materials = ref.read(_materialsProvider).valueOrNull ?? [];
-      await db.materials.add({
+      await _matColl.add({
         'name': toTitleCase(name),
         'active': true,
         'isDefault': materials.isEmpty,
@@ -118,8 +163,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
   }
 
   Future<void> _toggleActive(String id, bool active) async {
-    final db = ref.read(firestorePathsProvider);
-    await db.materials.doc(id).update({'active': active});
+    await _matColl.doc(id).update({'active': active});
   }
 
   Future<void> _setDefault(String id) async {
@@ -127,7 +171,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
     final materials = ref.read(_materialsProvider).valueOrNull ?? [];
     final batch = db.batch();
     for (final m in materials) {
-      batch.update(db.materials.doc(m['id']), {'isDefault': m['id'] == id});
+      batch.update(_matColl.doc(m['id']), {'isDefault': m['id'] == id});
     }
     await batch.commit();
   }
@@ -153,8 +197,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
       },
     );
     if (confirmed == true) {
-      final db = ref.read(firestorePathsProvider);
-      await db.materials.doc(id).delete();
+      await _matColl.doc(id).delete();
     }
   }
 
@@ -181,8 +224,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
     );
     ctrl.dispose();
     if (newName != null && newName.isNotEmpty && newName != currentName) {
-      final db = ref.read(firestorePathsProvider);
-      await db.materials.doc(id).update({'name': toTitleCase(newName)});
+      await _matColl.doc(id).update({'name': toTitleCase(newName)});
     }
   }
 
@@ -200,7 +242,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
     final db = ref.read(firestorePathsProvider);
     final batch = db.batch();
     for (var i = 0; i < materials.length; i++) {
-      batch.update(db.materials.doc(materials[i]['id']), {'order': i});
+      batch.update(_matColl.doc(materials[i]['id']), {'order': i});
     }
     await batch.commit();
 
@@ -292,6 +334,10 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
               ref.invalidate(_materialsProvider);
               ref.invalidate(_materialsSettingsProvider);
             },
+            trailing: SettingsScopeSelector(
+              scope: ref.watch(settingsScopeProvider(_matScopeArg)).valueOrNull ?? CollectionScope.weighbridge,
+              onChanged: (to) => _changeMaterialsScope(to),
+            ),
           ),
           Expanded(
             child: SingleChildScrollView(
@@ -508,7 +554,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
                   // AI Training
                   _SettingsCard(
                     icon: Icons.model_training_rounded,
-                    title: 'AI Material Recognition',
+                    title: 'Material Recognition',
                     scheme: scheme,
                     text: text,
                     iconColor: AppTheme.successColor,
@@ -579,7 +625,7 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
     }
 
     if (uploaded > 0) {
-      await db.materials.doc(materialId).update({
+      await _matColl.doc(materialId).update({
         'trainingImages': FieldValue.increment(uploaded),
       });
       if (mounted) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
@@ -16,6 +17,7 @@ import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart'
 import 'package:weighbridgemanagement/shared/providers/version_provider.dart';
 import 'package:weighbridgemanagement/shared/routing/app_router.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
+import 'package:weighbridgemanagement/shared/services/fcm_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -82,6 +84,28 @@ class WeighbridgeApp extends ConsumerStatefulWidget {
 }
 
 class _WeighbridgeAppState extends ConsumerState<WeighbridgeApp> {
+  StreamSubscription<User?>? _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // Register/unregister this device for targeted push as auth state changes.
+    // macOS-only and fully guarded inside FcmService — a no-op elsewhere.
+    _authSub = FirebaseAuth.instance.userChanges().listen((user) {
+      if (user != null && !user.isAnonymous) {
+        FcmService.register();
+      } else {
+        FcmService.unregister();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
@@ -223,6 +247,9 @@ class _HoverScrollButtonsState extends State<_HoverScrollButtons> {
   void _updateVisibility() {
     if (!widget.controller.hasClients) return;
     final pos = widget.controller.position;
+    // hasClients isn't enough: before the first layout the scroll dimensions
+    // aren't set yet and min/maxScrollExtent throw a null-check error.
+    if (!pos.hasPixels || !pos.hasContentDimensions) return;
     _showStart.value = pos.pixels > pos.minScrollExtent + 10;
     _showEnd.value = pos.pixels < pos.maxScrollExtent - 10;
   }

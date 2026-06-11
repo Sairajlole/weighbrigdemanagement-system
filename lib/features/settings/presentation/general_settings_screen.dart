@@ -5,24 +5,30 @@ import 'package:http/http.dart' as http;
 import 'package:weighbridgemanagement/shared/services/platform_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
+import 'package:weighbridgemanagement/shared/providers/mfa_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image/image.dart' as img;
 import 'package:latlong2/latlong.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/models/license_model.dart';
 import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart';
+import 'package:weighbridgemanagement/shared/widgets/background_art.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/features/settings/presentation/widgets/address_verification_card.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 // ─── Country Codes ──────────────────────────────────────────────────────────
@@ -146,6 +152,11 @@ final _generalSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) asyn
           migrateFields['company_logo_name'] = '${companyId}_company_logo_$ts.png';
         }
       }
+      // DigiLocker-verified admin identity (read-only display in the card).
+      for (final k in ['verifiedName', 'verifiedPhotoUrl', 'aadhaarLast4', 'verifiedDob', 'verifiedGender', 'verifiedAddress', 'verificationMethod']) {
+        if (companyData[k] != null) data[k] = companyData[k];
+      }
+
       // Persist wizard docs to scoped general_docs so future loads don't need fallback
       if (migrateFields.isNotEmpty) {
         migrateFields['updatedAt'] = FieldValue.serverTimestamp();
@@ -202,15 +213,20 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
   bool _saving = false;
   String _savedSnapshot = '';
 
+  // DigiLocker-verified admin identity (read-only).
+  final Map<String, dynamic> _verified = {};
+
   String? _headerMsg;
   bool _headerMsgIsError = false;
 
   String? _logoUrl;
-  String? _gstinCertUrl;
-  String? _panCardUrl;
+  String? _logoOriginalUrl; // the as-uploaded logo (kept so the user can revert)
+  bool _useOriginalLogo = false; // true = showing original, false = background removed
+  Uint8List? _logoBytes; // decoded logo pixels for rendering
+  double? _logoAspect; // width / height of the actual logo
   bool _uploadingLogo = false;
-  bool _uploadingGstin = false;
-  bool _uploadingPan = false;
+  bool _hideLogo = false; // view toggle — hide the logo column in Company card
+  bool _hidePhoto = false; // view toggle — hide the photo column in Admin card
 
   @override
   void dispose() {
@@ -230,9 +246,26 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
   static String? _nonEmpty(String? s) => (s != null && s.isNotEmpty) ? s : null;
 
+  /// Reads the DigiLocker-verified identity straight from the company doc, so it
+  /// shows regardless of whether the settings merge happened to fetch it.
+  Future<void> _loadVerifiedFromCompany() async {
+    try {
+      final db = ref.read(firestorePathsProvider);
+      final doc = await db.firestore.doc(db.context.companyPath).get();
+      if (!doc.exists || !mounted) return;
+      final cd = doc.data()!;
+      setState(() {
+        for (final k in ['verifiedName', 'verifiedPhotoUrl', 'aadhaarLast4', 'verifiedDob', 'verifiedGender', 'verifiedAddress', 'verificationMethod']) {
+          if (cd[k] != null) _verified[k] = cd[k];
+        }
+      });
+    } catch (_) {}
+  }
+
   void _loadData(Map<String, dynamic> data) {
     if (_loaded) return;
     _loaded = true;
+    _loadVerifiedFromCompany();
     _companyName.text = data['companyName'] ?? '';
     _address1.text = data['address1'] ?? '';
     _address2.text = data['address2'] ?? '';
@@ -241,6 +274,9 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     _gstin.text = data['gstin'] ?? '';
     final rawPan = data['pan'] as String? ?? '';
     _pan.text = (rawPan == '-' || rawPan == '--') ? '' : rawPan;
+    for (final k in ['verifiedName', 'verifiedPhotoUrl', 'aadhaarLast4', 'verifiedDob', 'verifiedGender', 'verifiedAddress', 'verificationMethod']) {
+      if (data[k] != null) _verified[k] = data[k];
+    }
     _latitude.text = data['latitude']?.toString() ?? '';
     _longitude.text = data['longitude']?.toString() ?? '';
     _officeLatitude.text = data['officeLatitude']?.toString() ?? '';
@@ -298,8 +334,9 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     }
     _crossSiteCustomers = data['crossSiteCustomers'] == true;
     _logoUrl = _nonEmpty(data['company_logo'] as String?) ?? _nonEmpty(data['logoUrl'] as String?);
-    _gstinCertUrl = _nonEmpty(data['gstin_certificate'] as String?) ?? _nonEmpty(data['gstinCertUrl'] as String?);
-    _panCardUrl = _nonEmpty(data['pan_card'] as String?) ?? _nonEmpty(data['panCardUrl'] as String?);
+    _logoOriginalUrl = _nonEmpty(data['company_logo_original'] as String?);
+    _useOriginalLogo = data['company_logo_use_original'] == true;
+    _decodeLogo(_logoUrl);
     _savedSnapshot = jsonEncode(_buildPayload());
     WidgetsBinding.instance.addPostFrameCallback((_) => _updateWizardValidation());
   }
@@ -424,13 +461,20 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
       builder: (ctx) {
         bool sending = false;
         bool otpSent = false;
+        bool useMfa = false; // verify with the admin's authenticator instead of email/SMS
         String? error;
         String verifyVia = phone.isNotEmpty ? 'phone' : 'email';
 
         return StatefulBuilder(builder: (ctx, setDlgState) {
-          Future<void> sendOtp() async {
+          Future<void> sendOtp({bool forceEmail = false}) async {
             setDlgState(() { sending = true; error = null; });
             try {
+              // Prefer the admin's authenticator (2FA) when available.
+              if (!forceEmail && email.isNotEmpty && await ref.read(mfaServiceProvider).isEnabled(email)) {
+                setDlgState(() { useMfa = true; otpSent = true; sending = false; });
+                return;
+              }
+              useMfa = false;
               if (!const bool.fromEnvironment('dart.vm.product')) {
                 setDlgState(() { otpSent = true; sending = false; });
                 return;
@@ -451,12 +495,18 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
               setDlgState(() => error = 'Enter the 6-digit code');
               return;
             }
-            if (otp == '000000') {
+            // Debug-only test code; release builds always verify through the backend.
+            if (!useMfa && !const bool.fromEnvironment('dart.vm.product') && otp == '000000') {
               if (ctx.mounted) Navigator.pop(ctx, true);
               return;
             }
             setDlgState(() { error = null; });
             try {
+              if (useMfa) {
+                await ref.read(mfaServiceProvider).verifyCode(email, otp);
+                if (ctx.mounted) Navigator.pop(ctx, true);
+                return;
+              }
               final data = await CloudFunctionsService.call('verifyOTP', {
                 'target': verifyVia == 'email' ? email : phone,
                 'otp': otp,
@@ -547,11 +597,13 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.check_circle_rounded, size: 12, color: scheme.primary),
+                        Icon(useMfa ? Icons.shield_outlined : Icons.check_circle_rounded, size: 12, color: scheme.primary),
                         SizedBox(width: 6.rs),
                         Expanded(
                           child: Text(
-                            'Code sent to ${verifyVia == 'email' ? email : phone}',
+                            useMfa
+                                ? 'Enter the code from your authenticator app'
+                                : 'Code sent to ${verifyVia == 'email' ? email : phone}',
                             style: TextStyle(fontSize: 11, color: scheme.primary, fontWeight: FontWeight.w500),
                           ),
                         ),
@@ -573,6 +625,16 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                       border: OutlineInputBorder(borderRadius: AppRadius.button),
                     ),
                   ),
+                  if (useMfa)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: sending ? null : () => sendOtp(forceEmail: true),
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                        child: Text('Send a code to my ${verifyVia == 'email' ? 'email' : 'phone'} instead',
+                            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+                      ),
+                    ),
                 ],
                 if (error != null) ...[
                   SizedBox(height: AppSpacing.sm),
@@ -670,141 +732,372 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     return output;
   }
 
-  Future<void> _pickAndUpload(String docType) async {
-    final picked = await FilePicker.platform.pickFiles(
-      dialogTitle: 'Select $docType (JPEG, PNG, or PDF only)',
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
-    );
-    if (picked == null || picked.files.isEmpty) return;
-    final path = picked.files.single.path;
-    if (path == null || path.isEmpty) return;
+  // ─── Company Logo ──────────────────────────────────────────────────────────
 
-    final file = File(path);
-    if (!file.existsSync()) return;
+  static const _maxLogoBytes = 1024 * 1024; // 1 MB raw cap (pre-decode)
+  static const _maxLogoPixels = 25 * 1000 * 1000; // 25 MP decompression-bomb cap
 
-    final ext = path.split('.').last.toLowerCase();
-    if (!{'pdf', 'jpg', 'jpeg', 'png'}.contains(ext)) {
-      if (mounted) _showHeaderMsg('Only PDF, JPEG, or PNG files are supported', isError: true);
+  /// Decodes the stored logo data-URI into pixels + aspect ratio for rendering.
+  Future<void> _decodeLogo(String? dataUri) async {
+    if (dataUri == null || dataUri.isEmpty || !dataUri.contains(',')) {
+      if (mounted) setState(() { _logoBytes = null; _logoAspect = null; });
       return;
     }
-    final isPdf = ext == 'pdf';
-
-    if (isPdf && file.lengthSync() > _maxBytes) {
-      if (mounted) _showHeaderMsg('PDF too large. Maximum 500 KB allowed.', isError: true);
-      return;
-    }
-
-    // Store previous state for revert on failed replacement
-    final prevGstinCert = _gstinCertUrl;
-    final prevPanCard = _panCardUrl;
-
-    setState(() {
-      if (docType == 'Company Logo') _uploadingLogo = true;
-      if (docType == 'GSTIN Certificate') _uploadingGstin = true;
-      if (docType == 'PAN Card') _uploadingPan = true;
-    });
-
     try {
-      var bytes = file.readAsBytesSync();
-      var mimeExt = ext;
-      bool wasCompressed = false;
-
-      if (!isPdf && bytes.length > _maxBytes) {
-        final originalSize = bytes.length;
-        bytes = _compressImage(Uint8List.fromList(bytes), ext);
-        mimeExt = 'jpeg';
-        wasCompressed = true;
-
-        if (mounted && wasCompressed) {
-          final savedKb = ((originalSize - bytes.length) / 1024).round();
-          _showHeaderMsg('Compressed: ${(originalSize / 1024).round()} KB → ${(bytes.length / 1024).round()} KB (saved $savedKb KB)');
-        }
+      final bytes = base64Decode(dataUri.split(',').last);
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final w = frame.image.width, h = frame.image.height;
+      frame.image.dispose();
+      if (mounted) {
+        setState(() {
+          _logoBytes = bytes;
+          _logoAspect = h > 0 ? w / h : 1.0;
+        });
       }
-
-      final b64 = base64Encode(bytes);
-      final mime = isPdf ? 'application/pdf' : 'image/$mimeExt';
-      final dataUri = 'data:$mime;base64,$b64';
-
-      // Verify GSTIN/PAN documents via Vision OCR before saving
-      if (docType == 'GSTIN Certificate' || docType == 'PAN Card') {
-        final gstin = _gstin.text.trim().toUpperCase();
-        final pan = gstin.length >= 12 ? gstin.substring(2, 12) : _pan.text.trim().toUpperCase();
-
-        if (gstin.isNotEmpty || pan.isNotEmpty) {
-          try {
-            final verifyData = await CloudFunctionsService.call('verifyDocument', {
-              'imageBase64': b64,
-              'documentType': docType == 'GSTIN Certificate' ? 'gstin_certificate' : 'pan_card',
-              'expectedGstin': docType == 'GSTIN Certificate' ? gstin : null,
-              'expectedPan': pan,
-            });
-            if (verifyData['valid'] != true) {
-              final msg = verifyData['message'] as String? ?? 'Document verification failed';
-              final hadPrev = (docType == 'GSTIN Certificate' && prevGstinCert != null) || (docType == 'PAN Card' && prevPanCard != null);
-              if (mounted) _showHeaderMsg(hadPrev ? '$msg — previous document retained' : msg, isError: true);
-              setState(() {
-                if (docType == 'GSTIN Certificate') _gstinCertUrl = prevGstinCert;
-                if (docType == 'PAN Card') _panCardUrl = prevPanCard;
-              });
-              return;
-            }
-            if (mounted) _showHeaderMsg('${docType == 'GSTIN Certificate' ? 'GSTIN certificate' : 'PAN card'} verified and replaced successfully');
-          } catch (e) {
-            final hadPrev = (docType == 'GSTIN Certificate' && prevGstinCert != null) || (docType == 'PAN Card' && prevPanCard != null);
-            if (mounted) _showHeaderMsg(hadPrev ? 'Verification failed — previous document retained' : 'Verification failed: $e', isError: true);
-            setState(() {
-              if (docType == 'GSTIN Certificate') _gstinCertUrl = prevGstinCert;
-              if (docType == 'PAN Card') _panCardUrl = prevPanCard;
-            });
-            return;
-          }
-        }
-      }
-
-      final db = ref.read(firestorePathsProvider);
-      final docKey = docType.replaceAll(' ', '_').toLowerCase();
-      final companyId = db.context.companyId;
-      final ts = DateTime.now().millisecondsSinceEpoch;
-      final uploadExt = isPdf ? 'pdf' : mimeExt;
-      final uniqueName = '${companyId}_${docKey}_$ts.$uploadExt';
-      await db.generalDocsSettings.set({
-        docKey: dataUri,
-        '${docKey}_name': uniqueName,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      setState(() {
-        if (docType == 'Company Logo') _logoUrl = dataUri;
-        if (docType == 'GSTIN Certificate') _gstinCertUrl = dataUri;
-        if (docType == 'PAN Card') _panCardUrl = dataUri;
-      });
-      _markDirty();
-    } catch (e) {
-      if (mounted) _showHeaderMsg('Upload failed: $e', isError: true);
-    } finally {
-      setState(() {
-        _uploadingLogo = false;
-        _uploadingGstin = false;
-        _uploadingPan = false;
-      });
+    } catch (_) {
+      if (mounted) setState(() { _logoBytes = null; _logoAspect = null; });
     }
   }
 
-  Future<void> _removeDocument(String docType) async {
+  /// Removes a flat background from a logo: flood-fills inward from the image
+  /// edges, turning every pixel within a colour tolerance of the sampled corner
+  /// colour transparent. Returns a transparent PNG (regardless of input format),
+  /// or null if it can't be decoded. Works best for logos on a solid colour;
+  /// photographic backdrops won't key out cleanly.
+  Uint8List? _removeBackground(Uint8List bytes) {
+    var decoded = img.decodeImage(bytes);
+    if (decoded == null) return null;
+    decoded = img.bakeOrientation(decoded);
+    const maxDim = 600;
+    if (decoded.width > maxDim || decoded.height > maxDim) {
+      decoded = img.copyResize(decoded,
+          width: decoded.width >= decoded.height ? maxDim : null,
+          height: decoded.height > decoded.width ? maxDim : null);
+    }
+    final image = decoded.convert(numChannels: 4);
+    final w = image.width, h = image.height;
+    if (w < 2 || h < 2) return null;
+
+    // Background colour = average of the four corners.
+    int br = 0, bg = 0, bb = 0;
+    for (final c in [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]]) {
+      final p = image.getPixel(c[0], c[1]);
+      br += p.r.toInt();
+      bg += p.g.toInt();
+      bb += p.b.toInt();
+    }
+    br ~/= 4;
+    bg ~/= 4;
+    bb ~/= 4;
+
+    const tol = 40;
+    const tolSq = tol * tol * 3;
+    final visited = List<bool>.filled(w * h, false);
+    final queue = <int>[];
+    void seed(int x, int y) {
+      final idx = y * w + x;
+      if (visited[idx]) return;
+      visited[idx] = true;
+      final p = image.getPixel(x, y);
+      final dr = p.r.toInt() - br, dg = p.g.toInt() - bg, db = p.b.toInt() - bb;
+      if (dr * dr + dg * dg + db * db <= tolSq) queue.add(idx);
+    }
+
+    for (int x = 0; x < w; x++) {
+      seed(x, 0);
+      seed(x, h - 1);
+    }
+    for (int y = 0; y < h; y++) {
+      seed(0, y);
+      seed(w - 1, y);
+    }
+
+    int head = 0;
+    while (head < queue.length) {
+      final idx = queue[head++];
+      final x = idx % w, y = idx ~/ w;
+      image.setPixelRgba(x, y, 0, 0, 0, 0);
+      if (x + 1 < w) seed(x + 1, y);
+      if (x - 1 >= 0) seed(x - 1, y);
+      if (y + 1 < h) seed(x, y + 1);
+      if (y - 1 >= 0) seed(x, y - 1);
+    }
+
+    return Uint8List.fromList(img.encodePng(image));
+  }
+
+  /// Picks + verifies + stores the company logo. Only real PNG/JPEG images are
+  /// accepted: the magic bytes are checked (so a renamed ZIP/archive is rejected
+  /// before any decode), the raw size is capped, and the decoded pixel
+  /// dimensions are bounded so a small file can't expand into a huge bitmap.
+  Future<void> _pickLogo() async {
+    final picked = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Select Company Logo (PNG or JPEG)',
+      type: FileType.custom,
+      allowedExtensions: ['png', 'jpg', 'jpeg'],
+      withData: true,
+    );
+    if (picked == null || picked.files.isEmpty) return;
+    final f = picked.files.single;
+    Uint8List? bytes = f.bytes;
+    if (bytes == null && f.path != null && f.path!.isNotEmpty) {
+      final file = File(f.path!);
+      if (file.existsSync()) bytes = file.readAsBytesSync();
+    }
+    if (bytes == null || bytes.isEmpty) return;
+
+    // 1) Raw size cap — reject before doing any decoding work.
+    if (bytes.length > _maxLogoBytes) {
+      if (mounted) _showHeaderMsg('Logo too large. Maximum 1 MB.', isError: true);
+      return;
+    }
+    // 2) Magic-byte check — only genuine PNG/JPEG. A renamed .zip (starts with
+    //    "PK\x03\x04"), PDF, SVG, etc. fail here, so no archive ever reaches a
+    //    decompressor.
+    final isPng = bytes.length >= 8 &&
+        bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47;
+    final isJpeg = bytes.length >= 3 &&
+        bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF;
+    if (!isPng && !isJpeg) {
+      if (mounted) _showHeaderMsg('Invalid file. Only real PNG or JPEG images are allowed.', isError: true);
+      return;
+    }
+    // 3) Decode + bound dimensions — guards against decompression bombs (a tiny
+    //    file that decodes to an enormous bitmap).
+    int w, h;
+    try {
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      w = frame.image.width;
+      h = frame.image.height;
+      frame.image.dispose();
+    } catch (_) {
+      if (mounted) _showHeaderMsg('Could not read image. Choose a valid PNG/JPEG.', isError: true);
+      return;
+    }
+    if (w <= 0 || h <= 0 || w > 6000 || h > 6000 || w * h > _maxLogoPixels) {
+      if (mounted) _showHeaderMsg('Logo dimensions too large. Max 6000×6000 px.', isError: true);
+      return;
+    }
+
+    setState(() => _uploadingLogo = true);
+    try {
+      // Original (compressed to fit) — kept so the user can revert to it.
+      var origBytes = bytes;
+      var origExt = isPng ? 'png' : 'jpeg';
+      if (origBytes.length > _maxBytes) {
+        origBytes = _compressImage(origBytes, origExt);
+        origExt = 'jpeg';
+      }
+      final originalUri = 'data:image/$origExt;base64,${base64Encode(origBytes)}';
+
+      // Background-removed transparent PNG — the default active version.
+      final nobg = _removeBackground(bytes);
+      final activeUri = nobg != null
+          ? 'data:image/png;base64,${base64Encode(nobg)}'
+          : originalUri;
+      final useOriginal = nobg == null;
+
+      final db = ref.read(firestorePathsProvider);
+      final companyId = db.context.companyId;
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      await db.generalDocsSettings.set({
+        'company_logo': activeUri,
+        'company_logo_original': originalUri,
+        'company_logo_use_original': useOriginal,
+        'company_logo_name': '${companyId}_company_logo_$ts.png',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      _logoUrl = activeUri;
+      _logoOriginalUrl = originalUri;
+      _useOriginalLogo = useOriginal;
+      await _decodeLogo(activeUri);
+      _markDirty();
+      // Refresh the cached settings so the logo survives leaving + re-entering.
+      if (mounted) ref.invalidate(_generalSettingsProvider);
+      if (mounted) {
+        _showHeaderMsg(nobg != null
+            ? 'Logo uploaded — background removed (tap the wand to use the original).'
+            : 'Logo uploaded — background could not be removed, using original.');
+      }
+    } catch (e) {
+      if (mounted) _showHeaderMsg('Logo upload failed: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _uploadingLogo = false);
+    }
+  }
+
+  Future<void> _removeLogo() async {
     final db = ref.read(firestorePathsProvider);
-    final docKey = docType.replaceAll(' ', '_').toLowerCase();
     await db.generalDocsSettings.update({
-      docKey: FieldValue.delete(),
-      '${docKey}_name': FieldValue.delete(),
+      'company_logo': FieldValue.delete(),
+      'company_logo_name': FieldValue.delete(),
+      'company_logo_original': FieldValue.delete(),
+      'company_logo_use_original': FieldValue.delete(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
     setState(() {
-      if (docType == 'Company Logo') _logoUrl = null;
-      if (docType == 'GSTIN Certificate') _gstinCertUrl = null;
-      if (docType == 'PAN Card') _panCardUrl = null;
+      _logoUrl = null;
+      _logoOriginalUrl = null;
+      _useOriginalLogo = false;
+      _logoBytes = null;
+      _logoAspect = null;
     });
     _markDirty();
+    if (mounted) ref.invalidate(_generalSettingsProvider);
+  }
+
+  /// Switches the active logo between the original and the background-removed
+  /// version. The no-background version is regenerated from the stored original
+  /// on demand, so only two copies are ever persisted.
+  Future<void> _toggleLogoOriginal() async {
+    if (_logoOriginalUrl == null) return;
+    setState(() => _uploadingLogo = true);
+    try {
+      final toOriginal = !_useOriginalLogo;
+      String activeUri;
+      if (toOriginal) {
+        activeUri = _logoOriginalUrl!;
+      } else {
+        final origBytes = base64Decode(_logoOriginalUrl!.split(',').last);
+        final nobg = _removeBackground(origBytes);
+        if (nobg == null) {
+          if (mounted) _showHeaderMsg('Could not remove background from this logo.', isError: true);
+          return;
+        }
+        activeUri = 'data:image/png;base64,${base64Encode(nobg)}';
+      }
+      final db = ref.read(firestorePathsProvider);
+      await db.generalDocsSettings.set({
+        'company_logo': activeUri,
+        'company_logo_use_original': toOriginal,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      _logoUrl = activeUri;
+      _useOriginalLogo = toOriginal;
+      await _decodeLogo(activeUri);
+      _markDirty();
+      if (mounted) ref.invalidate(_generalSettingsProvider);
+      if (mounted) _showHeaderMsg(toOriginal ? 'Using original logo.' : 'Background removed.');
+    } catch (e) {
+      if (mounted) _showHeaderMsg('Could not switch logo: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _uploadingLogo = false);
+    }
+  }
+
+  /// The logo slot in the Company card — mirrors the photo slot in Admin: it
+  /// fills the two-row height and sizes its width to the logo's real aspect.
+  /// Small pill toggle to hide/show an image column within a card.
+  Widget _imageVisibilityToggle(bool hidden, VoidCallback onTap, ColorScheme scheme, TextTheme text, String label) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: AppRadius.chip,
+          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(hidden ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 14, color: scheme.onSurfaceVariant),
+            SizedBox(width: 5.rs),
+            Text(hidden ? 'Show $label' : 'Hide $label', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoSlot(ColorScheme scheme, TextTheme text) {
+    final hasLogo = _logoBytes != null && _logoAspect != null && _logoAspect! > 0;
+    if (_uploadingLogo) {
+      return AspectRatio(
+        aspectRatio: 1.0,
+        child: Container(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10.rs),
+          ),
+          child: const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+        ),
+      );
+    }
+    if (!hasLogo) {
+      return GestureDetector(
+        onTap: _pickLogo,
+        child: AspectRatio(
+          aspectRatio: 1.0,
+          child: Container(
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(10.rs),
+              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.add_photo_alternate_outlined, size: 22, color: scheme.primary),
+                SizedBox(height: 4.rs),
+                Text('Add Logo', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return AspectRatio(
+      aspectRatio: _logoAspect!,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10.rs),
+              image: DecorationImage(image: MemoryImage(_logoBytes!), fit: BoxFit.contain),
+            ),
+          ),
+          Positioned(
+            top: 2,
+            right: 2,
+            child: Row(
+              children: [
+                if (_logoOriginalUrl != null) ...[
+                  Tooltip(
+                    message: _useOriginalLogo ? 'Remove background' : 'Use original logo',
+                    child: _logoIconBtn(_useOriginalLogo ? Icons.auto_fix_high_rounded : Icons.image_outlined, scheme, _toggleLogoOriginal),
+                  ),
+                  SizedBox(width: 4.rs),
+                ],
+                _logoIconBtn(Icons.edit_rounded, scheme, _pickLogo),
+                SizedBox(width: 4.rs),
+                _logoIconBtn(Icons.close_rounded, scheme, _removeLogo),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _logoIconBtn(IconData icon, ColorScheme scheme, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: scheme.surface.withValues(alpha: 0.85),
+          shape: BoxShape.circle,
+          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+        ),
+        child: Icon(icon, size: 13, color: scheme.onSurface),
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -844,6 +1137,30 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
       ref.invalidate(_generalSettingsProvider);
       ref.read(auditServiceProvider).log(event: 'settingChange', description: 'General settings updated');
+      // Notify on changes to sensitive company identity fields (GSTIN/PAN/address).
+      try {
+        final old = _savedSnapshot.isNotEmpty
+            ? jsonDecode(_savedSnapshot) as Map<String, dynamic>
+            : <String, dynamic>{};
+        final changed = <String>[];
+        if ((old['gstin'] ?? '') != _gstin.text.trim()) {
+          changed.add('GSTIN');
+        }
+        if ((old['pan'] ?? '') != _pan.text.trim()) {
+          changed.add('PAN');
+        }
+        if ((old['address1'] ?? '') != _address1.text.trim() ||
+            (old['address2'] ?? '') != _address2.text.trim()) {
+          changed.add('address');
+        }
+        if (changed.isNotEmpty) {
+          AppNotifier.raise(db,
+              category: 'account', severity: 'warn', link: '/settings/general',
+              title: 'Company details changed',
+              body: 'Your company ${changed.join(', ')} ${changed.length == 1 ? 'was' : 'were'} updated.',
+              throttleKey: 'company-info-change', throttle: const Duration(minutes: 5));
+        }
+      } catch (_) {/* best-effort */}
       if (mounted) {
         _savedSnapshot = jsonEncode(_buildPayload());
         setState(() {});
@@ -875,6 +1192,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     int step = 0;
     bool sending = false;
     bool verifying = false;
+    bool useMfaCurrent = false; // step-1 (verify current identity) via authenticator
     String? error;
 
     showDialog(
@@ -890,7 +1208,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
           String getVerifyTarget() => verifyVia == 'email' ? currentEmail : currentPhone;
 
-          Future<void> sendCurrentOtp() async {
+          Future<void> sendCurrentOtp({bool forceEmail = false}) async {
             if (isEmail && newValueCtrl.text.trim().isEmpty) {
               setDlgState(() => error = 'Enter a new ${isEmail ? 'email' : 'phone number'} first');
               return;
@@ -906,6 +1224,12 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
             setDlgState(() { sending = true; error = null; });
             try {
+              // Prefer the account's authenticator (2FA) for the current-identity step.
+              if (!forceEmail && currentEmail.isNotEmpty && await ref.read(mfaServiceProvider).isEnabled(currentEmail)) {
+                setDlgState(() { useMfaCurrent = true; step = 1; sending = false; });
+                return;
+              }
+              useMfaCurrent = false;
               if (!const bool.fromEnvironment('dart.vm.product')) {
                 // Test mode: skip actual OTP send
                 setDlgState(() { step = 1; sending = false; });
@@ -928,8 +1252,8 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
               return;
             }
 
-            // Test bypass: 000000 always passes
-            if (otp == '000000') {
+            // Debug-only test code; release builds always verify through the backend.
+            if (!useMfaCurrent && !const bool.fromEnvironment('dart.vm.product') && otp == '000000') {
               setDlgState(() { verifying = true; error = null; });
               try {
                 if (const bool.fromEnvironment('dart.vm.product')) {
@@ -947,17 +1271,22 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
             setDlgState(() { verifying = true; error = null; });
             try {
-              final data = await CloudFunctionsService.call('verifyOTP', {
-                'target': getVerifyTarget(),
-                'otp': otp,
-                'type': verifyVia,
-              });
-              if (data['valid'] != true) {
-                setDlgState(() { error = 'Invalid code. Please try again.'; verifying = false; });
-                return;
+              // Verify the current identity — via authenticator (2FA) or the code.
+              if (useMfaCurrent) {
+                await ref.read(mfaServiceProvider).verifyCode(currentEmail, otp);
+              } else {
+                final data = await CloudFunctionsService.call('verifyOTP', {
+                  'target': getVerifyTarget(),
+                  'otp': otp,
+                  'type': verifyVia,
+                });
+                if (data['valid'] != true) {
+                  setDlgState(() { error = 'Invalid code. Please try again.'; verifying = false; });
+                  return;
+                }
               }
 
-              // Send OTP to new value
+              // Send OTP to new value (always — proving ownership of the NEW contact)
               await CloudFunctionsService.call(
                 isEmail ? 'sendEmailOTP' : 'sendPhoneOTP',
                 isEmail ? {'email': getNewValue()} : {'phone': getNewValue()},
@@ -980,8 +1309,8 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
               final siteCtx = ref.read(siteContextProvider);
               final nv = getNewValue();
 
-              // Test bypass: 000000 skips cloud verification
-              if (otp != '000000') {
+              // Debug-only test code skips the update; release always updates.
+              if (const bool.fromEnvironment('dart.vm.product') || otp != '000000') {
                 await CloudFunctionsService.call('updateCompanyContact', {
                   'companyId': siteCtx.companyId,
                   'siteId': siteCtx.siteId,
@@ -1168,11 +1497,13 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.security_rounded, size: 14, color: scheme.primary),
+                            Icon(useMfaCurrent ? Icons.shield_outlined : Icons.security_rounded, size: 14, color: scheme.primary),
                             SizedBox(width: AppSpacing.sm),
                             Expanded(
                               child: Text(
-                                'A code was sent to your ${verifyVia == 'email' ? 'email' : 'phone'}: ${getVerifyTarget()}',
+                                useMfaCurrent
+                                    ? 'Enter the code from your authenticator app'
+                                    : 'A code was sent to your ${verifyVia == 'email' ? 'email' : 'phone'}: ${getVerifyTarget()}',
                                 style: text.bodySmall?.copyWith(color: scheme.primary, fontWeight: FontWeight.w500),
                               ),
                             ),
@@ -1187,7 +1518,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                         maxLength: 6,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: '${verifyVia == 'email' ? 'Email' : 'Phone'} Verification Code',
+                          labelText: useMfaCurrent ? 'Authenticator code' : '${verifyVia == 'email' ? 'Email' : 'Phone'} Verification Code',
                           hintText: '000000',
                           counterText: '',
                           isDense: true,
@@ -1195,6 +1526,16 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                           border: OutlineInputBorder(borderRadius: AppRadius.button),
                         ),
                       ),
+                      if (useMfaCurrent)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: sending ? null : () => sendCurrentOtp(forceEmail: true),
+                            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                            child: Text('Send a code to my ${verifyVia == 'email' ? 'email' : 'phone'} instead',
+                                style: TextStyle(fontSize: 11, color: scheme.primary)),
+                          ),
+                        ),
                     ],
 
                     // Step 2: Verify new email/phone
@@ -1397,6 +1738,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
           // Content
           Expanded(
             child: settingsAsync.when(
+              skipLoadingOnReload: true,
               loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (_) => SingleChildScrollView(
@@ -1404,15 +1746,27 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildCompanySection(scheme, text),
-                    SizedBox(height: AppSpacing.xl),
+                    if (_hasVerifiedIdentity)
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(child: _buildCompanySection(scheme, text)),
+                            SizedBox(width: AppSpacing.lg),
+                            Expanded(child: _buildAdminSection(scheme, text)),
+                          ],
+                        ),
+                      )
+                    else
+                      _buildCompanySection(scheme, text),
+                    SizedBox(height: AppSpacing.lg),
+                    const AddressVerificationCard(),
+                    SizedBox(height: AppSpacing.lg),
                     _buildRegionalSection(scheme, text),
-                    SizedBox(height: AppSpacing.xl),
+                    SizedBox(height: AppSpacing.lg),
                     _buildWeighbridgeIdentity(scheme, text),
-                    SizedBox(height: AppSpacing.xl),
-                    _buildLocationSection(scheme, text),
-                    SizedBox(height: AppSpacing.xl),
-                    _buildDocumentsSection(scheme, text),
+                    SizedBox(height: AppSpacing.lg),
+                    _buildAppearanceSection(scheme, text),
                     SizedBox(height: 40.rs),
                   ],
                 ),
@@ -1447,25 +1801,106 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     );
   }
 
-  Widget _buildCompanySection(ColorScheme scheme, TextTheme text) {
+  bool get _hasVerifiedIdentity =>
+      (_verified['verifiedName'] as String? ?? '').isNotEmpty ||
+      (_verified['aadhaarLast4'] as String? ?? '').isNotEmpty ||
+      _verified['verificationMethod'] == 'digilocker_meon';
+
+  Widget _buildAdminSection(ColorScheme scheme, TextTheme text) {
+    final photo = _verified['verifiedPhotoUrl'] as String? ?? '';
+    final vName = _verified['verifiedName'] as String? ?? '';
+    final last4 = _verified['aadhaarLast4'] as String? ?? '';
+    final dob = _verified['verifiedDob'] as String? ?? '';
+    final gender = _verified['verifiedGender'] as String? ?? '';
+    final address = (_verified['verifiedAddress'] as String? ?? '').replaceFirst(RegExp(r'^[\s,]+'), '').trimRight();
     return _SettingsCard(
-      icon: Icons.business_rounded,
-      title: 'Company Information',
+      icon: Icons.verified_user_rounded,
+      title: 'Admin Information',
       scheme: scheme,
       text: text,
       child: Column(
         children: [
-          _buildInfoRow('Appears on weighment slips, invoices, and reports. GSTIN and PAN are validated on save.', scheme, text),
-          SizedBox(height: 14.rs),
-          _ReadOnlyField(label: 'Company Name', value: _companyName.text, scheme: scheme, text: text),
-          SizedBox(height: AppSpacing.lg),
           Row(
             children: [
-              Expanded(child: _Field(label: 'Address Line 1', controller: _address1, hint: 'e.g. Plot No. 45, GIDC Industrial Estate', onChanged: (_) => _markDirty())),
-              SizedBox(width: 14.rs),
-              Expanded(child: _Field(label: 'Address Line 2', controller: _address2, hint: 'e.g. Vatva, Ahmedabad, Gujarat 382445', onChanged: (_) => _markDirty())),
+              Expanded(child: _buildInfoRow('Verified from your Aadhaar via DigiLocker — read-only.', scheme, text)),
+              SizedBox(width: AppSpacing.sm),
+              _imageVisibilityToggle(_hidePhoto, () => setState(() => _hidePhoto = !_hidePhoto), scheme, text, 'photo'),
             ],
           ),
+          SizedBox(height: 14.rs),
+          if (_hidePhoto)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: _ReadOnlyField(label: 'Verified Name', value: vName, scheme: scheme, text: text)),
+                    SizedBox(width: 14.rs),
+                    Expanded(child: _ReadOnlyField(label: 'Aadhaar', value: last4.isNotEmpty ? 'XXXX-XXXX-$last4' : '', scheme: scheme, text: text)),
+                  ],
+                ),
+                SizedBox(height: AppSpacing.lg),
+                Row(
+                  children: [
+                    Expanded(child: _ReadOnlyField(label: 'Date of Birth', value: dob, scheme: scheme, text: text)),
+                    SizedBox(width: 14.rs),
+                    Expanded(child: _ReadOnlyField(label: 'Gender', value: gender, scheme: scheme, text: text)),
+                  ],
+                ),
+              ],
+            )
+          else
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AspectRatio(
+                    aspectRatio: 1.0,
+                    child: Container(
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        // Square holder; side gaps fill with the card background
+                        // (theme-aware) so a portrait photo appears centered.
+                        borderRadius: BorderRadius.circular(10.rs),
+                        color: scheme.surface,
+                        image: photo.isNotEmpty
+                            ? DecorationImage(image: NetworkImage(photo), fit: BoxFit.contain)
+                            : null,
+                      ),
+                      child: photo.isNotEmpty ? null : Icon(Icons.person_rounded, color: scheme.onSurfaceVariant),
+                    ),
+                  ),
+                  SizedBox(width: 14.rs),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: _ReadOnlyField(label: 'Verified Name', value: vName, scheme: scheme, text: text)),
+                            SizedBox(width: 14.rs),
+                            Expanded(child: _ReadOnlyField(label: 'Aadhaar', value: last4.isNotEmpty ? 'XXXX-XXXX-$last4' : '', scheme: scheme, text: text)),
+                          ],
+                        ),
+                        SizedBox(height: AppSpacing.lg),
+                        Row(
+                          children: [
+                            Expanded(child: _ReadOnlyField(label: 'Date of Birth', value: dob, scheme: scheme, text: text)),
+                            SizedBox(width: 14.rs),
+                            Expanded(child: _ReadOnlyField(label: 'Gender', value: gender, scheme: scheme, text: text)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (address.isNotEmpty) ...[
+            SizedBox(height: AppSpacing.lg),
+            _ReadOnlyField(label: 'Address', value: address, scheme: scheme, text: text),
+          ],
           SizedBox(height: AppSpacing.lg),
           Row(
             children: [
@@ -1488,12 +1923,75 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
               )),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompanySection(ColorScheme scheme, TextTheme text) {
+    return _SettingsCard(
+      icon: Icons.business_rounded,
+      title: 'Company Information',
+      scheme: scheme,
+      text: text,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: _buildInfoRow('Appears on weighment slips, invoices, and reports. GSTIN and PAN are validated on save.', scheme, text)),
+              SizedBox(width: AppSpacing.sm),
+              _imageVisibilityToggle(_hideLogo, () => setState(() => _hideLogo = !_hideLogo), scheme, text, 'logo'),
+            ],
+          ),
+          SizedBox(height: 14.rs),
+          if (_hideLogo)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ReadOnlyField(label: 'Company Name', value: _companyName.text, scheme: scheme, text: text),
+                SizedBox(height: AppSpacing.lg),
+                Row(
+                  children: [
+                    Expanded(child: _ReadOnlyField(label: 'GSTIN', value: _gstin.text, scheme: scheme, text: text)),
+                    SizedBox(width: 14.rs),
+                    Expanded(child: _ReadOnlyField(label: 'PAN', value: _pan.text, scheme: scheme, text: text)),
+                  ],
+                ),
+              ],
+            )
+          else
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildLogoSlot(scheme, text),
+                  SizedBox(width: 14.rs),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _ReadOnlyField(label: 'Company Name', value: _companyName.text, scheme: scheme, text: text),
+                        SizedBox(height: AppSpacing.lg),
+                        Row(
+                          children: [
+                            Expanded(child: _ReadOnlyField(label: 'GSTIN', value: _gstin.text, scheme: scheme, text: text)),
+                            SizedBox(width: 14.rs),
+                            Expanded(child: _ReadOnlyField(label: 'PAN', value: _pan.text, scheme: scheme, text: text)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           SizedBox(height: AppSpacing.lg),
           Row(
             children: [
-              Expanded(child: _ReadOnlyField(label: 'GSTIN', value: _gstin.text, scheme: scheme, text: text)),
+              Expanded(child: _ReadOnlyField(label: 'Address Line 1', value: _address1.text, scheme: scheme, text: text)),
               SizedBox(width: 14.rs),
-              Expanded(child: _ReadOnlyField(label: 'PAN', value: _pan.text, scheme: scheme, text: text)),
+              Expanded(child: _ReadOnlyField(label: 'Address Line 2', value: _address2.text, scheme: scheme, text: text)),
             ],
           ),
           SizedBox(height: 18.rs),
@@ -1838,6 +2336,158 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     );
   }
 
+  // ─── Appearance (merged from the former Appearance screen) ───────────────
+
+  Widget _buildAppearanceSection(ColorScheme scheme, TextTheme text) {
+    final appearance = ref.watch(appearanceProvider);
+    final notifier = ref.read(appearanceProvider.notifier);
+    return _SettingsCard(
+      icon: Icons.palette_outlined,
+      title: 'Appearance',
+      subtitle: 'Theme, background & text size',
+      scheme: scheme,
+      text: text,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Theme', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: [
+                        _appearanceChip('Light', appearance.themeMode == ThemeMode.light, () => notifier.setThemeMode(ThemeMode.light), scheme, text),
+                        _appearanceChip('Dark', appearance.themeMode == ThemeMode.dark, () => notifier.setThemeMode(ThemeMode.dark), scheme, text),
+                        _appearanceChip('System', appearance.themeMode == ThemeMode.system, () => notifier.setThemeMode(ThemeMode.system), scheme, text),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: AppSpacing.xl),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Font Size', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    SizedBox(height: 2.rs),
+                    Text('Does not affect print docket layout', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                    SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: [
+                        for (final e in const [('Small', 0.85), ('Default', 1.0), ('Large', 1.15), ('Extra Large', 1.3)])
+                          _appearanceChip(e.$1, appearance.fontScale == e.$2, () => notifier.setFontScale(e.$2), scheme, text),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppSpacing.lg),
+          Text('Background Art', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+          SizedBox(height: AppSpacing.sm),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const spacing = 10.0;
+              final count = _backgroundArts.length;
+              final perRow = (constraints.maxWidth / 160).floor().clamp(2, count);
+              final tileW = (constraints.maxWidth - spacing * (perRow - 1)) / perRow;
+              final tileH = tileW * 0.62;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: _backgroundArts.entries.map((entry) {
+                  final selected = appearance.backgroundArt == entry.key;
+                  return GestureDetector(
+                    onTap: () => notifier.setBackgroundArt(entry.key),
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Container(
+                        width: tileW,
+                        height: tileH,
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(10.rs),
+                          border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.4), width: selected ? 2 : 1),
+                        ),
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: entry.key == 'watermark'
+                                  // Render the real watermark background at screen size and scale it
+                                  // down, so the tile is a true miniature of how it actually appears.
+                                  ? FittedBox(
+                                      fit: BoxFit.cover,
+                                      clipBehavior: Clip.hardEdge,
+                                      child: SizedBox(
+                                        width: 900,
+                                        height: 560,
+                                        child: LogoWatermarkBg(scheme: scheme, animate: false, dense: true, opacityOverride: 0.55),
+                                      ),
+                                    )
+                                  : CustomPaint(painter: _ArtPainter(entry.key, scheme.primary.withValues(alpha: 0.18))),
+                            ),
+                            Positioned(
+                              bottom: 5,
+                              left: 0,
+                              right: 0,
+                              child: Text(entry.value, textAlign: TextAlign.center, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
+                            ),
+                            if (selected)
+                              Positioned(
+                                top: 5,
+                                right: 5,
+                                child: Container(
+                                  width: 18,
+                                  height: 18,
+                                  decoration: BoxDecoration(color: scheme.primary, shape: BoxShape.circle),
+                                  child: const Icon(Icons.check_rounded, color: Colors.white, size: 11),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _appearanceChip(String label, bool selected, VoidCallback onTap, ColorScheme scheme, TextTheme text) {
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? scheme.primary.withValues(alpha: 0.12) : scheme.surfaceContainerHigh.withValues(alpha: 0.4),
+            borderRadius: AppRadius.chip,
+            border: Border.all(color: selected ? scheme.primary.withValues(alpha: 0.5) : scheme.outlineVariant.withValues(alpha: 0.3)),
+          ),
+          child: Text(label, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
+        ),
+      ),
+    );
+  }
+
   // ─── Location (Coordinates) ──────────────────────────────────────────────
 
   Widget _buildLocationSection(ColorScheme scheme, TextTheme text) {
@@ -1933,30 +2583,6 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
   // ─── Documents ───────────────────────────────────────────────────────────
 
-  Widget _buildDocumentsSection(ColorScheme scheme, TextTheme text) {
-    return _SettingsCard(
-      icon: Icons.folder_rounded,
-      title: 'Documents & Certificates',
-      subtitle: 'Upload official documents for record-keeping',
-      scheme: scheme,
-      text: text,
-      child: Column(
-        children: [
-          _buildInfoRow('Logo appears on printed slips and reports. GSTIN/PAN certificates are stored for compliance records. Supported: PNG, JPG, PDF.', scheme, text),
-          SizedBox(height: 14.rs),
-          Row(
-            children: [
-              Expanded(child: _UploadTile(label: 'Company Logo', icon: Icons.image_rounded, scheme: scheme, text: text, dataUri: _logoUrl, uploading: _uploadingLogo, onTap: () => _pickAndUpload('Company Logo'), onRemove: _logoUrl != null ? () => _removeDocument('Company Logo') : null)),
-              SizedBox(width: 14.rs),
-              Expanded(child: _UploadTile(label: 'GSTIN Certificate', icon: Icons.description_rounded, scheme: scheme, text: text, dataUri: _gstinCertUrl, uploading: _uploadingGstin, onTap: () => _pickAndUpload('GSTIN Certificate'), onRemove: _gstinCertUrl != null ? () => _removeDocument('GSTIN Certificate') : null)),
-              SizedBox(width: 14.rs),
-              Expanded(child: _UploadTile(label: 'PAN Card', icon: Icons.credit_card_rounded, scheme: scheme, text: text, dataUri: _panCardUrl, uploading: _uploadingPan, onTap: () => _pickAndUpload('PAN Card'), onRemove: _panCardUrl != null ? () => _removeDocument('PAN Card') : null)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ─── Reusable Widgets ────────────────────────────────────────────────────────
@@ -1982,10 +2608,10 @@ class _SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: AppSpacing.pagePadding,
+      padding: EdgeInsets.all(16.rs),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: AppRadius.dialog,
+        borderRadius: AppRadius.card,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2)),
@@ -1997,15 +2623,15 @@ class _SettingsCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 28,
+                height: 28,
                 decoration: BoxDecoration(
                   color: scheme.primaryContainer.withValues(alpha: 0.4),
                   borderRadius: AppRadius.button,
                 ),
-                child: Icon(icon, size: 16, color: scheme.primary),
+                child: Icon(icon, size: 15, color: scheme.primary),
               ),
-              SizedBox(width: AppSpacing.md),
+              SizedBox(width: AppSpacing.sm),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2016,7 +2642,7 @@ class _SettingsCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: 20.rs),
+          SizedBox(height: 12.rs),
           child,
         ],
       ),
@@ -2453,181 +3079,6 @@ class _MapPickerDialogState extends State<_MapPickerDialog> {
   }
 }
 
-class _UploadTile extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final ColorScheme scheme;
-  final TextTheme text;
-  final String? dataUri;
-  final bool uploading;
-  final VoidCallback onTap;
-  final VoidCallback? onRemove;
-
-  const _UploadTile({required this.label, required this.icon, required this.scheme, required this.text, required this.dataUri, required this.uploading, required this.onTap, this.onRemove});
-
-  bool get uploaded => dataUri != null;
-  bool get _isImage => dataUri != null && !dataUri!.contains('application/pdf') && !dataUri!.contains('image/pdf');
-
-  Uint8List? get _imageBytes {
-    if (!_isImage || dataUri == null) return null;
-    try {
-      return base64Decode(dataUri!.split(',').last);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  void _viewDocument(BuildContext context) {
-    if (dataUri == null) return;
-    final bytes = dataUri!.contains(',') ? base64Decode(dataUri!.split(',').last) : null;
-    if (bytes == null) return;
-
-    if (_isImage) {
-      showDialog(
-        context: context,
-        builder: (ctx) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(ctx).size.width * 0.6,
-              maxHeight: MediaQuery.of(ctx).size.height * 0.8,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 8, 8),
-                  child: Row(
-                    children: [
-                      Icon(icon, size: 18, color: scheme.primary),
-                      SizedBox(width: 10.rs),
-                      Expanded(child: Text(label, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700))),
-                      IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded, size: 18)),
-                    ],
-                  ),
-                ),
-                Flexible(child: Image.memory(bytes, fit: BoxFit.contain)),
-              ],
-            ),
-          ),
-        ),
-      );
-    } else {
-      _openInSystemViewer(bytes);
-    }
-  }
-
-  Future<void> _openInSystemViewer(Uint8List bytes) async {
-    final tmpDir = Directory.systemTemp;
-    final ts = DateTime.now().millisecondsSinceEpoch;
-    final docKey = label.replaceAll(' ', '_').toLowerCase();
-    final file = File('${tmpDir.path}/${docKey}_$ts.pdf');
-    await file.writeAsBytes(bytes);
-    PlatformService.openFile(file.path);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bytes = _imageBytes;
-
-    return Container(
-      padding: EdgeInsets.all(14.rs),
-      decoration: BoxDecoration(
-        color: uploaded ? scheme.primaryContainer.withValues(alpha: 0.15) : scheme.surfaceContainerLow,
-        borderRadius: AppRadius.card,
-        border: Border.all(color: uploaded ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          // Preview area — tap to view
-          GestureDetector(
-            onTap: uploaded && !uploading ? () => _viewDocument(context) : (uploading ? null : onTap),
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Container(
-                width: double.infinity,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerLowest,
-                  borderRadius: AppRadius.button,
-                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: uploading
-                    ? const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)))
-                    : bytes != null
-                        ? Image.memory(bytes, fit: BoxFit.contain)
-                        : uploaded && !_isImage
-                            ? Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.picture_as_pdf_rounded, size: 28, color: scheme.error.withValues(alpha: 0.7)),
-                                    SizedBox(height: AppSpacing.xs),
-                                    Text('PDF', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-                                  ],
-                                ),
-                              )
-                            : Center(
-                                child: Icon(icon, size: 28, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
-                              ),
-              ),
-            ),
-          ),
-          SizedBox(height: 10.rs),
-          Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-          SizedBox(height: 6.rs),
-          if (uploaded) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  onTap: () => _viewDocument(context),
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: Text('View', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('·', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-                ),
-                GestureDetector(
-                  onTap: uploading ? null : onTap,
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: Text('Replace', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-                  ),
-                ),
-                if (onRemove != null) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('·', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-                  ),
-                  GestureDetector(
-                    onTap: onRemove,
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: Text('Remove', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.error)),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ] else
-            GestureDetector(
-              onTap: uploading ? null : onTap,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: Text('Click to upload', style: text.labelSmall?.copyWith(fontSize: 10, color: scheme.onSurfaceVariant, fontWeight: FontWeight.w500)),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 class _StepDot extends StatelessWidget {
   final bool active;
   final bool done;
@@ -2926,6 +3377,7 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
         bool sending = false;
         bool otpSent = false;
         bool verifying = false;
+        bool useMfa = false; // verify via authenticator instead of email/SMS
         String? error;
 
         return StatefulBuilder(
@@ -2933,9 +3385,17 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
             final scheme = Theme.of(ctx).colorScheme;
             final text = Theme.of(ctx).textTheme;
 
-            Future<void> sendOtp() async {
+            Future<void> sendOtp({bool forceOtp = false}) async {
               setDlgState(() { sending = true; error = null; });
               try {
+                if (!forceOtp && email.isNotEmpty) {
+                  final mfa = await CloudFunctionsService.call('mfaStatus', {'email': email});
+                  if (mfa['enabled'] == true) {
+                    setDlgState(() { useMfa = true; otpSent = true; sending = false; });
+                    return;
+                  }
+                }
+                useMfa = false;
                 if (!const bool.fromEnvironment('dart.vm.product')) {
                   setDlgState(() { otpSent = true; sending = false; });
                   return;
@@ -2956,13 +3416,18 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                 setDlgState(() => error = 'Enter the 6-digit code');
                 return;
               }
-              // Test bypass: 000000 always passes
-              if (otp == '000000') {
+              // Debug-only test code; release builds always verify through the backend.
+              if (!useMfa && !const bool.fromEnvironment('dart.vm.product') && otp == '000000') {
                 if (ctx.mounted) Navigator.pop(ctx, true);
                 return;
               }
               setDlgState(() { verifying = true; error = null; });
               try {
+                if (useMfa) {
+                  await CloudFunctionsService.call('verifyMfaCode', {'email': email, 'code': otp});
+                  if (ctx.mounted) Navigator.pop(ctx, true);
+                  return;
+                }
                 final data = await CloudFunctionsService.call('verifyOTP', {
                   'target': verifyVia == 'email' ? email : phone,
                   'otp': otp,
@@ -3065,11 +3530,13 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.security_rounded, size: 14, color: scheme.primary),
+                              Icon(useMfa ? Icons.shield_outlined : Icons.security_rounded, size: 14, color: scheme.primary),
                               SizedBox(width: AppSpacing.sm),
                               Expanded(
                                 child: Text(
-                                  'Code sent to ${verifyVia == 'email' ? email : phone}',
+                                  useMfa
+                                      ? 'Enter the code from your authenticator app'
+                                      : 'Code sent to ${verifyVia == 'email' ? email : phone}',
                                   style: text.bodySmall?.copyWith(color: scheme.primary, fontWeight: FontWeight.w500),
                                 ),
                               ),
@@ -3084,7 +3551,7 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                           maxLength: 6,
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
-                            labelText: 'Verification Code',
+                            labelText: useMfa ? 'Authenticator code' : 'Verification Code',
                             hintText: '000000',
                             counterText: '',
                             isDense: true,
@@ -3092,6 +3559,16 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
                             border: OutlineInputBorder(borderRadius: AppRadius.button),
                           ),
                         ),
+                        if (useMfa)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton(
+                              onPressed: sending ? null : () => sendOtp(forceOtp: true),
+                              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                              child: Text('Send a code to my ${verifyVia == 'email' ? 'email' : 'phone'} instead',
+                                  style: TextStyle(fontSize: 11, color: scheme.primary)),
+                            ),
+                          ),
                       ],
 
                       if (error != null) ...[
@@ -3424,3 +3901,75 @@ class _WbNode {
   _WbNode({required this.id, required this.name});
 }
 
+
+const _backgroundArts = <String, String>{
+  'none': 'None',
+  'watermark': 'Tulanam',
+  'topography': 'Topography',
+  'circuit': 'Circuit Board',
+  'dots': 'Polka Dots',
+  'waves': 'Waves',
+  'grid': 'Grid Lines',
+  'diagonal': 'Diagonal Stripes',
+};
+
+class _ArtPainter extends CustomPainter {
+  final String art;
+  final Color color;
+
+  _ArtPainter(this.art, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color..strokeWidth = 1..style = PaintingStyle.stroke;
+
+    switch (art) {
+      case 'topography':
+        for (double y = 8; y < size.height; y += 12) {
+          final path = ui.Path()..moveTo(0, y);
+          for (double x = 0; x < size.width; x += 20) {
+            path.quadraticBezierTo(x + 10, y + (x % 40 == 0 ? -6 : 6), x + 20, y);
+          }
+          canvas.drawPath(path, paint);
+        }
+      case 'circuit':
+        for (double y = 5; y < size.height; y += 15) {
+          for (double x = 5; x < size.width; x += 20) {
+            canvas.drawCircle(Offset(x, y), 2, paint..style = PaintingStyle.fill);
+            if (x + 20 < size.width) canvas.drawLine(Offset(x + 2, y), Offset(x + 18, y), paint..style = PaintingStyle.stroke);
+          }
+        }
+      case 'dots':
+        paint.style = PaintingStyle.fill;
+        for (double y = 6; y < size.height; y += 10) {
+          for (double x = 6; x < size.width; x += 10) {
+            canvas.drawCircle(Offset(x, y), 1.5, paint);
+          }
+        }
+      case 'waves':
+        for (double y = 10; y < size.height; y += 14) {
+          final path = ui.Path()..moveTo(0, y);
+          for (double x = 0; x < size.width; x += 30) {
+            path.cubicTo(x + 7, y - 8, x + 23, y + 8, x + 30, y);
+          }
+          canvas.drawPath(path, paint);
+        }
+      case 'grid':
+        for (double x = 0; x < size.width; x += 12) {
+          canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+        }
+        for (double y = 0; y < size.height; y += 12) {
+          canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+        }
+      case 'diagonal':
+        for (double d = -size.height; d < size.width + size.height; d += 10) {
+          canvas.drawLine(Offset(d, 0), Offset(d + size.height, size.height), paint);
+        }
+      default:
+        break;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArtPainter old) => art != old.art || color != old.color;
+}

@@ -6,14 +6,18 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
+import 'package:weighbridgemanagement/shared/providers/mfa_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
+import 'package:weighbridgemanagement/features/profile/presentation/widgets/app_update_card.dart';
 import 'package:weighbridgemanagement/shared/models/license_model.dart';
+import 'package:weighbridgemanagement/shared/providers/app_version_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
@@ -21,6 +25,8 @@ import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
+import 'package:weighbridgemanagement/shared/widgets/mfa_settings_card.dart';
+import 'package:weighbridgemanagement/shared/widgets/pin_reset_inline.dart';
 import 'package:weighbridgemanagement/features/setup/application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
@@ -45,6 +51,16 @@ final profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
         try {
           final adminDoc = await db.adminProfileSettings.get();
           if (adminDoc.exists) result.addAll(adminDoc.data()!);
+        } catch (_) {}
+        // DigiLocker-verified identity is stored on the company doc for admins.
+        try {
+          final companyDoc = await db.firestore.doc(db.context.companyPath).get();
+          if (companyDoc.exists) {
+            final cd = companyDoc.data()!;
+            for (final k in ['verifiedName', 'verifiedPhotoUrl', 'aadhaarLast4', 'verifiedDob', 'verifiedGender', 'verifiedAddress', 'verificationMethod']) {
+              if (cd[k] != null) result[k] ??= cd[k];
+            }
+          }
         } catch (_) {}
       }
       return result;
@@ -89,6 +105,10 @@ final profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
         profile['name'] ??= cd['adminName'] ?? cd['name'];
         profile['companyName'] = cd['name'];
         profile['gstin'] = cd['gstin'];
+        // DigiLocker-verified admin identity (stored on the company doc).
+        for (final k in ['verifiedName', 'verifiedDob', 'verifiedGender', 'aadhaarLast4', 'verifiedAddress', 'verifiedPhotoUrl', 'verificationMethod']) {
+          if (cd[k] != null) profile[k] ??= cd[k];
+        }
       }
     } catch (_) {}
 
@@ -132,6 +152,24 @@ final _allSitesWbProvider = FutureProvider<List<Map<String, dynamic>>>((ref) asy
     return results;
   } catch (_) {}
   return [];
+});
+
+/// Whether the signed-in user (admin or operator) has a verification PIN set.
+/// Admins live in the root `operators` collection, operators in the company one.
+final _currentUserPinSetProvider = FutureProvider<bool>((ref) async {
+  final db = ref.watch(firestorePathsProvider);
+  if (!db.isConfigured) return false;
+  final email = FirebaseAuth.instance.currentUser?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
+  if (email == null || email.isEmpty) return false;
+  for (final col in [db.operators, db.flat('operators')]) {
+    try {
+      final snap = await col.where('email', isEqualTo: email).limit(1).get();
+      if (snap.docs.isNotEmpty) {
+        return (snap.docs.first.data()['pinHash'] as String?)?.isNotEmpty == true;
+      }
+    } catch (_) {}
+  }
+  return false;
 });
 
 final _companyInfoProvider = FutureProvider<Map<String, dynamic>>((ref) async {
@@ -299,6 +337,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ref.invalidate(profileProvider);
   }
 
+  /// Removes the uploaded photo so the avatar falls back to the verified photo.
+  Future<void> _removeProfilePic() async {
+    final profile = ref.read(profileProvider).valueOrNull;
+    final db = ref.read(firestorePathsProvider);
+    final role = profile?['role'] as String? ?? 'admin';
+    if (role == 'admin') {
+      await db.adminProfileSettings.set({'profilePic': FieldValue.delete()}, SetOptions(merge: true));
+    } else {
+      final opId = profile?['id'] as String?;
+      if (opId != null) {
+        await db.operators.doc(opId).update({'profilePic': FieldValue.delete()});
+      }
+    }
+    ref.invalidate(profileProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -318,7 +372,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           final name = profile['name'] as String? ?? user?.displayName ?? 'Admin';
           final email = profile['email'] as String? ?? user?.email ?? '--';
           final phone = profile['phone'] as String? ?? '';
-          final idStatus = profile['idStatus'] as String? ?? 'not_submitted';
           final lastLogin = profile['previousLoginAt'] ?? profile['lastLoginAt'];
           final loginCount = profile['loginCount'] as int? ?? 0;
           final passwordLastChanged = profile['passwordLastChanged'];
@@ -335,33 +388,62 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Hero header
-                _buildHeroHeader(scheme, text, name, email, role, phone, createdAt, profile['profilePic'] as String?),
+                _buildHeroHeader(scheme, text, name, email, role, phone, createdAt, profile['profilePic'] as String?, profile['verifiedPhotoUrl'] as String?),
                 SizedBox(height: 28.rs),
 
-                // Row 1: Details + Security
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(flex: 3, child: _buildDetailsCard(scheme, text, isAdmin, email, phone, idStatus, createdAt)),
-                      SizedBox(width: AppSpacing.lg),
-                      Expanded(flex: 2, child: _buildSecurityCard(scheme, text, isAdmin, lastLogin, passwordLastChanged, mustChangePassword, settings, loginCount)),
-                    ],
-                  ),
-                ),
+                // DigiLocker verified identity + Security, side by side
+                if ((profile['verificationMethod'] as String?) == 'digilocker_meon' ||
+                    (profile['aadhaarLast4'] as String? ?? '').isNotEmpty ||
+                    (profile['verifiedName'] as String? ?? '').isNotEmpty)
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(flex: 40, child: _buildVerifiedIdentityCard(scheme, text, profile)),
+                        SizedBox(width: AppSpacing.lg),
+                        Expanded(flex: 60, child: _buildSecurityCard(scheme, text, isAdmin, lastLogin, passwordLastChanged, mustChangePassword, settings, loginCount)),
+                      ],
+                    ),
+                  )
+                else
+                  _buildSecurityCard(scheme, text, isAdmin, lastLogin, passwordLastChanged, mustChangePassword, settings, loginCount),
                 SizedBox(height: AppSpacing.lg),
 
-                // Row 2: License & Sites (non-pro admin) / Company Info (operator)
-                if (isAdmin && ref.watch(licenseProvider).effectiveTier != LicenseTier.pro) ...[
-                  _buildLicenseSiteCard(scheme, text),
-                  SizedBox(height: AppSpacing.lg),
-                ] else if (!isAdmin) ...[
-                  _buildCompanyInfoCard(scheme, text),
-                  SizedBox(height: AppSpacing.lg),
-                ],
+                // Pro-trial / Company card (left, 40%) + Session (right, 60%) —
+                // same width ratio as the Verified-identity / Security row above.
+                Builder(builder: (_) {
+                  Widget? sideCard;
+                  if (isAdmin && ref.watch(licenseProvider).effectiveTier != LicenseTier.pro) {
+                    sideCard = _buildLicenseSiteCard(scheme, text);
+                  } else if (!isAdmin) {
+                    sideCard = _buildCompanyInfoCard(scheme, text);
+                  }
+                  final session = _buildSessionCard(scheme, text, isAdmin, shiftRestricted, shiftStart, shiftEnd, shiftDays);
+                  if (sideCard == null) return session;
+                  return IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(flex: 40, child: sideCard),
+                        SizedBox(width: AppSpacing.lg),
+                        Expanded(flex: 60, child: session),
+                      ],
+                    ),
+                  );
+                }),
+                SizedBox(height: AppSpacing.lg),
 
-                // Row 3: Session
-                _buildSessionCard(scheme, text, isAdmin, shiftRestricted, shiftStart, shiftEnd, shiftDays),
+                // App update — check + in-app download/install.
+                const AppUpdateCard(),
+
+                SizedBox(height: 24.rs),
+                Center(
+                  child: Text(
+                    ref.watch(appVersionProvider).valueOrNull ?? '',
+                    style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                  ),
+                ),
+                SizedBox(height: 8.rs),
               ],
             ),
           );
@@ -385,6 +467,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     bool obscureNew = true;
     bool otpSent = false;
     bool otpVerified = false;
+    bool useMfa = false; // verify via authenticator instead of email/SMS OTP
     String? error;
     String? success;
     int resendCooldown = 0;
@@ -423,9 +506,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       });
     }
 
-    Future<void> sendOtp(StateSetter setSt) async {
+    Future<void> sendOtp(StateSetter setSt, {bool forceOtp = false}) async {
       setSt(() { loading = true; error = null; });
       try {
+        // Prefer the account's authenticator (2FA) when available.
+        if (!forceOtp && email.isNotEmpty && await ref.read(mfaServiceProvider).isEnabled(email)) {
+          setSt(() { useMfa = true; otpSent = true; loading = false; });
+          return;
+        }
+        useMfa = false;
         if (verifyMethod == 'email') {
           await CloudFunctionsService.call('sendEmailOTP', {'email': email});
         } else {
@@ -445,14 +534,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         return;
       }
 
-      // Test bypass
-      if (code == '000000') {
+      // Debug-only test code; release builds always verify through the backend.
+      if (!useMfa && !const bool.fromEnvironment('dart.vm.product') && code == '000000') {
         setSt(() { otpVerified = true; error = null; loading = false; });
         return;
       }
 
       setSt(() { loading = true; error = null; });
       try {
+        if (useMfa) {
+          await ref.read(mfaServiceProvider).verifyCode(email, code);
+          setSt(() { otpVerified = true; loading = false; });
+          return;
+        }
         final callable = verifyMethod == 'email' ? 'verifyEmailOTP' : 'verifyPhoneOTP';
         final payload = verifyMethod == 'email'
             ? {'email': email, 'otp': code}
@@ -672,7 +766,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               child: Row(
                                 children: [
                                   Icon(
-                                    verifyMethod == 'email' ? Icons.mark_email_read_rounded : Icons.sms_rounded,
+                                    useMfa ? Icons.shield_outlined : (verifyMethod == 'email' ? Icons.mark_email_read_rounded : Icons.sms_rounded),
                                     size: 20,
                                     color: scheme.primary,
                                   ),
@@ -681,12 +775,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text('Code sent!', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+                                        Text(useMfa ? 'Authenticator' : 'Code sent!', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
                                         SizedBox(height: 2.rs),
                                         Text(
-                                          verifyMethod == 'email'
-                                              ? 'Check your inbox at ${maskedEmail()}'
-                                              : 'Check SMS on ${maskedPhone()}',
+                                          useMfa
+                                              ? 'Enter the code from your authenticator app'
+                                              : (verifyMethod == 'email' ? 'Check your inbox at ${maskedEmail()}' : 'Check SMS on ${maskedPhone()}'),
                                           style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
                                         ),
                                       ],
@@ -715,8 +809,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             Row(
                               children: [
                                 TextButton(
-                                  onPressed: resendCooldown > 0 || loading ? null : () => sendOtp(setSt),
-                                  child: Text(resendCooldown > 0 ? 'Resend in ${resendCooldown}s' : 'Resend Code'),
+                                  onPressed: loading ? null : (useMfa ? () => sendOtp(setSt, forceOtp: true) : (resendCooldown > 0 ? null : () => sendOtp(setSt))),
+                                  child: Text(useMfa ? 'Use email/SMS instead' : (resendCooldown > 0 ? 'Resend in ${resendCooldown}s' : 'Resend Code')),
                                 ),
                                 const Spacer(),
                                 FilledButton(
@@ -825,7 +919,78 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // HERO HEADER
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildHeroHeader(ColorScheme scheme, TextTheme text, String name, String email, String role, String phone, dynamic createdAt, String? profilePic) {
+  Widget _buildVerifiedIdentityCard(ColorScheme scheme, TextTheme text, Map<String, dynamic> profile) {
+    final vName = profile['verifiedName'] as String? ?? '';
+    final last4 = profile['aadhaarLast4'] as String? ?? '';
+    final dob = profile['verifiedDob'] as String? ?? '';
+    final gender = profile['verifiedGender'] as String? ?? '';
+    final address = (profile['verifiedAddress'] as String? ?? '').replaceFirst(RegExp(r'^[\s,]+'), '').trimRight();
+    return Container(
+      width: double.infinity,
+      padding: AppSpacing.cardPadding,
+      decoration: BoxDecoration(
+        color: AppTheme.successColor.withValues(alpha: 0.05),
+        borderRadius: AppRadius.dialog,
+        border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.verified_user_rounded, size: 18, color: AppTheme.successColor),
+              SizedBox(width: AppSpacing.sm),
+              Text('DigiLocker Verified Identity', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: AppTheme.successColor.withValues(alpha: 0.12), borderRadius: AppRadius.chip),
+                child: Text('Aadhaar', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.successColor)),
+              ),
+            ],
+          ),
+          SizedBox(height: AppSpacing.md),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _verifiedItem('Name', vName.isNotEmpty ? vName : '—', scheme)),
+              SizedBox(width: AppSpacing.lg),
+              Expanded(child: _verifiedItem('Aadhaar', last4.isNotEmpty ? 'XXXX-XXXX-$last4' : '—', scheme)),
+            ],
+          ),
+          SizedBox(height: AppSpacing.md),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _verifiedItem('Date of birth', dob.isNotEmpty ? dob : '—', scheme)),
+              SizedBox(width: AppSpacing.lg),
+              Expanded(child: _verifiedItem('Gender', gender.isNotEmpty ? gender : '—', scheme)),
+            ],
+          ),
+          if (address.isNotEmpty) ...[
+            SizedBox(height: AppSpacing.md),
+            _verifiedItem('Address', address, scheme),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _verifiedItem(String label, String value, ColorScheme scheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+        SizedBox(height: 2.rs),
+        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+
+  Widget _buildHeroHeader(ColorScheme scheme, TextTheme text, String name, String email, String role, String phone, dynamic createdAt, String? profilePic, String? verifiedPhotoUrl) {
+    final hasLocalPic = profilePic != null && profilePic.isNotEmpty;
+    final hasVerifiedPic = !hasLocalPic && verifiedPhotoUrl != null && verifiedPhotoUrl.isNotEmpty;
+    final hasPhoto = hasLocalPic || hasVerifiedPic;
     return Container(
       padding: AppSpacing.pagePadding,
       decoration: BoxDecoration(
@@ -847,19 +1012,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   width: 72,
                   height: 72,
                   decoration: BoxDecoration(
-                    gradient: profilePic == null ? LinearGradient(
+                    gradient: !hasPhoto ? LinearGradient(
                       colors: [scheme.primary, scheme.primary.withValues(alpha: 0.75)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ) : null,
                     borderRadius: BorderRadius.circular(20.rs),
                     boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 4))],
-                    image: profilePic != null ? DecorationImage(
-                      image: MemoryImage(_decodeProfilePic(profilePic)),
-                      fit: BoxFit.cover,
-                    ) : null,
+                    image: hasLocalPic
+                        ? DecorationImage(image: MemoryImage(_decodeProfilePic(profilePic)), fit: BoxFit.cover)
+                        : hasVerifiedPic
+                            ? DecorationImage(image: NetworkImage(verifiedPhotoUrl), fit: BoxFit.cover)
+                            : null,
                   ),
-                  child: profilePic == null ? Center(
+                  child: !hasPhoto ? Center(
                     child: Text(
                       name.isNotEmpty ? name[0].toUpperCase() : '?',
                       style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: scheme.onPrimary),
@@ -912,6 +1078,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ],
             ),
           ),
+          TextButton.icon(
+            onPressed: _uploadProfilePic,
+            icon: const Icon(Icons.photo_camera_rounded, size: 15),
+            label: const Text('Change photo'),
+            style: TextButton.styleFrom(textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          ),
+          if (hasLocalPic)
+            TextButton.icon(
+              onPressed: _removeProfilePic,
+              icon: const Icon(Icons.delete_outline_rounded, size: 15),
+              label: const Text('Remove photo'),
+              style: TextButton.styleFrom(foregroundColor: scheme.error, textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            ),
+          SizedBox(width: AppSpacing.sm),
           FilledButton.icon(
             onPressed: _showChangePasswordDialog,
             icon: const Icon(Icons.lock_reset_rounded, size: 16),
@@ -936,43 +1116,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // DETAILS CARD
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildDetailsCard(ColorScheme scheme, TextTheme text, bool isAdmin, String email, String phone, String idStatus, dynamic createdAt) {
-    return _Card(
-      icon: Icons.person_rounded,
-      title: 'Details',
-      scheme: scheme,
-      text: text,
-      children: [
-        _InfoRow(label: 'Email', scheme: scheme, text: text, child: Text(
-          email,
-          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-        )),
-        SizedBox(height: 10.rs),
-        _InfoRow(label: 'Phone', scheme: scheme, text: text, child: Text(
-          phone.isNotEmpty ? phone : '--',
-          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: phone.isNotEmpty ? null : scheme.onSurfaceVariant),
-        )),
-        if (!isAdmin) ...[
-          SizedBox(height: 10.rs),
-          _InfoRow(label: 'KYC Status', scheme: scheme, text: text, child: _buildKycChip(idStatus, scheme)),
-        ],
-        if (createdAt != null) ...[
-          SizedBox(height: 10.rs),
-          _InfoRow(label: 'Member since', scheme: scheme, text: text, child: Text(
-            _formatTimestamp(createdAt),
-            style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-          )),
-        ],
-      ],
-    );
-  }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // SECURITY STATUS CARD
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Verification-PIN set/reset presented as a dialog (same pattern as Change
+  /// Password). Reset requires MFA/OTP first via the embedded two-step widget.
+  void _showResetPinDialog(bool isReset) {
+    final scheme = Theme.of(context).colorScheme;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
+        title: Row(
+          children: [
+            Icon(Icons.pin_rounded, size: 20, color: scheme.primary),
+            const SizedBox(width: 10),
+            Text(isReset ? 'Reset Verification PIN' : 'Set Verification PIN',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: PinResetInline(
+            companyId: ref.read(siteContextProvider).companyId,
+            isReset: isReset,
+            onSaved: () {
+              if (ctx.mounted) Navigator.pop(ctx);
+              ref.invalidate(_currentUserPinSetProvider);
+            },
+            onCancel: () { if (ctx.mounted) Navigator.pop(ctx); },
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSecurityCard(ColorScheme scheme, TextTheme text, bool isAdmin, dynamic lastLogin, dynamic passwordLastChanged, bool mustChangePassword, SecuritySettings settings, int loginCount) {
     final passwordAge = _getPasswordAge(passwordLastChanged);
+    final pinSet = ref.watch(_currentUserPinSetProvider).valueOrNull ?? false;
 
     return _Card(
       icon: Icons.shield_rounded,
@@ -980,93 +1162,57 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       scheme: scheme,
       text: text,
       children: [
-        _InfoRow(label: 'Last Login', scheme: scheme, text: text, child: Text(
-          lastLogin != null ? _formatTimestamp(lastLogin) : 'Current session',
-          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-        )),
-        SizedBox(height: 10.rs),
-        _InfoRow(label: 'Logins', scheme: scheme, text: text, child: Text(
-          '$loginCount',
-          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-        )),
-        SizedBox(height: 10.rs),
-        _InfoRow(label: 'Password', scheme: scheme, text: text, child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(passwordAge, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-            if (mustChangePassword) ...[
-              SizedBox(width: AppSpacing.sm),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(4.rs)),
-                child: Text('Change required', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: scheme.error)),
-              ),
-            ],
-          ],
-        )),
-        if (settings.passwordExpiryDays > 0) ...[
-          SizedBox(height: 10.rs),
-          _InfoRow(label: 'Expiry', scheme: scheme, text: text, child: Text(
-            'Every ${settings.passwordExpiryDays} days',
-            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-          )),
-        ],
-        SizedBox(height: 10.rs),
-        FutureBuilder<List<MultiFactorInfo>>(
-          future: (Platform.isWindows || Platform.isLinux) ? Future.value(<MultiFactorInfo>[]) : (FirebaseAuth.instance.currentUser?.multiFactor.getEnrolledFactors() ?? Future.value([])),
-          builder: (context, snap) {
-            final enrolled = snap.data ?? [];
-            final mfaEnabled = enrolled.isNotEmpty;
-            return _InfoRow(label: 'MFA', scheme: scheme, text: text, child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: mfaEnabled ? Colors.green.withValues(alpha: 0.1) : scheme.errorContainer.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(4.rs),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    mfaEnabled ? Icons.verified_user_rounded : Icons.warning_rounded,
-                    size: 11,
-                    color: mfaEnabled ? Colors.green : scheme.error,
-                  ),
-                  SizedBox(width: AppSpacing.xs),
-                  Text(
-                    mfaEnabled ? 'Enabled (${enrolled.length} factor${enrolled.length > 1 ? 's' : ''})' : 'Not configured',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: mfaEnabled ? Colors.green : scheme.error),
+        MfaSettingsCard(
+          embedded: true,
+          leading: [
+            _InfoRow(label: 'Last Login', scheme: scheme, text: text, child: Text(
+              lastLogin != null ? _formatTimestamp(lastLogin) : 'Current session',
+              style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+            )),
+            SizedBox(height: 10.rs),
+            _InfoRow(label: 'Logins', scheme: scheme, text: text, child: Text(
+              '$loginCount',
+              style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+            )),
+            SizedBox(height: 10.rs),
+            _InfoRow(label: 'Password', scheme: scheme, text: text, child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(passwordAge, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                if (mustChangePassword) ...[
+                  SizedBox(width: AppSpacing.sm),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(4.rs)),
+                    child: Text('Change required', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: scheme.error)),
                   ),
                 ],
-              ),
-            ));
-          },
-        ),
-        SizedBox(height: AppSpacing.lg),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _showChangePasswordDialog,
-                icon: const Icon(Icons.lock_reset_rounded, size: 14),
-                label: const Text('Change Password', style: TextStyle(fontSize: 11)),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
+              ],
+            )),
+            SizedBox(height: 10.rs),
+            _InfoRow(label: 'Verification PIN', scheme: scheme, text: text, child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(pinSet ? 'Set' : 'Not set', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: pinSet ? AppTheme.successColor : scheme.onSurfaceVariant)),
+                SizedBox(width: AppSpacing.sm),
+                TextButton(
+                  onPressed: () => _showResetPinDialog(pinSet),
+                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap, textStyle: const TextStyle(fontSize: 11)),
+                  child: Text(pinSet ? 'Reset' : 'Set'),
                 ),
-              ),
-            ),
-            SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => context.go('/settings/mfa'),
-                icon: const Icon(Icons.security_rounded, size: 14),
-                label: const Text('Manage MFA', style: TextStyle(fontSize: 11)),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
-                ),
-              ),
-            ),
+              ],
+            )),
+            if (settings.passwordExpiryDays > 0) ...[
+              SizedBox(height: 10.rs),
+              _InfoRow(label: 'Expiry', scheme: scheme, text: text, child: Text(
+                'Every ${settings.passwordExpiryDays} days',
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              )),
+            ],
+            SizedBox(height: 10.rs),
+            SizedBox(height: AppSpacing.sm),
+            Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
+            SizedBox(height: AppSpacing.md),
           ],
         ),
       ],
@@ -1091,53 +1237,58 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       scheme: scheme,
       text: text,
       children: [
-        _InfoRow(label: 'Machine', scheme: scheme, text: text, child: Text(
-          hostname,
-          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-        )),
-        SizedBox(height: 10.rs),
-        _InfoRow(label: 'Started', scheme: scheme, text: text, child: Text(
-          sessionStart,
-          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-        )),
-        SizedBox(height: 10.rs),
-        _InfoRow(label: 'Uptime', scheme: scheme, text: text, child: Text(
-          uptimeStr,
-          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-        )),
-        SizedBox(height: 10.rs),
-        _InfoRow(label: 'Platform', scheme: scheme, text: text, child: Text(
-          '${Platform.operatingSystem[0].toUpperCase()}${Platform.operatingSystem.substring(1)}',
-          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-        )),
-        SizedBox(height: 10.rs),
-        if (_localIp.isNotEmpty) ...[
-          _InfoRow(label: 'Local IP', scheme: scheme, text: text, child: Text(
-            _localIp,
-            style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-          )),
-          SizedBox(height: 10.rs),
-        ],
-        _InfoRow(label: 'Public IP', scheme: scheme, text: text, child: Text(
-          _publicIp,
-          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-        )),
-        SizedBox(height: 10.rs),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: GestureDetector(
-            onTap: _refreshIp,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.refresh_rounded, size: 13, color: scheme.primary),
-                  SizedBox(width: AppSpacing.xs),
-                  Text('Refresh', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
-                ],
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left column
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InfoRow(label: 'Machine', scheme: scheme, text: text, child: Text(
+                      hostname,
+                      style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                    )),
+                    SizedBox(height: 10.rs),
+                    _InfoRow(label: 'Platform', scheme: scheme, text: text, child: Text(
+                      '${Platform.operatingSystem[0].toUpperCase()}${Platform.operatingSystem.substring(1)}',
+                      style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                    )),
+                    if (_localIp.isNotEmpty) ...[
+                      SizedBox(height: 10.rs),
+                      _InfoRow(label: 'Local IP', scheme: scheme, text: text, child: Text(
+                        _localIp,
+                        style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                      )),
+                    ],
+                  ],
+                ),
               ),
-            ),
+              SizedBox(width: AppSpacing.lg),
+              // Right column
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InfoRow(label: 'Started', scheme: scheme, text: text, child: Text(
+                      sessionStart,
+                      style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                    )),
+                    SizedBox(height: 10.rs),
+                    _InfoRow(label: 'Uptime', scheme: scheme, text: text, child: Text(
+                      uptimeStr,
+                      style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                    )),
+                    SizedBox(height: 10.rs),
+                    _InfoRow(label: 'Public IP', scheme: scheme, text: text, child: Text(
+                      _publicIp,
+                      style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                    )),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
         if (!isAdmin && shiftRestricted) ...[
@@ -1210,81 +1361,49 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final trialUrgent = trialActive && license.daysRemaining <= 7;
     final allSites = ref.watch(_allSitesWbProvider).valueOrNull ?? [];
 
-    return Container(
-      padding: EdgeInsets.all(18.rs),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: AppRadius.card,
-        border: Border.all(color: trialExpired ? scheme.error.withValues(alpha: 0.4) : trialUrgent ? Colors.orange.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 3)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    final wbCount = allSites.fold<int>(0, (total, s) => total + ((s['weighbridges'] as List?)?.length ?? 0));
+
+    return _Card(
+      icon: Icons.workspace_premium_rounded,
+      title: 'License',
+      scheme: scheme,
+      text: text,
+      children: [
           Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: (trialExpired ? scheme.error : tierColor).withValues(alpha: 0.1),
-                  borderRadius: AppRadius.card,
+              Text(tierLabel, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: trialExpired ? scheme.error : tierColor)),
+              SizedBox(width: AppSpacing.sm),
+              if (trialActive)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: trialUrgent ? Colors.orange.withValues(alpha: 0.12) : scheme.primaryContainer.withValues(alpha: 0.3),
+                    borderRadius: AppRadius.chip,
+                  ),
+                  child: Text(
+                    '${license.daysRemaining} days remaining',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: trialUrgent ? Colors.orange.shade700 : scheme.primary),
+                  ),
                 ),
-                child: Icon(
-                  trialExpired ? Icons.timer_off_rounded
-                      : effective == LicenseTier.trial ? Icons.timer_rounded
-                      : Icons.verified_outlined,
-                  color: trialExpired ? scheme.error : tierColor,
-                  size: 22,
+              if (trialExpired)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: scheme.errorContainer.withValues(alpha: 0.3),
+                    borderRadius: AppRadius.chip,
+                  ),
+                  child: Text(
+                    'Upgrade to continue',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.error),
+                  ),
                 ),
-              ),
-              SizedBox(width: AppSpacing.lg),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(tierLabel, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: trialExpired ? scheme.error : tierColor)),
-                        SizedBox(width: AppSpacing.sm),
-                        if (trialActive)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: trialUrgent ? Colors.orange.withValues(alpha: 0.12) : scheme.primaryContainer.withValues(alpha: 0.3),
-                              borderRadius: AppRadius.chip,
-                            ),
-                            child: Text(
-                              '${license.daysRemaining} days remaining',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: trialUrgent ? Colors.orange.shade700 : scheme.primary),
-                            ),
-                          ),
-                        if (trialExpired)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: scheme.errorContainer.withValues(alpha: 0.3),
-                              borderRadius: AppRadius.chip,
-                            ),
-                            child: Text(
-                              'Upgrade to continue',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.error),
-                            ),
-                          ),
-                      ],
-                    ),
-                    SizedBox(height: 2.rs),
-                    Text('${allSites.length} site(s), ${allSites.fold<int>(0, (total, s) => total + ((s['weighbridges'] as List?)?.length ?? 0))} weighbridge(s)', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                  ],
-                ),
-              ),
+              const Spacer(),
               FilledButton.tonalIcon(
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const _UpgradePlaceholder()),
-                  );
+                  // Route via the Settings main page so "back" from License
+                  // returns to Settings (not straight to the profile).
+                  context.go('/settings');
+                  context.push('/settings/license');
                 },
                 icon: Icon(Icons.upgrade_rounded, size: 16, color: trialExpired ? scheme.error : tierColor),
                 label: Text('Upgrade', style: TextStyle(color: trialExpired ? scheme.error : tierColor, fontWeight: FontWeight.w600, fontSize: 12)),
@@ -1295,6 +1414,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ],
           ),
+          SizedBox(height: 12.rs),
+          _InfoRow(label: 'Sites', scheme: scheme, text: text, child: Text(
+            '${allSites.length} site(s), $wbCount weighbridge(s)',
+            style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+          )),
           if (allSites.isNotEmpty) ...[
             SizedBox(height: 14.rs),
             Container(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.15)),
@@ -1345,7 +1469,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             }),
           ],
         ],
-      ),
     );
   }
 
@@ -1417,21 +1540,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
   // HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildKycChip(String status, ColorScheme scheme) {
-    final (Color bg, Color fg, String label) = switch (status) {
-      'verified' => (scheme.primaryContainer, scheme.primary, 'Verified'),
-      'pending' => (Colors.amber.withValues(alpha: 0.15), Colors.amber.shade700, 'Pending'),
-      'rejected' => (scheme.errorContainer, scheme.error, 'Rejected'),
-      _ => (scheme.surfaceContainerHigh, scheme.onSurfaceVariant, 'Not Submitted'),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4.rs)),
-      child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg)),
-    );
-  }
 
   Widget _buildShiftStatus(ColorScheme scheme, String? shiftStart, String? shiftEnd, List<String>? shiftDays) {
     if (shiftStart == null || shiftEnd == null || shiftDays == null) {
@@ -1601,79 +1709,6 @@ class _InfoRow extends StatelessWidget {
         SizedBox(width: 110, child: Text(label, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
         child,
       ],
-    );
-  }
-}
-
-class _UpgradePlaceholder extends StatelessWidget {
-  const _UpgradePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Upgrade to Pro')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppTheme.proColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20.rs),
-                ),
-                child: const Icon(Icons.workspace_premium_rounded, size: 36, color: Color(0xFF7C3AED)),
-              ),
-              SizedBox(height: AppSpacing.xl),
-              Text('Upgrade to Pro', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-              SizedBox(height: AppSpacing.md),
-              Text(
-                'Unlock multi-weighbridge, IP cameras, gate control, integrations, and more.',
-                style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: AppSpacing.xxl),
-              Container(
-                padding: EdgeInsets.all(20.rs),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(14.rs),
-                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Contact sales for a license key:', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
-                    SizedBox(height: AppSpacing.md),
-                    _upgradeBullet(scheme, 'Email: sales@weighbridge.app'),
-                    _upgradeBullet(scheme, 'Phone: +91 98765 43210'),
-                    _upgradeBullet(scheme, 'Enter your key in Settings > License'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _upgradeBullet(ColorScheme scheme, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Icon(Icons.circle, size: 6, color: scheme.primary),
-          SizedBox(width: 10.rs),
-          Text(label, style: TextStyle(fontSize: 13, color: scheme.onSurface)),
-        ],
-      ),
     );
   }
 }

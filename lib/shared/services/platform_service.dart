@@ -182,21 +182,60 @@ class PlatformService {
     return (cpu: 0.0, mem: 0.0, temp: null);
   }
 
+  // Native macOS stats — replaces the old ~/.weighbridge/sysstats helper, whose
+  // CPU/RAM pinned high (a fixed floor) and whose temperature was unreliable.
   static Future<({double cpu, double mem, double? temp})> _getStatsMac() async {
     try {
-      final home = Platform.environment['HOME'] ?? '/tmp';
-      final binPath = '$home/.weighbridge/sysstats';
-      if (!File(binPath).existsSync()) return (cpu: 0.0, mem: 0.0, temp: null);
-      final result = await Process.run(binPath, []);
-      if (result.exitCode != 0) return (cpu: 0.0, mem: 0.0, temp: null);
-      final parts = (result.stdout as String).trim().split(' ');
-      final cpu = double.tryParse(parts.elementAtOrNull(0) ?? '') ?? 0;
-      final mem = double.tryParse(parts.elementAtOrNull(1) ?? '') ?? 0;
-      double? temp;
-      if (parts.length > 2 && parts[2] != '-') temp = double.tryParse(parts[2]);
-      return (cpu: cpu, mem: mem, temp: temp);
+      double cpu = 0, mem = 0;
+
+      // CPU = 100 − idle. `top -l 1` returns fast (no sampling delay) so it can
+      // be polled at 1s while the panel is open.
+      final topRes = await Process.run('top', ['-l', '1', '-n', '0']);
+      if (topRes.exitCode == 0) {
+        final cpuLines = (topRes.stdout as String).split('\n').where((l) => l.contains('CPU usage')).toList();
+        if (cpuLines.isNotEmpty) {
+          final m = RegExp(r'([\d.]+)%\s*idle').firstMatch(cpuLines.last);
+          if (m != null) {
+            final idle = double.tryParse(m.group(1) ?? '') ?? 100;
+            cpu = (100 - idle).clamp(0.0, 100.0);
+          }
+        }
+      }
+
+      // RAM: macOS free% counts reclaimable memory (inactive/cache) as free, so
+      // it actually tracks usage instead of sitting near 100% like total−free.
+      final memRes = await Process.run('memory_pressure', []);
+      if (memRes.exitCode == 0) {
+        final m = RegExp(r'free percentage:\s*(\d+)%').firstMatch(memRes.stdout as String);
+        if (m != null) {
+          final free = double.tryParse(m.group(1) ?? '') ?? 0;
+          mem = (100 - free).clamp(0.0, 100.0);
+        }
+      }
+      if (mem <= 0) mem = await _macMemFromVmStat(); // fallback if memory_pressure is unavailable
+
+      // CPU temperature on macOS needs privileged SMC access — not available, so
+      // we report null (the UI hides the TEMP row) rather than a misleading floor.
+      return (cpu: cpu, mem: mem, temp: null);
     } catch (_) {
       return (cpu: 0.0, mem: 0.0, temp: null);
+    }
+  }
+
+  // Fallback "used%" from vm_stat: (active + wired + compressed) / total.
+  static Future<double> _macMemFromVmStat() async {
+    try {
+      final vm = await Process.run('vm_stat', []);
+      final sz = await Process.run('sysctl', ['-n', 'hw.memsize']);
+      if (vm.exitCode != 0) return 0;
+      final out = vm.stdout as String;
+      final ps = double.tryParse(RegExp(r'page size of (\d+)').firstMatch(out)?.group(1) ?? '4096') ?? 4096;
+      double pg(String key) => double.tryParse(RegExp('$key\\D+(\\d+)').firstMatch(out)?.group(1) ?? '0') ?? 0;
+      final usedBytes = (pg('Pages active') + pg('Pages wired down') + pg('Pages occupied by compressor')) * ps;
+      final total = double.tryParse((sz.stdout as String).trim()) ?? 0;
+      return total > 0 ? (usedBytes / total * 100).clamp(0.0, 100.0) : 0;
+    } catch (_) {
+      return 0;
     }
   }
 

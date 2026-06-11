@@ -16,12 +16,15 @@ import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.d
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/widgets/digilocker_verify_card.dart';
+import 'package:weighbridgemanagement/shared/services/digilocker_service.dart';
 import '../../application/setup_wizard_provider.dart';
 import '../../application/setup_wizard_state.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 String _hashPassword(String password) => sha256.convert(utf8.encode(password)).toString();
+// Must match the backend's setOperatorPin/verifyOperatorPin: sha256(pin + email).
+String _hashPin(String pin, String email) => sha256.convert(utf8.encode(pin + email)).toString();
 
 String _toTitleCase(String s) {
   // Normalize: ensure space after commas, collapse multiple spaces
@@ -52,24 +55,76 @@ class _CountryCode {
 const _countries = [
   _CountryCode('India', '+91', 'IN', 10, 10),
   _CountryCode('United States', '+1', 'US', 10, 10),
-  _CountryCode('United Kingdom', '+44', 'GB', 10, 11),
-  _CountryCode('Australia', '+61', 'AU', 9, 9),
+  _CountryCode('United Kingdom', '+44', 'GB', 10, 10),
   _CountryCode('Canada', '+1', 'CA', 10, 10),
-  _CountryCode('Germany', '+49', 'DE', 10, 11),
-  _CountryCode('France', '+33', 'FR', 9, 9),
-  _CountryCode('Japan', '+81', 'JP', 10, 11),
-  _CountryCode('China', '+86', 'CN', 11, 11),
-  _CountryCode('Brazil', '+55', 'BR', 10, 11),
-  _CountryCode('South Africa', '+27', 'ZA', 9, 9),
-  _CountryCode('UAE', '+971', 'AE', 9, 9),
+  _CountryCode('Australia', '+61', 'AU', 9, 9),
+  _CountryCode('United Arab Emirates', '+971', 'AE', 9, 9),
   _CountryCode('Saudi Arabia', '+966', 'SA', 9, 9),
+  _CountryCode('Qatar', '+974', 'QA', 8, 8),
+  _CountryCode('Kuwait', '+965', 'KW', 8, 8),
+  _CountryCode('Bahrain', '+973', 'BH', 8, 8),
+  _CountryCode('Oman', '+968', 'OM', 8, 8),
   _CountryCode('Singapore', '+65', 'SG', 8, 8),
   _CountryCode('Nepal', '+977', 'NP', 10, 10),
   _CountryCode('Bangladesh', '+880', 'BD', 10, 10),
   _CountryCode('Pakistan', '+92', 'PK', 10, 10),
   _CountryCode('Sri Lanka', '+94', 'LK', 9, 9),
-  _CountryCode('Indonesia', '+62', 'ID', 10, 12),
+  _CountryCode('Bhutan', '+975', 'BT', 8, 8),
+  _CountryCode('Maldives', '+960', 'MV', 7, 7),
+  _CountryCode('Afghanistan', '+93', 'AF', 9, 9),
+  _CountryCode('Indonesia', '+62', 'ID', 9, 12),
   _CountryCode('Malaysia', '+60', 'MY', 9, 10),
+  _CountryCode('Thailand', '+66', 'TH', 9, 9),
+  _CountryCode('Vietnam', '+84', 'VN', 9, 10),
+  _CountryCode('Philippines', '+63', 'PH', 10, 10),
+  _CountryCode('Myanmar', '+95', 'MM', 8, 10),
+  _CountryCode('Cambodia', '+855', 'KH', 8, 9),
+  _CountryCode('China', '+86', 'CN', 11, 11),
+  _CountryCode('Hong Kong', '+852', 'HK', 8, 8),
+  _CountryCode('Taiwan', '+886', 'TW', 9, 9),
+  _CountryCode('Japan', '+81', 'JP', 10, 11),
+  _CountryCode('South Korea', '+82', 'KR', 9, 10),
+  _CountryCode('Germany', '+49', 'DE', 10, 11),
+  _CountryCode('France', '+33', 'FR', 9, 9),
+  _CountryCode('Italy', '+39', 'IT', 9, 10),
+  _CountryCode('Spain', '+34', 'ES', 9, 9),
+  _CountryCode('Portugal', '+351', 'PT', 9, 9),
+  _CountryCode('Netherlands', '+31', 'NL', 9, 9),
+  _CountryCode('Belgium', '+32', 'BE', 8, 9),
+  _CountryCode('Switzerland', '+41', 'CH', 9, 9),
+  _CountryCode('Austria', '+43', 'AT', 10, 11),
+  _CountryCode('Sweden', '+46', 'SE', 7, 9),
+  _CountryCode('Norway', '+47', 'NO', 8, 8),
+  _CountryCode('Denmark', '+45', 'DK', 8, 8),
+  _CountryCode('Finland', '+358', 'FI', 9, 10),
+  _CountryCode('Ireland', '+353', 'IE', 9, 9),
+  _CountryCode('Poland', '+48', 'PL', 9, 9),
+  _CountryCode('Czech Republic', '+420', 'CZ', 9, 9),
+  _CountryCode('Romania', '+40', 'RO', 9, 9),
+  _CountryCode('Hungary', '+36', 'HU', 9, 9),
+  _CountryCode('Greece', '+30', 'GR', 10, 10),
+  _CountryCode('Russia', '+7', 'RU', 10, 10),
+  _CountryCode('Ukraine', '+380', 'UA', 9, 9),
+  _CountryCode('Turkey', '+90', 'TR', 10, 10),
+  _CountryCode('Israel', '+972', 'IL', 9, 9),
+  _CountryCode('Jordan', '+962', 'JO', 9, 9),
+  _CountryCode('Lebanon', '+961', 'LB', 7, 8),
+  _CountryCode('Iraq', '+964', 'IQ', 10, 10),
+  _CountryCode('Iran', '+98', 'IR', 10, 10),
+  _CountryCode('Egypt', '+20', 'EG', 10, 10),
+  _CountryCode('Morocco', '+212', 'MA', 9, 9),
+  _CountryCode('South Africa', '+27', 'ZA', 9, 9),
+  _CountryCode('Nigeria', '+234', 'NG', 10, 10),
+  _CountryCode('Kenya', '+254', 'KE', 9, 9),
+  _CountryCode('Ghana', '+233', 'GH', 9, 9),
+  _CountryCode('Tanzania', '+255', 'TZ', 9, 9),
+  _CountryCode('Brazil', '+55', 'BR', 10, 11),
+  _CountryCode('Mexico', '+52', 'MX', 10, 10),
+  _CountryCode('Argentina', '+54', 'AR', 10, 11),
+  _CountryCode('Colombia', '+57', 'CO', 10, 10),
+  _CountryCode('Chile', '+56', 'CL', 9, 9),
+  _CountryCode('Peru', '+51', 'PE', 9, 9),
+  _CountryCode('New Zealand', '+64', 'NZ', 8, 10),
 ];
 
 // ── Email validation ────────────────────────────────────────────────────────
@@ -109,11 +164,14 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
   final _phone = TextEditingController();
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
+  final _pin = TextEditingController();
   final _companyCode = TextEditingController();
 
   _CountryCode _selectedCountry = _countries[0];
+  final MenuController _countryMenuController = MenuController();
   bool _obscurePass = true;
   bool _obscureConfirm = true;
+  bool _obscurePin = true;
   bool _loading = false;
   String? _error;
   bool _done = false;
@@ -138,6 +196,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
   String _selectedDocType = 'Aadhaar';
   bool _idScanning = false;
   bool _idVerified = false;
+  DigiLockerVerificationResult? _digiResult;
   String? _idError;
   String? _idCorrectedName;
   String? _idDocNumber;
@@ -198,6 +257,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
     _email.dispose();
     _phone.dispose();
     _password.dispose();
+    _pin.dispose();
     _confirmPassword.dispose();
     _companyCode.dispose();
     _emailOtp.dispose();
@@ -940,6 +1000,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
             'phoneVerified': true,
             if (_detectedDomain != null && _restrictDomain) 'emailDomainRestriction': _detectedDomain,
             if (_detectedDomain != null && !_restrictDomain) 'emailDomainRestriction': FieldValue.delete(),
+            if (_digiResult != null) ..._digiResult!.toStorageMap(),
           }, SetOptions(merge: true));
           // Persist admin contact info to general settings for reveal/verification flows
           await db.doc('companies/$companyId/settings/general').set({
@@ -958,16 +1019,20 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
             'phone': _fullPhone, 'isVerified': true, 'isActive': true,
             'emailVerified': true, 'phoneVerified': true,
             'passwordHash': passwordHash,
+            'pinHash': _hashPin(_pin.text, email),
           });
         } else {
-          await paths.flat('operators').add({
+          final adminDoc = await paths.flat('operators').add({
             'uid': uid, 'name': _toTitleCase(_name.text), 'email': email,
             'phone': _fullPhone, 'role': 'companyAdmin',
             'companyId': companyId ?? '',
             'isVerified': true, 'isActive': true, 'createdAt': now,
             'emailVerified': true, 'phoneVerified': true,
             'passwordHash': passwordHash,
+            'pinHash': _hashPin(_pin.text, email),
           });
+          // Remember the admin's record so the Face ID step can enrol onto it.
+          ref.read(wizardOperatorDocPathProvider.notifier).state = adminDoc.path;
         }
       } else {
         ref.read(wizardCompanyIdProvider.notifier).state = _resolvedCompanyId;
@@ -993,7 +1058,9 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
             if (_idDocNumber != null) 'idDocNumber': _idDocNumber,
             if (_idDocNumber != null) 'idDocType': _selectedDocType,
             if (idDocImages != null && idDocImages.isNotEmpty) 'idDocImages': idDocImages,
+            if (_digiResult != null) ..._digiResult!.toStorageMap(),
             'passwordHash': passwordHash,
+            'pinHash': _hashPin(_pin.text, email),
           });
 
           await LocalCacheService.cacheCurrentUserEmail(email);
@@ -1020,7 +1087,9 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
             if (_idDocNumber != null) 'idDocNumber': _idDocNumber,
             if (_idDocNumber != null) 'idDocType': _selectedDocType,
             if (idDocImages != null && idDocImages.isNotEmpty) 'idDocImages': idDocImages,
+            if (_digiResult != null) ..._digiResult!.toStorageMap(),
             'passwordHash': passwordHash,
+            'pinHash': _hashPin(_pin.text, email),
           };
 
           ref.read(wizardOperatorInvitedProvider.notifier).state = false;
@@ -1147,6 +1216,24 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
   Widget _buildAdminForm(ColorScheme scheme, TextTheme text) {
     return Column(
       children: [
+        // Step 1: Identity verification via DigiLocker (Aadhaar) — first.
+        DigiLockerVerifyCard(
+          purpose: 'admin_verification',
+          onVerified: (result) {
+            setState(() {
+              _idVerified = true;
+              _idError = null;
+              _digiResult = result;
+              if (result.name != null && result.name!.isNotEmpty) {
+                _name.text = result.name!;
+              }
+            });
+          },
+        ),
+
+        // Step 2: login credentials — shown only after identity is verified.
+        if (_idVerified) ...[
+          SizedBox(height: AppSpacing.lg),
         Container(
           width: double.infinity,
           padding: EdgeInsets.all(20.rs),
@@ -1212,6 +1299,8 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                     SizedBox(width: AppSpacing.lg),
                     Expanded(child: _buildPasswordField('Confirm Password', _confirmPassword, true)),
                   ]),
+                  SizedBox(height: AppSpacing.lg),
+                  _buildPinField(),
                 ],
               ),
             ),
@@ -1231,6 +1320,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
           ),
         ] else ...[
           _buildOtpSection(scheme, text),
+        ],
         ],
       ],
     );
@@ -1433,6 +1523,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
             setState(() {
               _idVerified = true;
               _idError = null;
+              _digiResult = result;
               if (result.name != null && result.name!.isNotEmpty) {
                 _name.text = result.name!;
               }
@@ -1561,6 +1652,8 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
                     SizedBox(width: AppSpacing.lg),
                     Expanded(child: _buildPasswordField('Confirm Password', _confirmPassword, true)),
                   ]),
+                  SizedBox(height: AppSpacing.lg),
+                  _buildPinField(),
                 ],
               ),
             ),
@@ -1917,99 +2010,76 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
 
   Widget _buildCountrySelector() {
     final scheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: _showCountryPicker,
-      child: Container(
-        padding: const EdgeInsets.only(left: 12, right: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _selectedCountry.dialCode,
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: scheme.onSurface),
-            ),
-            Icon(Icons.arrow_drop_down, size: 18, color: scheme.onSurfaceVariant),
-            Container(
-              width: 1,
-              height: 24,
-              margin: const EdgeInsets.only(left: 4, right: 8),
-              color: scheme.outlineVariant.withValues(alpha: 0.5),
-            ),
-          ],
+    return MenuAnchor(
+      controller: _countryMenuController,
+      alignmentOffset: const Offset(0, 6),
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(scheme.surface),
+        elevation: const WidgetStatePropertyAll(6),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+          borderRadius: AppRadius.card,
+          side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+        )),
+      ),
+      builder: (context, controller, _) => GestureDetector(
+        onTap: () => controller.isOpen ? controller.close() : controller.open(),
+        child: Container(
+          padding: const EdgeInsets.only(left: 12, right: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _selectedCountry.dialCode,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: scheme.onSurface),
+              ),
+              Icon(Icons.arrow_drop_down, size: 18, color: scheme.onSurfaceVariant),
+              Container(
+                width: 1,
+                height: 24,
+                margin: const EdgeInsets.only(left: 4, right: 8),
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+            ],
+          ),
         ),
       ),
+      menuChildren: [
+        _CountryMenuPanel(
+          selected: _selectedCountry,
+          onSelected: (c) {
+            setState(() => _selectedCountry = c);
+            _countryMenuController.close();
+          },
+        ),
+      ],
     );
   }
 
-  void _showCountryPicker() {
+  Widget _buildPinField() {
     final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        String query = '';
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            final filtered = query.isEmpty
-                ? _countries
-                : _countries.where((c) =>
-                    c.name.toLowerCase().contains(query.toLowerCase()) ||
-                    c.dialCode.contains(query) ||
-                    c.code.toLowerCase().contains(query.toLowerCase()),
-                  ).toList();
-
-            return AlertDialog(
-              title: Text('Select Country', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-              content: SizedBox(
-                width: 340,
-                height: 400,
-                child: Column(
-                  children: [
-                    TextField(
-                      autofocus: true,
-                      decoration: const InputDecoration(
-                        hintText: 'Search country or code...',
-                        prefixIcon: Icon(Icons.search, size: 18),
-                        isDense: true,
-                      ),
-                      onChanged: (v) => setDialogState(() => query = v),
-                    ),
-                    SizedBox(height: AppSpacing.md),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: filtered.length,
-                        itemBuilder: (_, i) {
-                          final country = filtered[i];
-                          final isSelected = country.code == _selectedCountry.code;
-                          return ListTile(
-                            dense: true,
-                            selected: isSelected,
-                            selectedTileColor: scheme.primary.withValues(alpha: 0.06),
-                            shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
-                            title: Text(country.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                            trailing: Text(
-                              country.dialCode,
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: scheme.primary),
-                            ),
-                            leading: isSelected
-                                ? Icon(Icons.check_circle, size: 18, color: scheme.primary)
-                                : SizedBox(width: 18.rs),
-                            onTap: () {
-                              setState(() => _selectedCountry = country);
-                              Navigator.of(ctx).pop();
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Quick PIN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface)),
+        SizedBox(height: 6.rs),
+        TextFormField(
+          controller: _pin,
+          obscureText: _obscurePin,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+          validator: (v) => (v == null || v.length < 4) ? 'Set a 4–6 digit PIN' : null,
+          decoration: InputDecoration(
+            hintText: '4–6 digits',
+            helperText: 'Used to verify you when the camera isn\'t available',
+            prefixIcon: const Icon(Icons.pin_outlined, size: 18),
+            suffixIcon: IconButton(
+              icon: Icon(_obscurePin ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
+              onPressed: () => setState(() => _obscurePin = !_obscurePin),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -2045,3 +2115,83 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
   }
 }
 
+
+/// Searchable country list shown inline (anchored to the dial-code selector via
+/// MenuAnchor) instead of a popup dialog.
+class _CountryMenuPanel extends StatefulWidget {
+  final _CountryCode selected;
+  final ValueChanged<_CountryCode> onSelected;
+
+  const _CountryMenuPanel({required this.selected, required this.onSelected});
+
+  @override
+  State<_CountryMenuPanel> createState() => _CountryMenuPanelState();
+}
+
+class _CountryMenuPanelState extends State<_CountryMenuPanel> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final q = _query.trim().toLowerCase();
+    final filtered = q.isEmpty
+        ? _countries
+        : _countries
+            .where((c) =>
+                c.name.toLowerCase().contains(q) ||
+                c.dialCode.contains(q) ||
+                c.code.toLowerCase().contains(q))
+            .toList();
+
+    return SizedBox(
+      width: 300,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+            child: TextField(
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Search country or code…',
+                prefixIcon: const Icon(Icons.search, size: 18),
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: AppRadius.button),
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 280),
+            child: filtered.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text('No matches', style: TextStyle(color: scheme.onSurfaceVariant)),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: filtered.length,
+                    itemBuilder: (_, i) {
+                      final c = filtered[i];
+                      final isSel = c.code == widget.selected.code && c.dialCode == widget.selected.dialCode;
+                      return ListTile(
+                        dense: true,
+                        selected: isSel,
+                        selectedTileColor: scheme.primary.withValues(alpha: 0.06),
+                        title: Text(c.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                        trailing: Text(
+                          c.dialCode,
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: scheme.primary),
+                        ),
+                        onTap: () => widget.onSelected(c),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}

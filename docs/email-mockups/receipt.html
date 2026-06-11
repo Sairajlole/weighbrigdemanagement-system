@@ -1,0 +1,104 @@
+<!doctype html><html><head><meta charset=utf-8><link rel=preconnect href="https://fonts.googleapis.com"><link rel=preconnect href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel=stylesheet><style>*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Inter",-apple-system,"Segoe UI",sans-serif;background:#eef2f7}
+.wrap{padding:52px;background:#eef2f7}
+.card{position:relative;border-radius:28px;overflow:hidden;border:1px solid #cdd7e3;background:#fff;box-shadow:0 0 50px -10px rgba(20,40,60,.16)}
+.bg{position:absolute;inset:0;background:#0d9488;opacity:.07;-webkit-mask:url(logo_tile.png);mask:url(logo_tile.png);-webkit-mask-repeat:repeat;mask-repeat:repeat;-webkit-mask-size:96px;mask-size:96px}
+.inner{position:relative;z-index:1}
+.head{display:flex;align-items:center;justify-content:space-between;padding:24px 32px;border-bottom:1px solid #eef2f6}
+.wm{color:#0f172a;font-weight:800;font-size:25px;letter-spacing:2px}
+.auto{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#64748b;border:1px solid #d7dee7;padding:5px 11px;border-radius:999px}
+.company{padding:16px 32px;border-top:1px solid #eef2f6;background:#f8fafc}
+.company .nm{color:#0f172a;font-size:13px;font-weight:700}
+.company .dt{color:#64748b;font-size:11px;line-height:1.65;margin-top:3px}
+.foot{padding:15px 32px;border-top:1px solid #eef2f6;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;font-size:11px}
+.foot a{color:#0d9488;text-decoration:none;font-weight:600}
+.sec2{color:#94a3b8;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:24px 0 12px}
+.body{padding:30px 32px}
+.custcard{display:flex;gap:16px;align-items:stretch;background:linear-gradient(135deg,#f0fdfa,#f6fafc);border:1px solid rgba(13,148,136,.3);border-radius:18px;padding:16px}
+.photo{width:96px;height:96px;border-radius:14px;background:linear-gradient(150deg,#d4e1ef,#aebfd2);display:flex;align-items:flex-end;justify-content:center;overflow:hidden;flex-shrink:0}
+.photo svg{width:68px;height:68px}
+.custinfo{flex:1;min-width:0}
+.clabel{color:#0d9488;font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700}
+.cname{color:#0f172a;font-size:21px;font-weight:800;margin-top:3px}
+.cmeta{color:#64748b;font-size:12px;line-height:1.65;margin-top:5px}
+.rstbox{text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between}
+.rl{color:#94a3b8;font-size:9px;letter-spacing:2px;text-transform:uppercase}
+.rstbox b{color:#0f172a;font-size:24px;font-weight:800;line-height:1.1}
+.rdate{color:#64748b;font-size:11px;margin-top:2px}
+.stat{background:#0d9488;color:#fff;font-size:10px;font-weight:700;padding:4px 10px;border-radius:999px}
+.vehrow{display:flex;align-items:center;gap:12px;margin:22px 0 2px}
+.vl{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:2px}
+.vv{color:#0f172a;font-size:20px;font-weight:800}
+.mchip{margin-left:auto;background:#f0fdfa;border:1px solid rgba(13,148,136,.4);color:#0d9488;font-size:12px;font-weight:600;padding:5px 12px;border-radius:999px}
+.nlabel{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:2px;margin-top:16px}
+.net{display:flex;align-items:baseline;gap:9px;margin:5px 0 18px}
+.net .n{font-size:54px;font-weight:800;line-height:1;letter-spacing:-1px;background:linear-gradient(180deg,#0d9488,#14b8a6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.net .u{font-size:19px;color:#0d9488;font-weight:700}
+.gt{display:flex;gap:14px}
+.cell{flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:13px 16px}
+.cell .l{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1.5px}
+.cell .v{color:#0f172a;font-size:19px;font-weight:700;margin-top:4px}
+.cell .t{color:#94a3b8;font-size:11px;margin-top:4px}
+.oprow{display:flex;align-items:center;gap:13px;padding:13px 15px;border:1px solid #e2e8f0;border-radius:14px}
+.opav{width:46px;height:46px;border-radius:50%;background:linear-gradient(150deg,#d4e1ef,#aebfd2);display:flex;align-items:flex-end;justify-content:center;overflow:hidden;flex-shrink:0}
+.opav svg{width:36px;height:36px}
+.opname{color:#0f172a;font-size:16px;font-weight:700}
+.opmeta{color:#64748b;font-size:12px;margin-top:3px}
+.cflist{border:1px solid #e2e8f0;border-radius:14px;overflow:hidden}
+.cfrow{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #eef2f6}
+.cfrow:last-child{border-bottom:none}
+.cfrow .k{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px}
+.cfrow .v{color:#0f172a;font-size:14px;font-weight:600}
+.cctv2{display:flex;gap:14px}
+.col{flex:1}
+.colh{color:#475569;font-size:12px;font-weight:700;margin-bottom:9px;text-align:center;text-transform:uppercase;letter-spacing:1px}
+.frame{position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:linear-gradient(135deg,#243345,#0f1a26);display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.frame:before{content:"";position:absolute;inset:6px;border:1px solid rgba(255,255,255,.13);border-radius:6px}
+.frame .t1{position:absolute;top:7px;left:9px;color:#cbd8e6;font-size:8px;letter-spacing:.5px;font-weight:600}
+.frame .ts{position:absolute;bottom:7px;right:9px;color:#9fb3c8;font-size:9px;font-family:monospace}
+.frame svg{width:54px}
+.bc417{text-align:center;padding:6px 0}
+.bc417 img{display:block;height:auto;max-width:100%;margin:0 auto}
+.bc417 .bc{color:#475569;font-size:11px;font-weight:600;letter-spacing:3px;margin-top:10px}</style></head><body>
+<div class=wrap><div class=card><div class=bg></div><div class=inner>
+<div class=head><span class=wm>tulanam</span><span class=auto>Weighment ticket</span></div>
+<div class=body>
+
+<div class=custcard>
+ <div class=photo><svg viewBox="0 0 40 42" fill="#8aa0b8"><circle cx="20" cy="14" r="8"/><path d="M5 42c0-9 7-13 15-13s15 4 15 13z"/></svg></div>
+ <div class=custinfo><div class=clabel>Customer</div><div class=cname>Sunrise Traders</div>
+  <div class=cmeta>+91 90000 12345<br>Gat 22, Chakan Road, Pune 410501</div></div>
+ <div class=rstbox><div><span class=rl>RST No.</span><br><b>1042</b><div class=rdate>11 Jun 2026</div></div><span class=stat>● Completed</span></div>
+</div>
+
+<div class=vehrow><span class=vl>Vehicle</span><span class=vv>MH 12 AB 1234</span><span class=mchip>● M-Sand</span></div>
+<div class=nlabel>Net weight</div><div class=net><span class=n>28,000</span><span class=u>kg</span></div>
+<div class=gt>
+ <div class=cell><div class=l>Gross</div><div class=v>42,000 kg</div><div class=t>11 Jun 2026 · 15:42</div></div>
+ <div class=cell><div class=l>Tare</div><div class=v>14,000 kg</div><div class=t>11 Jun 2026 · 14:08</div></div></div>
+
+<div class=sec2>Operator</div>
+<div class=oprow><div class=opav><svg viewBox="0 0 40 42" fill="#8aa0b8"><circle cx="20" cy="14" r="8"/><path d="M5 42c0-9 7-13 15-13s15 4 15 13z"/></svg></div><div><div class=opname>R. Sharma</div><div class=opmeta>Shift A &nbsp;·&nbsp; Weighbridge WB-01 &nbsp;·&nbsp; Port COM3 &nbsp;·&nbsp; PC WB-PC-02</div></div></div>
+
+<div class=sec2>Custom fields</div>
+<div class=cflist>
+ <div class=cfrow><span class=k>Transporter</span><span class=v>Sunrise Logistics</span></div>
+ <div class=cfrow><span class=k>PO number</span><span class=v>PO-7741</span></div>
+ <div class=cfrow><span class=k>Bags</span><span class=v>280</span></div></div>
+
+<div class=sec2>CCTV snapshots</div>
+<div class=cctv2>
+ <div class=col><div class=colh>Tare</div>
+  <div class=frame><span class=t1>CAM 02</span><svg viewBox="0 0 66 40" fill="none" stroke="#90a4ba" stroke-width="2" opacity=".5"><rect x="3" y="13" width="31" height="17" rx="2"/><path d="M34 17h12l6 7v6H34z"/><circle cx="15" cy="33" r="4"/><circle cx="46" cy="33" r="4"/></svg><span class=ts>14:08:22</span></div>
+  <div class=frame><span class=t1>CAM 03</span><svg viewBox="0 0 66 40" fill="none" stroke="#90a4ba" stroke-width="2" opacity=".5"><rect x="3" y="13" width="31" height="17" rx="2"/><path d="M34 17h12l6 7v6H34z"/><circle cx="15" cy="33" r="4"/><circle cx="46" cy="33" r="4"/></svg><span class=ts>14:08:24</span></div>
+  <div class=frame><span class=t1>CAM 04</span><svg viewBox="0 0 66 40" fill="none" stroke="#90a4ba" stroke-width="2" opacity=".5"><rect x="3" y="13" width="31" height="17" rx="2"/><path d="M34 17h12l6 7v6H34z"/><circle cx="15" cy="33" r="4"/><circle cx="46" cy="33" r="4"/></svg><span class=ts>14:08:25</span></div></div>
+ <div class=col><div class=colh>Gross</div>
+  <div class=frame><span class=t1>CAM 01</span><svg viewBox="0 0 66 40" fill="none" stroke="#90a4ba" stroke-width="2" opacity=".5"><rect x="3" y="13" width="31" height="17" rx="2"/><path d="M34 17h12l6 7v6H34z"/><circle cx="15" cy="33" r="4"/><circle cx="46" cy="33" r="4"/></svg><span class=ts>15:42:05</span></div>
+  <div class=frame><span class=t1>CAM 02</span><svg viewBox="0 0 66 40" fill="none" stroke="#90a4ba" stroke-width="2" opacity=".5"><rect x="3" y="13" width="31" height="17" rx="2"/><path d="M34 17h12l6 7v6H34z"/><circle cx="15" cy="33" r="4"/><circle cx="46" cy="33" r="4"/></svg><span class=ts>15:42:07</span></div>
+  <div class=frame><span class=t1>CAM 03</span><svg viewBox="0 0 66 40" fill="none" stroke="#90a4ba" stroke-width="2" opacity=".5"><rect x="3" y="13" width="31" height="17" rx="2"/><path d="M34 17h12l6 7v6H34z"/><circle cx="15" cy="33" r="4"/><circle cx="46" cy="33" r="4"/></svg><span class=ts>15:42:08</span></div></div>
+</div>
+
+<div class=sec2>Ticket barcode · PDF417</div>
+<div class=bc417><img src=pdf417.png><div class=bc>1042</div></div>
+
+</div><div class=company><div class=nm>ABC Weighbridge Pvt. Ltd.</div><div class=dt>GSTIN 27ABCDE1234F1Z5 &nbsp;·&nbsp; PAN ABCDE1234F &nbsp;·&nbsp; Plot 14, MIDC Bhosari, Pune 411026, MH</div></div> <div class=foot><span>This is an automated message — please do not reply.</span><span><a>tulanam.com</a> &nbsp;·&nbsp; <a>support@tulanam.com</a></span></div></div></div></div></body></html>

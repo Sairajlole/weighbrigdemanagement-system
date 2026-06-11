@@ -7,6 +7,7 @@ import 'package:weighbridgemanagement/shared/services/cloud_functions_service.da
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:weighbridgemanagement/shared/routing/app_router.dart' show sessionLoggedInProvider;
 import 'package:weighbridgemanagement/shared/models/license_model.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
@@ -124,6 +125,44 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
       await db.doc('companies/$companyId').set({'firstLoginComplete': true}, SetOptions(merge: true));
     }
 
+    // Enrol the admin's face captured in the Face ID step (best-effort, non-blocking),
+    // so admins verify by face/PIN the same way operators do.
+    final faceFrames = ref.read(wizardFaceFramesProvider);
+    if (faceFrames != null && faceFrames.isNotEmpty && companyId.isNotEmpty) {
+      final db = ref.read(firestoreProvider);
+      final adminDocPath = ref.read(wizardOperatorDocPathProvider);
+      final adminEmail = await LocalCacheService.getCachedCurrentUserEmail() ?? '';
+      try {
+        await CloudFunctionsService.call('enrollOperatorFace', {'images': faceFrames, 'companyId': companyId, 'operatorEmail': adminEmail});
+      } catch (e) {
+        debugPrint('[ReviewStep] Admin face enrollment failed (non-blocking): $e');
+      }
+      try {
+        final sidecar = ref.read(sidecarClientProvider);
+        if (await sidecar.isAvailable()) {
+          final frameBytes = faceFrames.map((f) => Uint8List.fromList(base64Decode(f))).toList();
+          final result = await sidecar.enrollFromImages(frameBytes);
+          if (result != null && result.embedding.isNotEmpty) {
+            if (adminDocPath != null) {
+              await db.doc(adminDocPath).update({
+                'faceEmbedding': result.embedding,
+                'faceModelVersion': 'arcface_glintr100',
+              });
+            }
+            await sidecar.syncEnrollments(operators: [{
+              'operator_id': adminDocPath?.split('/').last ?? adminEmail,
+              'email': adminEmail,
+              'name': '',
+              'embedding': result.embedding,
+              'is_active': true,
+            }]);
+          }
+        }
+      } catch (e) {
+        debugPrint('[ReviewStep] Admin sidecar embedding failed (non-blocking): $e');
+      }
+    }
+
     await Future.delayed(const Duration(milliseconds: 300));
     setState(() => _completed = true);
 
@@ -132,6 +171,9 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
     _playSuccessSound();
 
     await Future.delayed(const Duration(milliseconds: 2200));
+    // Mark the just-completed admin as logged in so the router's login gate
+    // lets them into the dashboard (the desktop Firebase user is anonymous).
+    ref.read(sessionLoggedInProvider.notifier).state = true;
     if (mounted) context.go('/dashboard');
   }
 
@@ -208,6 +250,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
         }
       }
     } catch (_) {}
+    ref.read(sessionLoggedInProvider.notifier).state = true;
     if (mounted) context.go('/dashboard');
   }
 
@@ -252,7 +295,7 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
                 borderRadius: BorderRadius.circular(20.rs),
                 border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
               ),
-              child: Icon(Icons.rocket_launch_rounded, size: 32, color: scheme.primary),
+              child: Icon(Icons.check_circle_rounded, size: 32, color: scheme.primary),
             ),
             SizedBox(height: AppSpacing.xl),
             Text('Ready to Launch', style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5)),

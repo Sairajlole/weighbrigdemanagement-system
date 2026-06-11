@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/integrations_provider.dart';
+import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/services/billing_service.dart';
 import 'package:weighbridgemanagement/shared/services/google_sheets_service.dart';
 import 'package:weighbridgemanagement/shared/services/offline_queue_service.dart';
@@ -92,6 +93,24 @@ class PostWeighmentService {
       } catch (e) {
         debugPrint('Sticker generation failed: $e');
       }
+    }
+
+    // Notify (throttled) if any configured integration didn't complete.
+    final failed = <String>[];
+    if (_sheets != null && _sheets.config.isConfigured && !sheetsOk) failed.add('Google Sheets');
+    if (_whatsapp != null && _whatsapp.config.isConfigured && !whatsappOk) failed.add('WhatsApp');
+    if (_billing != null && _billing.config.isConfigured && !billingOk) failed.add('billing webhook');
+    if (_sticker != null && _sticker.config.enabled && !stickerOk) failed.add('sticker');
+    if (failed.isNotEmpty) {
+      await AppNotifier.raise(
+        _queue.paths,
+        category: 'system',
+        severity: 'warn',
+        title: 'Integration sync issue',
+        body: "These post-weighment integrations didn't complete: ${failed.join(', ')}. Queued items retry automatically.",
+        link: '/settings/integrations',
+        throttleKey: 'integration-fail',
+      );
     }
 
     return PostWeighmentResult(

@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/print_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
@@ -2118,6 +2119,11 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                                       event: 'weighmentEdit',
                                       description: 'Transferred weighment $weighmentId to customer $targetName',
                                     );
+                                    AppNotifier.raise(db,
+                                        category: 'security', severity: 'warn', link: '/weighments',
+                                        title: 'Weighment reassigned',
+                                        body: 'A completed weighment was transferred to customer "$targetName". Post-completion edits are recorded for audit.',
+                                        throttleKey: 'weighment-edit', throttle: const Duration(minutes: 5));
                                     if (!ctx.mounted) return;
                                     Navigator.pop(ctx);
                                     ScaffoldMessenger.of(ctx).showSnackBar(

@@ -1,6 +1,19 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
+// functions.config() THROWS in the gen-2 runtime (it's removed there) and is
+// deprecated everywhere. index.js is the shared entry for the gen-2 renderEmailDoc
+// container too, so any module-scope functions.config() call crashes its startup.
+// Guard every read: real config when available (gen-1), {} otherwise, so callers
+// fall through to their process.env fallbacks.
+function _fnConfig() {
+  try {
+    return functions.config() || {};
+  } catch (_) {
+    return {};
+  }
+}
+
 admin.initializeApp();
 const db = admin.firestore();
 const bucket = admin.storage().bucket("weighbridge-management.firebasestorage.app");
@@ -45,6 +58,11 @@ exports.onOperatorCreated = functions.firestore
               success: false,
               metadata: { email: data.email, allowedDomains, actualDomain: userDomain },
             });
+            await _writeInApp({
+              companyId, category: "security", severity: "warn", link: "/operators",
+              title: "Operator invite rejected",
+              body: `${data.email} couldn't be added — domain @${userDomain} isn't in your allowed list (@${allowedDomains.join(", @")}).`,
+            });
             return;
           }
         }
@@ -74,6 +92,31 @@ exports.onOperatorCreated = functions.firestore
         }
       }
     }
+
+    // Notify a newly-added operator (best-effort). Skip the company admin (who
+    // receives the welcome email) and the rejected paths that returned above.
+    if (data.role !== "companyAdmin" && (data.email || data.phone)) {
+      let companyName = "your company";
+      try {
+        const cd = await db.collection("companies").doc(companyId).get();
+        if (cd.exists) companyName = (cd.data() || {}).name || companyName;
+      } catch (_) { /* best-effort */ }
+      await notifyContact({
+        to: { email: data.email || null, phone: data.phone || null, name: data.name || "there" },
+        companyId,
+        subject: `You've been added to ${companyName} on ${BRAND.name}`,
+        notif: ({
+          category: "operator",
+          link: "/operators",
+          operatorEmail: data.email || null,
+          heading: `Welcome to ${BRAND.name}`,
+          intro: `Hi ${data.name || "there"}, you've been added as an operator for ${companyName}. ` +
+            `Open the ${BRAND.name} desktop app and sign in with this email to get started.`,
+          rows: [["Company", companyName], ["Your role", "Operator"], ["Sign-in email", data.email || "—"]],
+          note: `If you weren't expecting this, ignore this message or contact ${BRAND.support}.`,
+        }),
+      });
+    }
   });
 
 // ─── Ensure Firebase Auth: callable to migrate existing operators ────────────
@@ -88,15 +131,14 @@ exports.ensureFirebaseAuth = functions.https.onCall(async (data, context) => {
     // User exists — update password if provided
     if (password) {
       await admin.auth().updateUser(userRecord.uid, { password });
-      const crypto = require("crypto");
-      const hash = crypto.createHash("sha256").update(password).digest("hex");
+      await _writeCredential(email, password);
       const opSnap = await db.collectionGroup("operators").where("email", "==", email).limit(1).get();
       if (!opSnap.empty) {
-        await opSnap.docs[0].ref.update({ uid: userRecord.uid, passwordHash: hash });
+        await opSnap.docs[0].ref.update({ uid: userRecord.uid, passwordHash: admin.firestore.FieldValue.delete() });
       }
       const companySnap = await db.collection("companies").where("email", "==", email).limit(1).get();
       if (!companySnap.empty) {
-        await companySnap.docs[0].ref.update({ passwordHash: hash });
+        await companySnap.docs[0].ref.update({ passwordHash: admin.firestore.FieldValue.delete() });
       }
     }
     return { uid: userRecord.uid, created: false };
@@ -111,18 +153,502 @@ exports.ensureFirebaseAuth = functions.https.onCall(async (data, context) => {
       password,
       emailVerified: true,
     });
-    const crypto = require("crypto");
-    const hash = crypto.createHash("sha256").update(password).digest("hex");
+    await _writeCredential(email, password);
     const opSnap = await db.collectionGroup("operators").where("email", "==", email).limit(1).get();
     if (!opSnap.empty) {
-      await opSnap.docs[0].ref.update({ uid: newUser.uid, passwordHash: hash });
+      await opSnap.docs[0].ref.update({ uid: newUser.uid, passwordHash: admin.firestore.FieldValue.delete() });
     }
     const companySnap = await db.collection("companies").where("email", "==", email).limit(1).get();
     if (!companySnap.empty) {
-      await companySnap.docs[0].ref.update({ passwordHash: hash });
+      await companySnap.docs[0].ref.update({ passwordHash: admin.firestore.FieldValue.delete() });
     }
     return { uid: newUser.uid, created: true };
   }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── Server-side credentials (salted scrypt) ────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Passwords are verified ONLY on the server and stored salted in the server-only
+// `credentials/{normalizedEmail}` collection (denied to clients by firestore.rules).
+// Legacy unsalted SHA-256 `passwordHash` fields on company/operator docs are
+// verified once and upgraded to scrypt on next login, then stripped from the doc.
+
+function _scryptHash(password, salt) {
+  return require("crypto").scryptSync(String(password), salt, 64).toString("hex");
+}
+
+function _makeCredential(password) {
+  const salt = require("crypto").randomBytes(16).toString("hex");
+  return {
+    algo: "scrypt",
+    salt,
+    hash: _scryptHash(password, salt),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+}
+
+function _verifyCredential(password, cred) {
+  if (!cred || cred.algo !== "scrypt" || !cred.salt || !cred.hash) return false;
+  const computed = Buffer.from(_scryptHash(password, cred.salt), "hex");
+  const stored = Buffer.from(cred.hash, "hex");
+  return computed.length === stored.length &&
+    require("crypto").timingSafeEqual(computed, stored);
+}
+
+function _legacySha256(password) {
+  return require("crypto").createHash("sha256").update(String(password)).digest("hex");
+}
+
+async function _writeCredential(normalizedEmail, password) {
+  // merge:true so rewriting the password (login legacy-upgrade, re-register,
+  // password reset) never clobbers the MFA fields (mfaEnabled/mfaSecret/backup
+  // codes) that live on the same credentials doc.
+  await db.collection("credentials").doc(normalizedEmail).set(_makeCredential(password), { merge: true });
+}
+
+// ─── TOTP (RFC 6238) two-factor auth ────────────────────────────────────────
+// Secrets live (AES-256-GCM encrypted) on the server-only credentials doc and
+// are never sent to the client except the one-time base32 shown at enrollment.
+
+const _B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+function _base32Encode(buf) {
+  let bits = 0, value = 0, out = "";
+  for (const b of buf) {
+    value = (value << 8) | b; bits += 8;
+    while (bits >= 5) { out += _B32[(value >>> (bits - 5)) & 31]; bits -= 5; }
+  }
+  if (bits > 0) out += _B32[(value << (5 - bits)) & 31];
+  return out;
+}
+
+function _base32Decode(str) {
+  const clean = String(str).toUpperCase().replace(/[^A-Z2-7]/g, "");
+  let bits = 0, value = 0; const out = [];
+  for (const c of clean) {
+    value = (value << 5) | _B32.indexOf(c); bits += 5;
+    if (bits >= 8) { out.push((value >>> (bits - 8)) & 0xff); bits -= 8; }
+  }
+  return Buffer.from(out);
+}
+
+function _totpCode(secretB32, counter) {
+  const crypto = require("crypto");
+  const buf = Buffer.alloc(8);
+  buf.writeBigInt64BE(BigInt(counter));
+  const hmac = crypto.createHmac("sha1", _base32Decode(secretB32)).update(buf).digest();
+  const offset = hmac[hmac.length - 1] & 0xf;
+  const code = ((hmac[offset] & 0x7f) << 24) | ((hmac[offset + 1] & 0xff) << 16) |
+    ((hmac[offset + 2] & 0xff) << 8) | (hmac[offset + 3] & 0xff);
+  return (code % 1000000).toString().padStart(6, "0");
+}
+
+// Accepts the current 30s code ± `window` steps to tolerate clock drift.
+function _verifyTotp(secretB32, token, window = 1) {
+  if (!secretB32 || !/^\d{6}$/.test(String(token || ""))) return false;
+  const counter = Math.floor(Date.now() / 1000 / 30);
+  for (let w = -window; w <= window; w++) {
+    if (_totpCode(secretB32, counter + w) === String(token)) return true;
+  }
+  return false;
+}
+
+// Enrollment check: requires two codes from CONSECUTIVE 30s windows, proving the
+// authenticator is generating a correct, time-synced sequence (not a one-off luck).
+function _verifyTotpConsecutive(secretB32, c1, c2, window = 3) {
+  if (!secretB32 || !/^\d{6}$/.test(String(c1 || "")) || !/^\d{6}$/.test(String(c2 || ""))) return false;
+  if (String(c1) === String(c2)) return false; // same window pasted twice
+  const counter = Math.floor(Date.now() / 1000 / 30);
+  for (let w = -window; w <= window; w++) {
+    if (_totpCode(secretB32, counter + w) === String(c1) &&
+        _totpCode(secretB32, counter + w + 1) === String(c2)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function _generateTotpSecret() {
+  return _base32Encode(require("crypto").randomBytes(20));
+}
+
+// One-time recovery codes (so a lost authenticator can't brick the account).
+// High-entropy, so a plain SHA-256 of the normalized code is enough.
+function _normalizeBackup(code) {
+  return String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+function _hashBackup(code) {
+  return require("crypto").createHash("sha256").update(_normalizeBackup(code)).digest("hex");
+}
+function _generateBackupCodes(n = 8) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const b32 = _base32Encode(require("crypto").randomBytes(7)).slice(0, 10);
+    out.push(`${b32.slice(0, 5)}-${b32.slice(5, 10)}`); // shown as XXXXX-XXXXX
+  }
+  return out;
+}
+
+function _mfaKey() {
+  // Set MFA_ENC_KEY in functions env for production. Falls back to a constant so
+  // the feature works without env setup (secrets still sit on a server-only doc).
+  const src = process.env.MFA_ENC_KEY || "tulanam-mfa-default-key";
+  return require("crypto").createHash("sha256").update(src).digest();
+}
+
+function _encryptSecret(plain) {
+  const crypto = require("crypto");
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", _mfaKey(), iv);
+  const enc = Buffer.concat([cipher.update(String(plain), "utf8"), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), enc]).toString("base64");
+}
+
+function _decryptSecret(blob) {
+  const crypto = require("crypto");
+  const buf = Buffer.from(String(blob), "base64");
+  const decipher = crypto.createDecipheriv("aes-256-gcm", _mfaKey(), buf.subarray(0, 12));
+  decipher.setAuthTag(buf.subarray(12, 28));
+  return Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString("utf8");
+}
+
+function _companyIdFromPath(path) {
+  const m = String(path).match(/companies\/([^/]+)/);
+  return m ? m[1] : null;
+}
+
+/**
+ * loginUser - Server-side password verification. Replaces the old client-side
+ * hash compare so clients never read `passwordHash`. Verifies against the
+ * salted credential, falling back to (and upgrading from) the legacy unsalted
+ * hash on first login. Returns identity (never the hash) or throws.
+ */
+exports.loginUser = functions.https.onCall(async (data, context) => {
+  const email = (data.email || "").trim().toLowerCase();
+  const password = data.password || "";
+  if (!email || !password) {
+    throw new functions.https.HttpsError("invalid-argument", "Email and password required");
+  }
+
+  // Locate the account: operator (collectionGroup) first, then company admin.
+  let docRef = null;
+  let docData = null;
+  let kind = null;
+  const opSnap = await db.collectionGroup("operators").where("email", "==", email).limit(1).get();
+  if (!opSnap.empty) {
+    docRef = opSnap.docs[0].ref;
+    docData = opSnap.docs[0].data();
+    kind = "operator";
+  } else {
+    const coSnap = await db.collection("companies").where("email", "==", email).limit(1).get();
+    if (!coSnap.empty) {
+      docRef = coSnap.docs[0].ref;
+      docData = coSnap.docs[0].data();
+      kind = "company";
+    }
+  }
+  if (!docRef) {
+    throw new functions.https.HttpsError("not-found", "No account found with this email.");
+  }
+
+  const credSnap = await db.collection("credentials").doc(email).get();
+  let ok = false;
+  if (credSnap.exists) {
+    ok = _verifyCredential(password, credSnap.data());
+  } else if (docData.passwordHash) {
+    // Legacy account — verify the unsalted hash, then upgrade + strip.
+    ok = _legacySha256(password) === docData.passwordHash;
+    if (ok) {
+      await _writeCredential(email, password);
+      await docRef.update({ passwordHash: admin.firestore.FieldValue.delete() });
+    }
+  } else {
+    throw new functions.https.HttpsError(
+      "failed-precondition", "No password set for this account. Use 'Forgot password' to set one.");
+  }
+
+  if (!ok) {
+    throw new functions.https.HttpsError("permission-denied", "Invalid email or password.");
+  }
+  if (docData.isDeleted) throw new functions.https.HttpsError("permission-denied", "This account has been deleted.");
+  if (docData.isArchived) throw new functions.https.HttpsError("permission-denied", "This account has been archived.");
+
+  // Two-factor (TOTP) gate: if enabled, the password alone is not enough.
+  const credForMfa = credSnap.exists ? credSnap.data() : {};
+  if (credForMfa.mfaEnabled === true && credForMfa.mfaSecret) {
+    const nowMs = Date.now();
+    const lockMs = (credForMfa.mfaLockUntil && credForMfa.mfaLockUntil.toMillis)
+      ? credForMfa.mfaLockUntil.toMillis() : 0;
+    if (lockMs > nowMs) {
+      throw new functions.https.HttpsError("resource-exhausted",
+        "Too many incorrect codes. Wait a few minutes and try again.");
+    }
+    const code = String(data.totpCode || "").replace(/\s/g, "");
+    if (!code) {
+      // Password was correct — tell the client to collect the code.
+      return { mfaRequired: true };
+    }
+    // Accept the 6-digit TOTP, or a one-time recovery code (consumed on use).
+    let pass = _verifyTotp(_decryptSecret(credForMfa.mfaSecret), code);
+    let usedBackup = -1;
+    if (!pass && Array.isArray(credForMfa.mfaBackupCodes)) {
+      usedBackup = credForMfa.mfaBackupCodes.indexOf(_hashBackup(code));
+      if (usedBackup >= 0) pass = true;
+    }
+    const credRef = db.collection("credentials").doc(email);
+    if (!pass) {
+      const fails = (credForMfa.mfaFailCount || 0) + 1;
+      await credRef.update(fails >= 5
+        ? { mfaFailCount: 0, mfaLockUntil: admin.firestore.Timestamp.fromMillis(nowMs + 15 * 60 * 1000) }
+        : { mfaFailCount: fails });
+      throw new functions.https.HttpsError("permission-denied", "Invalid authentication code.");
+    }
+    // Success — clear throttle and consume the recovery code if one was used.
+    const upd = {
+      mfaFailCount: admin.firestore.FieldValue.delete(),
+      mfaLockUntil: admin.firestore.FieldValue.delete(),
+    };
+    if (usedBackup >= 0) {
+      upd.mfaBackupCodes = credForMfa.mfaBackupCodes.filter((_, i) => i !== usedBackup);
+    }
+    await credRef.update(upd);
+  }
+
+  // Single active session: mint a new session id and stamp it on the user doc.
+  // Any other device watching this doc sees the id change and signs itself out
+  // (newest login wins). Applies to admins and operators alike.
+  const sessionId = require("crypto").randomBytes(24).toString("hex");
+  await docRef.update({
+    activeSessionId: sessionId,
+    activeSessionAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  const companyId = kind === "company" ? docRef.id : (docData.companyId || _companyIdFromPath(docRef.path));
+
+  return {
+    ok: true,
+    kind,
+    uid: docData.uid || null,
+    companyId,
+    role: docData.role || (kind === "company" ? "companyAdmin" : "operator"),
+    name: docData.name || "",
+    mustChangePassword: docData.mustChangePassword === true,
+    isVerified: docData.isVerified === true,
+    isActive: docData.isActive !== false,
+    activeSessionId: sessionId,
+    // Server-authoritative address-verification gate — uses server time, so a
+    // tampered device clock can't bypass the 30-day deadline.
+    addressLocked: await _addressGateLocked(companyId),
+  };
+});
+
+// ─── MFA management (opt-in TOTP) ───────────────────────────────────────────
+
+/**
+ * mfaStatus - Returns whether TOTP 2FA is enabled for an account.
+ */
+exports.mfaStatus = functions.https.onCall(async (data) => {
+  const email = (data.email || "").trim().toLowerCase();
+  if (!email) throw new functions.https.HttpsError("invalid-argument", "Email required");
+  const snap = await db.collection("credentials").doc(email).get();
+  const d = snap.exists ? snap.data() : {};
+  return {
+    enabled: d.mfaEnabled === true,
+    backupCodesRemaining: Array.isArray(d.mfaBackupCodes) ? d.mfaBackupCodes.length : 0,
+  };
+});
+
+/**
+ * mfaRegenerateBackupCodes - Verifies the password and replaces the recovery
+ * codes with a fresh set (the old ones stop working). Returns the new plaintext
+ * codes once.
+ */
+exports.mfaRegenerateBackupCodes = functions.https.onCall(async (data) => {
+  const email = (data.email || "").trim().toLowerCase();
+  const password = data.password || "";
+  if (!email || !password) throw new functions.https.HttpsError("invalid-argument", "Email and password required");
+  const credRef = db.collection("credentials").doc(email);
+  const snap = await credRef.get();
+  if (!snap.exists || !_verifyCredential(password, snap.data())) {
+    throw new functions.https.HttpsError("permission-denied", "Incorrect password.");
+  }
+  if (snap.data().mfaEnabled !== true) {
+    throw new functions.https.HttpsError("failed-precondition", "Two-factor authentication is not enabled.");
+  }
+  const backupCodes = _generateBackupCodes(8);
+  await credRef.set({ mfaBackupCodes: backupCodes.map(_hashBackup) }, { merge: true });
+  return { ok: true, backupCodes };
+});
+
+/**
+ * mfaBeginEnroll - Verifies the password, generates a fresh TOTP secret, stores
+ * it as a PENDING (not-yet-active) encrypted secret, and returns the base32 +
+ * otpauth URI so the client can show a QR. Requires the password so only the
+ * account owner can start enrollment.
+ */
+exports.mfaBeginEnroll = functions.https.onCall(async (data) => {
+  const email = (data.email || "").trim().toLowerCase();
+  const password = data.password || "";
+  if (!email || !password) throw new functions.https.HttpsError("invalid-argument", "Email and password required");
+  const credRef = db.collection("credentials").doc(email);
+  const snap = await credRef.get();
+  if (!snap.exists || !_verifyCredential(password, snap.data())) {
+    throw new functions.https.HttpsError("permission-denied", "Incorrect password.");
+  }
+  const secret = _generateTotpSecret();
+  await credRef.set({
+    mfaPendingSecret: _encryptSecret(secret),
+    mfaPendingAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+  const issuer = "Tulanam";
+  const otpauth = `otpauth://totp/${encodeURIComponent(`${issuer}:${email}`)}` +
+    `?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
+  return { secret, otpauth };
+});
+
+/**
+ * mfaConfirmEnroll - Verifies a code against the pending secret and, on success,
+ * activates 2FA (promotes pending → active secret).
+ */
+exports.mfaConfirmEnroll = functions.https.onCall(async (data) => {
+  const email = (data.email || "").trim().toLowerCase();
+  const code = String(data.code || data.code1 || "").replace(/\s/g, "");
+  if (!email) throw new functions.https.HttpsError("invalid-argument", "Email required");
+  const credRef = db.collection("credentials").doc(email);
+  const snap = await credRef.get();
+  const cred = snap.exists ? snap.data() : {};
+  const pending = cred.mfaPendingSecret || null;
+  if (!pending) throw new functions.https.HttpsError("failed-precondition", "No pending enrollment. Start again.");
+  // The QR / pending secret expires 10 minutes after it was generated, so an
+  // abandoned enrollment can't be completed later.
+  const pendingAt = (cred.mfaPendingAt && cred.mfaPendingAt.toMillis) ? cred.mfaPendingAt.toMillis() : 0;
+  if (!pendingAt || Date.now() - pendingAt > 10 * 60 * 1000) {
+    await credRef.set({
+      mfaPendingSecret: admin.firestore.FieldValue.delete(),
+      mfaPendingAt: admin.firestore.FieldValue.delete(),
+    }, { merge: true });
+    throw new functions.https.HttpsError("deadline-exceeded", "This QR code has expired. Start enrollment again to get a fresh one.");
+  }
+  if (!_verifyTotp(_decryptSecret(pending), code)) {
+    throw new functions.https.HttpsError("permission-denied", "Incorrect code. Check your authenticator app.");
+  }
+  const backupCodes = _generateBackupCodes(8);
+  await credRef.set({
+    mfaEnabled: true,
+    mfaSecret: pending,
+    mfaPendingSecret: admin.firestore.FieldValue.delete(),
+    mfaEnabledAt: admin.firestore.FieldValue.serverTimestamp(),
+    mfaBackupCodes: backupCodes.map(_hashBackup), // store hashes only
+    mfaFailCount: admin.firestore.FieldValue.delete(),
+    mfaLockUntil: admin.firestore.FieldValue.delete(),
+  }, { merge: true });
+  _notifyMfaChanged(email, true).catch((e) => console.warn("mfa-enabled notice failed:", e.message));
+  // Plaintext codes are returned exactly once for the user to save.
+  return { ok: true, backupCodes };
+});
+
+/**
+ * mfaDisable - Turns off 2FA. Requires either the password or a current code.
+ */
+exports.mfaDisable = functions.https.onCall(async (data) => {
+  const email = (data.email || "").trim().toLowerCase();
+  const password = data.password || "";
+  const code = String(data.code || "").replace(/\s/g, "");
+  if (!email) throw new functions.https.HttpsError("invalid-argument", "Email required");
+  const credRef = db.collection("credentials").doc(email);
+  const snap = await credRef.get();
+  if (!snap.exists) throw new functions.https.HttpsError("not-found", "Account not found.");
+  const cred = snap.data();
+  let allowed = false;
+  if (password && _verifyCredential(password, cred)) allowed = true;
+  if (!allowed && cred.mfaSecret && _verifyTotp(_decryptSecret(cred.mfaSecret), code)) allowed = true;
+  if (!allowed) throw new functions.https.HttpsError("permission-denied", "Password or a valid code is required to disable 2FA.");
+  await credRef.set({
+    mfaEnabled: admin.firestore.FieldValue.delete(),
+    mfaSecret: admin.firestore.FieldValue.delete(),
+    mfaPendingSecret: admin.firestore.FieldValue.delete(),
+  }, { merge: true });
+  _notifyMfaChanged(email, false).catch((e) => console.warn("mfa-disabled notice failed:", e.message));
+  return { ok: true };
+});
+
+/**
+ * verifyMfaCode - Verifies a TOTP (or one-time backup) code for an account.
+ * Used as an ALTERNATIVE to an email/SMS OTP for step-up re-verification (face
+ * re-enrollment, profile/settings changes, …) whenever the account has 2FA on.
+ * Same TOTP/backup/lockout logic loginUser uses.
+ */
+exports.verifyMfaCode = functions.https.onCall(async (data) => {
+  const email = (data.email || "").trim().toLowerCase();
+  const code = String(data.code || data.otp || "").replace(/\s/g, "");
+  if (!email || !code) {
+    throw new functions.https.HttpsError("invalid-argument", "Email and code required");
+  }
+  const credRef = db.collection("credentials").doc(email);
+  const snap = await credRef.get();
+  const cred = snap.exists ? snap.data() : null;
+  if (!cred || cred.mfaEnabled !== true || !cred.mfaSecret) {
+    throw new functions.https.HttpsError("failed-precondition", "Two-factor authentication is not enabled for this account.");
+  }
+  const nowMs = Date.now();
+  const lockMs = (cred.mfaLockUntil && cred.mfaLockUntil.toMillis) ? cred.mfaLockUntil.toMillis() : 0;
+  if (lockMs > nowMs) {
+    throw new functions.https.HttpsError("resource-exhausted", "Too many incorrect codes. Wait a few minutes and try again.");
+  }
+  let pass = _verifyTotp(_decryptSecret(cred.mfaSecret), code);
+  let usedBackup = -1;
+  if (!pass && Array.isArray(cred.mfaBackupCodes)) {
+    usedBackup = cred.mfaBackupCodes.indexOf(_hashBackup(code));
+    if (usedBackup >= 0) pass = true;
+  }
+  if (!pass) {
+    const fails = (cred.mfaFailCount || 0) + 1;
+    await credRef.update(fails >= 5
+      ? { mfaFailCount: 0, mfaLockUntil: admin.firestore.Timestamp.fromMillis(nowMs + 15 * 60 * 1000) }
+      : { mfaFailCount: fails });
+    throw new functions.https.HttpsError("permission-denied", "Invalid authentication code.");
+  }
+  const upd = {
+    mfaFailCount: admin.firestore.FieldValue.delete(),
+    mfaLockUntil: admin.firestore.FieldValue.delete(),
+  };
+  if (usedBackup >= 0) upd.mfaBackupCodes = cred.mfaBackupCodes.filter((_, i) => i !== usedBackup);
+  await credRef.update(upd);
+  const out = { success: true, verified: true };
+  // For password reset: issue the same one-time reset token verifyPasswordResetOTP
+  // mints, so an authenticator code can stand in for the email reset OTP.
+  if (data.mintResetToken === true) out.verificationToken = await _mintPasswordResetToken(email);
+  return out;
+});
+
+/**
+ * registerCredential - Stores a salted credential for a new/updated account and
+ * strips any legacy `passwordHash` from the doc. Called by the client during
+ * registration instead of writing `passwordHash` into Firestore directly.
+ */
+exports.registerCredential = functions.https.onCall(async (data, context) => {
+  const email = (data.email || "").trim().toLowerCase();
+  const password = data.password || "";
+  if (!email || !password) {
+    throw new functions.https.HttpsError("invalid-argument", "Email and password required");
+  }
+  if (password.length < 6) {
+    throw new functions.https.HttpsError("invalid-argument", "Password must be at least 6 characters");
+  }
+  await _writeCredential(email, password);
+  // Best-effort: remove any legacy hash that may have been written to the doc.
+  try {
+    const opSnap = await db.collectionGroup("operators").where("email", "==", email).limit(1).get();
+    if (!opSnap.empty) {
+      await opSnap.docs[0].ref.update({ passwordHash: admin.firestore.FieldValue.delete() });
+    }
+    const coSnap = await db.collection("companies").where("email", "==", email).limit(1).get();
+    if (!coSnap.empty) {
+      await coSnap.docs[0].ref.update({ passwordHash: admin.firestore.FieldValue.delete() });
+    }
+  } catch (_) {}
+  return { ok: true };
 });
 
 // ─── Operator Updated: Audit trail for KYC status changes ───────────────────
@@ -148,6 +674,27 @@ exports.onOperatorUpdated = functions.firestore
           newStatus: after.idStatus,
         },
       });
+
+      // Notify the operator on a terminal KYC result (best-effort).
+      if (after.idStatus === "verified" || after.idStatus === "rejected") {
+        const ok = after.idStatus === "verified";
+        await notifyContact({
+          to: { email: after.email || null, phone: after.phone || null, name: after.name || "there" },
+          companyId,
+          subject: `${BRAND.name}: identity verification ${ok ? "approved" : "needs attention"}`,
+          notif: ({
+            category: "kyc",
+            link: "/operators",
+            operatorEmail: after.email || null,
+            accent: ok ? undefined : "warn",
+            heading: ok ? "Identity verified" : "Identity verification not approved",
+            intro: ok
+              ? `Hi ${after.name || "there"}, your identity has been verified on ${BRAND.name}. You're all set.`
+              : `Hi ${after.name || "there"}, your identity verification was not approved. Please re-submit your documents or contact your administrator.`,
+            note: `Questions? Contact your ${BRAND.name} administrator.`,
+          }),
+        });
+      }
     }
 
     // Log shift change
@@ -178,7 +725,149 @@ exports.onOperatorUpdated = functions.firestore
         success: true,
         metadata: { operatorId: context.params.operatorId },
       });
+
+      // Notify the operator their access was revoked (best-effort). Skip when
+      // this deactivation is part of an archive — onOperatorLifecycle sends the
+      // archive notice, so we avoid a duplicate (archive sets both flags).
+      if (!after.isArchived) {
+        await notifyContact({
+          to: { email: after.email || null, phone: after.phone || null, name: after.name || "there" },
+          companyId,
+          subject: `${BRAND.name}: your operator access was deactivated`,
+          notif: ({
+            category: "operator",
+            link: "/operators",
+            operatorEmail: after.email || null,
+            accent: "warn",
+            heading: "Your operator access was deactivated",
+            intro: `Hi ${after.name || "there"}, your operator access on ${BRAND.name} has been deactivated, so you will no longer be able to sign in.`,
+            note: `If you believe this is a mistake, contact your ${BRAND.name} administrator.`,
+          }),
+        });
+      }
     }
+
+    // Role / privilege change — notify the affected operator (security).
+    if (before.role !== after.role && (after.email || after.phone)) {
+      await db.collection(`companies/${companyId}/auditLog`).add({
+        event: "operatorRoleChanged",
+        description: `Role for ${after.name || after.email} changed: ${before.role || "none"} → ${after.role || "none"}`,
+        user: "admin",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        success: true,
+        metadata: { operatorId: context.params.operatorId, from: before.role || null, to: after.role || null },
+      });
+      await notifyContact({
+        to: { email: after.email || null, phone: after.phone || null, name: after.name || "there" },
+        companyId,
+        critical: true,
+        subject: `${BRAND.name}: your access level changed`,
+        notif: ({
+          category: "account",
+          link: "/operators",
+          operatorEmail: after.email || null,
+          accent: "warn",
+          heading: "Your access level changed",
+          intro: `Your role on ${BRAND.name} was changed to "${after.role || "none"}". Your permissions may be different now.`,
+          note: "If you didn't expect this change, contact your administrator.",
+        }),
+      });
+    }
+  });
+
+// ─── Operator deleted: clean up the Auth account + notify ───────────────────
+exports.onOperatorDeleted = functions.firestore
+  .document("companies/{companyId}/operators/{operatorId}")
+  .onDelete(async (snap, context) => {
+    const { companyId } = context.params;
+    const op = snap.data() || {};
+    // Remove the orphaned Firebase Auth account (best-effort) so a deleted
+    // operator can't keep authenticating.
+    try {
+      if (op.uid) {
+        await admin.auth().deleteUser(op.uid);
+      } else if (op.email) {
+        const u = await admin.auth().getUserByEmail(op.email);
+        await admin.auth().deleteUser(u.uid);
+      }
+    } catch (e) {
+      console.warn("operator auth cleanup failed:", e.message);
+    }
+    await db.collection(`companies/${companyId}/auditLog`).add({
+      event: "operatorDeleted",
+      description: `Operator deleted: ${op.name || op.email || context.params.operatorId}`,
+      user: "admin",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      success: true,
+      metadata: { email: op.email || null, role: op.role || null },
+    });
+    // Admin record (company-wide) + a courtesy notice to the removed operator.
+    await _writeInApp({
+      companyId, category: "security", severity: "warn", link: "/operators",
+      title: "Operator deleted",
+      body: `${op.name || op.email || "An operator"} was permanently removed from your company.`,
+    });
+    if (op.email || op.phone) {
+      await notifyContact({
+        to: { email: op.email || null, phone: op.phone || null, name: op.name || "there" },
+        companyId,
+        critical: true,
+        skipInApp: true,
+        subject: `${BRAND.name}: your account was removed`,
+        notif: ({
+          category: "account",
+          accent: "warn",
+          heading: "Your account was removed",
+          intro: `Your operator account on ${BRAND.name} has been permanently removed, so you no longer have access.`,
+          note: "If you believe this is a mistake, contact your administrator.",
+        }),
+      }).catch((e) => console.warn("operator-deleted notice failed:", e.message));
+    }
+  });
+
+// ─── Weighbridge created: alert when the plan limit is reached ──────────────
+exports.onWeighbridgeCreated = functions.firestore
+  .document("companies/{companyId}/sites/{siteId}/weighbridges/{weighbridgeId}")
+  .onCreate(async (snap, context) => {
+    const { companyId } = context.params;
+    try {
+      const compSnap = await db.doc(`companies/${companyId}`).get();
+      const max = compSnap.exists ? (compSnap.data().license?.maxWeighbridges ?? 1) : 1;
+      if (max === -1) return null; // unlimited plan — no ceiling
+
+      // Count weighbridges across all sites.
+      let count = 0;
+      const sites = await db.collection(`companies/${companyId}/sites`).get();
+      for (const site of sites.docs) {
+        const wbs = await db.collection(`companies/${companyId}/sites/${site.id}/weighbridges`).get();
+        count += wbs.size;
+      }
+      if (count < max) return null; // still under the limit
+      if (count <= 1) return null; // never nag on the very first weighbridge (onboarding)
+
+      // At/over the limit — notify once per window (reuses the cooldown guard so
+      // repeated add attempts don't re-alert).
+      if (await _alertSmsAllowed(companyId, "quotaReached")) {
+        await notifyContact({
+          companyId,
+          subject: `${BRAND.name}: weighbridge limit reached`,
+          notif: ({
+            category: "billing",
+            link: "/settings/license",
+            accent: "warn",
+            heading: "You've reached your weighbridge limit",
+            intro: `Your ${BRAND.name} plan allows ${max} weighbridge${max === 1 ? "" : "s"} and you've now reached that limit. Upgrade your plan to add more.`,
+            rows: [["Plan limit", String(max)], ["In use", String(count)]],
+            ctaText: "Upgrade plan",
+            ctaUrl: `https://${BRAND.website}/billing`,
+            note: `Need a higher limit? Contact ${BRAND.support}.`,
+          }),
+        });
+      }
+    } catch (e) {
+      console.warn("weighbridge quota check failed:", e.message);
+    }
+    return null;
   });
 
 // ─── Security Settings Changed: Audit + Emergency Lockdown ──────────────────
@@ -277,20 +966,40 @@ exports.checkPasswordExpiry = functions.pubsub
 
     const batch = db.batch();
     let flagged = 0;
+    const toNotify = [];
 
     operators.docs.forEach((doc) => {
       const data = doc.data();
       const lastChanged = data.passwordLastChanged;
 
-      if (!lastChanged || lastChanged.toDate() < cutoff) {
+      // Only newly-expired (not already flagged) — avoids re-notifying every run.
+      if ((!lastChanged || lastChanged.toDate() < cutoff) && !data.mustChangePassword) {
         batch.update(doc.ref, { mustChangePassword: true });
         flagged++;
+        toNotify.push({ email: data.email || null, companyId: doc.ref.parent.parent?.id || null });
       }
     });
 
     if (flagged > 0) {
       await batch.commit();
       console.log(`Flagged ${flagged} operators for password change (expired > ${expiryDays} days)`);
+      for (const o of toNotify) {
+        if (!o.email || !o.companyId) continue;
+        await notifyContact({
+          to: { email: o.email },
+          companyId: o.companyId,
+          subject: `${BRAND.name}: time to update your password`,
+          notif: ({
+            category: "account",
+            link: "/settings/mfa",
+            operatorEmail: o.email,
+            accent: "warn",
+            heading: "Your password has expired",
+            intro: `Your ${BRAND.name} password is more than ${expiryDays} days old. You'll be asked to set a new one at your next sign-in.`,
+            note: "Choosing a fresh password regularly keeps your account secure.",
+          }),
+        }).catch((e) => console.warn("password-expiry notice failed:", e.message));
+      }
     }
 
     return null;
@@ -311,6 +1020,7 @@ exports.deactivateInactiveOperators = functions.pubsub
 
     const batch = db.batch();
     let deactivated = 0;
+    const byCompany = {};
 
     operators.docs.forEach((doc) => {
       const data = doc.data();
@@ -319,12 +1029,23 @@ exports.deactivateInactiveOperators = functions.pubsub
       if (lastLogin && lastLogin.toDate() < cutoff) {
         batch.update(doc.ref, { isActive: false });
         deactivated++;
+        const cid = doc.ref.parent.parent?.id;
+        if (cid) byCompany[cid] = (byCompany[cid] || 0) + 1;
       }
     });
 
     if (deactivated > 0) {
       await batch.commit();
       console.log(`Auto-deactivated ${deactivated} operators`);
+      // Each operator gets their own deactivation notice via onOperatorUpdated;
+      // here we give the admin a per-company summary of the bulk action.
+      for (const [cid, n] of Object.entries(byCompany)) {
+        await _writeInApp({
+          companyId: cid, category: "operator", severity: "warn", link: "/operators",
+          title: `${n} operator${n === 1 ? "" : "s"} auto-deactivated`,
+          body: `${n} operator${n === 1 ? "" : "s"} ${n === 1 ? "was" : "were"} deactivated after 90 days without signing in. Reactivate from Operators if still needed.`,
+        }).catch((e) => console.warn("auto-deactivation summary failed:", e.message));
+      }
     }
 
     return null;
@@ -406,6 +1127,31 @@ exports.forcePasswordReset = functions.https.onCall(async (data, context) => {
     success: true,
   });
 
+  // Tell the operator their password must be reset (best-effort).
+  try {
+    const opDoc = await db.collection(`companies/${companyId}/operators`).doc(operatorId).get();
+    const op = opDoc.exists ? (opDoc.data() || {}) : {};
+    if (op.email) {
+      await notifyContact({
+        to: { email: op.email, phone: op.phone || null, name: op.name || "there" },
+        companyId,
+        critical: true,
+        subject: `${BRAND.name}: please reset your password`,
+        notif: ({
+          category: "account",
+          link: "/settings/mfa",
+          operatorEmail: op.email,
+          accent: "warn",
+          heading: "Password reset required",
+          intro: `Your administrator has required a password reset on your ${BRAND.name} account. You'll be prompted to set a new password at your next sign-in.`,
+          note: "If you didn't expect this, contact your administrator.",
+        }),
+      });
+    }
+  } catch (e) {
+    console.warn("force-reset notice failed:", e.message);
+  }
+
   return { success: true };
 });
 
@@ -448,7 +1194,8 @@ exports.onAuditLogCreated = functions.firestore
       if (recentFails.docs.length >= 3) {
         await sendAdminNotification(
           "Security Alert: Repeated Failed Logins",
-          `${data.user} has ${recentFails.docs.length}+ consecutive failed login attempts from ${data.machine || data.ip || "unknown machine"}.`
+          `${data.user} has ${recentFails.docs.length}+ consecutive failed login attempts from ${data.machine || data.ip || "unknown machine"}.`,
+          { companyId, sms: { template: "securityAlert", vars: ["repeated failed logins"] } }
         );
       }
     }
@@ -457,7 +1204,8 @@ exports.onAuditLogCreated = functions.firestore
     if (data.event === "emergencyLockdown" && data.description.includes("ACTIVATED")) {
       await sendAdminNotification(
         "EMERGENCY LOCKDOWN ACTIVATED",
-        "All operator sessions have been locked. Only admin access remains."
+        "All operator sessions have been locked. Only admin access remains.",
+        { companyId, sms: { template: "securityAlert", vars: ["emergency lockdown activated"] } }
       );
     }
   });
@@ -466,7 +1214,8 @@ exports.onAuditLogCreated = functions.firestore
 
 exports.onSecurityCriticalChange = functions.firestore
   .document("companies/{companyId}/settings/security")
-  .onUpdate(async (change) => {
+  .onUpdate(async (change, context) => {
+    const { companyId } = context.params;
     const before = change.before.data();
     const after = change.after.data();
 
@@ -474,7 +1223,8 @@ exports.onSecurityCriticalChange = functions.firestore
     if (before.ipWhitelistEnabled && !after.ipWhitelistEnabled) {
       await sendAdminNotification(
         "Security: IP Whitelist Disabled",
-        "IP whitelist has been disabled. All IPs can now access the system."
+        "IP whitelist has been disabled. All IPs can now access the system.",
+        { companyId, sms: { template: "securityAlert", vars: ["IP whitelist disabled"] } }
       );
     }
 
@@ -482,7 +1232,8 @@ exports.onSecurityCriticalChange = functions.firestore
     if (before.encryptBackups && !after.encryptBackups) {
       await sendAdminNotification(
         "Security: Backup Encryption Disabled",
-        "Local backup encryption has been turned off."
+        "Local backup encryption has been turned off.",
+        { companyId, sms: { template: "securityAlert", vars: ["backup encryption disabled"] } }
       );
     }
 
@@ -490,7 +1241,8 @@ exports.onSecurityCriticalChange = functions.firestore
     if (before.auditEnabled && !after.auditEnabled) {
       await sendAdminNotification(
         "Security: Audit Logging Disabled",
-        "Audit trail has been disabled. Activity will not be recorded."
+        "Audit trail has been disabled. Activity will not be recorded.",
+        { companyId, sms: { template: "securityAlert", vars: ["audit logging disabled"] } }
       );
     }
   });
@@ -531,7 +1283,8 @@ exports.onGateSettingsChanged = functions.firestore
     if (before.enabled && !after.enabled) {
       await sendAdminNotification(
         "Gate Control System Disabled",
-        "The gate automation system has been turned off."
+        "The gate automation system has been turned off.",
+        { companyId, sms: { template: "gateAlert", vars: ["gate control disabled"] } }
       );
     }
 
@@ -539,13 +1292,15 @@ exports.onGateSettingsChanged = functions.firestore
     if (before.emergencyStop && !after.emergencyStop) {
       await sendAdminNotification(
         "Gate Safety: Emergency Stop Disabled",
-        "Emergency stop has been disabled on the gate control system."
+        "Emergency stop has been disabled on the gate control system.",
+        { companyId, sms: { template: "gateAlert", vars: ["emergency stop disabled"] } }
       );
     }
     if (before.interlockGates && !after.interlockGates) {
       await sendAdminNotification(
         "Gate Safety: Interlock Disabled",
-        "Gate interlock safety feature has been turned off. Both gates can now open simultaneously."
+        "Gate interlock safety feature has been turned off. Both gates can now open simultaneously.",
+        { companyId, sms: { template: "gateAlert", vars: ["gate interlock disabled"] } }
       );
     }
   });
@@ -737,6 +1492,16 @@ exports.validateRfidTag = functions.https.onCall(async (data, context) => {
       metadata: { rfidTag: tagId },
     });
 
+    // Unauthorized vehicle at the gate — in-app alert, throttled to once per
+    // ~20 min per company (reusing the alert cooldown) so random scans don't spam.
+    if (await _alertSmsAllowed(companyId, "unknownRfid")) {
+      await _writeInApp({
+        companyId, category: "security", severity: "warn", link: "/settings/gate-control",
+        title: "Unregistered vehicle at gate",
+        body: `An unregistered RFID tag (${tagId}) was scanned at ${gateId || "the"} gate. If it's a known vehicle, register its tag — otherwise it may be an unauthorized entry attempt.`,
+      }).catch((e) => console.warn("unknown-rfid alert failed:", e.message));
+    }
+
     return { valid: false, reason: "Tag not registered" };
   }
 
@@ -757,7 +1522,8 @@ exports.validateRfidTag = functions.https.onCall(async (data, context) => {
 
     await sendAdminNotification(
       "Gate Alert: Blacklisted Vehicle",
-      `Blacklisted vehicle ${vehicle.number} scanned at ${gateId || "unknown"} gate.`
+      `Blacklisted vehicle ${vehicle.number} scanned at ${gateId || "unknown"} gate.`,
+      { companyId, sms: { template: "gateAlert", vars: ["blacklisted vehicle at gate"] } }
     );
 
     return { valid: false, reason: "Vehicle is blacklisted", vehicleNumber: vehicle.number };
@@ -962,28 +1728,125 @@ exports.getGateStatus = functions.https.onCall(async (data, context) => {
 
 // ─── Helper: Send notification to admin devices ─────────────────────────────
 
-async function sendAdminNotification(title, body) {
+// Per-(company, template) SMS throttle. Some alerts fire on machine- or
+// attacker-repeatable events (a failed-login storm, a blacklisted truck the RFID
+// reader re-scans), which would otherwise mean one paid SMS PER event. In-app +
+// email stay responsive; only the SMS is rate-limited. Fail-open so a transient
+// Firestore error never suppresses a genuine alert.
+const ALERT_SMS_COOLDOWN_MINUTES = 20;
+async function _alertSmsAllowed(companyId, template) {
+  if (!companyId || !template) return true;
+  const ref = db.collection("notification_cooldowns").doc(`${companyId}_${template}`);
   try {
-    // Store notification in Firestore for in-app display
-    await db.collection("notifications").add({
-      title,
-      body,
-      type: "security",
+    const snap = await ref.get();
+    if (snap.exists) {
+      const last = snap.data().lastSentAt;
+      if (last && typeof last.toMillis === "function" &&
+          Date.now() - last.toMillis() < ALERT_SMS_COOLDOWN_MINUTES * 60 * 1000) {
+        return false;
+      }
+    }
+    await ref.set({
+      companyId, template,
+      lastSentAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return true;
+  } catch (e) {
+    console.warn("alert SMS cooldown check failed:", e.message);
+    return true;
+  }
+}
+
+// Targeted push to a company's admin devices (per-operator FCM tokens stored in
+// operators.fcmTokens). macOS-only on the client side; here it's just best-effort
+// multicast with dead-token cleanup. Never throws; no tokens = silent no-op.
+async function _pushToCompanyAdmins(companyId, title, body) {
+  if (!companyId) return;
+  try {
+    const opSnap = await db.collection(`companies/${companyId}/operators`)
+      .where("role", "==", "companyAdmin").get();
+    const entries = [];
+    opSnap.forEach((doc) => {
+      const toks = doc.data().fcmTokens;
+      if (Array.isArray(toks)) toks.forEach((t) => { if (t) entries.push({ token: t, ref: doc.ref }); });
+    });
+    if (!entries.length) return;
+    const res = await admin.messaging().sendEachForMulticast({
+      tokens: entries.map((e) => e.token),
+      notification: { title, body },
+      data: { type: "security_alert", companyId },
+    });
+    res.responses.forEach((r, i) => {
+      if (r.success) return;
+      const code = r.error && r.error.code;
+      if (code === "messaging/registration-token-not-registered" ||
+          code === "messaging/invalid-registration-token" ||
+          code === "messaging/invalid-argument") {
+        entries[i].ref.update({
+          fcmTokens: admin.firestore.FieldValue.arrayRemove(entries[i].token),
+        }).catch(() => {});
+      }
+    });
+  } catch (e) {
+    console.warn("admin device push failed:", e.message);
+  }
+}
+
+// ── In-app notification engine ───────────────────────────────────────────────
+// Single writer for in-app notifications (companies/{id}/notifications). Enriched
+// schema: category (security|billing|licence|operator|kyc|backup|account|welcome|
+// system), severity (info|warn|critical), link (in-app route to deep-link to),
+// operatorEmail (per-operator targeting; "*" sentinel = company-wide, the
+// default). The client filters with operatorEmail in ["*", myEmail]. `type`
+// mirrors category for backward-compat with the existing UI. In-app is FREE.
+async function _writeInApp({ companyId, operatorEmail = "*", category = "system", severity = "info", title, body = "", link = null }) {
+  if (!companyId || !title) return;
+  try {
+    await db.collection(`companies/${companyId}/notifications`).add({
+      title, body, category, severity, link, operatorEmail,
+      type: category,
       read: false,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+  } catch (e) {
+    console.warn("in-app notification write failed:", e.message);
+  }
+}
 
-    // Send FCM to admin topic
+async function sendAdminNotification(title, body, opts = {}) {
+  const { companyId = null, sms = null } = opts;
+  // Broadcast FCM (topic) — the in-app entry itself is written by notifyContact.
+  try {
     await admin.messaging().send({
       topic: "admin_security_alerts",
       notification: { title, body },
-      data: { type: "security_alert", title, body },
-      apns: {
-        payload: { aps: { sound: "default", badge: 1 } },
-      },
+      data: { type: "security_alert", title, body, companyId: companyId || "" },
+      apns: { payload: { aps: { sound: "default", badge: 1 } } },
     });
   } catch (e) {
-    console.log("Notification send failed (FCM may not be configured):", e.message);
+    console.log("FCM send failed (may not be configured):", e.message);
+  }
+
+  // Targeted push to the company's admin devices (best-effort).
+  if (companyId) await _pushToCompanyAdmins(companyId, title, body);
+
+  // In-app (free) + email (always) + SMS (urgent, throttled) via notifyContact.
+  if (companyId) {
+    const smsToSend = sms && (await _alertSmsAllowed(companyId, sms.template)) ? sms : null;
+    await notifyContact({
+      companyId,
+      critical: true,
+      subject: `${BRAND.name} security alert: ${title}`,
+      notif: ({
+        heading: title,
+        intro: body,
+        accent: "danger",
+        category: "security",
+        link: "/settings/mfa",
+        note: `If you did not expect this alert, secure your account and contact ${BRAND.support}.`,
+      }),
+      sms: smsToSend, // {template, vars} for urgent alerts; null = email + in-app only
+    }).catch((e) => console.warn("admin alert fan-out failed:", e.message));
   }
 }
 
@@ -1102,6 +1965,56 @@ exports.onWeighmentUpdated = functions.firestore
           netWeight: after.netWeight || null,
         },
       });
+
+      // Weighment receipt to the customer — OFF by default. Opt-in per
+      // weighbridge via settings/general.sendWeighmentReceipts, and only when a
+      // customer phone is present on the weighment. Best-effort.
+      try {
+        const { siteId, weighbridgeId } = context.params;
+        const custPhone = (after.customerPhone || "").toString().trim();
+        if (custPhone) {
+          const genSnap = await db.doc(
+            `companies/${companyId}/sites/${siteId}/weighbridges/${weighbridgeId}/settings/general`).get();
+          if (genSnap.exists && genSnap.data().sendWeighmentReceipts === true) {
+            const ticket = after.serialNumber || after.ticketNumber || after.slipNumber || context.params.weighmentId;
+            const vehicle = after.vehicleNumber || "--";
+            const net = Math.round(after.netWeight || 0);
+            if (await _consumeQuota(companyId, "sms")) {
+              await _sendDltSms("weighmentReceipt", custPhone, [String(ticket), String(vehicle), String(net)]);
+            }
+            if (after.customerEmail && await _consumeQuota(companyId, "email")) {
+              const subject = `${BRAND.name}: weighment receipt ${ticket}`;
+              // Plain HTML fallback (always works, image-block-safe).
+              const fallbackHtml = buildBrandEmail({
+                heading: "Weighment receipt",
+                intro: `Your weighment for vehicle ${vehicle} has been recorded and confirmed.`,
+                rows: [
+                  ["Ticket", String(ticket)],
+                  ["Vehicle", String(vehicle)],
+                  ["Material", after.material || "--"],
+                  ["Gross", `${Math.round(after.grossWeight || 0)} kg`],
+                  ["Tare", `${Math.round(after.tareWeight || 0)} kg`],
+                  ["Net weight", `${net} kg`],
+                ],
+                note: "Questions about this weighment? Contact the weighbridge operator.",
+              });
+              // Try the rendered receipt (inline image + PDF attachment); fall back to HTML.
+              const receiptData = await _weighmentToReceiptData(companyId, after, ticket);
+              const rendered = await _renderEmailAssets("receipt", receiptData, await _printerPageSize(companyId));
+              if (rendered && rendered.imageUrl) {
+                await _sendRenderedEmail(after.customerEmail, subject, {
+                  imageUrl: rendered.imageUrl, pdfBase64: rendered.pdfBase64,
+                  pdfName: `weighment-${receiptData.rst || ticket}.pdf`, fallbackHtml, alt: "Weighment receipt",
+                });
+              } else {
+                await _sendBrandEmail(after.customerEmail, subject, fallbackHtml);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("weighment receipt failed:", e.message);
+      }
     }
 
     // Customer transfer — reassign stats
@@ -1386,6 +2299,31 @@ exports.onCustomerUpdated = functions.firestore
     }
   });
 
+// ─── Vehicle blacklist toggle: audit + admin alert (security) ───────────────
+exports.onVehicleUpdated = functions.firestore
+  .document("companies/{companyId}/vehicles/{vehicleId}")
+  .onUpdate(async (change, context) => {
+    const { companyId } = context.params;
+    const before = change.before.data();
+    const after = change.after.data();
+    if (!!before.blacklisted === !!after.blacklisted) return null; // only on toggle
+    const num = after.number || after.vehicleNumber || context.params.vehicleId;
+    await db.collection(`companies/${companyId}/auditLog`).add({
+      event: after.blacklisted ? "vehicleBlacklisted" : "vehicleUnblacklisted",
+      description: `Vehicle ${num} ${after.blacklisted ? "blacklisted" : "removed from blacklist"}`,
+      user: "admin",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      success: true,
+      metadata: { vehicleId: context.params.vehicleId },
+    });
+    await _writeInApp({
+      companyId, category: "security", severity: "warn", link: "/customers",
+      title: `Vehicle ${after.blacklisted ? "blacklisted" : "un-blacklisted"}`,
+      body: `${num} is now ${after.blacklisted ? "blocked from gate entry" : "allowed at the gate again"}.`,
+    }).catch((e) => console.warn("vehicle-blacklist alert failed:", e.message));
+    return null;
+  });
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // OPERATOR BACKEND (additional triggers)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1416,6 +2354,24 @@ exports.onOperatorLifecycle = functions.firestore
           permissionsRevoked: after.permissionsRevoked || false,
         },
       });
+      // Notify the operator their access was revoked (mirrors operatorDeactivated).
+      if (after.email || after.phone) {
+        await notifyContact({
+          to: { email: after.email || null, phone: after.phone || null, name: after.name || "there" },
+          companyId,
+          critical: true,
+          subject: `${BRAND.name}: your operator access was removed`,
+          notif: ({
+            category: "operator",
+            link: "/operators",
+            operatorEmail: after.email || null,
+            accent: "warn",
+            heading: "Your operator access was removed",
+            intro: `Hi ${after.name || "there"}, your operator account on ${BRAND.name} has been archived, so you can no longer sign in.`,
+            note: `If you believe this is a mistake, contact your ${BRAND.name} administrator.`,
+          }),
+        }).catch((e) => console.warn("operator-archived notice failed:", e.message));
+      }
     }
 
     // Restore event
@@ -1617,6 +2573,45 @@ exports.generateLicenseKey = functions.https.onCall(async (data, context) => {
 
 // ─── Activate License ──────────────────────────────────────────────────────
 
+/**
+ * _sendLicenseActivatedNotice — branded "your plan is active" confirmation to
+ * the company admin (email + SMS). Shared by paid activation (activateLicense)
+ * and client-side trial/free activation (notifyLicenseActivated). Best-effort.
+ */
+async function _sendLicenseActivatedNotice(companyId, tier, maxWeighbridges, expiresAtMs) {
+  const planLabel = (tier || "plan").toString();
+  const wbLabel = (maxWeighbridges || 1) === -1 ? "Unlimited" : String(maxWeighbridges || 1);
+  const validLabel = expiresAtMs
+    ? new Date(expiresAtMs).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })
+    : "No expiry";
+  await notifyContact({
+    companyId,
+    subject: `${BRAND.name}: your ${planLabel} plan is active`,
+    notif: ({
+      category: "licence",
+      link: "/settings/license",
+      heading: "Your plan is active",
+      intro: `Your ${BRAND.name} license has been activated — you're all set to run your weighbridge operations.`,
+      rows: [["Plan", planLabel], ["Weighbridges", wbLabel], ["Valid until", validLabel]],
+      note: `Manage your subscription anytime at ${BRAND.website}.`,
+    }),
+  });
+}
+
+// Client-triggered activation confirmation for trial/free (those activate
+// directly in Firestore, with no activateLicense call to hook server-side).
+exports.notifyLicenseActivated = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+  const companyId = data && data.companyId ? String(data.companyId) : "";
+  if (!companyId) return { success: false };
+  const compSnap = await db.doc(`companies/${companyId}`).get();
+  const lic = (compSnap.exists ? compSnap.data().license : null) || {};
+  await _sendLicenseActivatedNotice(
+    companyId, lic.tier, lic.maxWeighbridges,
+    lic.expiresAt && typeof lic.expiresAt.toMillis === "function" ? lic.expiresAt.toMillis() : null);
+  return { success: true };
+});
+
 exports.activateLicense = functions.https.onCall(async (data, context) => {
   const { licenseKey, gstin, companyId, deviceFingerprint } = data;
 
@@ -1643,7 +2638,7 @@ exports.activateLicense = functions.https.onCall(async (data, context) => {
 
   // GSTIN uniqueness check
   const normalizedGstin = gstin.replace(/[^A-Z0-9]/gi, "").toUpperCase();
-  const registryRef = db.doc(`global/gstin_registry/${normalizedGstin}`);
+  const registryRef = db.collection("gstin_registry").doc(normalizedGstin);
   const registrySnap = await registryRef.get();
 
   if (registrySnap.exists) {
@@ -1696,6 +2691,12 @@ exports.activateLicense = functions.https.onCall(async (data, context) => {
   if (updates.expiresAt) companyLicense.expiresAt = updates.expiresAt;
 
   await db.doc(`companies/${companyId}`).set({ license: companyLicense }, { merge: true });
+
+  // Confirm activation to the company admin (best-effort). Covers paid keys
+  // entered in-app; trial/free are client-side and confirm via notifyLicenseActivated.
+  await _sendLicenseActivatedNotice(
+    companyId, license.tier, license.maxWeighbridges,
+    updates.expiresAt ? updates.expiresAt.toMillis() : null);
 
   return {
     success: true,
@@ -1802,6 +2803,7 @@ exports.checkExpiredLicenses = functions.pubsub
     if (expired.empty) return null;
 
     const batch = db.batch();
+    const expiredCompanies = [];
     for (const doc of expired.docs) {
       batch.update(doc.ref, { status: "expired" });
       const companyId = doc.data().companyId;
@@ -1809,10 +2811,111 @@ exports.checkExpiredLicenses = functions.pubsub
         batch.set(db.doc(`companies/${companyId}`), {
           license: { status: "expired" },
         }, { merge: true });
+        expiredCompanies.push(companyId);
       }
     }
     await batch.commit();
     console.log(`Expired ${expired.size} licenses`);
+
+    // Notify each company's admin that the subscription lapsed (best-effort).
+    for (const companyId of expiredCompanies) {
+      await notifyContact({
+        companyId,
+        subject: `${BRAND.name}: your subscription has expired`,
+        notif: ({
+          category: "licence",
+          link: "/settings/license",
+          accent: "warn",
+          heading: "Your subscription has expired",
+          intro: `Your ${BRAND.name} subscription has expired. Renew now to restore full access to your weighbridge operations.`,
+          ctaText: "Renew subscription",
+          ctaUrl: `https://${BRAND.website}/billing`,
+          note: `Need help renewing? Contact ${BRAND.support}.`,
+        }),
+      });
+    }
+    return null;
+  });
+
+// ─── Scheduled: subscription expiry reminders (7 / 3 / 1 days out) ───────────
+exports.licenseExpiryReminders = functions.pubsub
+  .schedule("every 24 hours")
+  .timeZone("Asia/Kolkata")
+  .onRun(async () => {
+    const now = Date.now();
+    const soon = await db.collection("licenses")
+      .where("status", "==", "active")
+      .where("expiresAt", "<=", admin.firestore.Timestamp.fromMillis(now + 8 * 24 * 60 * 60 * 1000))
+      .where("expiresAt", ">", admin.firestore.Timestamp.fromMillis(now))
+      .get();
+
+    for (const doc of soon.docs) {
+      const lic = doc.data();
+      const companyId = lic.companyId;
+      if (!companyId || !lic.expiresAt) continue;
+      const daysLeft = Math.ceil((lic.expiresAt.toMillis() - now) / (24 * 60 * 60 * 1000));
+      // Fire once per 7/3/1 threshold — `remindersSent` guards against repeats.
+      const sent = lic.remindersSent || [];
+      const due = [7, 3, 1].find((t) => daysLeft <= t && !sent.includes(t));
+      if (!due) continue;
+
+      await notifyContact({
+        companyId,
+        subject: `${BRAND.name}: your subscription expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`,
+        notif: ({
+          category: "licence",
+          link: "/settings/license",
+          accent: "warn",
+          heading: "Your subscription is expiring",
+          intro: `Your ${BRAND.name} subscription expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"}. Renew to avoid interruption to weighbridge operations.`,
+          rows: [["Expires in", `${daysLeft} day${daysLeft === 1 ? "" : "s"}`]],
+          ctaText: "Renew subscription",
+          ctaUrl: `https://${BRAND.website}/billing`,
+          note: `Need help? Contact ${BRAND.support}.`,
+        }),
+      });
+      await doc.ref.set({ remindersSent: admin.firestore.FieldValue.arrayUnion(due) }, { merge: true });
+    }
+    return null;
+  });
+
+// ─── Scheduled: address-verification grace reminders (7 / 3 / 1 days out) ────
+exports.addressGraceReminders = functions.pubsub
+  .schedule("every 24 hours")
+  .timeZone("Asia/Kolkata")
+  .onRun(async () => {
+    const now = Date.now();
+    // status-only query (single-field index) + in-memory window filter, so no
+    // composite index on (status, graceUntil) is required.
+    const pending = await db.collection("address_verifications")
+      .where("status", "==", "pending")
+      .get();
+
+    for (const doc of pending.docs) {
+      const av = doc.data();
+      if (!av.graceUntil) continue;
+      const daysLeft = Math.ceil((av.graceUntil.toMillis() - now) / (24 * 60 * 60 * 1000));
+      if (daysLeft <= 0 || daysLeft > 7) continue;
+      const sent = av.remindersSent || [];
+      const due = [7, 3, 1].find((t) => daysLeft <= t && !sent.includes(t));
+      if (!due) continue;
+
+      await notifyContact({
+        companyId: av.companyId || doc.id,
+        subject: `${BRAND.name}: verify your business address (${daysLeft} day${daysLeft === 1 ? "" : "s"} left)`,
+        notif: ({
+          category: "account",
+          link: "/address-verify",
+          accent: "warn",
+          heading: "Verify your business address",
+          intro: `To keep your ${BRAND.name} account active, enter the verification code from the letter we mailed to your registered address. You have ${daysLeft} day${daysLeft === 1 ? "" : "s"} left.`,
+          rows: [["Time left", `${daysLeft} day${daysLeft === 1 ? "" : "s"}`]],
+          note: `Didn't receive the letter? Contact ${BRAND.support} for a reissue.`,
+        }),
+        sms: { template: "addressGrace", vars: [String(daysLeft)] },
+      });
+      await doc.ref.set({ remindersSent: admin.firestore.FieldValue.arrayUnion(due) }, { merge: true });
+    }
     return null;
   });
 
@@ -1821,17 +2924,624 @@ exports.checkExpiredLicenses = functions.pubsub
 const nodemailer = require("nodemailer");
 
 function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // Length is driven by OTP_LENGTH (defined below; evaluated at call time).
+  const min = Math.pow(10, OTP_LENGTH - 1);
+  return Math.floor(min + Math.random() * (min * 9)).toString();
 }
 
 function getMailTransporter() {
   return nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: functions.config().gmail?.email || process.env.GMAIL_EMAIL,
-      pass: functions.config().gmail?.app_password || process.env.GMAIL_APP_PASSWORD,
+      user: _fnConfig().gmail?.email || process.env.GMAIL_EMAIL,
+      pass: _fnConfig().gmail?.app_password || process.env.GMAIL_APP_PASSWORD,
     },
   });
+}
+
+// The "000000" test OTP code is honored ONLY when explicitly enabled
+// (dev/staging via `ALLOW_TEST_OTP=true`). In production the flag is unset, so
+// the code is rejected — this is what closes the OTP / password-reset bypass.
+const ALLOW_TEST_OTP = process.env.ALLOW_TEST_OTP === "true";
+
+// Anti-spam / anti-enumeration: minimum gap between OTP sends to one destination.
+const OTP_RESEND_COOLDOWN_SECONDS = 60;
+
+// ─── OTP policy — single source of truth ─────────────────────────────────────
+// Every OTP message (the email template + the documented DLT SMS template)
+// derives its copy from these constants, so the validity a user is shown can
+// never drift from the real Firestore expiry / attempt limits.
+const OTP_LENGTH = 6;
+const OTP_EXPIRY_MINUTES = 10;
+const OTP_MAX_ATTEMPTS = 5;
+const OTP_EXPIRY_MS = OTP_EXPIRY_MINUTES * 60 * 1000;
+
+// ─── Brand tokens — kept consistent with the Tulanam app shell ───────────────
+// teal #0D9488 / navy #1E3A5F mirror lib/shared/theme/app_theme.dart so every
+// OTP message looks like the rest of the product.
+const BRAND = {
+  name: "Tulanam",
+  glyph: "⚖", // balance scale
+  website: "tulanam.com",
+  support: "support@tulanam.com",
+  noreply: "noreply@tulanam.com",
+  teal: "#0D9488",
+  tealTint: "#F0FDFA",
+  navy: "#1E3A5F",
+  slate: "#94A3B8",
+  ink: "#0F172A",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  pageBg: "#F4F6F8",
+};
+
+// ── Email building blocks ────────────────────────────────────────────────────
+// Table-based layout + inline styles so every Tulanam email survives Outlook /
+// Word-engine clients (no flexbox, no CSS gradients on divs). All OTP and
+// transactional emails share the same branded shell (header band + footer).
+const _EMAIL_FONT = "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const _EMAIL_MONO = "'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace";
+
+function _emailShell(innerHtml) {
+  const f = _EMAIL_FONT;
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:${BRAND.pageBg};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.pageBg};padding:32px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="width:480px;max-width:100%;background:#ffffff;border:1px solid ${BRAND.border};border-radius:12px;overflow:hidden;">
+        <tr><td style="background:${BRAND.navy};padding:22px 32px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+            <td style="font-family:${f};color:#ffffff;font-size:19px;font-weight:700;letter-spacing:0.3px;">
+              <span style="display:inline-block;width:26px;height:26px;background:${BRAND.teal};border-radius:6px;text-align:center;line-height:26px;font-size:15px;vertical-align:middle;margin-right:10px;">${BRAND.glyph}</span>${BRAND.name}
+            </td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="height:3px;background:${BRAND.teal};line-height:3px;font-size:0;">&nbsp;</td></tr>
+        <tr><td style="padding:32px;">${innerHtml}</td></tr>
+        <tr><td style="border-top:1px solid ${BRAND.border};padding:16px 32px;">
+          <p style="margin:0 0 6px;font-family:${f};color:${BRAND.slate};font-size:11px;line-height:1.55;">Automated message from ${BRAND.name}.</p>
+          <p style="margin:0;font-family:${f};color:${BRAND.slate};font-size:11px;line-height:1.55;">Need help? <a href="mailto:${BRAND.support}" style="color:${BRAND.teal};text-decoration:none;">${BRAND.support}</a> &nbsp;·&nbsp; <a href="https://${BRAND.website}" style="color:${BRAND.teal};text-decoration:none;">${BRAND.website}</a></p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+/**
+ * buildOtpEmail — the single template behind every OTP email (verification +
+ * password reset). Expiry copy is derived from OTP_EXPIRY_MINUTES, never hardcoded.
+ */
+function buildOtpEmail({ heading, intro, otp, securityNote }) {
+  const f = _EMAIL_FONT, mono = _EMAIL_MONO;
+  const expiry = `${OTP_EXPIRY_MINUTES} minute${OTP_EXPIRY_MINUTES === 1 ? "" : "s"}`;
+  return _emailShell(
+    `<h1 style="margin:0 0 8px;font-family:${f};color:${BRAND.ink};font-size:20px;font-weight:700;">${heading}</h1>
+          <p style="margin:0 0 24px;font-family:${f};color:${BRAND.muted};font-size:14px;line-height:1.55;">${intro}</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+            <td align="center" style="background:${BRAND.tealTint};border:1px solid ${BRAND.teal};border-radius:10px;padding:20px 16px;">
+              <div style="font-family:${f};color:${BRAND.muted};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;">Verification Code</div>
+              <div style="font-family:${mono};color:${BRAND.teal};font-size:34px;font-weight:700;letter-spacing:10px;line-height:1;">${otp}</div>
+            </td>
+          </tr></table>
+          <p style="margin:20px 0 0;font-family:${f};color:${BRAND.ink};font-size:13px;line-height:1.55;">This code is valid for <strong>${expiry}</strong> and can be used once.</p>
+          <p style="margin:8px 0 0;font-family:${f};color:${BRAND.muted};font-size:12px;line-height:1.55;">${securityNote}</p>`);
+}
+
+/**
+ * buildBrandEmail — generic branded template for all transactional notifications.
+ * rows: array of [label, value] shown in a bordered detail table.
+ * accent: "danger" | "warn" prepends a coloured status chip.
+ */
+function buildBrandEmail({ heading, intro, rows = [], note, ctaText, ctaUrl, accent }) {
+  const f = _EMAIL_FONT;
+  const chipColor = accent === "danger" ? "#DC2626" : accent === "warn" ? "#D97706" : BRAND.teal;
+  let inner = "";
+  if (accent === "danger" || accent === "warn") {
+    const label = accent === "danger" ? "Security alert" : "Action required";
+    inner += `<div style="display:inline-block;background:${chipColor};color:#ffffff;font-family:${f};font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:4px;margin-bottom:14px;">${label}</div>`;
+  }
+  inner += `<h1 style="margin:0 0 8px;font-family:${f};color:${BRAND.ink};font-size:20px;font-weight:700;">${heading}</h1>`;
+  if (intro) inner += `<p style="margin:0 0 20px;font-family:${f};color:${BRAND.muted};font-size:14px;line-height:1.55;">${intro}</p>`;
+  if (rows.length) {
+    inner += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.pageBg};border:1px solid ${BRAND.border};border-radius:10px;margin:0 0 20px;">`;
+    rows.forEach(([label, value], i) => {
+      const top = i === 0 ? "" : `border-top:1px solid ${BRAND.border};`;
+      inner += `<tr><td style="${top}padding:11px 16px;font-family:${f};color:${BRAND.muted};font-size:12px;">${label}</td>` +
+        `<td align="right" style="${top}padding:11px 16px;font-family:${f};color:${BRAND.ink};font-size:13px;font-weight:600;">${value}</td></tr>`;
+    });
+    inner += "</table>";
+  }
+  if (ctaText && ctaUrl) {
+    inner += `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;"><tr><td style="background:${BRAND.teal};border-radius:8px;"><a href="${ctaUrl}" style="display:inline-block;padding:11px 22px;font-family:${f};color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;">${ctaText}</a></td></tr></table>`;
+  }
+  if (note) inner += `<p style="margin:0;font-family:${f};color:${BRAND.muted};font-size:12px;line-height:1.55;">${note}</p>`;
+  return _emailShell(inner);
+}
+
+/**
+ * _sendBrandEmail — best-effort send of a branded email. Never throws.
+ */
+async function _sendBrandEmail(toEmail, subject, html) {
+  if (!toEmail) return false;
+  try {
+    const transporter = getMailTransporter();
+    const senderEmail = _fnConfig().gmail?.email || process.env.GMAIL_EMAIL || BRAND.noreply;
+    await transporter.sendMail({
+      from: `"${BRAND.name}" <${senderEmail}>`,
+      replyTo: BRAND.support,
+      to: toEmail,
+      subject,
+      html,
+    });
+    return true;
+  } catch (e) {
+    console.warn(`Email '${subject}' failed:`, e.message);
+    return false;
+  }
+}
+
+// ── Rendered email documents (inline image + PDF attachment) ─────────────────
+// Calls the isolated gen-2 renderEmailDoc over HTTP. Best-effort: returns null
+// on any failure so callers fall back to the plain buildBrandEmail HTML.
+async function _renderEmailAssets(kind, data, pageSize) {
+  const url = _fnConfig().render?.url || process.env.RENDER_URL;
+  if (!url) return null;
+  try {
+    const fetch = (await import("node-fetch")).default;
+    const r = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-render-secret": process.env.RENDER_SECRET || _fnConfig().render?.secret || "",
+      },
+      body: JSON.stringify({ kind, data, pageSize }),
+    });
+    if (!r.ok) { console.warn(`render ${kind} HTTP ${r.status}`); return null; }
+    return await r.json(); // { imageUrl, pdfBase64 }
+  } catch (e) {
+    console.warn(`render ${kind} call failed:`, e.message);
+    return null;
+  }
+}
+
+// Company details for the document band (name, GSTIN, PAN, address).
+async function _companyDetails(companyId) {
+  try {
+    const snap = await db.doc(`companies/${companyId}`).get();
+    const c = snap.exists ? (snap.data() || {}) : {};
+    const address = [c.address1, c.address2, c.state, c.pincode].filter(Boolean).join(", ");
+    return { name: c.name || "", gstin: c.gstin || "", pan: c.pan || "", address };
+  } catch (e) {
+    return { name: "", gstin: "", pan: "", address: "" };
+  }
+}
+
+// Company's configured normal-printer page size (A4/A5/Letter/Legal → PDF size).
+async function _printerPageSize(companyId) {
+  try {
+    const snap = await db.doc(`companies/${companyId}/settings/printing`).get();
+    const p = snap.exists ? (snap.data() || {}) : {};
+    return (p.normal && p.normal.paperSize) || p.normalPaperSize || "A4";
+  } catch (e) {
+    return "A4";
+  }
+}
+
+// Email carrying the rendered inline image + PDF attachment, with the plain
+// buildBrandEmail HTML kept beneath as the fallback (survives image-blocking).
+async function _sendRenderedEmail(toEmail, subject, opts) {
+  if (!toEmail) return false;
+  const { imageUrl, pdfBase64, pdfName, fallbackHtml, alt } = opts || {};
+  try {
+    const transporter = getMailTransporter();
+    const senderEmail = _fnConfig().gmail?.email || process.env.GMAIL_EMAIL || BRAND.noreply;
+    const html =
+      `<div style="background:#eef2f7;padding:20px 0;text-align:center"><img src="${imageUrl}" alt="${alt || BRAND.name}" style="display:block;max-width:600px;width:100%;margin:0 auto;border-radius:14px"/></div>` +
+      `<div style="margin-top:8px">${fallbackHtml || ""}</div>`;
+    const attachments = pdfBase64
+      ? [{ filename: pdfName || "document.pdf", content: Buffer.from(pdfBase64, "base64"), contentType: "application/pdf" }]
+      : [];
+    await transporter.sendMail({
+      from: `"${BRAND.name}" <${senderEmail}>`, replyTo: BRAND.support, to: toEmail, subject, html, attachments,
+    });
+    return true;
+  } catch (e) {
+    console.warn(`rendered email '${subject}' failed:`, e.message);
+    return false;
+  }
+}
+
+// Maps a weighment doc to the receipt template's data shape. NOTE: the CCTV
+// snapshot and customFields shapes are best-effort — verify against real docs.
+function _asImageUri(s) {
+  if (!s || typeof s !== "string") return null;
+  if (s.startsWith("data:") || s.startsWith("http")) return s;
+  return `data:image/jpeg;base64,${s}`;
+}
+async function _weighmentToReceiptData(companyId, w, ticket) {
+  const company = await _companyDetails(companyId);
+  const cf = [];
+  if (w.customFields && typeof w.customFields === "object") {
+    for (const [k, v] of Object.entries(w.customFields)) {
+      if (v != null && String(v).trim() !== "") cf.push({ k, v: String(v) });
+    }
+  }
+  const toFrames = (snaps) => {
+    if (!snaps) return [];
+    const arr = Array.isArray(snaps) ? snaps : Object.entries(snaps).map(([cam, img]) => ({ cam, img }));
+    return arr.slice(0, 3).map((s, i) => ({
+      cam: (s && s.cam) || `CAM ${i + 1}`,
+      ts: (s && s.ts) || "",
+      img: _asImageUri(typeof s === "string" ? s : (s && s.img)),
+    }));
+  };
+  const firstIsTare = String(w.firstWeightType || "").toLowerCase() === "tare";
+  const fmtKg = (n) => Math.round(n || 0).toLocaleString("en-IN");
+  const fmtDT = (ts) => (ts && ts.toDate)
+    ? ts.toDate().toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" })
+    : "";
+  return {
+    company,
+    customer: { name: w.customerName || "", phone: w.customerPhone || "", address: w.customerAddress || "" },
+    rst: String(w.rstNumber || ticket || "").replace(/^RST[-\s]*/i, ""),
+    date: w.completedAt && w.completedAt.toDate
+      ? w.completedAt.toDate().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })
+      : "",
+    status: "Completed",
+    vehicle: w.vehicleNumber || "",
+    material: w.material || "",
+    net: fmtKg(w.netWeight),
+    gross: { weight: fmtKg(w.grossWeight), time: fmtDT(firstIsTare ? w.secondWeightAt : w.firstWeightAt) },
+    tare: { weight: fmtKg(w.tareWeight), time: fmtDT(firstIsTare ? w.firstWeightAt : w.secondWeightAt) },
+    operator: { name: w.operatorName || "", weighbridge: w.weighbridgeName || "", port: w.portName || "", pc: w.pcName || "", shift: w.shift || "" },
+    customFields: cf,
+    cctv: { tare: toFrames(firstIsTare ? w.firstWeightSnapshots : w.secondWeightSnapshots), gross: toFrames(firstIsTare ? w.secondWeightSnapshots : w.firstWeightSnapshots) },
+  };
+}
+
+// ── SMS: OTP via Fast2SMS OTP API; transactional via DLT bulk route ───────────
+/**
+ * Fast2SMS OTP TEMPLATE — register this text on the DLT portal, create a
+ * Fast2SMS "OTP Template" from it, and put its OTP Template ID in FAST2SMS_OTP_ID.
+ * OTP is sent through the dedicated /dev/otp/send API (NOT the bulkV2 DLT route
+ * used by transactional messages, so sender_id/message do not apply here). We
+ * pass our OWN otp value so it matches the hash we store for verification;
+ * Fast2SMS injects it as the template's {#var#}. DLT Header (sender ID) = TULNAM.
+ *
+ *   Tulanam: {#var#} is your verification code. Valid for 10 minutes. Do not
+ *   share it with anyone.
+ */
+const FAST2SMS_OTP_TEMPLATE_TEXT =
+  `${BRAND.name}: {#var#} is your verification code. Valid for ${OTP_EXPIRY_MINUTES} minutes. ` +
+  "Do not share it with anyone.";
+
+/**
+ * _sendOtpSms — sends the OTP via the Fast2SMS OTP API (/dev/otp/send).
+ * Returns true if a send was attempted (creds present), false if skipped/failed.
+ */
+async function _sendOtpSms(digits, otp) {
+  const apiKey = _fnConfig().fast2sms?.api_key || process.env.FAST2SMS_API_KEY;
+  const otpId = _fnConfig().fast2sms?.otp_id || process.env.FAST2SMS_OTP_ID;
+  if (!apiKey || !otpId) {
+    console.warn(
+      "FAST2SMS OTP not configured (need FAST2SMS_API_KEY + FAST2SMS_OTP_ID), skipping. " +
+      `Register this OTP template: ${FAST2SMS_OTP_TEMPLATE_TEXT}`);
+    return false;
+  }
+  try {
+    const fetch = (await import("node-fetch")).default;
+    const response = await fetch("https://www.fast2sms.com/dev/otp/send", {
+      method: "POST",
+      headers: { "authorization": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mobile: String(digits).replace(/\D/g, "").slice(-10),
+        otp_id: otpId,
+        otp: otp, // our generated value — matches the hash we verify against
+        otp_length: OTP_LENGTH,
+        otp_expiry: OTP_EXPIRY_MINUTES, // minutes
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    const ok = !!result.return;
+    if (!ok) console.error("FAST2SMS OTP error:", result);
+    return ok;
+  } catch (e) {
+    console.warn("FAST2SMS OTP send failed:", e.message);
+    return false;
+  }
+}
+
+/**
+ * TRANSACTIONAL DLT SMS TEMPLATES (Fast2SMS bulkV2 "dlt" route, Header = TULNAM).
+ * Each entry is ONE DLT template to register on the portal; put its Template ID
+ * in the listed env var. DLT rules enforced here: ≤3 variables, pipe-separated
+ * in the EXACT order of `vars`, and static text between every {#var#} (operators
+ * reject adjacent variables). Until an entry's env var is set, that SMS is logged
+ * and skipped — it never throws into business logic.
+ */
+// Lean SMS set — SMS only where it must reach someone off-screen / out-of-band.
+// Everything else (welcome, licence, KYC, operator lifecycle, account-security,
+// backup, quota) is delivered by email + the in-app notification center instead.
+const DLT_TEMPLATES = {
+  securityAlert: { env: "FAST2SMS_TPL_SECURITY_ALERT", vars: ["alert"],
+    text: "Tulanam security alert: {#var#}. Please review your account now. - Tulanam" },
+  gateAlert: { env: "FAST2SMS_TPL_GATE_ALERT", vars: ["alert"],
+    text: "Tulanam gate alert: {#var#}. Please check the gate control system. - Tulanam" },
+  addressGrace: { env: "FAST2SMS_TPL_ADDRESS_GRACE", vars: ["days"],
+    text: "Tulanam: Verify your business address within {#var#} days to keep your account active. Use the code in the letter we mailed. - Tulanam" },
+  weighmentReceipt: { env: "FAST2SMS_TPL_WEIGHMENT_RECEIPT", vars: ["ticket", "vehicle", "net"],
+    text: "Tulanam: Weighment {#var#} for vehicle {#var#} is recorded. Net weight {#var#} kg. - Tulanam" },
+  dailyDigest: { env: "FAST2SMS_TPL_DAILY_DIGEST", vars: ["weighments", "tonnage"],
+    text: "Tulanam: Daily summary — {#var#} weighments, {#var#} tonnes recorded. - Tulanam" },
+};
+
+/**
+ * _sendDltSms — best-effort transactional SMS via the registered DLT template.
+ * `vars` must match templateKey's registered order. Never throws.
+ */
+async function _sendDltSms(templateKey, digits, vars = []) {
+  const tpl = DLT_TEMPLATES[templateKey];
+  if (!tpl) { console.error(`Unknown DLT template: ${templateKey}`); return false; }
+  const apiKey = _fnConfig().fast2sms?.api_key || process.env.FAST2SMS_API_KEY;
+  const senderId = _fnConfig().fast2sms?.sender_id || process.env.FAST2SMS_SENDER_ID;
+  const templateId = process.env[tpl.env];
+  if (!apiKey || !senderId || !templateId) {
+    console.warn(`SMS '${templateKey}' skipped (set ${tpl.env}). Template to register: ${tpl.text}`);
+    return false;
+  }
+  const cleaned = String(digits || "").replace(/\D/g, "").slice(-10);
+  if (cleaned.length !== 10) return false;
+  try {
+    const fetch = (await import("node-fetch")).default;
+    const payload = { route: "dlt", sender_id: senderId, message: templateId, flash: 0, numbers: cleaned };
+    if (tpl.vars.length) payload.variables_values = vars.map((v) => String(v)).join("|");
+    const response = await fetch("https://www.fast2sms.com/dev/bulkV2", {
+      method: "POST",
+      headers: { "authorization": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json().catch(() => ({}));
+    const ok = !!result.return;
+    if (!ok) console.error(`FAST2SMS '${templateKey}' error:`, result);
+    return ok;
+  } catch (e) {
+    console.warn(`SMS '${templateKey}' send failed:`, e.message);
+    return false;
+  }
+}
+
+/**
+ * resolveCompanyAdminContact — best-effort {email, phone, name} for a company's
+ * admin. Prefers the company doc, falls back to the companyAdmin operator.
+ */
+async function resolveCompanyAdminContact(companyId) {
+  const out = { email: null, phone: null, name: "Admin" };
+  if (!companyId) return out;
+  try {
+    const compSnap = await db.doc(`companies/${companyId}`).get();
+    if (compSnap.exists) {
+      const c = compSnap.data() || {};
+      out.email = c.email || c.contactEmail || null;
+      out.phone = c.phone || c.contactPhone || null;
+      out.name = c.contactName || c.name || out.name;
+    }
+    if (!out.email || !out.phone || out.name === "Admin") {
+      const opSnap = await db.collection(`companies/${companyId}/operators`)
+        .where("role", "==", "companyAdmin").limit(1).get();
+      if (!opSnap.empty) {
+        const op = opSnap.docs[0].data() || {};
+        out.email = out.email || op.email || null;
+        out.phone = out.phone || op.phone || null;
+        if (out.name === "Admin") out.name = op.name || out.name;
+      }
+    }
+  } catch (e) {
+    console.warn("resolveCompanyAdminContact failed:", e.message);
+  }
+  return out;
+}
+
+/**
+ * notifyContact — central best-effort email+SMS fan-out. Never throws into the
+ * business path. Pass `to` directly or a `companyId` to resolve the admin.
+ */
+// Image-only email (per the delivery choice): the rendered design as a single
+// <img>, with the essential info in `alt` (so it still reads when images are
+// blocked) and the whole image wrapped in `linkUrl` when there's a CTA. Falls
+// back to plain HTML if the image is missing.
+async function _sendImageEmail(toEmail, subject, opts) {
+  if (!toEmail) return false;
+  const { imageUrl, alt, linkUrl, fallbackHtml } = opts || {};
+  if (!imageUrl) return fallbackHtml ? _sendBrandEmail(toEmail, subject, fallbackHtml) : false;
+  try {
+    const transporter = getMailTransporter();
+    const senderEmail = _fnConfig().gmail?.email || process.env.GMAIL_EMAIL || BRAND.noreply;
+    const safeAlt = String(alt || BRAND.name).replace(/"/g, "&quot;");
+    const img = `<img src="${imageUrl}" alt="${safeAlt}" style="display:block;max-width:600px;width:100%;margin:0 auto;border:0;border-radius:14px"/>`;
+    const inner = linkUrl ? `<a href="${linkUrl}" style="text-decoration:none">${img}</a>` : img;
+    await transporter.sendMail({
+      from: `"${BRAND.name}" <${senderEmail}>`, replyTo: BRAND.support, to: toEmail, subject,
+      html: `<div style="background:#eef2f7;padding:20px 0;text-align:center">${inner}</div>`,
+    });
+    return true;
+  } catch (e) {
+    console.warn(`image email '${subject}' failed:`, e.message);
+    return fallbackHtml ? _sendBrandEmail(toEmail, subject, fallbackHtml) : false;
+  }
+}
+
+// Render a designed email (kind=otp|notification|…) and send it image-only.
+// On any render failure, sends `fallbackHtml` so the email always goes out.
+async function _sendDesignedEmail(toEmail, subject, kind, data, opts = {}) {
+  if (!toEmail) return false;
+  const rendered = await _renderEmailAssets(kind, data, opts.pageSize);
+  return _sendImageEmail(toEmail, subject, {
+    imageUrl: rendered && rendered.imageUrl, alt: opts.alt, linkUrl: opts.linkUrl, fallbackHtml: opts.fallbackHtml,
+  });
+}
+
+// Plain-HTML fallback built from a structured notification (old design, used
+// only when the rendered image can't be produced).
+function _notifToBrandHtml(n) {
+  const note = [n.note, n.callout && n.callout.text].filter(Boolean).join(" ");
+  return buildBrandEmail({
+    accent: n.accent, heading: n.heading, intro: n.intro, rows: n.rows || [],
+    ctaText: n.ctaText, ctaUrl: n.ctaUrl, note,
+  });
+}
+
+// ── Per-company monthly send caps (cost guard) ───────────────────────────────
+// Bounds spend per company: once the month's email/SMS cap is hit, further sends
+// of that kind are skipped. Best-effort (a tiny over-count under heavy concurrency
+// is acceptable for a budget guard). Passing no companyId = UNCAPPED — used for
+// OTP/auth mail, which must never be dropped for a cost cap.
+// Per-company override: companies/{id}/settings/limits { emailMonthly, smsMonthly }
+// (0 or unset on a key = unlimited for that key). Defaults via env/config.
+const DEFAULT_EMAIL_MONTHLY = Number(process.env.DEFAULT_EMAIL_MONTHLY || _fnConfig().limits?.email_monthly || 5000);
+const DEFAULT_SMS_MONTHLY = Number(process.env.DEFAULT_SMS_MONTHLY || _fnConfig().limits?.sms_monthly || 1000);
+
+// opts.force = a CRITICAL message (security alert, password-changed, etc.): it
+// always sends and is never blocked, but still counts toward usage. Non-critical
+// sends are blocked once the cap is hit, and the admin gets a one-time in-app
+// warning (free, uncapped) when usage crosses 90%.
+async function _consumeQuota(companyId, kind, opts = {}) {
+  if (!companyId) return true; // uncapped (OTP / pre-company)
+  try {
+    const limSnap = await db.doc(`companies/${companyId}/settings/limits`).get();
+    const lim = limSnap.exists ? (limSnap.data() || {}) : {};
+    const cap = kind === "sms"
+      ? Number(lim.smsMonthly != null ? lim.smsMonthly : DEFAULT_SMS_MONTHLY)
+      : Number(lim.emailMonthly != null ? lim.emailMonthly : DEFAULT_EMAIL_MONTHLY);
+    if (!(cap > 0) && !opts.force) return true; // unlimited & non-critical — skip tracking
+    const period = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).slice(0, 7); // YYYY-MM
+    const ref = db.doc(`companies/${companyId}/usage/${period}`);
+    const snap = await ref.get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const used = Number(data[kind] || 0);
+    const label = kind === "sms" ? "SMS" : "Email";
+    const things = kind === "sms" ? "messages" : "emails";
+    if (!opts.force && cap > 0 && used >= cap) {
+      await ref.set({ [`${kind}Blocked`]: admin.firestore.FieldValue.increment(1) }, { merge: true });
+      console.warn(`quota: ${kind} cap (${cap}) reached for ${companyId} — send skipped`);
+      // One-time "limit reached" in-app notice (free, uncapped).
+      if (!data[`${kind}HitNotified`]) {
+        await ref.set({ [`${kind}HitNotified`]: true }, { merge: true });
+        await _writeInApp({
+          companyId, category: "billing", severity: "warn", link: "/settings/license",
+          title: `${label} limit reached`,
+          body: `Your monthly ${label} limit (${cap}) is reached. Non-critical ${things} are paused until next month — security alerts still send.`,
+        });
+      }
+      return false;
+    }
+    await ref.set({ [kind]: admin.firestore.FieldValue.increment(1), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    // One-time 90% warning to the admin via the in-app channel (free, uncapped).
+    if (!opts.force && cap > 0 && used + 1 >= Math.floor(cap * 0.9) && !data[`${kind}Warned`]) {
+      await ref.set({ [`${kind}Warned`]: true }, { merge: true });
+      await _writeInApp({
+        companyId, category: "billing", severity: "warn", link: "/settings/license",
+        title: `${label} limit almost reached`,
+        body: `${label} usage is ${used + 1} of ${cap} this month. Once the limit is hit, further ${things} are skipped — security alerts still send.`,
+      });
+    }
+    return true;
+  } catch (e) {
+    console.warn("quota check failed (allowing send):", e.message);
+    return true; // fail-open: a transient error must not drop mail
+  }
+}
+
+async function notifyContact({ to, companyId, subject, emailHtml, notif, sms, critical, skipInApp }) {
+  try {
+    // In-app entry FIRST (free, always — never gated by the email/SMS cap, and
+    // written before contact resolution so a resolve failure can't lose the most
+    // reliable channel) for every structured notification. skipInApp avoids a
+    // duplicate entry when the same notice is sent to multiple addresses.
+    if (notif && companyId && !skipInApp) {
+      await _writeInApp({
+        companyId, operatorEmail: notif.operatorEmail || "*",
+        category: notif.category || "system",
+        severity: notif.accent === "danger" ? "critical" : notif.accent === "warn" ? "warn" : "info",
+        title: notif.heading, body: notif.intro || notif.note || "", link: notif.link || null,
+      });
+    }
+    const r = to || (companyId ? await resolveCompanyAdminContact(companyId) : {});
+    if (r && r.email && (notif || emailHtml) && await _consumeQuota(companyId, "email", { force: critical })) {
+      if (notif) {
+        // New design, rendered image-only (HTML fallback on render failure).
+        const company = notif.company || (companyId ? await _companyDetails(companyId) : {});
+        const data = {
+          pill: notif.pill, accent: notif.accent, heading: notif.heading, intro: notif.intro,
+          rows: notif.rows, callout: notif.callout, ctaText: notif.ctaText, ctaUrl: notif.ctaUrl, note: notif.note, company,
+        };
+        const alt = [notif.heading, notif.intro].filter(Boolean).join(" — ");
+        await _sendDesignedEmail(r.email, subject || BRAND.name, "notification", data,
+          { alt, linkUrl: notif.ctaUrl, fallbackHtml: _notifToBrandHtml(notif) });
+      } else if (emailHtml) {
+        await _sendBrandEmail(r.email, subject || BRAND.name, emailHtml);
+      }
+    }
+    if (sms && r && r.phone && await _consumeQuota(companyId, "sms", { force: critical })) await _sendDltSms(sms.template, r.phone, sms.vars || []);
+  } catch (e) {
+    console.warn("notifyContact failed:", e.message);
+  }
+}
+
+/**
+ * _notifyPasswordChanged — security notice to a user whose password changed.
+ * Looks up the operator by email to also reach their phone. Best-effort.
+ */
+async function _notifyPasswordChanged(email) {
+  if (!email) return;
+  const addr = String(email).toLowerCase();
+  let phone = null, name = "there", companyId = null;
+  try {
+    const opSnap = await db.collectionGroup("operators").where("email", "==", addr).limit(1).get();
+    if (!opSnap.empty) {
+      const op = opSnap.docs[0].data() || {};
+      phone = op.phone || null;
+      name = op.name || name;
+      companyId = opSnap.docs[0].ref.parent.parent?.id || null; // company that owns this operator
+    }
+  } catch (e) {
+    console.warn("password-change lookup failed:", e.message);
+  }
+  await notifyContact({
+    to: { email: addr, phone, name },
+    companyId,
+    critical: true,
+    subject: `${BRAND.name}: your password was changed`,
+    notif: ({
+      category: "account",
+      link: "/settings/mfa",
+      operatorEmail: addr,
+      accent: "danger",
+      heading: "Your password was changed",
+      intro: `The password for your ${BRAND.name} account (${addr}) was just changed. If this was you, no further action is needed.`,
+      note: `If you did NOT do this, contact ${BRAND.support} immediately — your account may be at risk.`,
+    }),
+  });
+}
+
+/**
+ * Throws resource-exhausted if an OTP for [docId] was issued within the cooldown
+ * window. Call before writing a fresh OTP in the send* functions.
+ */
+async function _enforceOtpCooldown(docId) {
+  const snap = await db.collection("verification_otps").doc(docId).get();
+  if (snap.exists) {
+    const created = snap.data().createdAt;
+    if (created && typeof created.toDate === "function") {
+      const ageMs = Date.now() - created.toDate().getTime();
+      if (ageMs < OTP_RESEND_COOLDOWN_SECONDS * 1000) {
+        const wait = Math.ceil((OTP_RESEND_COOLDOWN_SECONDS * 1000 - ageMs) / 1000);
+        throw new functions.https.HttpsError(
+          "resource-exhausted", `Please wait ${wait}s before requesting another code.`);
+      }
+    }
+  }
 }
 
 /**
@@ -1844,52 +3554,44 @@ exports.sendEmailOTP = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", "Valid email required");
   }
 
+  const emailLc = email.toLowerCase();
   const otp = generateOTP();
   const expiresAt = admin.firestore.Timestamp.fromDate(
-    new Date(Date.now() + 10 * 60 * 1000)
+    new Date(Date.now() + OTP_EXPIRY_MS)
   );
-
-  // Store OTP (hashed for security)
   const crypto = require("crypto");
   const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
 
-  await db.collection("verification_otps").doc(email.toLowerCase()).set({
-    otpHash,
-    expiresAt,
-    attempts: 0,
-    type: "email",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  // Cooldown check + OTP write ATOMICALLY. Two near-simultaneous send calls used
+  // to both pass the (read-then-write) cooldown and both store an OTP — leaving
+  // only the SECOND code valid (the "OTP sent twice, code doesn't work" bug).
+  // In a transaction the loser sees the winner's doc and is rejected, so exactly
+  // one OTP is stored and only one email goes out.
+  const otpRef = db.collection("verification_otps").doc(emailLc);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(otpRef);
+    if (snap.exists) {
+      const created = snap.data().createdAt;
+      if (created && typeof created.toDate === "function") {
+        const ageMs = Date.now() - created.toDate().getTime();
+        if (ageMs < OTP_RESEND_COOLDOWN_SECONDS * 1000) {
+          const wait = Math.ceil((OTP_RESEND_COOLDOWN_SECONDS * 1000 - ageMs) / 1000);
+          throw new functions.https.HttpsError("resource-exhausted", `Please wait ${wait}s before requesting another code.`);
+        }
+      }
+    }
+    tx.set(otpRef, { otpHash, expiresAt, attempts: 0, type: "email", createdAt: admin.firestore.FieldValue.serverTimestamp() });
   });
 
-  // Send email (graceful fallback if no credentials configured)
+  // Send email — image-only design (code stays in subject + image alt), HTML fallback.
   try {
-    const transporter = getMailTransporter();
-    const senderEmail = functions.config().gmail?.email || process.env.GMAIL_EMAIL || "noreply@weighbridge.app";
-
-    await transporter.sendMail({
-      from: `"Weighbridge" <${senderEmail}>`,
-      to: email,
-      subject: "Your Weighbridge Verification Code",
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-          <div style="text-align: center; margin-bottom: 24px;">
-            <div style="width: 48px; height: 48px; background: #059669; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">
-              <span style="color: white; font-size: 24px;">⚖</span>
-            </div>
-          </div>
-          <h2 style="text-align: center; color: #1a1a1a; margin-bottom: 8px;">Verification Code</h2>
-          <p style="text-align: center; color: #666; font-size: 14px; margin-bottom: 24px;">
-            Enter this code to verify your email address for Weighbridge Management.
-          </p>
-          <div style="text-align: center; background: #f3f4f6; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-            <span style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #059669;">${otp}</span>
-          </div>
-          <p style="text-align: center; color: #999; font-size: 12px;">
-            This code expires in 10 minutes. Do not share it with anyone.
-          </p>
-        </div>
-      `,
-    });
+    const heading = "Your verification code";
+    const intro = `Use the code below to continue. Enter it in ${BRAND.name} to confirm it's you.`;
+    const securityNote = `If you didn't request this, you can safely ignore this email. ${BRAND.name} will never ask you to share this code.`;
+    await _sendDesignedEmail(email, `${BRAND.name} verification code: ${otp}`, "otp",
+      { eyebrow: "Verification", heading, intro, otp, securityNote, company: {} },
+      { alt: `${BRAND.name} verification code: ${otp} — expires in ${OTP_EXPIRY_MINUTES} minutes`,
+        fallbackHtml: buildOtpEmail({ heading, intro, otp, securityNote }) });
   } catch (e) {
     console.warn("Email send failed (credentials not configured?):", e.message);
   }
@@ -1907,7 +3609,7 @@ exports.verifyEmailOTP = functions.https.onCall(async (data, context) => {
   }
 
   // Test bypass: 000000 always passes (remove in production)
-  if (otp === "000000") {
+  if (otp === "000000" && ALLOW_TEST_OTP) {
     // Clean up any pending OTP doc
     const docRef = db.collection("verification_otps").doc(email.toLowerCase());
     const doc = await docRef.get();
@@ -1942,7 +3644,7 @@ exports.verifyEmailOTP = functions.https.onCall(async (data, context) => {
   }
 
   // Check attempts (max 5)
-  if (otpData.attempts >= 5) {
+  if (otpData.attempts >= OTP_MAX_ATTEMPTS) {
     await docRef.delete();
     throw new functions.https.HttpsError("resource-exhausted", "Too many attempts. Request a new OTP.");
   }
@@ -1990,9 +3692,11 @@ exports.sendPhoneOTP = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", "10-digit Indian mobile number required");
   }
 
+  await _enforceOtpCooldown(`phone_${digits}`);
+
   const otp = generateOTP();
   const expiresAt = admin.firestore.Timestamp.fromDate(
-    new Date(Date.now() + 10 * 60 * 1000)
+    new Date(Date.now() + OTP_EXPIRY_MS)
   );
 
   const crypto = require("crypto");
@@ -2008,35 +3712,7 @@ exports.sendPhoneOTP = functions.https.onCall(async (data, context) => {
 
   // Send via FAST2SMS DLT route (graceful fallback if not configured)
   try {
-    const apiKey = functions.config().fast2sms?.api_key || process.env.FAST2SMS_API_KEY;
-    const senderId = functions.config().fast2sms?.sender_id || process.env.FAST2SMS_SENDER_ID;
-    const templateId = functions.config().fast2sms?.template_id || process.env.FAST2SMS_TEMPLATE_ID;
-
-    if (!apiKey) {
-      console.warn("FAST2SMS API key not configured, skipping SMS send");
-    } else {
-      const fetch = (await import("node-fetch")).default;
-      const response = await fetch("https://www.fast2sms.com/dev/bulkV2", {
-        method: "POST",
-        headers: {
-          "authorization": apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          route: "dlt",
-          sender_id: senderId,
-          message: templateId,
-          variables_values: otp,
-          flash: 0,
-          numbers: digits,
-        }),
-      });
-
-      const result = await response.json();
-      if (!result.return) {
-        console.error("FAST2SMS error:", result);
-      }
-    }
+    await _sendOtpSms(digits, otp);
   } catch (e) {
     console.warn("SMS send failed:", e.message);
   }
@@ -2056,7 +3732,7 @@ exports.verifyPhoneOTP = functions.https.onCall(async (data, context) => {
   const digits = phone.replace(/\D/g, "").slice(-10);
 
   // Test bypass: 000000 always passes (remove in production)
-  if (otp === "000000") {
+  if (otp === "000000" && ALLOW_TEST_OTP) {
     const docRef = db.collection("verification_otps").doc(`phone_${digits}`);
     const doc = await docRef.get();
     if (doc.exists) await docRef.delete();
@@ -2088,7 +3764,7 @@ exports.verifyPhoneOTP = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("deadline-exceeded", "OTP expired. Request a new one.");
   }
 
-  if (otpData.attempts >= 5) {
+  if (otpData.attempts >= OTP_MAX_ATTEMPTS) {
     await docRef.delete();
     throw new functions.https.HttpsError("resource-exhausted", "Too many attempts. Request a new OTP.");
   }
@@ -2157,7 +3833,7 @@ exports.verifyOTP = functions.https.onCall(async (data) => {
     return { valid: false, message: "OTP expired. Request a new one." };
   }
 
-  if (otpData.attempts >= 5) {
+  if (otpData.attempts >= OTP_MAX_ATTEMPTS) {
     await otpRef.delete();
     return { valid: false, message: "Too many attempts. Request a new OTP." };
   }
@@ -2215,7 +3891,7 @@ exports.updateCompanyContact = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("deadline-exceeded", "OTP expired. Request a new one.");
   }
 
-  if (otpData.attempts >= 5) {
+  if (otpData.attempts >= OTP_MAX_ATTEMPTS) {
     await otpRef.delete();
     throw new functions.https.HttpsError("resource-exhausted", "Too many attempts. Request a new OTP.");
   }
@@ -2284,6 +3960,37 @@ exports.updateCompanyContact = functions.https.onCall(async (data, context) => {
     user: context.auth?.token?.email || "system",
     timestamp: now,
   });
+
+  // Confirm to the NEW contact and alert the OLD one (the security signal).
+  // companyDoc was read before commit, so it still holds the previous values.
+  const oldData = companyDoc.exists ? (companyDoc.data() || {}) : {};
+  const newVal = field === "email" ? newValue.toLowerCase() : newValue;
+  const oldVal = oldData[field] || null;
+  const label = field === "email" ? "email address" : "phone number";
+  const adminName = oldData.contactName || oldData.name || "there";
+  const contactNotif = {
+    category: "account",
+    link: "/profile",
+    operatorEmail: oldData.email || newVal || null, // the account whose contact changed
+    accent: "warn",
+    heading: `Your account ${label} was updated`,
+    intro: `Hi ${adminName}, the ${label} on your ${BRAND.name} account was just changed.`,
+    rows: [["Updated field", label], ["New value", newVal]],
+    note: `If you did not make this change, contact ${BRAND.support} immediately.`,
+  };
+  if (field === "email") {
+    await notifyContact({ to: { email: newVal }, subject: `${BRAND.name}: your email was updated`, companyId, notif: contactNotif, critical: true });
+    if (oldVal && oldVal !== newVal) {
+      await notifyContact({ to: { email: oldVal }, subject: `${BRAND.name}: your email was changed`, companyId, notif: contactNotif, critical: true, skipInApp: true });
+    }
+  } else {
+    // Phone change → email + in-app only (no SMS to the phone numbers).
+    if (oldData.email) {
+      await notifyContact({ to: { email: oldData.email }, subject: `${BRAND.name}: your phone number was updated`, companyId, notif: contactNotif, critical: true });
+    } else {
+      await notifyContact({ companyId, notif: contactNotif }); // in-app notice at least
+    }
+  }
 
   return { success: true, field, verified: true };
 });
@@ -2573,7 +4280,7 @@ exports.verifyGstinOwnership = functions.https.onCall(async (data, context) => {
 
     // If verified, mark in GSTIN registry
     if (verified && companyId) {
-      const registryRef = db.doc(`global/gstin_registry/${normalized}`);
+      const registryRef = db.collection("gstin_registry").doc(normalized);
       await registryRef.set({
         ownershipVerified: true,
         ownershipVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -2587,6 +4294,12 @@ exports.verifyGstinOwnership = functions.https.onCall(async (data, context) => {
         gstinVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
         gstinVerificationMethod: verificationMethod,
       }, { merge: true });
+
+      await _writeInApp({
+        companyId, category: "kyc", severity: "info", link: "/settings/general",
+        title: "GSTIN verified",
+        body: `Your GSTIN ${normalized} ownership was confirmed via e-way bill.`,
+      }).catch((e) => console.warn("gstin-verified notice failed:", e.message));
     }
 
     return {
@@ -3530,6 +5243,8 @@ exports.sendPasswordResetOTP = functions.https.onCall(async (data, context) => {
 
   const normalizedEmail = email.trim().toLowerCase();
 
+  await _enforceOtpCooldown(`pwreset_${normalizedEmail}`);
+
   // Look up operator by email (try collectionGroup, fallback to top-level companies)
   let phone = null;
   let userName = "User";
@@ -3569,7 +5284,7 @@ exports.sendPasswordResetOTP = functions.https.onCall(async (data, context) => {
   // Generate OTP
   const otp = generateOTP();
   const expiresAt = admin.firestore.Timestamp.fromDate(
-    new Date(Date.now() + 10 * 60 * 1000)
+    new Date(Date.now() + OTP_EXPIRY_MS)
   );
 
   const crypto = require("crypto");
@@ -3585,35 +5300,15 @@ exports.sendPasswordResetOTP = functions.https.onCall(async (data, context) => {
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  // Send OTP via email
+  // Send OTP via email — image-only design (code in subject + image alt), HTML fallback.
   try {
-    const transporter = getMailTransporter();
-    const senderEmail = functions.config().gmail?.email || process.env.GMAIL_EMAIL || "noreply@weighbridge.app";
-
-    await transporter.sendMail({
-      from: `"Weighbridge" <${senderEmail}>`,
-      to: normalizedEmail,
-      subject: "Password Reset Code - Weighbridge",
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-          <div style="text-align: center; margin-bottom: 24px;">
-            <div style="width: 48px; height: 48px; background: #059669; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">
-              <span style="color: white; font-size: 24px;">⚖</span>
-            </div>
-          </div>
-          <h2 style="text-align: center; color: #1a1a1a; margin-bottom: 8px;">Password Reset</h2>
-          <p style="text-align: center; color: #666; font-size: 14px; margin-bottom: 24px;">
-            Hi ${userName}, use this code to reset your Weighbridge password.
-          </p>
-          <div style="text-align: center; background: #f3f4f6; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-            <span style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #059669;">${otp}</span>
-          </div>
-          <p style="text-align: center; color: #999; font-size: 12px;">
-            This code expires in 10 minutes. If you didn't request this, ignore this message.
-          </p>
-        </div>
-      `,
-    });
+    const heading = "Reset your password";
+    const intro = `Hi ${userName}, use the code below to reset your ${BRAND.name} password.`;
+    const securityNote = `If you didn't request a password reset, ignore this email — your password stays unchanged. ${BRAND.name} will never ask you to share this code.`;
+    await _sendDesignedEmail(normalizedEmail, `${BRAND.name} password reset code: ${otp}`, "otp",
+      { eyebrow: "Password reset", heading, intro, otp, securityNote, company: {} },
+      { alt: `${BRAND.name} password reset code: ${otp} — expires in ${OTP_EXPIRY_MINUTES} minutes`,
+        fallbackHtml: buildOtpEmail({ heading, intro, otp, securityNote }) });
   } catch (e) {
     console.warn("Password reset email send failed:", e.message);
   }
@@ -3626,29 +5321,7 @@ exports.sendPasswordResetOTP = functions.https.onCall(async (data, context) => {
     if (digits.length === 10) {
       maskedPhone = `******${digits.slice(-4)}`;
       try {
-        const apiKey = functions.config().fast2sms?.api_key || process.env.FAST2SMS_API_KEY;
-        const senderId = functions.config().fast2sms?.sender_id || process.env.FAST2SMS_SENDER_ID;
-        const templateId = functions.config().fast2sms?.template_id || process.env.FAST2SMS_TEMPLATE_ID;
-
-        if (apiKey) {
-          const fetch = (await import("node-fetch")).default;
-          await fetch("https://www.fast2sms.com/dev/bulkV2", {
-            method: "POST",
-            headers: {
-              "authorization": apiKey,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              route: "dlt",
-              sender_id: senderId,
-              message: templateId,
-              variables_values: otp,
-              flash: 0,
-              numbers: digits,
-            }),
-          });
-          phoneSent = true;
-        }
+        phoneSent = await _sendOtpSms(digits, otp);
       } catch (e) {
         console.warn("Password reset SMS send failed:", e.message);
       }
@@ -3670,6 +5343,24 @@ exports.sendPasswordResetOTP = functions.https.onCall(async (data, context) => {
  * verifyPasswordResetOTP - Verifies OTP for password reset flow.
  * Returns a token that resetUserPassword accepts.
  */
+/**
+ * Mints a single-use, email-bound, short-lived password-reset token and stores
+ * it server-side. resetUserPassword validates and consumes it. This replaces
+ * the old static "otp_verified"/"000000" string, which let anyone reset any
+ * account's password without proving they completed the OTP step.
+ */
+async function _mintPasswordResetToken(normalizedEmail) {
+  const crypto = require("crypto");
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 10 * 60 * 1000));
+  await db.collection("password_reset_tokens").doc(token).set({
+    email: normalizedEmail,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    expiresAt,
+  });
+  return token;
+}
+
 exports.verifyPasswordResetOTP = functions.https.onCall(async (data, context) => {
   const { email, otp } = data;
   if (!email || !otp) {
@@ -3678,12 +5369,13 @@ exports.verifyPasswordResetOTP = functions.https.onCall(async (data, context) =>
 
   const normalizedEmail = email.trim().toLowerCase();
 
-  // Test bypass
-  if (otp === "000000") {
+  // Test bypass: 000000 is accepted as a valid OTP *code* (test flows). It still
+  // mints a real one-time reset token — it is NOT a skeleton key for the reset.
+  if (otp === "000000" && ALLOW_TEST_OTP) {
     const docRef = db.collection("verification_otps").doc(`pwreset_${normalizedEmail}`);
     const doc = await docRef.get();
     if (doc.exists) await docRef.delete();
-    return { success: true, verified: true, verificationToken: "otp_verified" };
+    return { success: true, verified: true, verificationToken: await _mintPasswordResetToken(normalizedEmail) };
   }
 
   const docRef = db.collection("verification_otps").doc(`pwreset_${normalizedEmail}`);
@@ -3700,7 +5392,7 @@ exports.verifyPasswordResetOTP = functions.https.onCall(async (data, context) =>
     throw new functions.https.HttpsError("deadline-exceeded", "OTP expired. Request a new one.");
   }
 
-  if (otpData.attempts >= 5) {
+  if (otpData.attempts >= OTP_MAX_ATTEMPTS) {
     await docRef.delete();
     throw new functions.https.HttpsError("resource-exhausted", "Too many attempts. Request a new OTP.");
   }
@@ -3714,7 +5406,7 @@ exports.verifyPasswordResetOTP = functions.https.onCall(async (data, context) =>
   }
 
   await docRef.delete();
-  return { success: true, verified: true, verificationToken: "otp_verified" };
+  return { success: true, verified: true, verificationToken: await _mintPasswordResetToken(normalizedEmail) };
 });
 
 /**
@@ -3723,7 +5415,7 @@ exports.verifyPasswordResetOTP = functions.https.onCall(async (data, context) =>
  * Caller must have already verified OTP via verifyPasswordResetOTP.
  */
 exports.resetUserPassword = functions.https.onCall(async (data, context) => {
-  const { email, uid: clientUid, newPassword, verificationToken } = data;
+  const { email, newPassword, verificationToken } = data;
 
   if (!newPassword) {
     throw new functions.https.HttpsError("invalid-argument", "New password required");
@@ -3733,20 +5425,36 @@ exports.resetUserPassword = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", "Password must be at least 8 characters");
   }
 
-  if (verificationToken !== "otp_verified" && verificationToken !== "000000") {
-    throw new functions.https.HttpsError("permission-denied", "Identity not verified");
-  }
-
-  // Resolve UID: context.auth (non-anonymous) > client UID > email lookup > create account
-  let uid;
   const normalizedEmail = email ? email.trim().toLowerCase() : "";
 
+  // Identity proof: a single-use, email-bound reset token minted by
+  // verifyPasswordResetOTP. No static string and no client-supplied UID is
+  // trusted — this is what closes the unauthenticated account-takeover.
+  if (!verificationToken) {
+    throw new functions.https.HttpsError("permission-denied", "Identity not verified");
+  }
+  const tokenRef = db.collection("password_reset_tokens").doc(String(verificationToken));
+  const tokenSnap = await tokenRef.get();
+  if (!tokenSnap.exists) {
+    throw new functions.https.HttpsError("permission-denied", "Invalid or expired reset token. Start over.");
+  }
+  const tokenData = tokenSnap.data();
+  if (!tokenData.expiresAt || tokenData.expiresAt.toDate() < new Date()) {
+    await tokenRef.delete();
+    throw new functions.https.HttpsError("deadline-exceeded", "Reset token expired. Start over.");
+  }
+  if (!normalizedEmail || (tokenData.email || "").trim().toLowerCase() !== normalizedEmail) {
+    throw new functions.https.HttpsError("permission-denied", "Reset token does not match this account.");
+  }
+  // Single-use: consume immediately so the token can't be replayed.
+  await tokenRef.delete();
+
+  // Resolve UID strictly from the verified email (or a real authenticated
+  // session) — never from a client-supplied UID.
+  let uid;
+
   if (context.auth && context.auth.uid && context.auth.token && context.auth.token.email) {
-    // Only use context.auth if it's a real email-authenticated user (not anonymous)
     uid = context.auth.uid;
-  } else if (clientUid && clientUid.trim().length > 0 && clientUid.trim().length > 20) {
-    // Sanity check: real UIDs are 28 chars; skip if it looks invalid
-    uid = clientUid.trim();
   } else if (normalizedEmail.length > 0) {
     try {
       const userRecord = await admin.auth().getUserByEmail(normalizedEmail);
@@ -3761,17 +5469,17 @@ exports.resetUserPassword = functions.https.onCall(async (data, context) => {
         });
         uid = newUser.uid;
 
-        // Update operator record with the new auth UID
+        // Store the salted credential; strip any legacy hash from the doc.
+        await _writeCredential(normalizedEmail, newPassword);
         const opSnap = await db.collectionGroup("operators")
           .where("email", "==", normalizedEmail)
           .limit(1)
           .get();
-        const crypto = require("crypto");
-        const passwordHash = crypto.createHash("sha256").update(newPassword).digest("hex");
         if (!opSnap.empty) {
-          await opSnap.docs[0].ref.update({ uid: newUser.uid, passwordHash, passwordLastChanged: admin.firestore.FieldValue.serverTimestamp(), mustChangePassword: false });
+          await opSnap.docs[0].ref.update({ uid: newUser.uid, passwordHash: admin.firestore.FieldValue.delete(), passwordLastChanged: admin.firestore.FieldValue.serverTimestamp(), mustChangePassword: false });
         }
 
+        await _notifyPasswordChanged(normalizedEmail);
         return { success: true, message: "Account created and password set", created: true };
       } catch (createErr) {
         throw new functions.https.HttpsError("internal",
@@ -3784,13 +5492,14 @@ exports.resetUserPassword = functions.https.onCall(async (data, context) => {
   }
 
   try {
-    await admin.auth().updateUser(uid, { password: newPassword });
+    // Best-effort Firebase Auth update (works where a real Auth user exists).
+    try {
+      await admin.auth().updateUser(uid, { password: newPassword });
+    } catch (_) {}
 
-    // Update operator record with passwordHash (used by macOS Firestore-based auth)
-    const crypto = require("crypto");
-    const passwordHash = crypto.createHash("sha256").update(newPassword).digest("hex");
-
+    // Store the salted credential server-side; strip any legacy doc hash.
     if (normalizedEmail.length > 0) {
+      await _writeCredential(normalizedEmail, newPassword);
       const opSnap = await db.collectionGroup("operators")
         .where("email", "==", normalizedEmail)
         .limit(1)
@@ -3798,17 +5507,137 @@ exports.resetUserPassword = functions.https.onCall(async (data, context) => {
 
       if (!opSnap.empty) {
         await opSnap.docs[0].ref.update({
-          passwordHash,
+          passwordHash: admin.firestore.FieldValue.delete(),
           passwordLastChanged: admin.firestore.FieldValue.serverTimestamp(),
           mustChangePassword: false,
         });
       }
+      const coSnap = await db.collection("companies")
+        .where("email", "==", normalizedEmail)
+        .limit(1)
+        .get();
+      if (!coSnap.empty) {
+        await coSnap.docs[0].ref.update({
+          passwordHash: admin.firestore.FieldValue.delete(),
+          passwordLastChanged: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
     }
 
+    await _notifyPasswordChanged(normalizedEmail);
     return { success: true, message: "Password updated successfully" };
   } catch (err) {
     throw new functions.https.HttpsError("internal", err.message || "Failed to reset password");
   }
+});
+
+// ─── Client-triggered notifications (auth-gated callables) ───────────────────
+// For events that happen on the client (Firebase Auth password change / MFA,
+// local cloud-backup outcome) where there is no server-side trigger to hook.
+
+exports.notifyPasswordChanged = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+  const email = (context.auth.token.email || (data && data.email) || "").toLowerCase();
+  await _notifyPasswordChanged(email);
+  return { success: true };
+});
+
+// Email + SMS + in-app notice that 2FA was turned on/off. Called server-side from
+// mfaConfirmEnroll / mfaDisable (the client no longer fires this directly).
+async function _notifyMfaChanged(email, enabled) {
+  const addr = (email || "").toLowerCase();
+  if (!addr) return;
+  const state = enabled ? "enabled" : "disabled";
+  let phone = null, name = "there", companyId = null;
+  try {
+    const opSnap = await db.collectionGroup("operators").where("email", "==", addr).limit(1).get();
+    if (!opSnap.empty) { const op = opSnap.docs[0].data() || {}; phone = op.phone || null; name = op.name || name; companyId = opSnap.docs[0].ref.parent.parent?.id || null; }
+  } catch (e) { console.warn("mfa notify lookup failed:", e.message); }
+  await notifyContact({
+    to: { email: addr, phone, name },
+    companyId,
+    critical: true,
+    subject: `${BRAND.name}: two-factor authentication ${state}`,
+    notif: ({
+      category: "account",
+      link: "/settings/mfa",
+      operatorEmail: addr,
+      accent: enabled ? undefined : "danger",
+      heading: `Two-factor authentication ${state}`,
+      intro: `Two-factor authentication was just ${state} on your ${BRAND.name} account.`,
+      note: enabled
+        ? `If this wasn't you, contact ${BRAND.support} immediately.`
+        : `If you did NOT disable 2FA, contact ${BRAND.support} immediately — your account may be at risk.`,
+    }),
+  });
+}
+
+exports.notifyMfaChanged = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+  const email = (context.auth.token.email || "").toLowerCase();
+  if (!email) return { success: false };
+  await _notifyMfaChanged(email, !!(data && data.enabled));
+  return { success: true };
+});
+
+exports.notifyBackupResult = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+  if (data && data.success) return { success: true }; // only alert on failure
+  const companyId = data && data.companyId ? String(data.companyId) : null;
+  const reason = data && data.reason ? String(data.reason).slice(0, 120) : "Unknown error";
+  await notifyContact({
+    companyId,
+    to: companyId ? undefined : { email: context.auth.token.email || null },
+    subject: `${BRAND.name}: cloud backup failed`,
+    notif: ({
+      category: "backup",
+      link: "/settings/backup",
+      accent: "warn",
+      heading: "Your cloud backup failed",
+      intro: `A scheduled ${BRAND.name} cloud backup did not complete. Your data is safe locally, but the off-site copy was not updated.`,
+      rows: [["Status", "Failed"], ["Reason", reason]],
+      note: `Open Settings → Integrations to check your backup configuration, or contact ${BRAND.support}.`,
+    }),
+  });
+  return { success: true };
+});
+
+// ─── Per-operator FCM token registration (macOS clients) ─────────────────────
+// The client (macOS only) obtains an FCM token and registers it here; we store
+// it on the caller's operator doc so security alerts can target their devices.
+
+exports.registerFcmToken = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+  const token = data && data.token ? String(data.token) : "";
+  const email = (context.auth.token.email || "").toLowerCase();
+  if (!token || !email) return { success: false };
+  try {
+    const opSnap = await db.collectionGroup("operators").where("email", "==", email).limit(1).get();
+    if (!opSnap.empty) {
+      await opSnap.docs[0].ref.update({ fcmTokens: admin.firestore.FieldValue.arrayUnion(token) });
+    }
+  } catch (e) {
+    console.warn("registerFcmToken failed:", e.message);
+    return { success: false };
+  }
+  return { success: true };
+});
+
+exports.unregisterFcmToken = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+  const token = data && data.token ? String(data.token) : "";
+  const email = (context.auth.token.email || "").toLowerCase();
+  if (!token || !email) return { success: false };
+  try {
+    const opSnap = await db.collectionGroup("operators").where("email", "==", email).limit(1).get();
+    if (!opSnap.empty) {
+      await opSnap.docs[0].ref.update({ fcmTokens: admin.firestore.FieldValue.arrayRemove(token) });
+    }
+  } catch (e) {
+    console.warn("unregisterFcmToken failed:", e.message);
+    return { success: false };
+  }
+  return { success: true };
 });
 
 /**
@@ -3826,7 +5655,40 @@ exports.updateOperatorEmail = functions.https.onCall(async (data, context) => {
   }
 
   try {
-    await admin.auth().updateUser(uid, { email: newEmail.trim().toLowerCase() });
+    const newAddr = newEmail.trim().toLowerCase();
+    let oldEmail = null;
+    try { const u = await admin.auth().getUser(uid); oldEmail = (u.email || "").toLowerCase() || null; } catch (_) { /* best-effort */ }
+    await admin.auth().updateUser(uid, { email: newAddr });
+
+    // Security notice to BOTH addresses (mirrors updateCompanyContact). Auth
+    // email changes were silent before — a takeover vector.
+    try {
+      let companyId = null, name = "there";
+      const opSnap = await db.collectionGroup("operators").where("uid", "==", uid).limit(1).get();
+      if (!opSnap.empty) { const op = opSnap.docs[0].data() || {}; name = op.name || name; companyId = opSnap.docs[0].ref.parent.parent?.id || null; }
+      // One in-app entry, targeted to the operator's current identity (old email).
+      if (companyId) {
+        await _writeInApp({
+          companyId, operatorEmail: oldEmail || newAddr, category: "account", severity: "critical", link: "/profile",
+          title: "Your sign-in email was changed",
+          body: `The email used to sign in to your ${BRAND.name} account was changed to ${newAddr}. If this wasn't you, contact your administrator immediately.`,
+        });
+      }
+      // Email alert to both old and new (skipInApp avoids a duplicate in-app entry).
+      const targets = [newAddr, oldEmail].filter((e, i, a) => e && a.indexOf(e) === i);
+      for (const target of targets) {
+        await notifyContact({
+          to: { email: target, name }, companyId, critical: true, skipInApp: true,
+          subject: `${BRAND.name}: your sign-in email was changed`,
+          notif: ({
+            category: "account", link: "/profile", accent: "danger",
+            heading: "Your sign-in email was changed",
+            intro: `The email used to sign in to your ${BRAND.name} account was changed to ${newAddr}.`,
+            note: "If you did NOT make this change, contact your administrator immediately — your account may be at risk.",
+          }),
+        });
+      }
+    } catch (e) { console.warn("operator-email-change notice failed:", e.message); }
     return { success: true };
   } catch (err) {
     console.warn("updateOperatorEmail failed:", err.message);
@@ -4203,41 +6065,45 @@ exports.enrollOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "5
 
   const client = new vision.ImageAnnotatorClient();
 
-  // Detect faces in all provided snapshots
+  // Detect faces in all provided snapshots — the per-frame Vision round-trip was
+  // the dominant latency (one sequential call per image). Run them in parallel,
+  // then build results in capture order, keeping each frame's original index.
+  const detections = await Promise.all(images.map((img) =>
+    client.faceDetection({ image: { content: img } })
+      .then(([result]) => result)
+      .catch((e) => { functions.logger.warn("Face detection failed for frame:", e.message); return null; })
+  ));
+
   const faceResults = [];
-  for (const img of images) {
-    try {
-      const [result] = await client.faceDetection({
-        image: { content: img },
-      });
-      const faces = result.faceAnnotations || [];
-      if (faces.length === 0) continue;
+  for (let imgIdx = 0; imgIdx < detections.length; imgIdx++) {
+    const result = detections[imgIdx];
+    if (!result) continue;
+    const faces = result.faceAnnotations || [];
+    if (faces.length === 0) continue;
 
-      const bestFace = faces.reduce((a, b) =>
-        (a.detectionConfidence || 0) > (b.detectionConfidence || 0) ? a : b
-      );
+    const bestFace = faces.reduce((a, b) =>
+      (a.detectionConfidence || 0) > (b.detectionConfidence || 0) ? a : b
+    );
 
-      if ((bestFace.detectionConfidence || 0) < 0.7) continue;
+    if ((bestFace.detectionConfidence || 0) < 0.7) continue;
 
-      const landmarks = {};
-      for (const lm of (bestFace.landmarks || [])) {
-        landmarks[lm.type] = {
-          x: lm.position.x,
-          y: lm.position.y,
-          z: lm.position.z || 0,
-        };
-      }
-
-      faceResults.push({
-        confidence: bestFace.detectionConfidence,
-        landmarks,
-        rollAngle: bestFace.rollAngle || 0,
-        panAngle: bestFace.panAngle || 0,
-        tiltAngle: bestFace.tiltAngle || 0,
-      });
-    } catch (e) {
-      functions.logger.warn("Face detection failed for frame:", e.message);
+    const landmarks = {};
+    for (const lm of (bestFace.landmarks || [])) {
+      landmarks[lm.type] = {
+        x: lm.position.x,
+        y: lm.position.y,
+        z: lm.position.z || 0,
+      };
     }
+
+    faceResults.push({
+      imageIndex: imgIdx,
+      confidence: bestFace.detectionConfidence,
+      landmarks,
+      rollAngle: bestFace.rollAngle || 0,
+      panAngle: bestFace.panAngle || 0,
+      tiltAngle: bestFace.tiltAngle || 0,
+    });
   }
 
   functions.logger.info(`Face enrollment: ${faceResults.length} valid faces from ${images.length} images`);
@@ -4288,7 +6154,9 @@ exports.enrollOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "5
   const storagePaths = [];
   try {
     const uploadPromises = validIndices.map(async (faceIdx, storageIdx) => {
-      const imgBase64 = images[faceIdx];
+      // faceIdx indexes faceResults (a filtered list); map back to the original
+      // image via the stored imageIndex so a skipped frame can't misalign uploads.
+      const imgBase64 = images[faceResults[faceIdx].imageIndex];
       const imgBuffer = Buffer.from(imgBase64, "base64");
       const path = `face-enrollment/${companyId}/${operatorEmail}/${storageIdx}.jpg`;
       const file = bucket.file(path);
@@ -4299,6 +6167,15 @@ exports.enrollOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "5
     functions.logger.info(`Face enrollment: uploaded ${storagePaths.length} reference frames to Storage`);
   } catch (e) {
     functions.logger.warn("Failed to upload face frames to Storage:", e.message);
+    // The enrollment record is still written below, but without reference frames
+    // face sign-in won't work — alert the admin to re-enroll.
+    if (companyId) {
+      await _writeInApp({
+        companyId, category: "operator", severity: "warn", link: "/operators",
+        title: "Face enrollment incomplete",
+        body: `Reference photos for ${operatorEmail || "an operator"} couldn't be saved, so face sign-in may not work. Re-run the enrollment.`,
+      }).catch((err) => console.warn("face-enroll alert failed:", err.message));
+    }
   }
 
   // Store face enrollment data
@@ -4657,6 +6534,19 @@ exports.verifyOperatorPin = functions.https.onCall(async (data) => {
     throw new functions.https.HttpsError("invalid-argument", "pin and companyId required");
   }
 
+  // Brute-force throttle — PINs are only 4-6 digits. Keyed per company,
+  // server-only (pin_throttle is default-denied to clients).
+  const throttleRef = db.collection("pin_throttle").doc(companyId);
+  const throttleSnap = await throttleRef.get();
+  if (throttleSnap.exists) {
+    const t = throttleSnap.data();
+    if (t.lockedUntil && t.lockedUntil.toDate() > new Date()) {
+      const wait = Math.ceil((t.lockedUntil.toDate().getTime() - Date.now()) / 1000);
+      throw new functions.https.HttpsError(
+        "resource-exhausted", `Too many incorrect PIN attempts. Try again in ${wait}s.`);
+    }
+  }
+
   const crypto = require("crypto");
 
   // First: try matching against the current operator (fast path)
@@ -4684,6 +6574,7 @@ exports.verifyOperatorPin = functions.https.onCall(async (data) => {
           await operatorDoc.ref.update({
             lastPinVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
+          await throttleRef.set({ fails: 0 }, { merge: true });
           return { match: true, message: "PIN verified.", operatorName: operatorDoc.data().name || "", operatorEmail: operatorEmail, isSameOperator: true };
         }
       }
@@ -4703,8 +6594,20 @@ exports.verifyOperatorPin = functions.https.onCall(async (data) => {
       await doc.ref.update({
         lastPinVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+      await throttleRef.set({ fails: 0 }, { merge: true });
       return { match: true, message: "PIN verified.", operatorName: opData.name || "", operatorEmail: opEmail, isSameOperator: false };
     }
+  }
+
+  // No match — record the failed attempt and lock out after 5 in a row.
+  const fails = (throttleSnap.exists ? (throttleSnap.data().fails || 0) : 0) + 1;
+  if (fails >= 5) {
+    await throttleRef.set({
+      fails: 0,
+      lockedUntil: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 5 * 60 * 1000)),
+    }, { merge: true });
+  } else {
+    await throttleRef.set({ fails }, { merge: true });
   }
 
   return { match: false, message: "Incorrect PIN." };
@@ -4742,6 +6645,193 @@ exports.setOperatorPin = functions.https.onCall(async (data) => {
   }
 
   return { success: true, message: "PIN set successfully." };
+});
+
+// ─── Face enrollment frames: store on enroll, fetch for the admin gallery ─────
+// Frames are kept (not deleted) so an admin can EXCLUDE specific shots from the
+// embedding without losing them. The re-embed itself runs on the local sidecar
+// client-side; these functions only handle Storage I/O (admin SDK, no rules).
+
+exports.storeFaceFrames = functions.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onCall(async (data) => {
+  const companyId = String((data && data.companyId) || "").trim();
+  const operatorId = String((data && data.operatorId) || "").trim();
+  // New shape: frames = [{image, quality, specs}]. Back-compat: images = [b64].
+  let frames = Array.isArray(data && data.frames) ? data.frames : null;
+  if (!frames && Array.isArray(data && data.images)) {
+    frames = data.images.map((image) => ({ image, quality: 0, specs: false }));
+  }
+  const enrolledAt = String((data && data.enrolledAt) || "");
+  if (!companyId || !operatorId || !Array.isArray(frames) || frames.length === 0) {
+    throw new functions.https.HttpsError("invalid-argument", "companyId, operatorId and frames required");
+  }
+  const prefix = `face-enrollment/${companyId}/${operatorId}/`;
+  // Replace any previous frames for this operator (re-enrollment overwrites).
+  try { await bucket.deleteFiles({ prefix }); } catch (_) {}
+  // Compress/resize so the gallery loads fast and getFaceFrames stays well under
+  // the callable response limit (full webcam frames are several MB each).
+  let Jimp;
+  try { Jimp = require("jimp"); } catch (_) { Jimp = null; }
+  const meta = new Array(frames.length);
+  await Promise.all(frames.map(async (fr, i) => {
+    let buf = Buffer.from(fr.image, "base64");
+    if (Jimp) {
+      try {
+        const j = await Jimp.read(buf);
+        if (j.bitmap.width > 480) j.resize(480, Jimp.AUTO);
+        j.quality(78);
+        buf = await j.getBufferAsync(Jimp.MIME_JPEG);
+      } catch (_) { /* fall back to original bytes */ }
+    }
+    const path = `${prefix}frame_${i}.jpg`;
+    await bucket.file(path).save(buf, {
+      contentType: "image/jpeg",
+      metadata: { cacheControl: "private,max-age=0" },
+    });
+    meta[i] = { path, quality: Number(fr.quality) || 0, specs: fr.specs === true };
+  }));
+  await db.doc(`companies/${companyId}/operators/${operatorId}`).set(
+    { faceFrames: meta, faceFramesEnrolledAt: enrolledAt, excludedFrames: [] },
+    { merge: true },
+  );
+  return { success: true, count: meta.length };
+});
+
+exports.getFaceFrames = functions.runWith({ timeoutSeconds: 60, memory: "512MB" }).https.onCall(async (data) => {
+  const companyId = String((data && data.companyId) || "").trim();
+  const operatorId = String((data && data.operatorId) || "").trim();
+  if (!companyId || !operatorId) {
+    throw new functions.https.HttpsError("invalid-argument", "companyId and operatorId required");
+  }
+  const doc = await db.doc(`companies/${companyId}/operators/${operatorId}`).get();
+  const d = doc.data() || {};
+  // faceFrames is now [{path,quality,specs}]; tolerate the old [path] shape.
+  const raw = Array.isArray(d.faceFrames) ? d.faceFrames : [];
+  const items = raw.map((e) => (typeof e === "string" ? { path: e, quality: 0, specs: false } : e));
+  const excluded = new Set(Array.isArray(d.excludedFrames) ? d.excludedFrames : []);
+  const frames = [];
+  await Promise.all(items.map(async (it) => {
+    try {
+      const [buf] = await bucket.file(it.path).download();
+      frames.push({
+        path: it.path,
+        image: buf.toString("base64"),
+        quality: Number(it.quality) || 0,
+        specs: it.specs === true,
+        excluded: excluded.has(it.path),
+      });
+    } catch (_) { /* skip a frame that's gone missing */ }
+  }));
+  return { frames, enrolledAt: d.faceFramesEnrolledAt || "" };
+});
+
+// sendPinResetChallenge - Begins a verified PIN reset for [email] (the actor).
+// If the actor has 2FA, they verify with their authenticator (no OTP sent).
+// Otherwise the SAME one-time code is sent to their email and phone.
+exports.sendPinResetChallenge = functions.https.onCall(async (data) => {
+  const email = (data.email || "").trim().toLowerCase();
+  if (!email) throw new functions.https.HttpsError("invalid-argument", "Email required");
+
+  const credSnap = await db.collection("credentials").doc(email).get();
+  const cred = credSnap.exists ? credSnap.data() : {};
+  if (cred.mfaEnabled && cred.mfaSecret) {
+    return { method: "totp" };
+  }
+
+  const crypto = require("crypto");
+  const otp = generateOTP();
+  const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+  const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + OTP_EXPIRY_MS));
+  await db.collection("verification_otps").doc(email).set({
+    otpHash, expiresAt, attempts: 0, type: "pin-reset",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  let phone = "";
+  try {
+    const opSnap = await db.collectionGroup("operators").where("email", "==", email).limit(1).get();
+    if (!opSnap.empty) phone = opSnap.docs[0].data().phone || "";
+  } catch (_) {}
+
+  try {
+    const heading = "Confirm your PIN reset";
+    const intro = `Use this code to confirm you're resetting a verification PIN in ${BRAND.name}.`;
+    const securityNote = `If you didn't request this, ignore this message. ${BRAND.name} will never ask you to share this code.`;
+    await _sendDesignedEmail(email, `${BRAND.name} PIN reset code: ${otp}`, "otp",
+      { eyebrow: "PIN reset", heading, intro, otp, securityNote, company: {} },
+      { alt: `${BRAND.name} PIN reset code: ${otp}`, fallbackHtml: buildOtpEmail({ heading, intro, otp, securityNote }) });
+  } catch (e) { console.warn("PIN reset email failed:", e.message); }
+
+  let smsSent = false;
+  if (phone) {
+    const digits = phone.replace(/\D/g, "").slice(-10);
+    if (digits.length === 10) {
+      try { await _sendOtpSms(digits, otp); smsSent = true; } catch (e) { console.warn("PIN reset SMS failed:", e.message); }
+    }
+  }
+  return { method: "otp", email: true, sms: smsSent };
+});
+
+// verifyPinResetCode - Step 1 of a PIN reset: validate the actor's TOTP or OTP.
+// On success a short-lived grant is recorded so the new PIN can be set next —
+// keeps TOTP (which rotates) from expiring while the user types the new PIN.
+exports.verifyPinResetCode = functions.https.onCall(async (data) => {
+  const email = (data.email || "").trim().toLowerCase();
+  const code = String(data.code || "").replace(/\s/g, "");
+  if (!email) throw new functions.https.HttpsError("invalid-argument", "Email required");
+  const credSnap = await db.collection("credentials").doc(email).get();
+  const cred = credSnap.exists ? credSnap.data() : {};
+  const crypto = require("crypto");
+  let ok = false;
+  if (cred.mfaEnabled && cred.mfaSecret) {
+    ok = _verifyTotp(_decryptSecret(cred.mfaSecret), code);
+  } else {
+    const otpRef = db.collection("verification_otps").doc(email);
+    const otpSnap = await otpRef.get();
+    if (otpSnap.exists) {
+      const od = otpSnap.data();
+      if (od.expiresAt.toDate() >= new Date() && (od.attempts || 0) < OTP_MAX_ATTEMPTS) {
+        const inputHash = crypto.createHash("sha256").update(code).digest("hex");
+        if (inputHash === od.otpHash) { ok = true; await otpRef.delete(); }
+        else { await otpRef.update({ attempts: admin.firestore.FieldValue.increment(1) }); }
+      }
+    }
+    if (!ok && code === "000000" && ALLOW_TEST_OTP) ok = true;
+  }
+  if (!ok) throw new functions.https.HttpsError("permission-denied", "Verification failed. Check the code and try again.");
+  await db.collection("pin_reset_grants").doc(email).set({
+    grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+    expiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 10 * 60 * 1000)),
+  });
+  return { ok: true };
+});
+
+// resetOperatorPin - Step 2: with a fresh verifyPinResetCode grant, set the PIN.
+exports.resetOperatorPin = functions.https.onCall(async (data) => {
+  const actorEmail = (data.actorEmail || "").trim().toLowerCase();
+  const operatorEmail = (data.operatorEmail || "").trim().toLowerCase();
+  const companyId = data.companyId;
+  const pin = data.pin;
+  if (!actorEmail || !operatorEmail || !companyId || !pin) {
+    throw new functions.https.HttpsError("invalid-argument", "actorEmail, operatorEmail, companyId and pin required");
+  }
+  if (pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
+    throw new functions.https.HttpsError("invalid-argument", "PIN must be 4-6 digits.");
+  }
+  const grantRef = db.collection("pin_reset_grants").doc(actorEmail);
+  const grantSnap = await grantRef.get();
+  const grant = grantSnap.exists ? grantSnap.data() : null;
+  if (!grant || !grant.expiresAt || grant.expiresAt.toDate() < new Date()) {
+    throw new functions.https.HttpsError("failed-precondition", "Verify your identity again before setting a new PIN.");
+  }
+  const crypto = require("crypto");
+  const pinHash = crypto.createHash("sha256").update(pin + operatorEmail).digest("hex");
+  const stamp = { pinHash, pinSetAt: admin.firestore.FieldValue.serverTimestamp() };
+  const companyOps = await db.collection(`companies/${companyId}/operators`).where("email", "==", operatorEmail).limit(1).get();
+  if (!companyOps.empty) await companyOps.docs[0].ref.update(stamp);
+  const flatOps = await db.collection("operators").where("companyId", "==", companyId).where("email", "==", operatorEmail).limit(1).get();
+  if (!flatOps.empty) await flatOps.docs[0].ref.update(stamp);
+  await grantRef.delete();
+  return { ok: true };
 });
 
 // Compute similarity between two faces using discriminative facial ratios.
@@ -4870,440 +6960,220 @@ function averageLandmarks(landmarkSets) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ─── DigiLocker Identity Verification (via Setu Gateway) ─────────────────────
+// ─── DigiLocker Identity Verification (via Meon Gateway) ─────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
+// Aadhaar-only flow. Three Meon REST calls, all server-side so the secret token
+// never reaches the client:
+//   1. POST /get_access_token        → { client_token, state }
+//   2. POST /digi_url                → { url }  (the DigiLocker OAuth URL)
+//   3. POST /v2/send_entire_data     → { data: { ...aadhaar fields } }
+// The client opens the URL in an in-app webview and polls fetchMeonAadhaar.
 
-const SETU_BASE = process.env.SETU_BASE_URL || "https://dg-sandbox.setu.co";
-const SETU_CLIENT_ID = process.env.SETU_CLIENT_ID || "";
-const SETU_CLIENT_SECRET = process.env.SETU_CLIENT_SECRET || "";
-const SETU_PRODUCT_ID = process.env.SETU_DIGILOCKER_PRODUCT_ID || SETU_CLIENT_ID;
-const DIGILOCKER_TEST_MODE = process.env.SETU_TEST_MODE === "true" || !SETU_CLIENT_ID;
+const MEON_BASE = process.env.MEON_BASE_URL || "https://digilocker.meon.co.in";
+const MEON_COMPANY = process.env.MEON_COMPANY_NAME || "";
+const MEON_SECRET = process.env.MEON_SECRET_TOKEN || "";
+const MEON_REDIRECT = process.env.MEON_REDIRECT_URL || "https://digilocker.meon.co.in/digilocker/thank-you-page";
 
-async function setuFetch(path, options = {}) {
+async function meonFetch(path, body) {
   const fetch = (await import("node-fetch")).default;
-  const url = `${SETU_BASE}${path}`;
-  functions.logger.info(`setuFetch: ${options.method || "GET"} ${url}`);
-  functions.logger.info(`setuFetch: client_id=${SETU_CLIENT_ID?.slice(0, 8)}..., product=${SETU_PRODUCT_ID?.slice(0, 8)}...`);
-  const headers = {
-    "Content-Type": "application/json",
-    "User-Agent": "TulanamWeighbridge/1.0",
-    "Accept": "application/json",
-    "x-client-id": SETU_CLIENT_ID,
-    "x-client-secret": SETU_CLIENT_SECRET,
-    "x-product-instance-id": SETU_PRODUCT_ID,
-    ...options.headers,
-  };
-  const res = await fetch(url, { ...options, headers });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Setu API error ${res.status}: ${text}`);
+  const res = await fetch(`${MEON_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`Meon ${path} non-JSON ${res.status}: ${text.slice(0, 200)}`);
   }
-  return res.json();
+  if (!res.ok) {
+    throw new Error(`Meon ${path} error ${res.status}: ${text.slice(0, 200)}`);
+  }
+  return json;
 }
 
 /**
- * initiateDigiLockerConsent
- * Creates a DigiLocker consent session via Setu.
- * Returns a URL the user opens to authenticate with DigiLocker.
+ * initiateMeonDigilocker
+ * Mints a Meon access token and a DigiLocker authorization URL (Aadhaar only).
  *
- * Input: { purpose: 'admin_verification' | 'operator_verification', redirectUrl, companyId? }
- * Output: { consentId, url }
+ * Works pre-authentication (admin company step / operator company-code step run
+ * before a Firebase Auth account exists) — authorize by session reference, not
+ * by context.auth.
+ *
+ * Input:  { purpose?, documents?, companyId? }
+ * Output: { reference, url, redirectUrl }
  */
-exports.initiateDigiLockerConsent = functions.https.onCall(async (data, context) => {
+exports.initiateMeonDigilocker = functions.runWith({ timeoutSeconds: 30 }).https.onCall(async (data, context) => {
   const uid = context.auth?.uid || data.uid || `anon_${Date.now()}`;
-  if (!uid) {
-    throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
+  if (!MEON_COMPANY || !MEON_SECRET) {
+    throw new functions.https.HttpsError("failed-precondition", "Meon DigiLocker credentials not configured");
   }
 
-  const { purpose, redirectUrl } = data;
-  if (!purpose || !redirectUrl) {
-    throw new functions.https.HttpsError("invalid-argument", "purpose and redirectUrl required");
-  }
-
-  // ── TEST MODE: simulate DigiLocker without real API ──
-  if (DIGILOCKER_TEST_MODE) {
-    const testId = `test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    await db.collection("digilocker_sessions").doc(testId).set({
-      consentId: testId,
-      uid,
-      purpose,
-      companyId: data.companyId || null,
-      status: "initiated",
-      testMode: true,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-    return { consentId: testId, url: `${redirectUrl}?consent_id=${testId}&test=true` };
-  }
-
-  // ── PRODUCTION: call Setu DigiLocker API ──
-  const docTypes = purpose === "admin_verification"
-    ? ["PANCR", "ADHAR"]
-    : ["PANCR", "ADHAR"];
-
-  const body = {
-    redirectUrl,
-    context: {
-      purpose: purpose === "admin_verification"
-        ? "Verify identity as company stakeholder"
-        : "Verify operator identity for weighbridge access",
-      description: "Tulanam Smart Weighment System identity verification",
-    },
-    documents: docTypes.map(type => ({
-      type,
-      format: "json",
-    })),
-  };
-
-  const result = await setuFetch("/api/digilocker", {
-    method: "POST",
-    body: JSON.stringify(body),
+  // 1. Access token.
+  const tokenRes = await meonFetch("/get_access_token", {
+    company_name: MEON_COMPANY,
+    secret_token: MEON_SECRET,
   });
+  if (!tokenRes.client_token || !tokenRes.state) {
+    throw new functions.https.HttpsError("internal", "Meon token response missing client_token/state");
+  }
 
-  await db.collection("digilocker_sessions").doc(result.id).set({
-    consentId: result.id,
+  // 2. DigiLocker URL — force Aadhaar only regardless of caller input.
+  const urlRes = await meonFetch("/digi_url", {
+    client_token: tokenRes.client_token,
+    redirect_url: MEON_REDIRECT,
+    company_name: MEON_COMPANY,
+    documents: "aadhaar",
+  });
+  if (!urlRes.url) {
+    throw new functions.https.HttpsError("internal", "Meon did not return a DigiLocker URL");
+  }
+
+  const reference = db.collection("digilocker_sessions").doc().id;
+  await db.collection("digilocker_sessions").doc(reference).set({
+    reference,
+    gateway: "meon",
     uid,
-    purpose,
+    purpose: data.purpose || null,
     companyId: data.companyId || null,
+    clientToken: tokenRes.client_token,
+    state: tokenRes.state,
     status: "initiated",
-    testMode: false,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  return { consentId: result.id, url: result.url };
+  return { reference, url: urlRes.url, redirectUrl: MEON_REDIRECT };
 });
 
 /**
- * processDigiLockerConsent
- * After user completes DigiLocker auth, call this with the consentId.
- * Fetches the documents and performs verification.
+ * fetchMeonAadhaar
+ * Retrieves exported Aadhaar data for a session, persists the photo to Storage,
+ * and returns a normalized result. Returns { verified: false } (no reason) while
+ * the user has not completed the flow yet — the client polls this.
  *
- * Input: { consentId }
- * Output: { verified, pan, aadhaarLast4, name, dob, photo?, reason? }
+ * Input:  { reference }
+ * Output: { verified, name, dob, gender, aadhaarLast4, fatherName, address,
+ *           locality, dist, state, pincode, photoUrl }
  */
-exports.processDigiLockerConsent = functions.runWith({ timeoutSeconds: 60 }).https.onCall(async (data, context) => {
+exports.fetchMeonAadhaar = functions.runWith({ timeoutSeconds: 60, memory: "512MB" }).https.onCall(async (data, context) => {
   const uid = context.auth?.uid || data.uid || null;
-
-  const { consentId } = data;
-  if (!consentId) {
-    throw new functions.https.HttpsError("invalid-argument", "consentId required");
+  const { reference } = data;
+  if (!reference) {
+    throw new functions.https.HttpsError("invalid-argument", "reference required");
   }
 
-  const sessionDoc = await db.collection("digilocker_sessions").doc(consentId).get();
-  if (!sessionDoc.exists) {
-    throw new functions.https.HttpsError("permission-denied", "Consent session not found");
+  const ref = db.collection("digilocker_sessions").doc(reference);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw new functions.https.HttpsError("not-found", "Session not found");
   }
-  if (uid && sessionDoc.data().uid !== uid && !sessionDoc.data().uid.startsWith("anon_")) {
+  const session = snap.data();
+  // Authorize: same signed-in user, or a pre-account (anon_) session.
+  if (uid && session.uid && !String(session.uid).startsWith("anon_") && session.uid !== uid) {
     throw new functions.https.HttpsError("permission-denied", "Unauthorized");
   }
-  const sessionData = sessionDoc.data();
 
-  // ── TEST MODE: return simulated data ──
-  if (sessionData.testMode) {
-    const testResult = {
-      verified: true,
-      pan: "ABCDE1234F",
-      aadhaarLast4: "4532",
-      name: "Test User (DigiLocker)",
-      dob: "01-01-1990",
-      photo: null,
-      address: "123 Test Street, Mumbai, Maharashtra 400001",
-      reason: null,
-    };
-    await sessionDoc.ref.update({
-      status: "completed",
-      verified: true,
-      panVerified: true,
-      aadhaarVerified: true,
-      name: testResult.name,
-      testMode: true,
-      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+  // Return cached result if already fetched.
+  if (session.status === "completed" && session.result) {
+    return session.result;
+  }
+
+  // 3. Retrieve exported data. Until the user finishes, Meon errors or returns
+  // no data — treat both as "pending" so the client keeps polling.
+  let dataRes;
+  try {
+    dataRes = await meonFetch("/v2/send_entire_data", {
+      client_token: session.clientToken,
+      state: session.state,
+      status: true,
     });
-    return testResult;
+  } catch (e) {
+    functions.logger.info(`Meon fetch pending for ${reference}: ${e.message}`);
+    return { verified: false };
   }
 
-  // ── PRODUCTION: fetch from Setu ──
-  const consent = await setuFetch(`/api/digilocker/${consentId}/status`);
-
-  if (consent.status !== "authenticated") {
-    await sessionDoc.ref.update({ status: consent.status });
-    throw new functions.https.HttpsError("failed-precondition", `Consent not approved. Status: ${consent.status}`);
+  const d = dataRes && dataRes.data;
+  if (!d || !(d.aadhar_no || d.name)) {
+    return { verified: false };
   }
 
-  // Fetch documents
-  const documents = {};
-  const docTypes = ["PANCR", "ADHAR"];
-  for (const docType of docTypes) {
-    try {
-      const docData = await setuFetch(`/api/digilocker/${consentId}/document`, {
-        method: "POST",
-        body: JSON.stringify({ documentType: docType, format: "json" }),
-      });
-      documents[docType] = docData;
-    } catch (e) {
-      functions.logger.warn(`Failed to fetch ${docType}:`, e.message);
+  // Persist the Aadhaar person-photo to Storage (avoids base64 in Firestore).
+  let photoUrl = null;
+  try {
+    const photoSrc = d.aadhar_img_filename || null;
+    if (photoSrc) {
+      const fetch = (await import("node-fetch")).default;
+      const imgRes = await fetch(photoSrc);
+      if (imgRes.ok) {
+        const buf = Buffer.from(await imgRes.arrayBuffer());
+        const filePath = `kyc/${reference}/photo.jpg`;
+        const downloadToken = require("crypto").randomBytes(16).toString("hex");
+        await bucket.file(filePath).save(buf, {
+          contentType: "image/jpeg",
+          metadata: { metadata: { firebaseStorageDownloadTokens: downloadToken } },
+        });
+        photoUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(filePath)}?alt=media&token=${downloadToken}`;
+      }
     }
+  } catch (e) {
+    functions.logger.warn(`Photo persist failed for ${reference}: ${e.message}`);
   }
 
-  // Extract identity data
+  const aadhaarDigits = String(d.aadhar_no || "").replace(/[^0-9]/g, "");
   const result = {
-    verified: false,
-    pan: null,
-    aadhaarLast4: null,
-    name: null,
-    dob: null,
-    photo: null,
-    address: null,
+    verified: true,
+    name: d.name || null,
+    dob: d.dob || null,
+    gender: d.gender || null,
+    aadhaarLast4: aadhaarDigits ? aadhaarDigits.slice(-4) : null,
+    fatherName: d.fathername || null,
+    address: d.aadhar_address || null,
+    locality: d.locality || null,
+    dist: d.dist || null,
+    state: d.state || null,
+    pincode: d.pincode || null,
+    photoUrl,
     reason: null,
   };
 
-  // PAN data
-  if (documents.PANCR) {
-    const pan = documents.PANCR;
-    result.pan = pan.number || pan.pan_number || null;
-    result.name = result.name || pan.name || pan.full_name || null;
-    result.dob = result.dob || pan.dob || pan.date_of_birth || null;
-  }
-
-  // Aadhaar data
-  if (documents.ADHAR) {
-    const aadhaar = documents.ADHAR;
-    const fullNumber = aadhaar.number || aadhaar.aadhaar_number || "";
-    result.aadhaarLast4 = fullNumber.slice(-4) || null;
-    result.name = result.name || aadhaar.name || aadhaar.full_name || null;
-    result.dob = result.dob || aadhaar.dob || aadhaar.date_of_birth || null;
-    result.photo = aadhaar.photo || aadhaar.image || null;
-    result.address = aadhaar.address || null;
-  }
-
-  result.verified = !!(result.pan && result.name);
-
-  // Update session
-  await sessionDoc.ref.update({
+  await ref.update({
     status: "completed",
-    verified: result.verified,
-    panVerified: !!result.pan,
-    aadhaarVerified: !!result.aadhaarLast4,
+    verified: true,
     name: result.name,
+    result,
     completedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
   return result;
 });
 
-/**
- * verifyStakeholder
- * Cross-verifies that the DigiLocker-authenticated person is actually a
- * stakeholder (owner/director/partner) of the GSTIN company.
- *
- * Input: { consentId, gstin, companyId }
- * Output: { isStakeholder, matchType, details }
- */
-exports.verifyStakeholder = functions.runWith({ timeoutSeconds: 30 }).https.onCall(async (data, context) => {
-  const uid = context.auth?.uid || data.uid || null;
-
-  const { consentId, gstin, companyId } = data;
-  if (!consentId || !gstin) {
-    throw new functions.https.HttpsError("invalid-argument", "consentId and gstin required");
-  }
-
-  const sessionDoc = await db.collection("digilocker_sessions").doc(consentId).get();
-  if (!sessionDoc.exists) {
-    throw new functions.https.HttpsError("permission-denied", "Session not found");
-  }
-  const session = sessionDoc.data();
-  if (!session.verified) {
-    throw new functions.https.HttpsError("failed-precondition", "Identity not verified yet");
-  }
-
-  // ── TEST MODE: simulate stakeholder match ──
-  if (session.testMode) {
-    const testResult = { isStakeholder: true, matchType: "test_mode_auto_approve", entityType: "individual", details: "Test mode: auto-approved" };
-    if (companyId) {
-      await db.collection(`companies/${companyId}/verifications`).add({
-        type: "stakeholder", uid: uid || "unknown", gstin, consentId,
-        ...testResult, testMode: true, verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    }
-    return testResult;
-  }
-
-  // Fetch GSTIN data (reuse existing lookupGstin logic)
-  const gstinPan = gstin.substring(2, 12); // PAN embedded in GSTIN
-  const entityChar = gstin[12]; // Constitution type indicator
-
-  // Determine entity type from GSTIN structure
-  // P = Proprietorship, C = Company, F = Firm/LLP, T = Trust, etc.
-  const panTypeChar = gstin[5]; // 4th char of PAN (at position 5 in GSTIN)
-  const entityType = panTypeChar === "P" ? "individual"
-    : panTypeChar === "C" ? "company"
-    : panTypeChar === "F" ? "firm"
-    : "other";
-
-  const result = {
-    isStakeholder: false,
-    matchType: null,
-    entityType,
-    details: null,
-  };
-
-  // ── Proprietorship: PAN in GSTIN must match user's PAN ──
-  if (entityType === "individual") {
-    const userPan = session.panVerified ? await _getPanFromSession(consentId) : null;
-    if (userPan && userPan.toUpperCase() === gstinPan.toUpperCase()) {
-      result.isStakeholder = true;
-      result.matchType = "pan_match_proprietor";
-      result.details = "User PAN matches GSTIN proprietor PAN";
-    } else {
-      result.details = "User PAN does not match GSTIN proprietor PAN";
-    }
-  }
-
-  // ── Company (Pvt Ltd / Public Ltd): Check MCA directors ──
-  else if (entityType === "company") {
-    const mcaResult = await _checkMcaDirectors(gstinPan, session.name);
-    result.isStakeholder = mcaResult.found;
-    result.matchType = mcaResult.found ? "mca_director_match" : null;
-    result.details = mcaResult.reason;
-  }
-
-  // ── Firm / LLP / Partnership ──
-  else if (entityType === "firm") {
-    // For firms, check if user's PAN matches the firm PAN (managing partner)
-    // or check GST registration details for partner list
-    const userPan = session.panVerified ? await _getPanFromSession(consentId) : null;
-    if (userPan && userPan.toUpperCase() === gstinPan.toUpperCase()) {
-      result.isStakeholder = true;
-      result.matchType = "pan_match_firm";
-      result.details = "User PAN matches firm PAN (managing partner)";
-    } else {
-      // Attempt name match against GST authorized signatory
-      const gstData = await _getCachedGstData(gstin);
-      if (gstData && session.name) {
-        const signatoryMatch = _nameMatch(session.name, gstData.authorizedSignatory || "");
-        if (signatoryMatch >= 0.7) {
-          result.isStakeholder = true;
-          result.matchType = "signatory_name_match";
-          result.details = `Name matches authorized signatory (${Math.round(signatoryMatch * 100)}% confidence)`;
-        } else {
-          result.details = "User not found as partner/signatory";
-        }
-      }
-    }
-  }
-
-  // Store verification result
-  if (companyId) {
-    await db.collection(`companies/${companyId}/verifications`).add({
-      type: "stakeholder",
-      uid: uid || "unknown",
-      gstin,
-      consentId,
-      isStakeholder: result.isStakeholder,
-      matchType: result.matchType,
-      entityType: result.entityType,
-      verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-  }
-
-  return result;
-});
-
-// ─── Helper: Get PAN from DigiLocker session documents ─────────────────────
-
-async function _getPanFromSession(consentId) {
-  try {
-    const docData = await setuFetch(`/api/digilocker/${consentId}/document`, {
-      method: "POST",
-      body: JSON.stringify({ documentType: "PANCR", format: "json" }),
-    });
-    return docData.number || docData.pan_number || null;
-  } catch {
-    return null;
-  }
-}
-
-// ─── Helper: Check MCA Directors Registry ──────────────────────────────────
-
-async function _checkMcaDirectors(companyPan, userName) {
-  const MCA_API_KEY = process.env.MCA_API_KEY || "";
-
-  if (!MCA_API_KEY) {
-    // Fallback: check cached GST data for authorized signatory name match
-    return { found: false, reason: "MCA API not configured — cannot verify director status" };
-  }
-
-  try {
-    const fetch = (await import("node-fetch")).default;
-    // MCA company master data via third-party API (e.g., Signzy/Setu/custom)
-    const res = await fetch(`https://api.mca.gov.in/v1/company/${companyPan}/directors`, {
-      headers: { "Authorization": `Bearer ${MCA_API_KEY}`, "Content-Type": "application/json" },
-    });
-
-    if (!res.ok) {
-      return { found: false, reason: `MCA lookup failed: ${res.status}` };
-    }
-
-    const data = await res.json();
-    const directors = data.directors || data.data?.directors || [];
-
-    for (const director of directors) {
-      const directorName = director.name || director.din_name || "";
-      const similarity = _nameMatch(userName, directorName);
-      if (similarity >= 0.7) {
-        return {
-          found: true,
-          reason: `Matched director: ${directorName} (${Math.round(similarity * 100)}% name match)`,
-          din: director.din || null,
-        };
-      }
-    }
-
-    return { found: false, reason: `User "${userName}" not found among ${directors.length} directors` };
-  } catch (e) {
-    return { found: false, reason: `MCA lookup error: ${e.message}` };
-  }
-}
-
-// ─── Helper: Get cached GST data ───────────────────────────────────────────
-
-async function _getCachedGstData(gstin) {
-  const cached = await db.collection("gstin_lookups").doc(gstin).get();
-  return cached.exists ? cached.data() : null;
-}
-
-// ─── Helper: Name similarity (Levenshtein-based) ───────────────────────────
-
-function _nameMatch(a, b) {
-  if (!a || !b) return 0;
-  const na = a.trim().toLowerCase().replace(/[^a-z\s]/g, "");
-  const nb = b.trim().toLowerCase().replace(/[^a-z\s]/g, "");
-  if (na === nb) return 1.0;
-
-  // Token overlap
-  const tokensA = na.split(/\s+/).filter(t => t.length > 1);
-  const tokensB = nb.split(/\s+/).filter(t => t.length > 1);
-  const intersection = tokensA.filter(t => tokensB.includes(t));
-  const tokenSim = intersection.length / Math.max(tokensA.length, tokensB.length);
-  if (tokenSim >= 0.8) return tokenSim;
-
-  // Levenshtein
-  const len1 = na.length, len2 = nb.length;
-  const dp = Array.from({ length: len1 + 1 }, (_, i) =>
-    Array.from({ length: len2 + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
-  );
-  for (let i = 1; i <= len1; i++) {
-    for (let j = 1; j <= len2; j++) {
-      dp[i][j] = na[i - 1] === nb[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    }
-  }
-  return 1 - dp[len1][len2] / Math.max(len1, len2);
-}
-
 // ─── Scheduled Email Report ──────────────────────────────────────────────────
 // Runs every day at 8 AM IST (2:30 UTC). Checks each company's emailSchedule
 // config and sends a summary report via SendGrid Trigger Email extension.
+
+// Branded HTML for the summary report email — KPIs + top-5 materials as rows,
+// in the same shell as every other Tulanam email. (A plain-text body is still
+// sent alongside for plain-text clients.)
+function _buildReportEmailHtml(periodLabel, totalWeighments, vehicleCount, totalNet, materialTotals) {
+  const rows = [
+    ["Period", periodLabel],
+    ["Total weighments", String(totalWeighments)],
+    ["Unique vehicles", String(vehicleCount)],
+    ["Net tonnage", `${(totalNet / 1000).toFixed(1)} T`],
+  ];
+  Object.entries(materialTotals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .forEach(([m, v]) => rows.push([`Material · ${m}`, `${(v / 1000).toFixed(1)} T`]));
+  return buildBrandEmail({
+    heading: `Weighment report — ${periodLabel}`,
+    intro: `Here is your ${BRAND.name} operations summary.`,
+    rows,
+    note: `Automated report from ${BRAND.name}.`,
+  });
+}
 
 exports.scheduledEmailReport = functions.pubsub
   .schedule("30 2 * * *") // 8:00 AM IST daily
@@ -5335,6 +7205,7 @@ exports.scheduledEmailReport = functions.pubsub
       let totalNet = 0;
       let totalVehicles = new Set();
       const materialTotals = {};
+      const hourCounts = new Array(24).fill(0);
 
       for (const siteDoc of sitesSnap.docs) {
         const wbSnap = await db.collection(`companies/${companyId}/sites/${siteDoc.id}/weighbridges`).get();
@@ -5352,6 +7223,10 @@ exports.scheduledEmailReport = functions.pubsub
             if (d.vehicleNumber) totalVehicles.add(d.vehicleNumber);
             const mat = d.material || "Unknown";
             materialTotals[mat] = (materialTotals[mat] || 0) + (d.netWeight || 0);
+            if (d.createdAt && d.createdAt.toDate) {
+              const istHour = Number(d.createdAt.toDate().toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "Asia/Kolkata" })) % 24;
+              if (!Number.isNaN(istHour)) hourCounts[istHour]++;
+            }
           }
         }
       }
@@ -5365,7 +7240,7 @@ exports.scheduledEmailReport = functions.pubsub
         .join("\n");
 
       const body = `
-Weighbridge Report — ${period}
+${BRAND.name} Report — ${period}
 ${"=".repeat(40)}
 
 Total Weighments: ${totalWeighments}
@@ -5377,32 +7252,81 @@ ${materialLines || "  No data"}
 
 ---
 Generated: ${now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
-This is an automated report from your weighbridge system.
+This is an automated report from ${BRAND.name}.
       `.trim();
 
-      // Send via Nodemailer (Gmail)
-      try {
-        const transporter = getMailTransporter();
-        await transporter.sendMail({
-          from: functions.config().gmail?.email || process.env.GMAIL_EMAIL,
-          to: config.recipient,
-          subject: `Weighbridge Report — ${period} (${totalWeighments} weighments, ${(totalNet / 1000).toFixed(1)}T)`,
-          text: body,
-        });
-      } catch (mailErr) {
-        // Fallback: write to mail collection for Trigger Email extension
-        await db.collection("mail").add({
-          to: config.recipient,
-          message: {
-            subject: `Weighbridge Report — ${period} (${totalWeighments} weighments, ${(totalNet / 1000).toFixed(1)}T)`,
-            text: body,
-          },
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        functions.logger.warn(`Direct mail failed, wrote to mail collection: ${mailErr.message}`);
+      const subject = `${BRAND.name} Report — ${period} (${totalWeighments} weighments, ${(totalNet / 1000).toFixed(1)}T)`;
+      const reportHtml = _buildReportEmailHtml(period, totalWeighments, totalVehicles.size, totalNet, materialTotals);
+
+      // Try the rendered report (inline image + PDF attachment); fall back to HTML.
+      const reportData = {
+        company: await _companyDetails(companyId),
+        subtitle: `${period} · generated ${now.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}`,
+        kpis: {
+          weighments: String(totalWeighments),
+          vehicles: String(totalVehicles.size),
+          tonnage: (totalNet / 1000).toLocaleString("en-IN", { maximumFractionDigits: 0 }),
+        },
+        hours: hourCounts.map((c) => ({ count: c })),
+        hourLabels: ["12a", "4a", "8a", "12p", "4p", "8p", "12a"],
+        materials: Object.entries(materialTotals).sort((a, b) => b[1] - a[1]).slice(0, 5)
+          .map(([m, v]) => ({ name: m, tonnes: Math.round(v / 100) / 10 })),
+      };
+      if (await _consumeQuota(companyId, "email")) {
+        const renderedReport = await _renderEmailAssets("report", reportData, await _printerPageSize(companyId));
+        if (renderedReport && renderedReport.imageUrl) {
+          // Guard the rendered send: a throw here must not abort the whole loop
+          // (skipping every other company). Fall back to the mail collection and
+          // tell the admin their report had a delivery issue.
+          try {
+            await _sendRenderedEmail(config.recipient, subject, {
+              imageUrl: renderedReport.imageUrl, pdfBase64: renderedReport.pdfBase64,
+              pdfName: `report-${period.replace(/\s+/g, "-").toLowerCase()}.pdf`, fallbackHtml: reportHtml, alt: "Weighment report",
+            });
+          } catch (sendErr) {
+            functions.logger.warn(`Rendered report send failed for ${companyId}, queued as plain mail: ${sendErr.message}`);
+            await db.collection("mail").add({
+              to: config.recipient,
+              message: { subject, html: reportHtml, text: body },
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            }).catch(() => {});
+            await _writeInApp({
+              companyId, category: "system", severity: "warn", link: "/reports",
+              title: "Daily report had a delivery issue",
+              body: `Your scheduled ${period} report couldn't be sent the usual way and was queued as a plain email. Check your report settings if reports stop arriving.`,
+            }).catch(() => {});
+          }
+        } else {
+          // Branded HTML + text, with mail-collection fallback for the Trigger Email extension.
+          try {
+            const transporter = getMailTransporter();
+            const senderEmail = _fnConfig().gmail?.email || process.env.GMAIL_EMAIL;
+            await transporter.sendMail({
+              from: `"${BRAND.name}" <${senderEmail}>`, to: config.recipient, subject, html: reportHtml, text: body,
+            });
+          } catch (mailErr) {
+            await db.collection("mail").add({
+              to: config.recipient,
+              message: { subject, html: reportHtml, text: body },
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            functions.logger.warn(`Direct mail failed, wrote to mail collection: ${mailErr.message}`);
+          }
+        }
       }
 
       functions.logger.info(`Email report sent to ${config.recipient} for company ${companyId}`);
+
+      // Optional SMS digest — opt-in via emailSchedule.smsDigest. Best-effort.
+      if (config.smsDigest === true) {
+        const adminContact = await resolveCompanyAdminContact(companyId);
+        if (adminContact.phone) {
+          await _sendDltSms("dailyDigest", adminContact.phone, [
+            String(totalWeighments),
+            (totalNet / 1000).toFixed(1),
+          ]);
+        }
+      }
     }
 
     return null;
@@ -5457,7 +7381,7 @@ exports.sendReportEmail = functions.https.onCall(async (data, context) => {
     .join("\n");
 
   const body = `
-Weighbridge Report — ${periodLabel}
+${BRAND.name} Report — ${periodLabel}
 ${"=".repeat(40)}
 
 Total Weighments: ${totalWeighments}
@@ -5473,12 +7397,281 @@ Requested by: ${context.auth.token.email || "admin"}
   `.trim();
 
   const transporter = getMailTransporter();
+  const senderEmail = _fnConfig().gmail?.email || process.env.GMAIL_EMAIL;
   await transporter.sendMail({
-    from: functions.config().gmail?.email || process.env.GMAIL_EMAIL,
+    from: `"${BRAND.name}" <${senderEmail}>`,
     to: recipient,
-    subject: `Weighbridge Report — ${periodLabel} (${totalWeighments} weighments, ${(totalNet / 1000).toFixed(1)}T)`,
+    subject: `${BRAND.name} Report — ${periodLabel} (${totalWeighments} weighments, ${(totalNet / 1000).toFixed(1)}T)`,
+    html: _buildReportEmailHtml(periodLabel, totalWeighments, totalVehicles.size, totalNet, materialTotals),
     text: body,
   });
 
   return { success: true, weighments: totalWeighments, tonnage: (totalNet / 1000).toFixed(1) };
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Address verification — postal PIN-mailer (Phase 1)
+// On company creation a one-time code is generated and queued for a physical
+// letter to the company's registered address. The user must enter it within a
+// 30-day grace window to keep using the app. The plaintext code lives only in
+// the server-only `mailers/{companyId}` doc (for printing); the client-readable
+// `address_verifications/{companyId}` doc carries only status + the deadline.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const _ADDR_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I ambiguity
+const _ADDR_GRACE_DAYS = 30;
+
+function _genAddressCode(len = 8) {
+  const bytes = require("crypto").randomBytes(len);
+  let out = "";
+  for (let i = 0; i < len; i++) out += _ADDR_ALPHABET[bytes[i] % _ADDR_ALPHABET.length];
+  return out;
+}
+
+/**
+ * Mirror the company admin into the operators collection so the admin appears
+ * in the operator list and can process weighments. Idempotent: deterministic
+ * doc id + email de-dupe, so it's safe to call from onCompanyCreated (new
+ * accounts) and from the backfill (existing accounts), repeatedly.
+ *
+ * IMPORTANT: the doc MUST carry role:"companyAdmin". The client derives admin
+ * privileges from that role (security_provider.currentUserRoleProvider), and
+ * loginUser/SessionGuard both resolve the operators collection BEFORE the
+ * company doc — so an admin-operator doc without this role would silently
+ * demote the admin to a plain operator on their next login.
+ *
+ * @returns {Promise<"created"|"exists"|"no_email">}
+ */
+async function _ensureAdminOperator(companyId, companyData) {
+  const data = companyData || {};
+  const email = (data.email || "").trim().toLowerCase();
+  // Without an email the admin can't be matched on login; nothing to mirror.
+  if (!email) return "no_email";
+
+  const opsRef = db.collection(`companies/${companyId}/operators`);
+  const adminDocId = `admin_${companyId}`;
+
+  // Idempotency 1: deterministic id.
+  if ((await opsRef.doc(adminDocId).get()).exists) return "exists";
+  // Idempotency 2: an admin operator for this email may already exist under a
+  // different id (e.g. manually added). Don't create a duplicate.
+  const dupe = await opsRef.where("email", "==", email).limit(1).get();
+  if (!dupe.empty) return "exists";
+
+  // Carry over the admin's DigiLocker-verified identity (stamped on the company
+  // doc during onboarding) so the admin shows as a verified operator — these are
+  // the exact fields the operator detail screen reads.
+  const identity = {};
+  for (const k of ["verificationMethod", "verifiedName", "verifiedPhotoUrl",
+    "verifiedDob", "verifiedGender", "aadhaarLast4", "verifiedAddress"]) {
+    if (data[k]) identity[k] = data[k];
+  }
+
+  await opsRef.doc(adminDocId).set({
+    role: "companyAdmin", // CRITICAL — preserves admin privileges (see above).
+    isCompanyAdmin: true, // Marker the UI uses to lock weighment permissions.
+    name: data.contactName || data.verifiedName || data.name || "Administrator",
+    email,
+    phone: data.phone || "",
+    companyId,
+    uid: data.uid || data.adminUid || null,
+    isActive: true,
+    isVerified: true,
+    idStatus: "verified",
+    mustChangePassword: false,
+    shiftRestricted: false,
+    // Admin can always process weighments — these mirror that and are locked
+    // in the UI. (isAdmin overrides them anyway, but keep them consistent.)
+    canViewWeighments: true,
+    canViewReports: true,
+    canViewCustomers: true,
+    ownWeighmentsOnly: false,
+    // Visible across every site.
+    siteScope: "all",
+    allowedSites: [],
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    source: "company_admin_auto",
+    ...identity,
+  });
+  return "created";
+}
+
+exports.onCompanyCreated = functions.firestore
+  .document("companies/{companyId}")
+  .onCreate(async (snap, context) => {
+    const { companyId } = context.params;
+    const data = snap.data() || {};
+
+    // Mirror the admin into the operators list (own idempotency; runs even if
+    // address-verification was already provisioned, hence before the guard).
+    try {
+      await _ensureAdminOperator(companyId, data);
+    } catch (e) {
+      console.error("ensureAdminOperator failed for", companyId, e);
+    }
+
+    // Idempotency — never re-provision if it already exists.
+    const avRef = db.collection("address_verifications").doc(companyId);
+    if ((await avRef.get()).exists) return;
+
+    const code = _genAddressCode(8);
+    const now = admin.firestore.Timestamp.now();
+    const graceUntil = admin.firestore.Timestamp.fromMillis(
+      now.toMillis() + _ADDR_GRACE_DAYS * 24 * 60 * 60 * 1000,
+    );
+    const address = [data.address1, data.address2, data.state]
+      .filter(Boolean).join(", ");
+
+    // Client-readable (read-only via rules): drives the 30-day grace gate.
+    await avRef.set({
+      companyId,
+      status: "pending",
+      issuedAt: now,
+      graceUntil,
+      dispatchState: "queued",
+      reissues: 0,
+    });
+
+    // Server-only: plaintext code (for printing) + salted hash (for verify).
+    await db.collection("mailers").doc(companyId).set({
+      companyId,
+      companyName: data.name || "",
+      address,
+      code,
+      cred: _makeCredential(code),
+      attempts: 0,
+      lockedUntil: null,
+      dispatchState: "queued",
+      createdAt: now,
+    });
+
+    // Welcome the new account (best-effort email + SMS).
+    const companyName = data.name || "your company";
+    await notifyContact({
+      to: { email: data.email || null, phone: data.phone || null },
+      companyId,
+      subject: `Welcome to ${BRAND.name}`,
+      notif: ({
+        category: "welcome",
+        link: "/dashboard",
+        operatorEmail: data.email || null,
+        heading: `Welcome to ${BRAND.name}`,
+        intro: `Your ${BRAND.name} account for ${companyName} is ready. ` +
+          `We've mailed a verification code to your registered address; enter it within ${_ADDR_GRACE_DAYS} days to keep your account active.`,
+        rows: [["Company", companyName], ["Address verification", `${_ADDR_GRACE_DAYS}-day window`]],
+        note: `Questions? Reach us at ${BRAND.support}.`,
+      }),
+    });
+  });
+
+exports.verifyAddressCode = functions.https.onCall(async (data, context) => {
+  const companyId = String((data && data.companyId) || "").trim();
+  const code = String((data && data.code) || "").trim().toUpperCase();
+  if (!companyId || !code) {
+    throw new functions.https.HttpsError("invalid-argument", "companyId and code are required.");
+  }
+
+  const avRef = db.collection("address_verifications").doc(companyId);
+  const mailerRef = db.collection("mailers").doc(companyId);
+
+  const avSnap = await avRef.get();
+  if (avSnap.exists && avSnap.data().status === "verified") {
+    return { verified: true, alreadyVerified: true };
+  }
+
+  const mailerSnap = await mailerRef.get();
+  if (!mailerSnap.exists) {
+    throw new functions.https.HttpsError("not-found", "No verification is pending for this company.");
+  }
+  const m = mailerSnap.data();
+
+  const now = Date.now();
+  if (m.lockedUntil && m.lockedUntil.toMillis() > now) {
+    const mins = Math.ceil((m.lockedUntil.toMillis() - now) / 60000);
+    throw new functions.https.HttpsError("resource-exhausted", `Too many attempts. Try again in ${mins} min.`);
+  }
+
+  if (!_verifyCredential(code, m.cred)) {
+    const attempts = (m.attempts || 0) + 1;
+    const update = { attempts };
+    if (attempts >= 5) {
+      update.lockedUntil = admin.firestore.Timestamp.fromMillis(now + 15 * 60 * 1000);
+      update.attempts = 0;
+    }
+    await mailerRef.update(update);
+    throw new functions.https.HttpsError("permission-denied", "Incorrect code. Please check the letter and try again.");
+  }
+
+  await avRef.set({
+    status: "verified",
+    verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+  await mailerRef.update({
+    attempts: 0,
+    lockedUntil: null,
+    code: null,
+    verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return { verified: true };
+});
+
+// Server-authoritative grace check (uses SERVER time — tamper-proof). Returns
+// false for companies with no verification record (pre-feature accounts).
+async function _addressGateLocked(companyId) {
+  if (!companyId) return false;
+  const snap = await db.collection("address_verifications").doc(companyId).get();
+  if (!snap.exists) return false;
+  const d = snap.data();
+  if (d.status === "verified") return false;
+  if (!d.graceUntil) return false;
+  return Date.now() > d.graceUntil.toMillis();
+}
+
+// Lightweight callable the client consults when online to get the authoritative
+// (server-time) locked state, overriding the device-clock fallback.
+exports.checkAddressGate = functions.https.onCall(async (data, context) => {
+  const companyId = String((data && data.companyId) || "").trim();
+  const snap = companyId
+    ? await db.collection("address_verifications").doc(companyId).get()
+    : null;
+  const d = snap && snap.exists ? snap.data() : null;
+  return {
+    locked: await _addressGateLocked(companyId),
+    status: d ? (d.status || "pending") : "none",
+    graceUntil: d && d.graceUntil ? d.graceUntil.toMillis() : null,
+  };
+});
+
+// ── Gen-2 email document renderer (isolated; Chromium loads only in ITS own ──
+// instances, never in the gen-1 functions above — see functions/email_render.js).
+// ─── Scheduled: prune old in-app notifications (retention) ───────────────────
+// Read notifications older than 30 days and unread older than 90 days are
+// deleted per company, so the notification collection doesn't grow unbounded.
+// (Uses the existing notifications (read, createdAt) composite index.)
+exports.cleanupNotifications = functions.pubsub
+  .schedule("every 24 hours")
+  .timeZone("Asia/Kolkata")
+  .onRun(async () => {
+    const now = Date.now();
+    const readCutoff = admin.firestore.Timestamp.fromMillis(now - 30 * 24 * 60 * 60 * 1000);
+    const unreadCutoff = admin.firestore.Timestamp.fromMillis(now - 90 * 24 * 60 * 60 * 1000);
+    const companies = await db.collection("companies").get();
+    let removed = 0;
+    for (const c of companies.docs) {
+      const col = db.collection(`companies/${c.id}/notifications`);
+      const oldRead = await col.where("read", "==", true).where("createdAt", "<", readCutoff).limit(250).get();
+      const oldUnread = await col.where("read", "==", false).where("createdAt", "<", unreadCutoff).limit(250).get();
+      if (oldRead.empty && oldUnread.empty) continue;
+      const batch = db.batch();
+      oldRead.forEach((d) => batch.delete(d.ref));
+      oldUnread.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+      removed += oldRead.size + oldUnread.size;
+    }
+    if (removed) console.log(`cleanupNotifications: removed ${removed} old notifications`);
+    return null;
+  });
+
+// ── Gen-2 email document renderer (isolated; Chromium loads only in ITS own ──
+// instances, never in the gen-1 functions above — see functions/email_render.js).
+exports.renderEmailDoc = require("./email_render").renderEmailDoc;

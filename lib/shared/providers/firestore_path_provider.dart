@@ -80,6 +80,14 @@ class FirestorePaths {
   CollectionReference<Map<String, dynamic>> get materials =>
       _db.collection('$_weighbridgePrefix/materials');
 
+  /// The materials collection at a chosen scope (weighbridge / site / company).
+  CollectionReference<Map<String, dynamic>> materialsForScope(CollectionScope scope) =>
+      switch (scope) {
+        CollectionScope.weighbridge => _db.collection('$_weighbridgePrefix/materials'),
+        CollectionScope.site => _db.collection('$_sitePrefix/materials'),
+        CollectionScope.company => _db.collection('$_companyPrefix/materials'),
+      };
+
   CollectionReference<Map<String, dynamic>> get vehicles =>
       _db.collection('$_companyPrefix/vehicles');
 

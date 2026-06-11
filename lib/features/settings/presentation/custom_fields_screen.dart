@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
@@ -7,10 +9,18 @@ import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.d
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
+import 'package:weighbridgemanagement/shared/providers/settings_scope_provider.dart';
+import 'package:weighbridgemanagement/shared/widgets/settings_scope_selector.dart';
+import 'package:weighbridgemanagement/shared/widgets/scope_change_dialog.dart';
+import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
+
+const _cfScopeArg = (feature: 'customFields', fallback: CollectionScope.company);
 
 final _customFieldsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
-  final doc = await db.customFieldsSettings.get();
+  if (!db.isConfigured) return List.generate(3, (_) => _defaultField());
+  final scope = await ref.watch(settingsScopeProvider(_cfScopeArg).future);
+  final doc = await scopedSettingDoc(db, 'customFields', scope).get();
   if (!doc.exists) return List.generate(3, (_) => _defaultField());
   final fields = doc.data()?['fields'] as List<dynamic>?;
   if (fields == null || fields.isEmpty) return List.generate(3, (_) => _defaultField());
@@ -60,42 +70,7 @@ const _currencies = [
 String _currencyToDisplay(String code) {
   final match = _currencies.where((c) => c.$1 == code);
   if (match.isNotEmpty) return '${match.first.$1} (${match.first.$2})';
-  return '${code} (${code})';
-}
-
-String _previewHint(Map<String, dynamic> field) {
-  final type = field['type'] as String? ?? 'Text';
-  switch (type) {
-    case 'Number':
-      return '0.00';
-    case 'Currency':
-      final cur = _currencies.firstWhere((c) => c.$1 == (field['currency'] ?? 'INR'), orElse: () => ('INR', '₹'));
-      return '${cur.$2} 0.00';
-    case 'Rate':
-      final num = (field['unitNumerator'] as String?)?.isNotEmpty == true ? field['unitNumerator'] as String : 'INR (₹)';
-      final den = (field['unitDenominator'] as String?)?.isNotEmpty == true ? field['unitDenominator'] as String : 'kg';
-      final symbol = num.contains('(') ? num.split('(').last.replaceAll(')', '') : num;
-      return '$symbol 0.00 / $den';
-    case 'Date':
-      return 'dd/mm/yyyy';
-    case 'Boolean':
-      return '';
-    default:
-      return 'Enter ${field['label'] ?? 'value'}';
-  }
-}
-
-String _previewSuffix(Map<String, dynamic> field) {
-  final type = field['type'] as String? ?? 'Text';
-  if (type == 'Number') {
-    final unit = field['unit'] as String? ?? '';
-    return unit.isNotEmpty && unit != '(none)' ? unit : '';
-  }
-  if (type == 'Rate') {
-    final den = (field['unitDenominator'] as String?)?.isNotEmpty == true ? field['unitDenominator'] as String : '';
-    return den.isNotEmpty ? '/ $den' : '';
-  }
-  return '';
+  return '$code ($code)';
 }
 
 String _ratePreview(Map<String, dynamic> field) {
@@ -116,11 +91,17 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
   List<Map<String, dynamic>> _fields = [];
   bool _loaded = false;
   bool _saving = false;
-  bool _dirty = false;
+  Timer? _saveDebounce;
   int _expandedIndex = 0;
 
   String? _headerMsg;
   bool _headerMsgIsError = false;
+
+  @override
+  void dispose() {
+    _saveDebounce?.cancel();
+    super.dispose();
+  }
 
   void _loadData(List<Map<String, dynamic>> data) {
     if (_loaded) return;
@@ -132,7 +113,11 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
   }
 
   void _markDirty() {
-    if (!_dirty) setState(() => _dirty = true);
+    // Auto-save shortly after the last edit (no Save button).
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 600), () {
+      if (mounted) _save();
+    });
   }
 
   void _showHeaderMsg(String msg, {bool isError = false}) {
@@ -146,15 +131,13 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
     setState(() => _saving = true);
     try {
       final db = ref.read(firestorePathsProvider);
-      await db.customFieldsSettings.set({
+      final scope = ref.read(settingsScopeProvider(_cfScopeArg)).valueOrNull ?? CollectionScope.company;
+      await scopedSettingDoc(db, 'customFields', scope).set({
         'fields': _fields,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       ref.invalidate(_customFieldsProvider);
-      if (mounted) {
-        setState(() => _dirty = false);
-        _showHeaderMsg('Custom fields saved');
-      }
+      if (mounted) _showHeaderMsg('Saved');
     } catch (e) {
       if (mounted) _showHeaderMsg('Failed: $e', isError: true);
     } finally {
@@ -162,11 +145,27 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
     }
   }
 
-  void _resetDefaults() {
-    setState(() {
-      _fields = List.generate(3, (_) => _defaultField());
-      _dirty = true;
-    });
+  /// Scope change applies right away after confirmation (like Materials),
+  /// copying the current fields up/down to the new scope.
+  Future<void> _changeScope(CollectionScope to) async {
+    final saved = ref.read(settingsScopeProvider(_cfScopeArg)).valueOrNull ?? CollectionScope.company;
+    if (saved == to) return;
+    final ok = await showScopeChangeDialog(context, ref, from: saved, to: to, noun: 'fields', saveGated: false);
+    if (!ok) return;
+    final db = ref.read(firestorePathsProvider);
+    try {
+      final src = await scopedSettingDoc(db, 'customFields', saved).get();
+      if (src.exists && src.data() != null) {
+        await scopedSettingDoc(db, 'customFields', to).set(src.data()!, SetOptions(merge: true));
+      }
+      await db.companySetting('settingsScope').set({'customFields': to.name}, SetOptions(merge: true));
+      ref.invalidate(_customFieldsProvider);
+      ref.invalidate(settingsScopeProvider(_cfScopeArg));
+      if (mounted) setState(() => _loaded = false);
+      _showHeaderMsg('Custom fields now apply to ${to.label}');
+    } catch (e) {
+      if (mounted) _showHeaderMsg('Failed to change scope: $e', isError: true);
+    }
   }
 
   @override
@@ -212,21 +211,24 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                       ],
                     ),
                     const Spacer(),
-                    if (_dirty) ...[
-                      TextButton(onPressed: _resetDefaults, child: const Text('Cancel')),
-                      SizedBox(width: AppSpacing.sm),
-                    ],
-                    FilledButton.icon(
-                      onPressed: _dirty && !_saving ? _save : null,
-                      icon: _saving
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.save_rounded, size: 16),
-                      label: Text(_saving ? 'Saving...' : 'Save'),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
+                    if (_saving)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2)),
+                          SizedBox(width: AppSpacing.sm),
+                          Text('Saving…', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                        ],
+                      )
+                    else
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.cloud_done_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                          SizedBox(width: 6.rs),
+                          Text('Saved automatically', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                        ],
                       ),
-                    ),
                   ],
                 ),
                 if (_headerMsg != null)
@@ -257,18 +259,24 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
             ),
           ),
 
+          WeighbridgeContextBar(
+            label: 'Custom fields for',
+            onSwitched: () {
+              setState(() => _loaded = false);
+              ref.invalidate(_customFieldsProvider);
+            },
+            trailing: SettingsScopeSelector(
+              scope: ref.watch(settingsScopeProvider(_cfScopeArg)).valueOrNull ?? CollectionScope.company,
+              onChanged: (to) => _changeScope(to),
+            ),
+          ),
+
           // Content
           Expanded(
             child: fieldsAsync.when(
               loading: () => const AppLoading(),
               error: (e, _) => Center(child: Text('Error: $e')),
-              data: (_) => Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Field configuration
-                  Expanded(
-                    flex: 3,
-                    child: SingleChildScrollView(
+              data: (_) => SingleChildScrollView(
                       padding: AppSpacing.pagePadding,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,154 +319,10 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
                         ],
                       ),
                     ),
-                  ),
-
-                  // Live preview
-                  Container(
-                    width: 280,
-                    margin: AppSpacing.pagePadding,
-                    padding: EdgeInsets.all(20.rs),
-                    decoration: BoxDecoration(
-                      color: scheme.surface,
-                      borderRadius: BorderRadius.circular(14.rs),
-                      border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: scheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(4.rs),
-                              ),
-                              child: Text('LIVE PREVIEW', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: scheme.onPrimaryContainer, letterSpacing: 0.5)),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: AppSpacing.lg),
-                        Text('Transaction Entry', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
-                        SizedBox(height: AppSpacing.md),
-                        // Standard fields preview
-                        _PreviewField(label: 'Vehicle Number', hint: 'MH-12-AB-1234', scheme: scheme, text: text),
-                        SizedBox(height: 10.rs),
-                        // Custom fields preview
-                        ..._fields.where((f) => f['enabled'] == true && (f['label'] as String).isNotEmpty).map((f) {
-                          final label = f['label'] as String;
-                          final type = f['type'] as String;
-                          final required = f['required'] == true;
-                          final placeholder = (f['placeholder'] as String?)?.isNotEmpty == true ? f['placeholder'] as String : _previewHint(f);
-                          final suffix = _previewSuffix(f);
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: _PreviewField(
-                              label: '$label${required ? ' *' : ''}',
-                              hint: placeholder,
-                              suffix: suffix,
-                              isDropdown: type == 'Dropdown',
-                              isToggle: type == 'Boolean',
-                              scheme: scheme,
-                              text: text,
-                            ),
-                          );
-                        }),
-                        // Disabled fields shown muted
-                        ..._fields.where((f) => f['enabled'] != true).map((_) => Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: Container(
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: scheme.surfaceContainerHigh.withValues(alpha: 0.3),
-                                  borderRadius: AppRadius.chip,
-                                ),
-                                child: Center(
-                                  child: Icon(Icons.block_rounded, size: 14, color: scheme.outlineVariant),
-                                ),
-                              ),
-                            )),
-                        const Spacer(),
-                        SizedBox(
-                          width: double.infinity,
-                          child: Container(
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: scheme.primary,
-                              borderRadius: AppRadius.button,
-                            ),
-                            child: Center(
-                              child: Text('Complete Transaction', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onPrimary)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _PreviewField extends StatelessWidget {
-  final String label;
-  final String hint;
-  final String suffix;
-  final bool isDropdown;
-  final bool isToggle;
-  final ColorScheme scheme;
-  final TextTheme text;
-
-  const _PreviewField({required this.label, required this.hint, this.suffix = '', this.isDropdown = false, this.isToggle = false, required this.scheme, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    if (isToggle) {
-      return Row(
-        children: [
-          SizedBox(width: 28, height: 16, child: FittedBox(child: Switch(value: false, onChanged: null))),
-          SizedBox(width: 6.rs),
-          Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-        ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-        SizedBox(height: 3.rs),
-        Container(
-          height: 30,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-            borderRadius: BorderRadius.circular(5.rs),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(hint, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5))),
-              ),
-              if (suffix.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(left: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(3.rs),
-                  ),
-                  child: Text(suffix, style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: scheme.primary)),
-                ),
-              if (isDropdown) Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: scheme.onSurfaceVariant),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

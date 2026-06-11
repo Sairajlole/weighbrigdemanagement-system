@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/widgets/pro_feature_banner.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/providers/integrations_provider.dart';
 import 'package:weighbridgemanagement/shared/services/display_board_service.dart';
 import 'package:weighbridgemanagement/shared/services/tally_service.dart';
@@ -59,7 +60,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
   // ── Cloud Backup (Google Drive / S3) ──
   bool _gdriveEnabled = false;
   final _gdriveClientId = TextEditingController();
-  final _gdriveFolder = TextEditingController(text: 'WeighbridgeBackups');
+  final _gdriveFolder = TextEditingController(text: 'TulanamBackups');
   String _gdriveFrequency = 'daily';
 
   // ── Oracle ERP Export ──
@@ -117,7 +118,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     final gdrive = cloud['gdrive'] as Map<String, dynamic>? ?? {};
     _gdriveEnabled = gdrive['enabled'] == true;
     _gdriveClientId.text = gdrive['clientId'] as String? ?? '';
-    _gdriveFolder.text = gdrive['folder'] as String? ?? 'WeighbridgeBackups';
+    _gdriveFolder.text = gdrive['folder'] as String? ?? 'TulanamBackups';
     _gdriveFrequency = gdrive['frequency'] as String? ?? 'daily';
 
     // Oracle ERP
@@ -197,6 +198,11 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
       await db.integrationsSettings.set(payload, SetOptions(merge: true));
       ref.invalidate(_integrationsProvider);
       ref.invalidate(integrationsConfigProvider);
+      AppNotifier.raise(db,
+          category: 'system', severity: 'info', link: '/settings/integrations',
+          title: 'Integrations updated',
+          body: 'Your integration settings (sync/export connectors) were changed.',
+          throttleKey: 'integrations-change', throttle: const Duration(minutes: 5));
 
       if (mounted) {
         _savedSnapshot = jsonEncode(_buildPayload());
@@ -678,7 +684,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
           SizedBox(height: 10.rs),
           _field('OAuth Client ID', _gdriveClientId, hint: 'xxxx.apps.googleusercontent.com', scheme: scheme, text: text),
           SizedBox(height: 10.rs),
-          _field('Folder Name', _gdriveFolder, hint: 'WeighbridgeBackups', scheme: scheme, text: text),
+          _field('Folder Name', _gdriveFolder, hint: 'TulanamBackups', scheme: scheme, text: text),
           SizedBox(height: 10.rs),
           _dropdownRow('Frequency', _gdriveFrequency, ['hourly', 'daily', 'weekly'], (v) { setState(() => _gdriveFrequency = v); _markDirty(); }, scheme, text),
         ],

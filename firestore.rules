@@ -15,6 +15,14 @@ service cloud.firestore {
         allow read, write: if true;
       }
 
+      // Monthly email/SMS spend counters — written ONLY by Cloud Functions
+      // (Admin SDK). Client-readable so the app can show usage, but never
+      // client-writable, or the cost cap could be bypassed.
+      match /usage/{period} {
+        allow read: if true;
+        allow write: if false;
+      }
+
       // ─── Company-wide collections ──────────────────────────────────
 
       match /operators/{operatorId} {
@@ -73,6 +81,11 @@ service cloud.firestore {
         }
 
         match /settings/{settingId} {
+          allow read, write: if true;
+        }
+
+        // Site-scoped materials (used by the materials scope feature).
+        match /materials/{materialId} {
           allow read, write: if true;
         }
 
@@ -198,32 +211,63 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // ─── Cloud Function collections ─────────────────────────────────
+    // ─── Server-only collections (Cloud Functions / Admin SDK only) ──────
+    // Clients never access these directly; the Admin SDK bypasses rules, so
+    // denying them here closes credential/license/OTP exposure and tampering.
 
+    // Salted password credentials — must NEVER be client-readable.
+    match /credentials/{id} {
+      allow read, write: if false;
+    }
+
+    // Single-use password-reset tokens.
+    match /password_reset_tokens/{id} {
+      allow read, write: if false;
+    }
+
+    // License records (denormalized onto the company doc for client display).
     match /licenses/{licenseId} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if false;
     }
 
+    // OTP hashes.
     match /verification_otps/{otpId} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
 
-    match /gstin_lookups/{lookupId} {
-      allow read, write: if true;
+    // Per-(company, template) SMS alert throttle. Server-only — a client must not
+    // be able to pre-write a cooldown doc to suppress security-alert SMS.
+    match /notification_cooldowns/{id} {
+      allow read, write: if false;
     }
 
-    // ─── GSTIN registry (used by license system) ─────────────────────
-
+    // Trial-abuse / GSTIN ownership registry. Client trial activation reads/writes
+    // this directly (license_provider.activateTrial); kept open to match the
+    // client-side license flow. (Re-lock to server-only when activateTrial is
+    // migrated to a Cloud Function.)
     match /gstin_registry/{gstinId} {
       allow read, write: if true;
     }
 
-    // ─── Global registry (used by license system) ───────────────────
+    // Postal PIN-mailer queue — holds the plaintext code; server-only.
+    match /mailers/{companyId} {
+      allow read, write: if false;
+    }
+
+    // Address-verification status + 30-day deadline. Client may READ it (to
+    // drive the grace gate) but only Cloud Functions may write it.
+    match /address_verifications/{companyId} {
+      allow read: if true;
+      allow write: if false;
+    }
 
     match /global/{docPath=**} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if false;
+    }
+
+    // GSTIN lookup cache (public GST data only — not sensitive).
+    match /gstin_lookups/{lookupId} {
+      allow read, write: if true;
     }
   }
 }

@@ -35,7 +35,11 @@ class WeighbridgeContextBar extends ConsumerWidget {
   final String label;
   final VoidCallback? onSwitched;
 
-  const WeighbridgeContextBar({super.key, required this.label, this.onSwitched});
+  /// Optional trailing widget (e.g. a settings-scope selector) shown on the
+  /// right of the bar.
+  final Widget? trailing;
+
+  const WeighbridgeContextBar({super.key, required this.label, this.onSwitched, this.trailing});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -93,11 +97,12 @@ class WeighbridgeContextBar extends ConsumerWidget {
               ),
             ),
           const Spacer(),
-          if (hasMultiple)
+          if (hasMultiple && trailing == null)
             Text(
               '${allWbs.length} weighbridges · ${allWbs.map((w) => w.siteId).toSet().length} site${allWbs.map((w) => w.siteId).toSet().length != 1 ? 's' : ''}',
               style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
             ),
+          if (trailing != null) trailing!,
         ],
       ),
     );

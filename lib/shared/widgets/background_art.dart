@@ -18,7 +18,7 @@ class BackgroundArt extends ConsumerWidget {
         children: [
           Positioned.fill(
             child: IgnorePointer(
-              child: _LogoWatermarkBg(scheme: scheme),
+              child: LogoWatermarkBg(scheme: scheme),
             ),
           ),
           child,
@@ -100,15 +100,27 @@ class _BackgroundPainter extends CustomPainter {
   bool shouldRepaint(covariant _BackgroundPainter old) => art != old.art || color != old.color;
 }
 
-class _LogoWatermarkBg extends StatefulWidget {
+class LogoWatermarkBg extends StatefulWidget {
   final ColorScheme scheme;
-  const _LogoWatermarkBg({required this.scheme});
+
+  /// Override the (very faint) on-screen opacity — used for the settings
+  /// thumbnail so the same rendering is actually visible at small size.
+  final double? opacityOverride;
+
+  /// Disable the slow horizontal drift (for static previews).
+  final bool animate;
+
+  /// Denser, larger tiling used only for the settings thumbnail — the real
+  /// on-screen background keeps the default spacing.
+  final bool dense;
+
+  const LogoWatermarkBg({super.key, required this.scheme, this.opacityOverride, this.animate = true, this.dense = false});
 
   @override
-  State<_LogoWatermarkBg> createState() => _LogoWatermarkBgState();
+  State<LogoWatermarkBg> createState() => _LogoWatermarkBgState();
 }
 
-class _LogoWatermarkBgState extends State<_LogoWatermarkBg> with SingleTickerProviderStateMixin {
+class _LogoWatermarkBgState extends State<LogoWatermarkBg> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -117,7 +129,8 @@ class _LogoWatermarkBgState extends State<_LogoWatermarkBg> with SingleTickerPro
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 120),
-    )..repeat();
+    );
+    if (widget.animate) _controller.repeat();
   }
 
   @override
@@ -129,39 +142,51 @@ class _LogoWatermarkBgState extends State<_LogoWatermarkBg> with SingleTickerPro
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final opacity = isDark ? 0.03 : 0.05;
+    final opacity = widget.opacityOverride ?? (isDark ? 0.03 : 0.05);
+
+    final vPitch = widget.dense ? 146.0 : 160.0;
+    final rowH = widget.dense ? 104.0 : 140.0;
+    final logoW = widget.dense ? 120.0 : 100.0;
+    final logoH = widget.dense ? 104.0 : 92.0;
+    final hPad = widget.dense ? 20.0 : 40.0;
+    final cols = widget.dense ? 32 : 24;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final rows = (constraints.maxHeight / 160).ceil() + 1;
+        final rows = (constraints.maxHeight / vPitch).ceil() + 1;
         final totalWidth = constraints.maxWidth;
         return AnimatedBuilder(
           animation: _controller,
           builder: (_, __) {
-            final shift = _controller.value * (totalWidth + 200);
+            final shift = widget.animate ? _controller.value * (totalWidth + 200) : 0.0;
             return ClipRect(
               child: Opacity(
                 opacity: opacity,
                 child: ColorFiltered(
-                  colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.srcIn),
+                  colorFilter: ColorFilter.mode(widget.scheme.primary, BlendMode.srcIn),
                   child: Stack(
                     children: List.generate(rows, (row) {
                       return Positioned(
-                        top: row * 160.0 - 80,
+                        top: row * vPitch - vPitch / 2,
                         left: shift - totalWidth - 200,
                         width: totalWidth * 3,
-                        height: 140,
-                        child: Row(
-                          children: List.generate(24, (col) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 40),
-                              child: SizedBox(
-                                width: 100,
-                                height: 92,
-                                child: Image.asset('assets/logo.png', fit: BoxFit.contain),
-                              ),
-                            );
-                          }),
+                        height: rowH,
+                        child: OverflowBox(
+                          maxWidth: double.infinity,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List.generate(cols, (col) {
+                              return Padding(
+                                padding: EdgeInsets.symmetric(horizontal: hPad),
+                                child: SizedBox(
+                                  width: logoW,
+                                  height: logoH,
+                                  child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+                                ),
+                              );
+                            }),
+                          ),
                         ),
                       );
                     }),

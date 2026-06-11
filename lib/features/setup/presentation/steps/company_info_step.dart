@@ -7,8 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/connectivity_provider.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
-import 'package:weighbridgemanagement/shared/services/digilocker_service.dart';
-import 'package:weighbridgemanagement/shared/widgets/digilocker_verify_card.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
@@ -59,11 +57,6 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
   String? _error;
   String? _existingCompanyId;
 
-  // DigiLocker identity verification
-  bool _digiLockerVerified = false;
-  DigiLockerVerificationResult? _digiLockerResult;
-  StakeholderResult? _stakeholderResult;
-
   FirebaseFirestore get _db => ref.read(firestoreProvider);
 
   @override
@@ -89,11 +82,11 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
   }
 
   bool get _canProceed =>
-      _gstin.text.trim().length == 15 &&
-      _gstinError == null &&
       _companyName.text.trim().isNotEmpty &&
       _address1.text.trim().isNotEmpty &&
-      _digiLockerVerified;
+      _gstinError == null &&
+      // GSTIN is optional; if entered it must be a complete, valid number.
+      (_gstin.text.trim().isEmpty || _gstin.text.trim().length == 15);
 
   void _onGstinChanged(String val) {
     _updateValidation();
@@ -145,11 +138,24 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
     setState(() { _lookingUp = true; _lookupResult = null; });
 
     try {
+      // No local cache — the lookup returns PAN/address, so it's fetched fresh
+      // from the portal each time rather than persisted on the device.
       final responseData = await CloudFunctionsService.call('lookupGstin', {'gstin': gstin});
       debugPrint('GSTIN lookup raw response: $responseData');
       if (responseData['data'] == null) {
         debugPrint('GSTIN lookup: no data in response');
-        if (mounted) setState(() => _lookingUp = false);
+        if (mounted) {
+          setState(() {
+            _lookingUp = false;
+            _lookupResult = null;
+            _gstinError = 'Could not verify this GSTIN. Please check the number.';
+            _companyName.clear();
+            _pan = '';
+            _stateName = '';
+            _entityType = '';
+            _gstStatus = '';
+          });
+        }
         return;
       }
       final data = Map<String, dynamic>.from(responseData['data'] as Map);
@@ -195,27 +201,47 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
 
       final portalAddress2 = (data['address2'] as String? ?? '').trim();
 
+      final verified = data['verified'] == true;
       setState(() {
         _lookupResult = data;
         _lookingUp = false;
-        if (displayName.isNotEmpty) _companyName.text = displayName;
-        _pan = data['pan'] as String? ?? '';
-        _stateName = data['stateName'] as String? ?? '';
-        _entityType = data['entityType'] as String? ?? '';
-        _gstStatus = data['status'] as String? ?? '';
-        if (_address1.text.trim().isEmpty) {
-          if (portalAddress2.isNotEmpty) {
-            _address1.text = _toTitleCase(portalAddress);
-            _address2.text = _toTitleCase(portalAddress2);
-          } else if (portalAddress.isNotEmpty) {
-            _splitAddress(portalAddress);
+        if (verified) {
+          if (displayName.isNotEmpty) _companyName.text = displayName;
+          _pan = data['pan'] as String? ?? '';
+          _stateName = data['stateName'] as String? ?? '';
+          _entityType = data['entityType'] as String? ?? '';
+          _gstStatus = data['status'] as String? ?? '';
+          if (_address1.text.trim().isEmpty) {
+            if (portalAddress2.isNotEmpty) {
+              _address1.text = _toTitleCase(portalAddress);
+              _address2.text = _toTitleCase(portalAddress2);
+            } else if (portalAddress.isNotEmpty) {
+              _splitAddress(portalAddress);
+            }
           }
+        } else {
+          // Couldn't confirm with the GST portal — don't surface the
+          // values derived from the GSTIN string (state code, embedded PAN).
+          _pan = '';
+          _stateName = '';
+          _entityType = '';
+          _gstStatus = '';
         }
       });
       _updateHasData();
     } catch (e) {
       debugPrint('GSTIN lookup error: $e');
-      if (mounted) setState(() => _lookingUp = false);
+      if (mounted) {
+        setState(() {
+          _lookingUp = false;
+          _lookupResult = null;
+          _gstinError = 'GSTIN lookup failed. Check your connection and try again.';
+          _pan = '';
+          _stateName = '';
+          _entityType = '';
+          _gstStatus = '';
+        });
+      }
     }
   }
 
@@ -244,18 +270,12 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
         'entityType': _entityType,
         'state': _stateName,
         'gstinVerified': _lookupResult?['verified'] == true,
+        // Business registration is optional; identity is verified on the
+        // account step via the admin's Aadhaar (DigiLocker).
+        'businessIdType': gstin.isEmpty ? 'none' : 'gstin',
+        'businessVerified': gstin.isNotEmpty && _lookupResult?['verified'] == true,
         'updatedAt': FieldValue.serverTimestamp(),
       };
-      companyData['documentsVerified'] = true;
-      companyData['verificationMethod'] = 'digilocker';
-      if (_digiLockerResult != null) {
-        companyData['verifiedName'] = _digiLockerResult!.name;
-        companyData['verifiedPan'] = _digiLockerResult!.pan;
-      }
-      if (_stakeholderResult != null) {
-        companyData['stakeholderVerified'] = _stakeholderResult!.isStakeholder;
-        companyData['stakeholderMatchType'] = _stakeholderResult!.matchType;
-      }
 
       if (_existingCompanyId != null) {
         companyId = _existingCompanyId!;
@@ -309,10 +329,10 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Company Verification', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                        Text('Company Details', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3)),
                         SizedBox(height: 4.rs),
                         Text(
-                          'Enter your GSTIN — we\'ll fetch and verify your company details from the GST portal.',
+                          'Enter your GSTIN to auto-fill and verify from the GST portal — or skip it and add your company details manually.',
                           style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
                         ),
                       ],
@@ -374,17 +394,12 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                           borderRadius: AppRadius.card,
                           borderSide: BorderSide(color: scheme.primary, width: 2),
                         ),
-                        suffixIcon: _lookingUp
-                            ? const Padding(
-                                padding: EdgeInsets.all(14),
-                                child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                        suffixIcon: (!_lookingUp && _gstin.text.trim().length == 15)
+                            ? IconButton(
+                                icon: Icon(Icons.refresh_rounded, size: 20, color: scheme.primary),
+                                onPressed: _lookupGstin,
                               )
-                            : _gstin.text.trim().length == 15
-                                ? IconButton(
-                                    icon: Icon(Icons.refresh_rounded, size: 20, color: scheme.primary),
-                                    onPressed: _lookupGstin,
-                                  )
-                                : null,
+                            : null,
                       ),
                     ),
                     if (_lookingUp) ...[
@@ -410,7 +425,7 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                           ),
                           SizedBox(width: 6.rs),
                           Text(
-                            _lookupResult!['verified'] == true ? 'Verified from GST Portal' : 'Structural validation only',
+                            _lookupResult!['verified'] == true ? 'Verified from GST Portal' : 'Not verified — enter details manually',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -452,15 +467,15 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                     Icon(Icons.info_outline_rounded, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
                     SizedBox(width: 6.rs),
                     Text(
-                      '15-character GST Identification Number  •  Auto-verifies',
+                      'Optional — 15-character GSTIN auto-fills your details',
                       style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
                     ),
                   ],
                 ),
               ],
 
-              // Company details (progressive reveal after lookup)
-              if (_lookupResult != null || _companyName.text.isNotEmpty) ...[
+              // Verified company details — read-only, fetched from the GST portal.
+              if (_lookupResult?['verified'] == true) ...[
                 SizedBox(height: AppSpacing.xl),
                 Container(
                   width: double.infinity,
@@ -498,92 +513,89 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
                           ],
                         ),
                       ],
-                    ],
-                  ),
-                ),
-
-                // Address
-                SizedBox(height: 20.rs),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    children: [
-                      Text('Registered Address *', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
-                      if (_lookupResult?['address'] != null && (_lookupResult!['address'] as String).isNotEmpty) ...[
-                        SizedBox(width: AppSpacing.sm),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: scheme.primaryContainer.withValues(alpha: 0.4),
-                            borderRadius: BorderRadius.circular(3.rs),
-                          ),
-                          child: Text('auto-filled', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: scheme.primary)),
+                      // Registered address — from the GSTIN portal, non-editable.
+                      if (_address1.text.trim().isNotEmpty || _address2.text.trim().isNotEmpty) ...[
+                        SizedBox(height: 12.rs),
+                        Divider(height: 1, color: scheme.primary.withValues(alpha: 0.12)),
+                        SizedBox(height: 12.rs),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.location_on_outlined, size: 15, color: scheme.onSurfaceVariant),
+                            SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Registered address', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+                                  SizedBox(height: 2.rs),
+                                  Text(
+                                    [_address1.text.trim(), _address2.text.trim()].where((s) => s.isNotEmpty).join(', '),
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.35),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ],
                   ),
                 ),
-                SizedBox(height: AppSpacing.sm),
-                TextField(
-                  controller: _address1,
-                  readOnly: _existingCompanyId != null,
-                  decoration: InputDecoration(
-                    hintText: 'Street, Area, Locality',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(borderRadius: AppRadius.card),
-                    filled: _existingCompanyId != null,
-                    fillColor: _existingCompanyId != null ? scheme.surfaceContainerHigh.withValues(alpha: 0.3) : null,
-                    suffixIcon: _existingCompanyId != null ? Icon(Icons.lock_outline_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)) : null,
-                  ),
-                  maxLines: 2,
-                  onChanged: (_) => setState(() {}),
-                ),
-                SizedBox(height: 10.rs),
-                TextField(
-                  controller: _address2,
-                  readOnly: _existingCompanyId != null,
-                  decoration: InputDecoration(
-                    hintText: 'City, State, PIN (optional)',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(borderRadius: AppRadius.card),
-                    filled: _existingCompanyId != null,
-                    fillColor: _existingCompanyId != null ? scheme.surfaceContainerHigh.withValues(alpha: 0.3) : null,
-                    suffixIcon: _existingCompanyId != null ? Icon(Icons.lock_outline_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)) : null,
-                  ),
-                ),
+              ],
 
-                // Identity verification via DigiLocker
+              // Manual entry — editable whenever there's no verified GSTIN.
+              if (_lookupResult?['verified'] != true) ...[
                 SizedBox(height: AppSpacing.xl),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Verify Ownership *', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+                TextField(
+                  controller: _companyName,
+                  textCapitalization: TextCapitalization.words,
+                  onChanged: (_) { setState(() {}); _updateHasData(); },
+                  decoration: InputDecoration(
+                    labelText: 'Company / business name *',
+                    border: OutlineInputBorder(borderRadius: AppRadius.card),
+                  ),
                 ),
                 SizedBox(height: AppSpacing.md),
-                DigiLockerVerifyCard(
-                  purpose: 'admin_verification',
-                  gstin: _gstin.text.trim().toUpperCase(),
-                  companyId: _existingCompanyId,
-                  onVerified: (result) {
-                    setState(() {
-                      _digiLockerVerified = true;
-                      _digiLockerResult = result;
-                    });
-                    _updateHasData();
-                    if (_canProceed) {
-                      Future.delayed(const Duration(milliseconds: 800), () {
-                        if (mounted) {
-                          ref.read(stepSaveCallbackProvider)?.call().then((ok) {
-                            if (ok && mounted) ref.read(setupWizardProvider.notifier).nextStep();
-                          });
-                        }
-                      });
-                    }
-                  },
-                  onStakeholderResult: (result) {
-                    setState(() => _stakeholderResult = result);
-                  },
+                TextField(
+                  controller: _address1,
+                  textCapitalization: TextCapitalization.words,
+                  onChanged: (_) { setState(() {}); _updateHasData(); },
+                  decoration: InputDecoration(
+                    labelText: 'Address line 1 *',
+                    border: OutlineInputBorder(borderRadius: AppRadius.card),
+                  ),
+                ),
+                SizedBox(height: AppSpacing.md),
+                TextField(
+                  controller: _address2,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: 'Address line 2 (optional)',
+                    border: OutlineInputBorder(borderRadius: AppRadius.card),
+                  ),
                 ),
               ],
+
+              SizedBox(height: AppSpacing.xl),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: (_canProceed && !_saving)
+                      ? () async {
+                          final ok = await _save();
+                          if (ok && mounted) ref.read(setupWizardProvider.notifier).nextStep();
+                        }
+                      : null,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
+                  ),
+                  child: _saving
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Continue'),
+                ),
+              ),
 
               SizedBox(height: AppSpacing.xxl),
             ],

@@ -19,6 +19,8 @@ import 'package:weighbridgemanagement/shared/providers/site_context_provider.dar
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/notifications_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/gate_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/l10n/app_strings.dart';
 import 'package:weighbridgemanagement/shared/providers/connectivity_provider.dart';
@@ -28,6 +30,7 @@ import 'package:weighbridgemanagement/shared/providers/system_stats_provider.dar
 import 'package:weighbridgemanagement/shared/widgets/background_art.dart';
 import 'package:weighbridgemanagement/shared/widgets/inactivity_wrapper.dart';
 import 'package:weighbridgemanagement/shared/widgets/security_overlay.dart';
+import 'package:weighbridgemanagement/shared/widgets/session_guard.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
@@ -82,7 +85,7 @@ class AppShell extends ConsumerWidget {
       if (item.path == '/customers' && !perms.canManageCustomers) return false;
       if (item.path == '/weighments' && !perms.canViewWeighments) return false;
       if (item.path == '/settings' && !perms.canAccessSettings) return false;
-      if (item.path == '/weighment' && (perms.isDeactivated || perms.isAdmin)) return false;
+      if (item.path == '/weighment' && perms.isDeactivated) return false;
       return true;
     }).toList();
   }
@@ -101,6 +104,8 @@ class AppShell extends ConsumerWidget {
       ref.watch(sidecarAutoStartProvider);
       ref.watch(sidecarEmbeddingSyncProvider);
       ref.watch(eagerCameraWarmupProvider);
+      ref.watch(scaleAlertProvider); // raises a notification if the scale drops
+      ref.watch(gateAlertProvider); // raises a notification on a gate fault
     }
 
     final perms = ref.watch(permissionServiceProvider);
@@ -150,7 +155,7 @@ class AppShell extends ConsumerWidget {
                       ],
                     ),
                   ),
-                Expanded(child: BackgroundArt(child: InactivityWrapper(child: SecurityOverlay(child: child)))),
+                Expanded(child: BackgroundArt(child: InactivityWrapper(child: SecurityOverlay(child: SessionGuard(child: child))))),
               ],
             ),
           ),
@@ -297,23 +302,66 @@ class _SidebarState extends ConsumerState<_Sidebar> {
                     ),
                   ),
                   const PopupMenuDivider(),
-                  PopupMenuItem(
-                    enabled: false,
-                    child: _NotificationItem(icon: Icons.scale_rounded, title: 'Weighment completed', subtitle: 'Vehicle MH-12-AB-1234 — 12,500 kg', time: '2m ago', scheme: scheme, text: text),
-                  ),
-                  PopupMenuItem(
-                    enabled: false,
-                    child: _NotificationItem(icon: Icons.person_rounded, title: 'New operator login', subtitle: 'Rajesh signed in from PC-01', time: '15m ago', scheme: scheme, text: text),
-                  ),
-                  PopupMenuItem(
-                    enabled: false,
-                    child: _NotificationItem(icon: Icons.warning_rounded, title: 'Scale disconnected', subtitle: 'COM3 connection lost', time: '1h ago', scheme: scheme, text: text, isWarning: true),
-                  ),
+                  ...() {
+                    final unread = ref.read(unreadNotificationsProvider).valueOrNull ?? const [];
+                    if (unread.isEmpty) {
+                      return [
+                        PopupMenuItem<String>(
+                          enabled: false,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Text('No new notifications',
+                                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                          ),
+                        ),
+                      ];
+                    }
+                    return unread.take(5).map((n) {
+                      final cat = (n['category'] as String?) ?? (n['type'] as String?) ?? 'system';
+                      final sev = (n['severity'] as String?) ?? 'info';
+                      return PopupMenuItem<String>(
+                        value: 'view_all',
+                        child: _NotificationItem(
+                          icon: _shellNotifIcon(cat),
+                          title: (n['title'] as String?) ?? '',
+                          subtitle: (n['body'] as String?) ?? '',
+                          time: _shellRelTime(n['createdAt']),
+                          scheme: scheme,
+                          text: text,
+                          isWarning: sev == 'critical' || sev == 'warn' || cat == 'security',
+                        ),
+                      );
+                    }).toList();
+                  }(),
                 ],
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(borderRadius: AppRadius.button),
-                  child: Icon(Icons.notifications_outlined, size: 20, color: scheme.onSurfaceVariant),
+                  child: Builder(builder: (_) {
+                    final count = ref.watch(unreadCountProvider);
+                    final bell = Icon(Icons.notifications_outlined, size: 20, color: scheme.onSurfaceVariant);
+                    if (count == 0) return bell;
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        bell,
+                        Positioned(
+                          right: -4,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            constraints: const BoxConstraints(minWidth: 14),
+                            decoration: BoxDecoration(color: scheme.error, borderRadius: BorderRadius.circular(7)),
+                            child: Text(
+                              count > 9 ? '9+' : '$count',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: scheme.onError, fontSize: 9, fontWeight: FontWeight.w700, height: 1.3),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
                 ),
               ),
               SizedBox(width: AppSpacing.xl),
@@ -398,6 +446,35 @@ class _SidebarState extends ConsumerState<_Sidebar> {
 
 }
 
+IconData _shellNotifIcon(String category) {
+  switch (category) {
+    case 'security': return Icons.shield_outlined;
+    case 'billing': return Icons.payments_outlined;
+    case 'licence':
+    case 'license': return Icons.workspace_premium_outlined;
+    case 'operator': return Icons.person_outline_rounded;
+    case 'kyc': return Icons.verified_user_outlined;
+    case 'backup': return Icons.cloud_off_outlined;
+    case 'account': return Icons.lock_outline_rounded;
+    case 'welcome': return Icons.celebration_outlined;
+    default: return Icons.notifications_none_rounded;
+  }
+}
+
+String _shellRelTime(dynamic ts) {
+  try {
+    final DateTime d = ts.toDate() as DateTime;
+    final diff = DateTime.now().difference(d);
+    if (diff.inMinutes < 1) return 'now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${d.day}/${d.month}';
+  } catch (_) {
+    return '';
+  }
+}
+
 class _NotificationItem extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -428,8 +505,8 @@ class _NotificationItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                Text(subtitle, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
               ],
             ),
           ),
@@ -602,14 +679,22 @@ class _ProfileTileState extends State<_ProfileTile> {
     final scheme = Theme.of(context).colorScheme;
     final name = widget.profile?['name'] as String? ?? FirebaseAuth.instance.currentUser?.displayName ?? 'User';
     final pic = widget.profile?['profilePic'] as String?;
+    final verifiedPhoto = widget.profile?['verifiedPhotoUrl'] as String?;
 
     Widget avatar;
     if (pic != null && pic.isNotEmpty) {
+      // Uploaded profile photo (base64) takes priority.
       String raw = pic;
       if (raw.contains(',')) raw = raw.split(',').last;
       avatar = CircleAvatar(
         radius: 14,
         backgroundImage: MemoryImage(Uint8List.fromList(base64Decode(raw))),
+      );
+    } else if (verifiedPhoto != null && verifiedPhoto.isNotEmpty) {
+      // Fall back to the DigiLocker-verified photo so there's always a photo.
+      avatar = CircleAvatar(
+        radius: 14,
+        backgroundImage: NetworkImage(verifiedPhoto),
       );
     } else {
       avatar = CircleAvatar(
@@ -659,9 +744,6 @@ class _ConnectivityDotState extends State<_ConnectivityDot> {
   int _pendingCount = 0;
   Map<String, int> _breakdown = {};
   OverlayEntry? _overlayEntry;
-  bool _hoveringDot = false;
-  bool _hoveringPanel = false;
-  Timer? _hideTimer;
 
   @override
   void initState() {
@@ -671,7 +753,6 @@ class _ConnectivityDotState extends State<_ConnectivityDot> {
 
   @override
   void dispose() {
-    _hideTimer?.cancel();
     _removeOverlay();
     super.dispose();
   }
@@ -697,17 +778,25 @@ class _ConnectivityDotState extends State<_ConnectivityDot> {
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomFromScreen = screenHeight - pos.dy - size.height / 2;
 
-    _overlayEntry = OverlayEntry(builder: (_) => _StatusPanelOverlay(
-      left: 82,
-      bottom: bottomFromScreen.clamp(20.0, screenHeight - 60),
-      ref: widget.ref,
-      pendingCount: _pendingCount,
-      breakdown: _breakdown,
-      onHoverChanged: (hovering) {
-        _hoveringPanel = hovering;
-        if (!hovering) _scheduleHide();
-      },
-      onSynced: () => _refreshPending(),
+    _overlayEntry = OverlayEntry(builder: (_) => Stack(
+      children: [
+        // Tap-away barrier: the panel stays open when the cursor leaves it, and
+        // only closes when the user clicks somewhere outside it.
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _removeOverlay,
+          ),
+        ),
+        _StatusPanelOverlay(
+          left: 76 + AppSpacing.xl, // sidebar width + page padding → aligns with on-screen cards
+          bottom: bottomFromScreen.clamp(20.0, screenHeight - 60),
+          ref: widget.ref,
+          pendingCount: _pendingCount,
+          breakdown: _breakdown,
+          onSynced: () => _refreshPending(),
+        ),
+      ],
     ));
     Overlay.of(context).insert(_overlayEntry!);
   }
@@ -715,13 +804,6 @@ class _ConnectivityDotState extends State<_ConnectivityDot> {
   void _removeOverlay() {
     _overlayEntry?.remove();
     _overlayEntry = null;
-  }
-
-  void _scheduleHide() {
-    _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(milliseconds: 200), () {
-      if (!_hoveringDot && !_hoveringPanel) _removeOverlay();
-    });
   }
 
   @override
@@ -733,15 +815,7 @@ class _ConnectivityDotState extends State<_ConnectivityDot> {
 
     return MouseRegion(
       key: _dotKey,
-      onEnter: (_) {
-        _hoveringDot = true;
-        _hideTimer?.cancel();
-        _showOverlay();
-      },
-      onExit: (_) {
-        _hoveringDot = false;
-        _scheduleHide();
-      },
+      onEnter: (_) => _showOverlay(), // stays open until an outside click dismisses it
       child: SizedBox(
         width: 32,
         height: 28,
@@ -795,7 +869,6 @@ class _StatusPanelOverlay extends ConsumerStatefulWidget {
   final WidgetRef ref;
   final int pendingCount;
   final Map<String, int> breakdown;
-  final ValueChanged<bool> onHoverChanged;
   final VoidCallback onSynced;
 
   const _StatusPanelOverlay({
@@ -804,7 +877,6 @@ class _StatusPanelOverlay extends ConsumerStatefulWidget {
     required this.ref,
     required this.pendingCount,
     required this.breakdown,
-    required this.onHoverChanged,
     required this.onSynced,
   });
 
@@ -816,19 +888,70 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
   late int _pendingCount = widget.pendingCount;
   late Map<String, int> _breakdown = widget.breakdown;
 
+  bool _syncing = false;
+  Timer? _pendingTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Panel visible → poll the stats fast (1s); reverts to slow (15s) on close.
+    // Deferred — modifying a provider during a lifecycle method is illegal.
+    _setStatsVisible(true);
+    // Sync faster while the panel is open (3s vs 10s), and refresh the pending
+    // display on the same cadence so items are seen draining.
+    widget.ref.read(offlineQueueProvider).setSyncInterval(const Duration(seconds: 3));
+    _pendingTimer = Timer.periodic(const Duration(seconds: 3), (_) => _refreshPendingDisplay());
+  }
+
+  @override
+  void dispose() {
+    _pendingTimer?.cancel();
+    _setStatsVisible(false);
+    widget.ref.read(offlineQueueProvider).setSyncInterval(const Duration(seconds: 10));
+    super.dispose();
+  }
+
+  Future<void> _refreshPendingDisplay() async {
+    if (_syncing) return; // a manual sync already updates the display
+    final b = await widget.ref.read(offlineQueueProvider).pendingBreakdown;
+    final c = b.values.fold<int>(0, (a, v) => a + v);
+    if (mounted && c != _pendingCount) {
+      setState(() { _pendingCount = c; _breakdown = b; });
+    }
+  }
+
+  void _setStatsVisible(bool visible) {
+    final ref = widget.ref; // sidebar ref — outlives this overlay
+    Future(() {
+      ref.read(statsPanelVisibleProvider.notifier).state = visible;
+    });
+  }
+
+  Future<void> _doSync() async {
+    if (_syncing) return;
+    final queue = widget.ref.read(offlineQueueProvider);
+    setState(() => _syncing = true);
+    await queue.flush();
+    widget.onSynced();
+    final newBreakdown = await queue.pendingBreakdown;
+    final newCount = newBreakdown.values.fold<int>(0, (a, b) => a + b);
+    if (mounted) setState(() { _pendingCount = newCount; _breakdown = newBreakdown; _syncing = false; });
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final queue = widget.ref.read(offlineQueueProvider);
     final isOnline = widget.ref.read(connectivityProvider).valueOrNull ?? true;
+    final allSynced = _pendingCount == 0;
 
     return Positioned(
       left: widget.left,
       bottom: widget.bottom,
-      child: MouseRegion(
-        onEnter: (_) => widget.onHoverChanged(true),
-        onExit: (_) => widget.onHoverChanged(false),
+      // Absorb taps inside the panel so they don't reach the dismiss barrier.
+      child: GestureDetector(
+        onTap: () {},
+        behavior: HitTestBehavior.opaque,
         child: Material(
           elevation: 8,
           shadowColor: Colors.black26,
@@ -856,21 +979,37 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                       ),
                       SizedBox(width: 10.rs),
                       Text(isOnline ? 'Online' : 'Offline', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                      const Spacer(),
+                      // Merged sync status + "sync all data" action, on the right.
+                      if (_syncing)
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.8, color: scheme.primary)),
+                          SizedBox(width: 6.rs),
+                          Text('Syncing…', style: text.labelSmall?.copyWith(color: scheme.primary, fontWeight: FontWeight.w600)),
+                        ])
+                      else
+                        InkWell(
+                          onTap: isOnline ? _doSync : null,
+                          borderRadius: AppRadius.chip,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(allSynced ? Icons.check_circle_rounded : Icons.sync_rounded, size: 14,
+                                  color: allSynced ? AppTheme.successColor : (isOnline ? scheme.primary : scheme.onSurfaceVariant)),
+                              SizedBox(width: 5.rs),
+                              Text(allSynced ? 'All data synced' : 'Sync all data',
+                                  style: text.labelSmall?.copyWith(
+                                    color: allSynced ? scheme.onSurfaceVariant : (isOnline ? scheme.primary : scheme.onSurfaceVariant),
+                                    fontWeight: FontWeight.w600)),
+                            ]),
+                          ),
+                        ),
                     ],
                   ),
-                  SizedBox(height: AppSpacing.md),
-                  Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
-                  SizedBox(height: AppSpacing.md),
-
-                  if (_pendingCount == 0)
-                    Row(
-                      children: [
-                        Icon(Icons.check_circle_rounded, size: 16, color: AppTheme.successColor),
-                        SizedBox(width: AppSpacing.sm),
-                        Text('All data synced', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                      ],
-                    )
-                  else ...[
+                  if (_pendingCount > 0) ...[
+                    SizedBox(height: 14.rs),
+                    Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
+                    SizedBox(height: AppSpacing.md),
                     Text('Pending sync', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
                     SizedBox(height: AppSpacing.sm),
                     ..._breakdown.entries.map((e) => Padding(
@@ -894,54 +1033,14 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                     )),
                   ],
 
-                  if (queue.lastSyncAt != null)
+                  if (_pendingCount > 0 && !isOnline)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Row(
-                        children: [
-                          Icon(
-                            queue.lastSyncSuccess ? Icons.sync_rounded : Icons.sync_problem_rounded,
-                            size: 14,
-                            color: queue.lastSyncSuccess ? scheme.onSurfaceVariant : scheme.error,
-                          ),
-                          SizedBox(width: AppSpacing.sm),
-                          Text(
-                            'Last sync: ${_formatTime(queue.lastSyncAt!)}',
-                            style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                        ],
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        'Waiting for connection to sync',
+                        style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic),
                       ),
                     ),
-
-                  if (_pendingCount > 0) ...[
-                    SizedBox(height: AppSpacing.md),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: isOnline ? () async {
-                          await queue.flush();
-                          widget.onSynced();
-                          final newBreakdown = await queue.pendingBreakdown;
-                          final newCount = newBreakdown.values.fold<int>(0, (a, b) => a + b);
-                          if (mounted) setState(() { _pendingCount = newCount; _breakdown = newBreakdown; });
-                        } : null,
-                        icon: const Icon(Icons.sync_rounded, size: 16),
-                        label: Text(queue.isSyncing ? 'Syncing...' : 'Sync Now'),
-                        style: FilledButton.styleFrom(
-                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.rs)),
-                        ),
-                      ),
-                    ),
-                    if (!isOnline)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          'Waiting for connection to sync',
-                          style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic),
-                        ),
-                      ),
-                  ],
 
                   // Alerts
                   Consumer(
@@ -960,14 +1059,6 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                               Icon(Icons.shield_rounded, size: 14, color: scheme.error),
                               SizedBox(width: 6.rs),
                               Text('Alerts', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-                              const Spacer(),
-                              GestureDetector(
-                                onTap: () {
-                                  final paths = ref2.read(firestorePathsProvider);
-                                  markAllNotificationsRead(paths);
-                                },
-                                child: Text('Clear all', style: text.labelSmall?.copyWith(color: scheme.primary, fontWeight: FontWeight.w600)),
-                              ),
                             ],
                           ),
                           SizedBox(height: AppSpacing.sm),
@@ -1009,12 +1100,26 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                               padding: const EdgeInsets.only(top: 4),
                               child: Text('+${items.length - 5} more', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
                             ),
+                          // Clear all sits at the BOTTOM of the notifications, above Device stats.
+                          SizedBox(height: 6.rs),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: () => markAllNotificationsRead(ref2.read(firestorePathsProvider)),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                                child: Text('Clear all', style: text.labelSmall?.copyWith(color: scheme.primary, fontWeight: FontWeight.w600)),
+                              ),
+                            ),
+                          ),
                         ],
                       );
                     },
                   ),
 
-                  // Device stats
+                  // Device stats — auto-updating (1s while the panel is open,
+                  // 15s in the background). In its own Consumer so notification
+                  // changes never rebuild or disturb it.
                   Consumer(
                     builder: (_, ref2, __) {
                       final stats = ref2.watch(systemStatsProvider).valueOrNull ?? SystemStats.zero;
@@ -1044,14 +1149,6 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
         ),
       ),
     );
-  }
-
-  String _formatTime(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inSeconds < 60) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
   }
 
   IconData _iconForType(String type) => switch (type) {

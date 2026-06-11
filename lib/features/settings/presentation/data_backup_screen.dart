@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
@@ -120,7 +121,15 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
   late String _basePath;
   String get _defaultBasePath {
     final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
-    return '$home/WeighbridgeData';
+    final newPath = '$home/TulanamData';
+    // Brand migration: prefer TulanamData, but fall back to the legacy
+    // WeighbridgeData folder when it still exists and the new one doesn't yet —
+    // so a user's existing local backups are found instead of orphaned.
+    final legacyPath = '$home/WeighbridgeData';
+    if (!Directory(newPath).existsSync() && Directory(legacyPath).existsSync()) {
+      return legacyPath;
+    }
+    return newPath;
   }
 
   // ── What to backup ──
@@ -295,6 +304,11 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
 
     await File('${dir.path}/manifest.json').writeAsString(_encodeJson(manifest));
     ref.read(auditServiceProvider).log(event: 'export', description: 'Site-level backup created');
+    AppNotifier.raise(ref.read(firestorePathsProvider),
+        category: 'backup', severity: 'info', link: '/settings/backup',
+        title: 'Data backup exported',
+        body: 'A site-level data backup was exported to a file.',
+        throttleKey: 'data-export', throttle: const Duration(minutes: 5));
 
     if (mounted) {
       AppError.success(context, 'Backup saved to ${dir.path}');
@@ -458,6 +472,11 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
       await File('${dir.path}/manifest.json').writeAsString(_encodeJson(manifest));
 
       ref.read(auditServiceProvider).log(event: 'export', description: 'Full company backup created');
+      AppNotifier.raise(ref.read(firestorePathsProvider),
+          category: 'backup', severity: 'info', link: '/settings/backup',
+          title: 'Data backup exported',
+          body: 'A full company data backup was exported to a file.',
+          throttleKey: 'data-export', throttle: const Duration(minutes: 5));
 
       if (mounted) {
         Navigator.pop(context);
@@ -663,6 +682,11 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
       }
 
       ref.read(auditServiceProvider).log(event: 'settingChange', description: 'Company backup restored from ${manifest['timestamp']}');
+      AppNotifier.raise(ref.read(firestorePathsProvider),
+          category: 'backup', severity: 'warn', link: '/settings/backup',
+          title: 'Data restored from backup',
+          body: 'Company data was restored from a backup. Live records may have been overwritten — verify recent entries.',
+          throttleKey: 'data-restore', throttle: const Duration(minutes: 1));
 
       if (mounted) {
         Navigator.pop(context);
@@ -804,6 +828,11 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
           return;
         }
         ref.read(auditServiceProvider).log(event: 'export', description: 'Settings exported (encrypted)');
+        AppNotifier.raise(ref.read(firestorePathsProvider),
+            category: 'backup', severity: 'info', link: '/settings/backup',
+            title: 'Settings exported',
+            body: 'System settings were exported (encrypted) to a file.',
+            throttleKey: 'settings-export', throttle: const Duration(minutes: 5));
         if (mounted) {
           AppError.success(context, 'Encrypted settings exported to $encPath');
         }
@@ -811,6 +840,11 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
         final path = '${dir.path}/system_settings_${DateFormat('yyyy-MM-dd_HHmmss').format(DateTime.now())}.json';
         await File(path).writeAsString(jsonStr);
         ref.read(auditServiceProvider).log(event: 'export', description: 'Settings exported (plaintext)');
+        AppNotifier.raise(ref.read(firestorePathsProvider),
+            category: 'backup', severity: 'info', link: '/settings/backup',
+            title: 'Settings exported',
+            body: 'System settings were exported to a file.',
+            throttleKey: 'settings-export', throttle: const Duration(minutes: 5));
         if (mounted) {
           AppError.success(context, 'Settings exported to $path');
         }

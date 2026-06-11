@@ -13,6 +13,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:weighbridgemanagement/features/weighments/presentation/weighments_screen.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
@@ -4700,29 +4701,41 @@ class _CsvImportDialogState extends State<_CsvImportDialog> {
     final siteId = widget.ref.read(siteContextProvider).siteId;
     int imported = 0;
     int duplicates = 0;
+    bool importError = false;
 
-    for (var i = 0; i < _rows.length; i += 500) {
-      final chunk = _rows.sublist(i, (i + 500).clamp(0, _rows.length));
-      final batch = db.batch();
-      for (final row in chunk) {
-        final phone = row['phone'] ?? '';
-        if (existingPhones.contains(phone)) { duplicates++; continue; }
-        existingPhones.add(phone);
-        batch.set(db.customers.doc(), {
-          'name': toTitleCase(row['name']!),
-          'phone': phone,
-          'address': row['address'] ?? '',
-          'siteId': siteId,
-          'totalWeighments': 0,
-          'importedAt': FieldValue.serverTimestamp(),
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-        imported++;
+    try {
+      for (var i = 0; i < _rows.length; i += 500) {
+        final chunk = _rows.sublist(i, (i + 500).clamp(0, _rows.length));
+        final batch = db.batch();
+        for (final row in chunk) {
+          final phone = row['phone'] ?? '';
+          if (existingPhones.contains(phone)) { duplicates++; continue; }
+          existingPhones.add(phone);
+          batch.set(db.customers.doc(), {
+            'name': toTitleCase(row['name']!),
+            'phone': phone,
+            'address': row['address'] ?? '',
+            'siteId': siteId,
+            'totalWeighments': 0,
+            'importedAt': FieldValue.serverTimestamp(),
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+          imported++;
+        }
+        await batch.commit();
       }
-      await batch.commit();
+    } catch (_) {
+      importError = true; // a batch failed partway — surface it instead of crashing
     }
 
     setState(() { _importedCount = imported; _duplicateCount = duplicates; _stage = _CsvStage.done; });
+    AppNotifier.raise(db,
+        category: 'system', severity: importError ? 'warn' : 'info', link: '/customers',
+        title: importError ? 'Customer import incomplete' : 'Customers imported',
+        body: importError
+            ? 'A customer import failed partway: $imported added, $duplicates skipped before the error. Re-run to import the rest.'
+            : '$imported customer${imported == 1 ? '' : 's'} imported${duplicates > 0 ? ', $duplicates duplicate${duplicates == 1 ? '' : 's'} skipped' : ''}.',
+        throttleKey: 'customer-import', throttle: const Duration(minutes: 1));
   }
 
   @override

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
 
 enum BackupStatus { idle, running, success, failed }
@@ -29,7 +30,7 @@ class GDriveConfig {
   const GDriveConfig({
     this.enabled = false,
     this.clientId = '',
-    this.folder = 'WeighbridgeBackups',
+    this.folder = 'TulanamBackups',
     this.frequency = 'daily',
   });
 
@@ -37,7 +38,7 @@ class GDriveConfig {
     return GDriveConfig(
       enabled: data['enabled'] as bool? ?? false,
       clientId: data['clientId'] as String? ?? '',
-      folder: data['folder'] as String? ?? 'WeighbridgeBackups',
+      folder: data['folder'] as String? ?? 'TulanamBackups',
       frequency: data['frequency'] as String? ?? 'daily',
     );
   }
@@ -160,13 +161,23 @@ class CloudBackupService {
       );
       _logController.add(result);
       _setStatus(allSuccess ? BackupStatus.success : BackupStatus.failed);
+      if (!allSuccess) _notifyBackupFailed(result.message);
       return result;
     } catch (e) {
       final result = BackupResult(success: false, message: 'Backup failed: $e');
       _logController.add(result);
       _setStatus(BackupStatus.failed);
+      _notifyBackupFailed(result.message);
       return result;
     }
+  }
+
+  // Best-effort: alert the admin (email + SMS) that an off-site backup failed.
+  void _notifyBackupFailed(String reason) {
+    unawaited(CloudFunctionsService.call('notifyBackupResult', {
+      'success': false,
+      'reason': reason,
+    }).catchError((_) => <String, dynamic>{}));
   }
 
   Future<bool> testS3Connection() async {
@@ -254,7 +265,11 @@ class CloudBackupService {
       if (gdriveToken == null || gdriveToken.isEmpty) {
         // Fall back to local staging if no OAuth token available
         final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
-        final backupDir = Directory('$home/.weighbridge/backups/gdrive');
+        // Brand migration: stage under .tulanam, but reuse a legacy .weighbridge
+        // staging dir if it already holds un-uploaded files.
+        final legacyStage = Directory('$home/.weighbridge/backups/gdrive');
+        final newStage = Directory('$home/.tulanam/backups/gdrive');
+        final backupDir = (!newStage.existsSync() && legacyStage.existsSync()) ? legacyStage : newStage;
         if (!backupDir.existsSync()) backupDir.createSync(recursive: true);
         final file = File('${backupDir.path}/$filename');
         await file.writeAsString(content);

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/crypto_service.dart';
@@ -105,7 +106,7 @@ class SecuritySettings {
     this.faceVerifyOnSessionStart = false,
     this.faceVerifyOnDayStart = false,
     this.shiftBasedLogin = false,
-    this.forcePasswordChangeFirstLogin = true,
+    this.forcePasswordChangeFirstLogin = false,
     this.passwordExpiryDays = 0,
     this.emergencyLockdown = false,
     this.autoLogoutEnabled = false,
@@ -152,7 +153,7 @@ class SecuritySettings {
       faceVerifyOnSessionStart: data['faceVerifyOnSessionStart'] as bool? ?? false,
       faceVerifyOnDayStart: data['faceVerifyOnDayStart'] as bool? ?? false,
       shiftBasedLogin: data['shiftBasedLogin'] as bool? ?? false,
-      forcePasswordChangeFirstLogin: data['forcePasswordChangeFirstLogin'] as bool? ?? true,
+      forcePasswordChangeFirstLogin: data['forcePasswordChangeFirstLogin'] as bool? ?? false,
       passwordExpiryDays: data['passwordExpiryDays'] as int? ?? 0,
       emergencyLockdown: data['emergencyLockdown'] as bool? ?? false,
       autoLogoutEnabled: data['autoLogoutEnabled'] as bool? ?? false,
@@ -275,9 +276,38 @@ final _operatorNameFutureProvider = FutureProvider<String>((ref) async {
   return user?.displayName ?? email ?? '';
 });
 
+String _picPrefix(String s) => s.isEmpty ? '<empty>' : '${s.length}ch:${s.substring(0, s.length < 24 ? s.length : 24)}';
+
 final currentOperatorProfilePicProvider = FutureProvider<String>((ref) async {
   final doc = await ref.watch(currentOperatorDocProvider.future);
-  if (doc != null) return doc['profilePic'] as String? ?? '';
+  if (doc != null) {
+    final p = (doc['profilePic'] as String?) ?? '';
+    if (p.isNotEmpty) { debugPrint('[avatar] operator.profilePic ${_picPrefix(p)}'); return p; }
+    final vp = (doc['verifiedPhotoUrl'] as String?) ?? '';
+    if (vp.isNotEmpty) { debugPrint('[avatar] operator.verifiedPhotoUrl ${_picPrefix(vp)}'); return vp; }
+  }
+  // Admin isn't in the company operators collection — fall back to the admin's
+  // own profile pic, the DigiLocker verified photo, then the flat operator doc.
+  try {
+    final db = ref.watch(firestorePathsProvider);
+    final email = FirebaseAuth.instance.currentUser?.email ?? await LocalCacheService.getCachedCurrentUserEmail();
+    final admin = await db.adminProfileSettings.get();
+    final ap = (admin.data()?['profilePic'] as String?) ?? '';
+    final company = (await db.firestore.doc(db.context.companyPath).get()).data() ?? {};
+    final cvp = (company['verifiedPhotoUrl'] as String?) ?? '';
+    Map<String, dynamic> flat = {};
+    if (email != null && email.isNotEmpty) {
+      final snap = await db.flat('operators').where('email', isEqualTo: email).limit(1).get();
+      if (snap.docs.isNotEmpty) flat = snap.docs.first.data();
+    }
+    final fp = (flat['profilePic'] as String?) ?? (flat['facePhoto'] as String?) ?? (flat['verifiedPhotoUrl'] as String?) ?? '';
+    debugPrint('[avatar] admin doc=${doc != null} adminPic=${_picPrefix(ap)} companyVerified=${_picPrefix(cvp)} flatPic=${_picPrefix(fp)} flatKeys=${flat.keys.toList()}');
+    for (final v in [ap, cvp, fp]) {
+      if (v.isNotEmpty) return v;
+    }
+  } catch (e) {
+    debugPrint('[avatar] error: $e');
+  }
   return '';
 });
 

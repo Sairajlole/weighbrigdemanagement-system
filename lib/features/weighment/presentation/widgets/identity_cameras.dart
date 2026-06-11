@@ -298,14 +298,13 @@ class _IdentityCamerasState extends ConsumerState<IdentityCameras> {
   Widget build(BuildContext context) {
     // Start/stop webcam based on verification state
     ref.listen<InlineVerificationState>(inlineVerificationProvider, (prev, next) {
-      final wasActive = prev != null &&
-          (prev.phase == VerificationUIPhase.background || prev.phase == VerificationUIPhase.pinRequired || prev.phase == VerificationUIPhase.switchPrompt);
-      final isActive = next.phase == VerificationUIPhase.background || next.phase == VerificationUIPhase.pinRequired || next.phase == VerificationUIPhase.switchPrompt;
-      final isDone = next.phase == VerificationUIPhase.verified || next.phase == VerificationUIPhase.idle;
-
-      if (isActive && !wasActive && !_webcamReady) {
+      // The camera runs only while actively face-scanning. The instant scanning
+      // ends — fail (→ PIN), success, switch prompt or idle — disarm it that
+      // second; don't keep it warm waiting for a skip.
+      final shouldRun = next.phase == VerificationUIPhase.background;
+      if (shouldRun && !_webcamReady) {
         _initWebcam();
-      } else if (isDone && _webcamReady) {
+      } else if (!shouldRun && _webcamReady) {
         _webcamTimer?.cancel();
         _webcamTimer = null;
         _stopWebcam();

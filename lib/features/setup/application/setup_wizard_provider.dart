@@ -1,9 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/models/license_model.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
+import 'package:weighbridgemanagement/shared/services/digilocker_service.dart';
 import 'setup_wizard_state.dart';
 
 final companyInfoValidProvider = StateProvider<bool>((ref) => false);
+
+/// Operator's DigiLocker (Aadhaar) verification result, preserved across
+/// company-code changes so they need not re-verify. Cleared when the wizard
+/// resets or returns to Welcome (i.e. when the operator exits setup).
+final wizardDigiLockerResultProvider = StateProvider<DigiLockerVerificationResult?>((ref) => null);
 
 final stepSaveCallbackProvider = StateProvider<Future<bool> Function()?>((ref) => null);
 
@@ -52,8 +58,9 @@ final wizardFullscreenModeProvider = StateProvider<bool>((ref) => false);
 
 class SetupWizardNotifier extends StateNotifier<SetupWizardState> {
   final WizardProgressNotifier _progressNotifier;
+  final Ref _ref;
 
-  SetupWizardNotifier(this._progressNotifier) : super(const SetupWizardState()) {
+  SetupWizardNotifier(this._progressNotifier, this._ref) : super(const SetupWizardState()) {
     _restoreFromDisk();
   }
 
@@ -201,11 +208,13 @@ class SetupWizardNotifier extends StateNotifier<SetupWizardState> {
   }
 
   void goToWelcome() {
+    _ref.read(wizardDigiLockerResultProvider.notifier).state = null;
     state = const SetupWizardState();
     _updateStatuses();
   }
 
   void reset() {
+    _ref.read(wizardDigiLockerResultProvider.notifier).state = null;
     state = const SetupWizardState();
     _updateStatuses();
     _progressNotifier.clear();
@@ -232,5 +241,5 @@ class SetupWizardNotifier extends StateNotifier<SetupWizardState> {
 
 final setupWizardProvider = StateNotifierProvider<SetupWizardNotifier, SetupWizardState>((ref) {
   final progressNotifier = ref.read(wizardProgressProvider.notifier);
-  return SetupWizardNotifier(progressNotifier);
+  return SetupWizardNotifier(progressNotifier, ref);
 });

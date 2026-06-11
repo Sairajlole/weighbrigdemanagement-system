@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -5,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
   final String reason;
@@ -107,6 +109,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
         }, SetOptions(merge: true));
       }
     }
+
+    // Best-effort security notice that the password just changed.
+    unawaited(CloudFunctionsService.call('notifyPasswordChanged')
+        .catchError((_) => <String, dynamic>{}));
 
     if (mounted) Navigator.of(context).pop(true);
   }

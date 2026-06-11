@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
 
 // ─── Config persistence ─────────────────────────────────────────────────────
@@ -77,6 +78,32 @@ final scaleStatusProvider = StreamProvider<ScaleConnectionStatus>((ref) {
       }
     }),
   );
+});
+
+/// Side-effecting: raises a throttled notification when the weighbridge scale
+/// drops or errors, and re-arms the throttle when it reconnects. Keep it alive
+/// by watching it from the shell.
+final scaleAlertProvider = Provider<void>((ref) {
+  final paths = ref.watch(firestorePathsProvider);
+  const key = 'scale-disconnect';
+  ref.listen<AsyncValue<ScaleConnectionStatus>>(scaleStatusProvider, (prev, next) {
+    final status = next.valueOrNull;
+    if (status == null) return;
+    if (status == ScaleConnectionStatus.disconnected || status == ScaleConnectionStatus.error) {
+      final errored = status == ScaleConnectionStatus.error;
+      AppNotifier.raise(
+        paths,
+        category: 'system',
+        severity: 'warn',
+        title: errored ? 'Weighbridge scale error' : 'Weighbridge scale disconnected',
+        body: "The weighbridge isn't sending readings, so weighments can't be captured until it reconnects. Check the cable/port or the scale power.",
+        link: '/settings/weighbridge',
+        throttleKey: key,
+      );
+    } else if (status == ScaleConnectionStatus.connected) {
+      AppNotifier.clearThrottle(key); // re-arm so the next drop alerts again
+    }
+  });
 });
 
 final scaleReadingProvider = StreamProvider<ScaleReading>((ref) {

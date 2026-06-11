@@ -135,13 +135,6 @@ List<_SettingsSection> _buildSections(AppStrings s) => [
       adminOnly: true,
     ),
     _SettingsItemData(
-      icon: Icons.palette_rounded,
-      title: s.appearance,
-      subtitle: 'Theme & language',
-      route: 'appearance',
-      adminOnly: false,
-    ),
-    _SettingsItemData(
       icon: Icons.text_fields_rounded,
       title: s.customFields,
       subtitle: 'Docket fields',
@@ -205,7 +198,7 @@ List<_SettingsSection> _buildSections(AppStrings s) => [
     _SettingsItemData(
       icon: Icons.verified_rounded,
       title: 'License',
-      subtitle: 'Plan & updates',
+      subtitle: 'Subscription & plan',
       route: 'license',
       adminOnly: true,
     ),

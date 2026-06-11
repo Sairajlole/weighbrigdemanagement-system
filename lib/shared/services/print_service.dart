@@ -452,10 +452,22 @@ class PrintService {
 
   // ─── Thermal Printing ──────────────────────────────────────────────────────
 
+  /// Flattens a possibly-transparent (background-removed) logo onto a white
+  /// background, so transparent pixels print as white instead of black on
+  /// 1-bit raster printers (thermal / dot-matrix).
+  img.Image _flattenOnWhite(img.Image src) {
+    if (src.numChannels < 4) return src;
+    final out = img.Image(width: src.width, height: src.height, numChannels: 3);
+    img.fill(out, color: img.ColorRgb8(255, 255, 255));
+    img.compositeImage(out, src);
+    return out;
+  }
+
   Uint8List _logoToEscPosRaster(Uint8List logoBytes, int maxWidthPx) {
     var decoded = img.decodeImage(logoBytes);
     if (decoded == null) return Uint8List(0);
     decoded = img.bakeOrientation(decoded);
+    decoded = _flattenOnWhite(decoded);
 
     if (decoded.width > maxWidthPx) {
       decoded = img.copyResize(decoded, width: maxWidthPx);
@@ -662,6 +674,7 @@ class PrintService {
     var decoded = img.decodeImage(logoBytes);
     if (decoded == null) return Uint8List(0);
     decoded = img.bakeOrientation(decoded);
+    decoded = _flattenOnWhite(decoded);
 
     // Resize to target width, maintaining aspect ratio
     if (decoded.width != targetWidthPx) {

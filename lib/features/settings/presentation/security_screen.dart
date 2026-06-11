@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter/services.dart';
@@ -12,8 +11,9 @@ import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/widgets/pro_feature_banner.dart';
 import 'package:intl/intl.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
-import 'package:weighbridgemanagement/shared/providers/mfa_provider.dart';
+import 'package:weighbridgemanagement/shared/widgets/mfa_settings_card.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
@@ -96,7 +96,6 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   bool _opCanAccessWeighbridge = false;
 
   // ── Audit Trail ──
-  bool _auditEnabled = true;
   int _auditRetentionDays = 365;
   bool _auditLogSettingChanges = true;
   bool _auditLogWeighmentEdits = true;
@@ -107,7 +106,6 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   // ── Data Security ──
   bool _autoLockEnabled = true;
   int _autoLockMinutes = 5;
-  bool _encryptBackups = false;
   bool _maskSensitiveFields = true;
 
   // ── Operator Verification ──
@@ -115,7 +113,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   bool _faceVerifyOnSessionStart = false;
   bool _faceVerifyOnDayStart = false;
   bool _shiftBasedLogin = false;
-  bool _forcePasswordChangeFirstLogin = true;
+  bool _forcePasswordChangeFirstLogin = false;
   int _passwordExpiryDays = 0; // 0 = never
 
   // ── Privacy / Archival ──
@@ -145,19 +143,9 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   bool _ipWhitelistEnabled = false;
   List<String> _whitelistedIps = [];
 
-  // ── MFA State ──
-  bool _mfaLoading = true;
-  List<MultiFactorInfo> _mfaFactors = [];
-  TotpSecret? _totpSecret;
-  bool _mfaEnrolling = false;
-  String? _mfaError;
-  String? _mfaSuccess;
-  final _otpController = TextEditingController();
-
   @override
   void initState() {
     super.initState();
-    _loadMfa();
     _loadSessionLogs();
     _loadDomainRestriction();
   }
@@ -180,17 +168,8 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
 
   @override
   void dispose() {
-    _otpController.dispose();
     _domainController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadMfa() async {
-    try {
-      final mfa = ref.read(mfaServiceProvider);
-      _mfaFactors = await mfa.getEnrolledFactors();
-    } catch (_) {}
-    if (mounted) setState(() => _mfaLoading = false);
   }
 
   Future<void> _loadDomainRestriction() async {
@@ -245,6 +224,11 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
         },
         SetOptions(merge: true),
       );
+      AppNotifier.raise(paths,
+          category: 'security', severity: 'warn', link: '/settings/mfa',
+          title: 'Email domain restriction changed',
+          body: 'The allowed sign-up email domains for your company were updated.',
+          throttleKey: 'domain-restriction-change', throttle: const Duration(minutes: 5));
       if (mounted) _showHeaderMsg('Domain restriction updated');
     } catch (e) {
       if (mounted) _showHeaderMsg('Failed to update: $e', isError: true);
@@ -272,7 +256,6 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     _opCanAccessCameras = data['opCanAccessCameras'] as bool? ?? false;
     _opCanAccessWeighbridge = data['opCanAccessWeighbridge'] as bool? ?? false;
 
-    _auditEnabled = data['auditEnabled'] as bool? ?? true;
     _auditRetentionDays = data['auditRetentionDays'] as int? ?? 365;
     _auditLogSettingChanges = data['auditLogSettingChanges'] as bool? ?? true;
     _auditLogWeighmentEdits = data['auditLogWeighmentEdits'] as bool? ?? true;
@@ -282,7 +265,6 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
 
     _autoLockEnabled = data['autoLockEnabled'] as bool? ?? true;
     _autoLockMinutes = data['autoLockMinutes'] as int? ?? 5;
-    _encryptBackups = data['encryptBackups'] as bool? ?? false;
     _maskSensitiveFields = data['maskSensitiveFields'] as bool? ?? true;
 
     _faceVerifyOnWeighmentStart = data['faceVerifyOnWeighmentStart'] as bool? ?? data['requireFaceVerification'] as bool? ?? false;
@@ -354,7 +336,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       'opCanAccessGateControl': _opCanAccessGateControl,
       'opCanAccessCameras': _opCanAccessCameras,
       'opCanAccessWeighbridge': _opCanAccessWeighbridge,
-      'auditEnabled': _auditEnabled,
+      'auditEnabled': true,
       'auditRetentionDays': _auditRetentionDays,
       'auditLogSettingChanges': _auditLogSettingChanges,
       'auditLogWeighmentEdits': _auditLogWeighmentEdits,
@@ -363,7 +345,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       'auditLogExports': _auditLogExports,
       'autoLockEnabled': _autoLockEnabled,
       'autoLockMinutes': _autoLockMinutes,
-      'encryptBackups': _encryptBackups,
+      'encryptBackups': true,
       'maskSensitiveFields': _maskSensitiveFields,
       'faceVerifyOnWeighmentStart': _faceVerifyOnWeighmentStart,
       'faceVerifyOnSessionStart': _faceVerifyOnSessionStart,
@@ -388,6 +370,11 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       await db.securitySettings.set(data, SetOptions(merge: true));
       await _saveLocally(data);
       ref.read(auditServiceProvider).log(event: 'settingChange', description: 'Security settings updated');
+      AppNotifier.raise(db,
+          category: 'security', severity: 'warn', link: '/settings/mfa',
+          title: 'Security settings changed',
+          body: "Your security configuration (access permissions, IP allow-list, audit, lock) was updated. If this wasn't you, review it.",
+          throttleKey: 'security-settings-change', throttle: const Duration(minutes: 10));
       if (mounted) _showHeaderMsg('Security settings saved');
     } catch (e) {
       await _saveLocally(data);
@@ -525,7 +512,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(child: _buildMfaSection(scheme, text)),
+                          Expanded(child: const MfaSettingsCard()),
                           SizedBox(width: 20.rs),
                           Expanded(child: _buildIpWhitelistSection(scheme, text)),
                         ],
@@ -625,7 +612,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
         _PermissionToggle(label: 'General & appearance', value: _opCanChangeSettings, onChanged: (v) { setState(() => _opCanChangeSettings = v); _markDirty(); }),
         _PermissionToggle(label: 'Weighbridge / scale', value: _opCanAccessWeighbridge, onChanged: (v) { setState(() => _opCanAccessWeighbridge = v); _markDirty(); }),
         _PermissionToggle(label: 'Gate control & traffic signals', value: _opCanAccessGateControl, onChanged: (v) { setState(() => _opCanAccessGateControl = v); _markDirty(); }),
-        _PermissionToggle(label: 'Cameras & AI', value: _opCanAccessCameras, onChanged: (v) { setState(() => _opCanAccessCameras = v); _markDirty(); }),
+        _PermissionToggle(label: 'Cameras & Recognition', value: _opCanAccessCameras, onChanged: (v) { setState(() => _opCanAccessCameras = v); _markDirty(); }),
         _PermissionToggle(label: 'Printing & docket layout', value: _opCanAccessPrinting, onChanged: (v) { setState(() => _opCanAccessPrinting = v); _markDirty(); }),
       ],
     );
@@ -644,15 +631,12 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       children: [
         Row(
           children: [
-            SizedBox(
-              height: 20, width: 36,
-              child: FittedBox(child: Switch(value: _auditEnabled, onChanged: (v) { setState(() => _auditEnabled = v); _markDirty(); })),
-            ),
+            Icon(Icons.check_circle_rounded, size: 16, color: scheme.primary),
             SizedBox(width: AppSpacing.sm),
-            Text('Enable audit logging', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+            Text('Audit logging always enabled', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
           ],
         ),
-        if (_auditEnabled) ...[
+        ...[
           SizedBox(height: AppSpacing.md),
           Text('Log events:', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
           SizedBox(height: AppSpacing.sm),
@@ -724,8 +708,6 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
           ),
         ],
         SizedBox(height: 14.rs),
-        _PermissionToggle(label: 'Encrypt local backups', value: _encryptBackups, onChanged: (v) { setState(() => _encryptBackups = v); _markDirty(); }),
-        SizedBox(height: AppSpacing.xs),
         _PermissionToggle(label: 'Mask sensitive fields for operators', value: _maskSensitiveFields, onChanged: (v) { setState(() => _maskSensitiveFields = v); _markDirty(); }),
         SizedBox(height: AppSpacing.sm),
         Padding(
@@ -863,189 +845,6 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // MFA SECTION
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildMfaSection(ColorScheme scheme, TextTheme text) {
-    return _SectionCard(
-      icon: Icons.security_rounded,
-      title: 'Two-Factor Authentication',
-      scheme: scheme,
-      text: text,
-      children: [
-        if (_mfaLoading)
-          const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2)))
-        else ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: _mfaFactors.isNotEmpty ? const Color(0xFFE8F5E9) : scheme.surfaceContainerLow,
-              borderRadius: AppRadius.button,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _mfaFactors.isNotEmpty ? Icons.verified_user_rounded : Icons.shield_outlined,
-                  size: 18,
-                  color: _mfaFactors.isNotEmpty ? const Color(0xFF2E7D32) : scheme.onSurfaceVariant,
-                ),
-                SizedBox(width: 10.rs),
-                Expanded(
-                  child: Text(
-                    _mfaFactors.isNotEmpty ? 'MFA Enabled' : 'MFA Not Enabled',
-                    style: text.bodySmall?.copyWith(fontWeight: FontWeight.w700, color: _mfaFactors.isNotEmpty ? const Color(0xFF2E7D32) : scheme.onSurfaceVariant),
-                  ),
-                ),
-                if (_mfaFactors.isEmpty && _totpSecret == null)
-                  OutlinedButton.icon(
-                    onPressed: _mfaEnrolling ? null : _startMfaEnrollment,
-                    icon: const Icon(Icons.add, size: 14),
-                    label: const Text('Enable'),
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), textStyle: const TextStyle(fontSize: 11)),
-                  ),
-              ],
-            ),
-          ),
-          if (_mfaError != null) ...[
-            SizedBox(height: AppSpacing.sm),
-            Container(
-              padding: EdgeInsets.all(8.rs),
-              decoration: BoxDecoration(color: const Color(0xFFFFEBEE), borderRadius: AppRadius.chip),
-              child: Text(_mfaError!, style: const TextStyle(fontSize: 11, color: Color(0xFFC62828))),
-            ),
-          ],
-          if (_mfaSuccess != null) ...[
-            SizedBox(height: AppSpacing.sm),
-            Container(
-              padding: EdgeInsets.all(8.rs),
-              decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: AppRadius.chip),
-              child: Text(_mfaSuccess!, style: const TextStyle(fontSize: 11, color: Color(0xFF1B5E20))),
-            ),
-          ],
-          if (_totpSecret != null) ...[
-            SizedBox(height: AppSpacing.md),
-            Text('Manual key:', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-            SizedBox(height: AppSpacing.xs),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: AppRadius.chip),
-              child: Row(
-                children: [
-                  Expanded(child: SelectableText(_totpSecret!.secretKey, style: const TextStyle(fontFamily: 'Courier', fontSize: 11, fontWeight: FontWeight.w600))),
-                  IconButton(
-                    icon: const Icon(Icons.copy_rounded, size: 14),
-                    onPressed: () { Clipboard.setData(ClipboardData(text: _totpSecret!.secretKey)); },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 10.rs),
-            Row(
-              children: [
-                SizedBox(
-                  width: 120,
-                  child: TextField(
-                    controller: _otpController,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 3),
-                    decoration: const InputDecoration(hintText: '000000', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
-                  ),
-                ),
-                SizedBox(width: AppSpacing.sm),
-                FilledButton(
-                  onPressed: _mfaEnrolling ? null : _finalizeMfaEnrollment,
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), textStyle: const TextStyle(fontSize: 11)),
-                  child: const Text('Verify'),
-                ),
-                SizedBox(width: AppSpacing.xs),
-                TextButton(
-                  onPressed: () => setState(() { _totpSecret = null; _mfaError = null; }),
-                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), textStyle: const TextStyle(fontSize: 11)),
-                  child: const Text('Cancel'),
-                ),
-              ],
-            ),
-          ],
-          if (_mfaFactors.isNotEmpty) ...[
-            SizedBox(height: 10.rs),
-            ..._mfaFactors.map((f) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF2E7D32)),
-                  SizedBox(width: AppSpacing.sm),
-                  Expanded(child: Text(f.displayName ?? 'Authenticator App', style: text.bodySmall)),
-                  InkWell(
-                    onTap: () => _removeMfaFactor(f),
-                    child: Padding(padding: EdgeInsets.all(4.rs), child: Icon(Icons.close_rounded, size: 14, color: scheme.error)),
-                  ),
-                ],
-              ),
-            )),
-          ],
-        ],
-      ],
-    );
-  }
-
-  Future<void> _startMfaEnrollment() async {
-    setState(() { _mfaEnrolling = true; _mfaError = null; _mfaSuccess = null; });
-    try {
-      final mfa = ref.read(mfaServiceProvider);
-      _totpSecret = await mfa.enrollTotp();
-    } catch (e) {
-      _mfaError = 'Failed to generate secret. Re-authenticate and try again.';
-    }
-    if (mounted) setState(() => _mfaEnrolling = false);
-  }
-
-  Future<void> _finalizeMfaEnrollment() async {
-    if (_otpController.text.length != 6) {
-      setState(() => _mfaError = 'Enter a valid 6-digit code.');
-      return;
-    }
-    setState(() { _mfaEnrolling = true; _mfaError = null; });
-    try {
-      final mfa = ref.read(mfaServiceProvider);
-      await mfa.finalizeEnrollment(_totpSecret!, _otpController.text.trim());
-      _totpSecret = null;
-      _otpController.clear();
-      _mfaSuccess = 'MFA enrolled successfully!';
-      await _loadMfa();
-    } on FirebaseAuthException catch (e) {
-      _mfaError = e.code == 'invalid-verification-code' ? 'Invalid code.' : 'Enrollment failed: ${e.message}';
-    } catch (e) {
-      _mfaError = 'Enrollment failed.';
-    }
-    if (mounted) setState(() => _mfaEnrolling = false);
-  }
-
-  Future<void> _removeMfaFactor(MultiFactorInfo factor) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Remove MFA'),
-        content: const Text('Disable two-factor authentication?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error), child: const Text('Remove')),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-    try {
-      final mfa = ref.read(mfaServiceProvider);
-      await mfa.unenrollFactor(factor);
-      _mfaSuccess = 'MFA removed.';
-      await _loadMfa();
-    } catch (_) {
-      setState(() => _mfaError = 'Failed to remove. Re-authenticate.');
-    }
-  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // IP WHITELIST

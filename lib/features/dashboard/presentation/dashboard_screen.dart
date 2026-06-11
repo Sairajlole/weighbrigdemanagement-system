@@ -408,12 +408,11 @@ class _DashboardHeaderState extends ConsumerState<_DashboardHeader> {
             ],
           ),
         ),
-        if (!ref.watch(permissionServiceProvider).isAdmin)
-          _GlowButton(
-            onPressed: widget.onNewWeighment,
-            icon: Icons.add_rounded,
-            label: 'New Weighment',
-          ),
+        _GlowButton(
+          onPressed: widget.onNewWeighment,
+          icon: Icons.add_rounded,
+          label: 'New Weighment',
+        ),
       ],
     );
   }

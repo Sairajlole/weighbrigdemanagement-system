@@ -6,6 +6,7 @@ import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
 import '../../application/setup_wizard_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
+import 'package:weighbridgemanagement/shared/widgets/mfa_settings_card.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class SecurityStep extends ConsumerStatefulWidget {
@@ -29,17 +30,33 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
   bool _opCanReprint = true;
   bool _opCanExportData = false;
   bool _opCanViewReports = true;
+  bool _opCanViewCctv = false;
+  bool _opCanChangeSettings = false;
+  bool _opCanManageCustomers = false;
+  bool _opCanManageMaterials = false;
+  bool _opCanDeleteRecords = false;
+  bool _opCanAccessPrinting = false;
+  bool _opCanAccessGateControl = false;
+  bool _opCanAccessCameras = false;
+  bool _opCanAccessWeighbridge = false;
+
+  // KYC
+  bool _requireKycForSensitiveOps = false;
 
   // Face verification
   bool _faceVerifyOnWeighmentStart = false;
   bool _faceVerifyOnSessionStart = false;
   bool _faceVerifyOnDayStart = false;
 
-  // Audit
-  bool _auditEnabled = true;
+  // Audit (always on, not configurable)
 
-  // Data
-  bool _encryptBackups = true;
+  // Data security
+  bool _maskSensitiveFields = true;
+
+  // Operator verification
+  bool _shiftBasedLogin = false;
+  bool _forcePasswordChangeFirstLogin = false;
+  int _passwordExpiryDays = 0;
 
   bool _userModified = false;
 
@@ -54,8 +71,6 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
 
   @override
   void dispose() {
-    try {
-    } catch (_) {}
     super.dispose();
   }
 
@@ -78,7 +93,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
       final data = snap.data() ?? {};
       if (mounted) {
         setState(() {
-          _autoLock = data['autoLock'] as bool? ?? true;
+          _autoLock = data['autoLockEnabled'] as bool? ?? data['autoLock'] as bool? ?? true;
           _autoLockMinutes = data['autoLockMinutes'] as int? ?? 5;
           _opCanVoidWeighment = data['opCanVoidWeighment'] as bool? ?? false;
           _opCanEditWeighment = data['opCanEditWeighment'] as bool? ?? false;
@@ -86,11 +101,23 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
           _opCanReprint = data['opCanReprint'] as bool? ?? true;
           _opCanExportData = data['opCanExportData'] as bool? ?? false;
           _opCanViewReports = data['opCanViewReports'] as bool? ?? true;
+          _opCanViewCctv = data['opCanViewCctv'] as bool? ?? false;
+          _opCanChangeSettings = data['opCanChangeSettings'] as bool? ?? false;
+          _opCanManageCustomers = data['opCanManageCustomers'] as bool? ?? false;
+          _opCanManageMaterials = data['opCanManageMaterials'] as bool? ?? false;
+          _opCanDeleteRecords = data['opCanDeleteRecords'] as bool? ?? false;
+          _opCanAccessPrinting = data['opCanAccessPrinting'] as bool? ?? false;
+          _opCanAccessGateControl = data['opCanAccessGateControl'] as bool? ?? false;
+          _opCanAccessCameras = data['opCanAccessCameras'] as bool? ?? false;
+          _opCanAccessWeighbridge = data['opCanAccessWeighbridge'] as bool? ?? false;
+          _requireKycForSensitiveOps = data['requireKycForSensitiveOps'] as bool? ?? false;
           _faceVerifyOnWeighmentStart = data['faceVerifyOnWeighmentStart'] as bool? ?? false;
           _faceVerifyOnSessionStart = data['faceVerifyOnSessionStart'] as bool? ?? false;
           _faceVerifyOnDayStart = data['faceVerifyOnDayStart'] as bool? ?? false;
-          _auditEnabled = data['auditEnabled'] as bool? ?? true;
-          _encryptBackups = data['encryptBackups'] as bool? ?? true;
+          _maskSensitiveFields = data['maskSensitiveFields'] as bool? ?? true;
+          _shiftBasedLogin = data['shiftBasedLogin'] as bool? ?? false;
+          _forcePasswordChangeFirstLogin = data['forcePasswordChangeFirstLogin'] as bool? ?? true;
+          _passwordExpiryDays = data['passwordExpiryDays'] as int? ?? 0;
           _loaded = true;
         });
         if (snap.exists && data.isNotEmpty) {
@@ -106,7 +133,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
     try {
       final paths = ref.read(firestorePathsProvider);
       await paths.securitySettings.set({
-        'autoLock': _autoLock,
+        'autoLockEnabled': _autoLock,
         'autoLockMinutes': _autoLockMinutes,
         'opCanVoidWeighment': _opCanVoidWeighment,
         'opCanEditWeighment': _opCanEditWeighment,
@@ -114,11 +141,25 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
         'opCanReprint': _opCanReprint,
         'opCanExportData': _opCanExportData,
         'opCanViewReports': _opCanViewReports,
+        'opCanViewCctv': _opCanViewCctv,
+        'opCanChangeSettings': _opCanChangeSettings,
+        'opCanManageCustomers': _opCanManageCustomers,
+        'opCanManageMaterials': _opCanManageMaterials,
+        'opCanDeleteRecords': _opCanDeleteRecords,
+        'opCanAccessPrinting': _opCanAccessPrinting,
+        'opCanAccessGateControl': _opCanAccessGateControl,
+        'opCanAccessCameras': _opCanAccessCameras,
+        'opCanAccessWeighbridge': _opCanAccessWeighbridge,
+        'requireKycForSensitiveOps': _requireKycForSensitiveOps,
         'faceVerifyOnWeighmentStart': _faceVerifyOnWeighmentStart,
         'faceVerifyOnSessionStart': _faceVerifyOnSessionStart,
         'faceVerifyOnDayStart': _faceVerifyOnDayStart,
-        'auditEnabled': _auditEnabled,
-        'encryptBackups': _encryptBackups,
+        'auditEnabled': true,
+        'encryptBackups': true,
+        'maskSensitiveFields': _maskSensitiveFields,
+        'shiftBasedLogin': _shiftBasedLogin,
+        'forcePasswordChangeFirstLogin': _forcePasswordChangeFirstLogin,
+        'passwordExpiryDays': _passwordExpiryDays,
       }, SetOptions(merge: true));
       return true;
     } catch (e) {
@@ -147,50 +188,83 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
           Text('Security', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
           SizedBox(height: AppSpacing.sm),
           Text(
-            'Set up access control and data protection policies.',
+            'Set up access control, operator verification, and data protection policies.',
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
           SizedBox(height: AppSpacing.xxl),
 
-          // Two-column layout
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Left: Lock + Audit + Encryption
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildCard(scheme, children: [
-                      _buildSectionHeader('Screen Lock', Icons.lock_clock_rounded, scheme, text),
-                      SizedBox(height: AppSpacing.md),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text('Auto-lock after inactivity', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                          ),
-                          SizedBox(height: 28, child: Switch(value: _autoLock, onChanged: (v) { setState(() => _autoLock = v); _markModified(); })),
-                        ],
-                      ),
-                      if (_autoLock) ...[
-                        SizedBox(height: AppSpacing.sm),
-                        Wrap(
-                          spacing: 6,
-                          children: [2, 5, 10, 30].map((m) => _buildSelectChip(
-                            '${m}m', _autoLockMinutes == m,
-                            () { setState(() => _autoLockMinutes = m); _markModified(); }, scheme,
-                          )).toList(),
-                        ),
-                      ],
-                    ]),
-                    SizedBox(height: AppSpacing.lg),
-                    _buildCard(scheme, children: [
-                      _buildSectionHeader('Face Verification', Icons.face_rounded, scheme, text),
-                      SizedBox(height: AppSpacing.xs),
-                      Text('When to require camera face match', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-                      SizedBox(height: AppSpacing.md),
+          // Operator Permissions — two columns
+          _buildCard(scheme, children: [
+            _buildSectionHeader('Operator Permissions', Icons.admin_panel_settings_rounded, scheme, text),
+            SizedBox(height: AppSpacing.xs),
+            Text('What operators are allowed to do', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+            SizedBox(height: 14.rs),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Weighment Operations', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+                      SizedBox(height: AppSpacing.sm),
+                      _buildPermissionRow(Icons.block_rounded, 'Void weighments', _opCanVoidWeighment, (v) { setState(() => _opCanVoidWeighment = v); _markModified(); }, scheme, isDangerous: true),
+                      _buildPermissionRow(Icons.edit_rounded, 'Edit weighment records', _opCanEditWeighment, (v) { setState(() => _opCanEditWeighment = v); _markModified(); }, scheme, isDangerous: true),
+                      _buildPermissionRow(Icons.keyboard_rounded, 'Manual weight entry (override scale)', _opCanManualWeight, (v) { setState(() => _opCanManualWeight = v); _markModified(); }, scheme, isDangerous: true),
+                      _buildPermissionRow(Icons.delete_forever_rounded, 'Delete weighment records', _opCanDeleteRecords, (v) { setState(() => _opCanDeleteRecords = v); _markModified(); }, scheme, isDangerous: true),
+                      SizedBox(height: AppSpacing.lg),
+                      Text('Data & Reports', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+                      SizedBox(height: AppSpacing.sm),
+                      _buildPermissionRow(Icons.bar_chart_rounded, 'View reports & analytics', _opCanViewReports, (v) { setState(() => _opCanViewReports = v); _markModified(); }, scheme),
+                      _buildPermissionRow(Icons.download_rounded, 'Export data (CSV, PDF)', _opCanExportData, (v) { setState(() => _opCanExportData = v); _markModified(); }, scheme),
+                      _buildPermissionRow(Icons.print_rounded, 'Reprint dockets', _opCanReprint, (v) { setState(() => _opCanReprint = v); _markModified(); }, scheme),
+                      _buildPermissionRow(Icons.videocam_rounded, 'View CCTV snapshots & recordings', _opCanViewCctv, (v) { setState(() => _opCanViewCctv = v); _markModified(); }, scheme),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 20.rs),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Master Data Management', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+                      SizedBox(height: AppSpacing.sm),
+                      _buildPermissionRow(Icons.people_rounded, 'Manage customers / parties', _opCanManageCustomers, (v) { setState(() => _opCanManageCustomers = v); _markModified(); }, scheme),
+                      _buildPermissionRow(Icons.inventory_2_rounded, 'Manage materials / products', _opCanManageMaterials, (v) { setState(() => _opCanManageMaterials = v); _markModified(); }, scheme),
+                      SizedBox(height: AppSpacing.lg),
+                      Text('Settings Access', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+                      SizedBox(height: 2.rs),
+                      Text('Which settings screens the operator can access', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+                      SizedBox(height: AppSpacing.sm),
+                      _buildPermissionRow(Icons.settings_rounded, 'General & appearance', _opCanChangeSettings, (v) { setState(() => _opCanChangeSettings = v); _markModified(); }, scheme),
+                      _buildPermissionRow(Icons.scale_rounded, 'Weighbridge / scale', _opCanAccessWeighbridge, (v) { setState(() => _opCanAccessWeighbridge = v); _markModified(); }, scheme),
+                      _buildPermissionRow(Icons.garage_rounded, 'Gate control & traffic signals', _opCanAccessGateControl, (v) { setState(() => _opCanAccessGateControl = v); _markModified(); }, scheme),
+                      _buildPermissionRow(Icons.camera_alt_rounded, 'Cameras & AI', _opCanAccessCameras, (v) { setState(() => _opCanAccessCameras = v); _markModified(); }, scheme),
+                      _buildPermissionRow(Icons.print_outlined, 'Printing & docket layout', _opCanAccessPrinting, (v) { setState(() => _opCanAccessPrinting = v); _markModified(); }, scheme),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ]),
+
+          SizedBox(height: AppSpacing.lg),
+
+          // Operator Verification — full width below
+          _buildCard(scheme, children: [
+            _buildSectionHeader('Operator Verification', Icons.verified_user_rounded, scheme, text),
+            SizedBox(height: AppSpacing.xs),
+            Text('Identity checks and login policies', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+            SizedBox(height: AppSpacing.md),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       _buildFaceOption(
-                        Icons.scale_rounded, 'Each weighment',
+                        Icons.scale_rounded, 'Face verify: each weighment',
                         'Before every gross/tare capture',
                         _faceVerifyOnWeighmentStart,
                         (v) { setState(() => _faceVerifyOnWeighmentStart = v); _markModified(); },
@@ -198,7 +272,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
                       ),
                       SizedBox(height: AppSpacing.sm),
                       _buildFaceOption(
-                        Icons.login_rounded, 'Session start',
+                        Icons.login_rounded, 'Face verify: session start',
                         'Once per login session',
                         _faceVerifyOnSessionStart,
                         (v) { setState(() => _faceVerifyOnSessionStart = v); _markModified(); },
@@ -206,78 +280,75 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
                       ),
                       SizedBox(height: AppSpacing.sm),
                       _buildFaceOption(
-                        Icons.today_rounded, 'Day start',
+                        Icons.today_rounded, 'Face verify: day start',
                         'Once per calendar day',
                         _faceVerifyOnDayStart,
                         (v) { setState(() => _faceVerifyOnDayStart = v); _markModified(); },
                         scheme,
                       ),
-                    ]),
-                    SizedBox(height: AppSpacing.lg),
-                    _buildCard(scheme, children: [
-                      _buildSectionHeader('Audit Trail', Icons.history_rounded, scheme, text),
-                      SizedBox(height: AppSpacing.md),
-                      Row(
-                        children: [
-                          Icon(
-                            _auditEnabled ? Icons.check_circle_rounded : Icons.circle_outlined,
-                            size: 16,
-                            color: _auditEnabled ? scheme.primary : scheme.onSurfaceVariant,
-                          ),
-                          SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: Text('Log all changes, logins, and exports', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                          ),
-                          SizedBox(height: 28, child: Switch(value: _auditEnabled, onChanged: (v) { setState(() => _auditEnabled = v); _markModified(); })),
-                        ],
+                    ],
+                  ),
+                ),
+                SizedBox(width: 20.rs),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFaceOption(
+                        Icons.schedule_rounded, 'Shift-based login',
+                        'Restrict login to assigned shift hours',
+                        _shiftBasedLogin,
+                        (v) { setState(() => _shiftBasedLogin = v); _markModified(); },
+                        scheme,
                       ),
-                    ]),
-                    SizedBox(height: AppSpacing.lg),
-                    _buildCard(scheme, children: [
-                      _buildSectionHeader('Backup Encryption', Icons.enhanced_encryption_rounded, scheme, text),
-                      SizedBox(height: AppSpacing.md),
+                      SizedBox(height: AppSpacing.sm),
+                      _buildFaceOption(
+                        Icons.password_rounded, 'Force password change',
+                        'On first login for new operators',
+                        _forcePasswordChangeFirstLogin,
+                        (v) { setState(() => _forcePasswordChangeFirstLogin = v); _markModified(); },
+                        scheme,
+                      ),
+                      SizedBox(height: AppSpacing.sm),
                       Row(
                         children: [
-                          Icon(
-                            _encryptBackups ? Icons.lock_rounded : Icons.lock_open_rounded,
-                            size: 16,
-                            color: _encryptBackups ? scheme.primary : scheme.onSurfaceVariant,
+                          Container(
+                            width: 26, height: 26,
+                            decoration: BoxDecoration(
+                              color: _passwordExpiryDays > 0 ? scheme.primaryContainer.withValues(alpha: 0.4) : scheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                              borderRadius: AppRadius.chip,
+                            ),
+                            child: Icon(Icons.autorenew_rounded, size: 13, color: _passwordExpiryDays > 0 ? scheme.primary : scheme.onSurfaceVariant.withValues(alpha: 0.4)),
                           ),
-                          SizedBox(width: AppSpacing.sm),
+                          SizedBox(width: 10.rs),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Encrypt exported data', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                                Text('AES-256 encryption', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+                                Text('Password expiry', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: scheme.onSurface)),
+                                Text(_passwordExpiryDays == 0 ? 'Never expires' : 'Every $_passwordExpiryDays days', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                               ],
                             ),
                           ),
-                          SizedBox(height: 28, child: Switch(value: _encryptBackups, onChanged: (v) { setState(() => _encryptBackups = v); _markModified(); })),
                         ],
                       ),
-                    ]),
-                  ],
+                      SizedBox(height: 6.rs),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 36),
+                        child: Wrap(
+                          spacing: 6,
+                          children: [0, 30, 60, 90].map((d) => _buildSelectChip(
+                            d == 0 ? 'Never' : '${d}d', _passwordExpiryDays == d,
+                            () { setState(() => _passwordExpiryDays = d); _markModified(); }, scheme,
+                          )).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              SizedBox(width: 20.rs),
-              // Right: Operator Permissions
-              Expanded(
-                child: _buildCard(scheme, children: [
-                  _buildSectionHeader('Operator Permissions', Icons.admin_panel_settings_rounded, scheme, text),
-                  SizedBox(height: AppSpacing.xs),
-                  Text('What operators are allowed to do', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-                  SizedBox(height: 14.rs),
-                  _buildPermissionRow(Icons.block_rounded, 'Void weighments', _opCanVoidWeighment, (v) { setState(() => _opCanVoidWeighment = v); _markModified(); }, scheme, isDangerous: true),
-                  _buildPermissionRow(Icons.edit_rounded, 'Edit weighments', _opCanEditWeighment, (v) { setState(() => _opCanEditWeighment = v); _markModified(); }, scheme, isDangerous: true),
-                  _buildPermissionRow(Icons.keyboard_rounded, 'Manual weight entry', _opCanManualWeight, (v) { setState(() => _opCanManualWeight = v); _markModified(); }, scheme, isDangerous: true),
-                  _buildPermissionRow(Icons.print_rounded, 'Reprint dockets', _opCanReprint, (v) { setState(() => _opCanReprint = v); _markModified(); }, scheme),
-                  _buildPermissionRow(Icons.download_rounded, 'Export data', _opCanExportData, (v) { setState(() => _opCanExportData = v); _markModified(); }, scheme),
-                  _buildPermissionRow(Icons.bar_chart_rounded, 'View reports', _opCanViewReports, (v) { setState(() => _opCanViewReports = v); _markModified(); }, scheme),
-                ]),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ]),
 
           SizedBox(height: AppSpacing.xl),
 
@@ -302,27 +373,16 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
                 ],
               ),
             )
-          else
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                borderRadius: AppRadius.button,
-                border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.tune_rounded, size: 14, color: scheme.onSurfaceVariant),
-                  SizedBox(width: 10.rs),
-                  Expanded(
-                    child: Text(
-                      'MFA enrollment, IP whitelisting, shift login, domain restrictions, and screen protection are available in Settings.',
-                      style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                  ),
-                ],
-              ),
+          else ...[
+            _buildSectionHeader('Two-Factor Authentication (2FA)', Icons.shield_rounded, scheme, text),
+            SizedBox(height: AppSpacing.sm),
+            const MfaSettingsCard(embedded: true),
+            SizedBox(height: AppSpacing.md),
+            Text(
+              'IP whitelisting, domain restrictions, screen protection, USB restrictions, and remote desktop blocking are available in Settings.',
+              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 11),
             ),
+          ],
         ],
       ),
     );

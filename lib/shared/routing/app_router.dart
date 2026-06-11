@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/app/app_shell.dart';
-import 'package:weighbridgemanagement/features/auth/presentation/forgot_password_screen.dart';
 import 'package:weighbridgemanagement/features/auth/presentation/linkage_pending_screen.dart';
+import 'package:weighbridgemanagement/features/auth/presentation/address_verification_screen.dart';
 import 'package:weighbridgemanagement/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:weighbridgemanagement/features/weighment/presentation/weighment_screen.dart';
 import 'package:weighbridgemanagement/features/weighments/presentation/weighments_screen.dart';
 import 'package:weighbridgemanagement/features/customers/presentation/customers_screen.dart';
 import 'package:weighbridgemanagement/features/operators/presentation/operators_screen.dart';
+import 'package:weighbridgemanagement/features/notifications/presentation/notification_center_screen.dart';
 import 'package:weighbridgemanagement/features/profile/presentation/profile_screen.dart';
 import 'package:weighbridgemanagement/features/reports/presentation/reports_screen.dart';
 import 'package:weighbridgemanagement/features/settings/presentation/settings_screen.dart';
@@ -23,7 +24,6 @@ import 'package:weighbridgemanagement/features/settings/presentation/printing_sc
 import 'package:weighbridgemanagement/features/settings/presentation/data_backup_screen.dart';
 import 'package:weighbridgemanagement/features/settings/presentation/security_screen.dart';
 import 'package:weighbridgemanagement/features/settings/presentation/integrations_screen.dart';
-import 'package:weighbridgemanagement/features/settings/presentation/appearance_screen.dart';
 import 'package:weighbridgemanagement/features/settings/presentation/license_screen.dart';
 import 'package:weighbridgemanagement/features/settings/presentation/voice_guidance_screen.dart';
 import 'package:weighbridgemanagement/shared/models/license_model.dart';
@@ -31,6 +31,7 @@ import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart' show permissionServiceProvider;
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/address_verification_provider.dart';
 import 'package:weighbridgemanagement/shared/widgets/lockdown_screen.dart';
 import 'package:weighbridgemanagement/features/setup/presentation/setup_wizard_screen.dart';
 
@@ -141,12 +142,22 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (!isLoggedIn && !isAuthRoute && !isSetupRoute) return '/setup';
       if (isLoggedIn && isAuthRoute && state.matchedLocation != '/linkage-pending') return '/dashboard';
+
+      // Postal address-verification grace gate — once the 30-day window lapses
+      // and the address is still unverified, lock the app to the verify screen.
+      if (ref.read(addressLockedProvider)) {
+        const allowedWhenLocked = ['/address-verify', '/settings/license', '/setup', '/lockdown'];
+        if (!allowedWhenLocked.contains(state.matchedLocation)) return '/address-verify';
+      } else if (state.matchedLocation == '/address-verify') {
+        return '/dashboard';
+      }
       return null;
     },
     routes: [
-      GoRoute(path: '/forgot-password', pageBuilder: (_, state) => _noTransitionPage(const ForgotPasswordScreen(), state)),
+      GoRoute(path: '/forgot-password', redirect: (_, __) => '/setup?signin=1'),
       GoRoute(path: '/linkage-pending', pageBuilder: (_, state) => _noTransitionPage(const LinkagePendingScreen(), state)),
       GoRoute(path: '/lockdown', pageBuilder: (_, state) => _noTransitionPage(const LockdownScreen(), state)),
+      GoRoute(path: '/address-verify', pageBuilder: (_, state) => _noTransitionPage(const AddressVerificationScreen(), state)),
       GoRoute(path: '/setup', pageBuilder: (_, state) => _noTransitionPage(SetupWizardScreen(showSignIn: state.uri.queryParameters['signin'] == '1'), state)),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
@@ -159,6 +170,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/operators', pageBuilder: (_, state) => _noTransitionPage(const OperatorsScreen(), state)),
           GoRoute(path: '/reports', pageBuilder: (_, state) => _noTransitionPage(const ReportsScreen(), state)),
           GoRoute(path: '/profile', pageBuilder: (_, state) => _noTransitionPage(const ProfileScreen(), state)),
+          GoRoute(path: '/notifications', pageBuilder: (_, state) => _noTransitionPage(const NotificationCenterScreen(), state)),
           GoRoute(path: '/settings', pageBuilder: (_, state) => _noTransitionPage(const SettingsScreen(), state),
             routes: [
               GoRoute(path: 'general', pageBuilder: (_, state) => _slideTransitionPage(const GeneralSettingsScreen(), state)),
@@ -172,7 +184,6 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'backup', pageBuilder: (_, state) => _noTransitionPage(const DataBackupScreen(), state)),
               GoRoute(path: 'mfa', pageBuilder: (_, state) => _noTransitionPage(const SecurityScreen(), state)),
               GoRoute(path: 'integrations', pageBuilder: (_, state) => _noTransitionPage(const IntegrationsScreen(), state)),
-              GoRoute(path: 'appearance', pageBuilder: (_, state) => _noTransitionPage(const AppearanceScreen(), state)),
               GoRoute(path: 'license', pageBuilder: (_, state) => _noTransitionPage(const LicenseScreen(), state)),
               GoRoute(path: 'voice-guidance', pageBuilder: (_, state) => _noTransitionPage(const VoiceGuidanceScreen(), state)),
             ],
@@ -182,9 +193,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 
-  ref.listen(authStateProvider, (_, __) {
-    router.refresh();
-  });
+  // Defer refresh out of the provider-notification cycle. Refreshing
+  // synchronously here would re-enter the redirect and read providers while
+  // Riverpod is still dispatching, throwing ConcurrentModificationError.
+  void deferredRefresh() => Future.microtask(router.refresh);
+
+  ref.listen(authStateProvider, (_, __) => deferredRefresh());
+  ref.listen(addressVerificationProvider, (_, __) => deferredRefresh());
+  ref.listen(serverAddressGateProvider, (_, __) => deferredRefresh());
 
   return router;
 });

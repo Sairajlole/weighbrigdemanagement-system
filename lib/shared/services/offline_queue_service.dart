@@ -5,11 +5,13 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 
 class OfflineQueueService {
   final FirestorePaths paths;
   final String _basePath;
   Timer? _syncTimer;
+  Duration _syncInterval = const Duration(seconds: 10);
   bool _syncing = false;
   DateTime? _lastSyncAt;
   bool _lastSyncSuccess = true;
@@ -23,11 +25,19 @@ class OfflineQueueService {
 
   void startAutoSync() {
     _syncTimer?.cancel();
-    _syncTimer = Timer.periodic(const Duration(seconds: 30), (_) => flush());
+    _syncTimer = Timer.periodic(_syncInterval, (_) => flush());
+  }
+
+  /// Adjust the auto-sync cadence (e.g. faster while the status panel is open).
+  void setSyncInterval(Duration interval) {
+    if (interval == _syncInterval) return;
+    _syncInterval = interval;
+    if (_syncTimer != null) startAutoSync(); // restart at the new cadence
   }
 
   void dispose() {
     _syncTimer?.cancel();
+    _syncTimer = null;
   }
 
   Future<void> enqueueWeighment(Map<String, dynamic> data) async {
@@ -90,6 +100,15 @@ class OfflineQueueService {
     } catch (e) {
       _lastSyncSuccess = false;
       debugPrint('Offline flush error: $e');
+      await AppNotifier.raise(
+        paths,
+        category: 'system',
+        severity: 'warn',
+        title: 'Sync issue',
+        body: "Some offline changes couldn't sync to the cloud yet. They'll retry automatically — check your connection if this persists.",
+        throttleKey: 'offline-sync-fail',
+        throttle: const Duration(minutes: 30),
+      );
     } finally {
       _syncing = false;
     }

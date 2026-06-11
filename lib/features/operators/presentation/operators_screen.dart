@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:weighbridgemanagement/features/operators/presentation/widgets/face_frames_dialog.dart';
 import 'package:weighbridgemanagement/shared/widgets/digilocker_verify_card.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:weighbridgemanagement/shared/providers/mfa_provider.dart';
+import 'package:weighbridgemanagement/shared/services/digilocker_service.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +23,7 @@ import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/title_case.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
+import 'package:weighbridgemanagement/shared/widgets/pin_reset_inline.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
@@ -85,6 +88,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
 
   // System code OTP reveal: 'locked' → 'sending' → 'otp' → 'revealed'
   String _codeStep = 'locked';
+  bool _codeMfaMode = false; // reveal-code: verify via authenticator instead of email OTP
   String? _codeOtpError;
   final _codeOtpControllers = List.generate(6, (_) => TextEditingController());
   final _codeOtpFocusNodes = List.generate(6, (_) => FocusNode());
@@ -502,6 +506,18 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
     );
   }
 
+  // Consistent pill shell for the system-code chip across all its states.
+  Widget _sysCodeShell({VoidCallback? onTap, required Color bg, required Color border, required Widget child, EdgeInsetsGeometry? padding}) {
+    final box = AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      padding: padding ?? const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      decoration: BoxDecoration(color: bg, borderRadius: AppRadius.chip, border: Border.all(color: border)),
+      child: child,
+    );
+    return onTap == null ? box : GestureDetector(onTap: onTap, child: box);
+  }
+
   Widget _buildJoinCodeChip(ColorScheme scheme) {
     final siteCtx = ref.watch(siteContextProvider);
     if (siteCtx.companyId.isEmpty) return const SizedBox.shrink();
@@ -513,49 +529,39 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
         final code = data?['systemCode'] as String?;
         if (code == null || code.isEmpty) return const SizedBox.shrink();
 
-        // Revealed state
+        // Revealed state — tap to copy.
         if (_codeStep == 'revealed') {
-          return GestureDetector(
+          return _sysCodeShell(
             onTap: () {
               Clipboard.setData(ClipboardData(text: code));
               AppError.success(context, 'System code copied');
             },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: scheme.primaryContainer.withValues(alpha: 0.3),
-                borderRadius: AppRadius.chip,
-                border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.vpn_key_rounded, size: 12, color: scheme.primary),
-                  SizedBox(width: 6.rs),
-                  Text(code, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: scheme.primary, letterSpacing: 1)),
-                  SizedBox(width: 6.rs),
-                  Icon(Icons.copy_rounded, size: 11, color: scheme.primary.withValues(alpha: 0.6)),
-                ],
-              ),
+            bg: scheme.primary.withValues(alpha: 0.08),
+            border: scheme.primary.withValues(alpha: 0.35),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.vpn_key_rounded, size: 13, color: scheme.primary),
+                SizedBox(width: 8.rs),
+                Text(code, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: scheme.primary, letterSpacing: 2.5)),
+                SizedBox(width: 8.rs),
+                Icon(Icons.copy_rounded, size: 12, color: scheme.primary.withValues(alpha: 0.7)),
+              ],
             ),
           );
         }
 
         // Sending state
         if (_codeStep == 'sending') {
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHigh,
-              borderRadius: AppRadius.chip,
-              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-            ),
+          return _sysCodeShell(
+            bg: scheme.surfaceContainerHigh,
+            border: scheme.outlineVariant.withValues(alpha: 0.4),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: scheme.primary)),
-                SizedBox(width: 6.rs),
-                Text('Sending OTP...', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+                SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.6, color: scheme.primary)),
+                SizedBox(width: 8.rs),
+                Text('Fetching code…', style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant)),
               ],
             ),
           );
@@ -563,54 +569,84 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
 
         // OTP input state
         if (_codeStep == 'otp') {
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHigh,
-              borderRadius: AppRadius.chip,
-              border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
+          Widget otpBox(int i) => Container(
+            width: 26,
+            height: 34,
+            margin: EdgeInsets.only(right: i < 5 ? 4 : 0),
+            child: TextField(
+              controller: _codeOtpControllers[i],
+              focusNode: _codeOtpFocusNodes[i],
+              textAlign: TextAlign.center,
+              keyboardType: TextInputType.number,
+              maxLength: 1,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: scheme.onSurface),
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                counterText: '',
+                contentPadding: EdgeInsets.zero,
+                isDense: true,
+                filled: true,
+                fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(7.rs), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(7.rs), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
+              ),
+              onChanged: (val) {
+                if (val.isNotEmpty && i < 5) {
+                  _codeOtpFocusNodes[i + 1].requestFocus();
+                } else if (val.isEmpty && i > 0) {
+                  _codeOtpFocusNodes[i - 1].requestFocus();
+                }
+                final otp = _codeOtpControllers.map((c) => c.text).join();
+                if (otp.length == 6) _verifyCodeOtp(otp);
+              },
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ...List.generate(6, (i) {
-                  return Container(
-                    width: 28,
-                    height: 32,
-                    margin: EdgeInsets.only(right: i < 5 ? 3 : 0),
-                    child: TextField(
-                      controller: _codeOtpControllers[i],
-                      focusNode: _codeOtpFocusNodes[i],
-                      textAlign: TextAlign.center,
-                      keyboardType: TextInputType.number,
-                      maxLength: 1,
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.onSurface),
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: InputDecoration(
-                        counterText: '',
-                        contentPadding: EdgeInsets.zero,
-                        isDense: true,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(5.rs), borderSide: BorderSide(color: scheme.outlineVariant)),
-                      ),
-                      onChanged: (val) {
-                        if (val.isNotEmpty && i < 5) {
-                          _codeOtpFocusNodes[i + 1].requestFocus();
-                        } else if (val.isEmpty && i > 0) {
-                          _codeOtpFocusNodes[i - 1].requestFocus();
-                        }
-                        final otp = _codeOtpControllers.map((c) => c.text).join();
-                        if (otp.length == 6) _verifyCodeOtp(otp);
-                      },
+          );
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sysCodeShell(
+                bg: scheme.surface,
+                border: scheme.primary.withValues(alpha: 0.45),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(_codeMfaMode ? Icons.shield_outlined : Icons.mark_email_read_outlined, size: 15, color: scheme.primary),
+                    SizedBox(width: 9.rs),
+                    for (var i = 0; i < 6; i++) otpBox(i),
+                    SizedBox(width: 7.rs),
+                    GestureDetector(
+                      onTap: () => setState(() { _codeStep = 'locked'; _codeOtpError = null; }),
+                      child: Icon(Icons.close_rounded, size: 16, color: scheme.onSurfaceVariant),
                     ),
-                  );
-                }),
-                SizedBox(width: 6.rs),
-                GestureDetector(
-                  onTap: () => setState(() { _codeStep = 'locked'; _codeOtpError = null; }),
-                  child: Icon(Icons.close_rounded, size: 14, color: scheme.onSurfaceVariant),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              SizedBox(height: 4.rs),
+              Padding(
+                padding: const EdgeInsets.only(left: 3),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_codeMfaMode ? 'Authenticator code' : 'Code sent to your email',
+                        style: TextStyle(fontSize: 9.5, color: scheme.onSurfaceVariant)),
+                    if (_codeMfaMode) ...[
+                      Text('  ·  ', style: TextStyle(fontSize: 9.5, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
+                      GestureDetector(
+                        onTap: () => _sendCodeOtp(forceEmail: true),
+                        child: Text('use email', style: TextStyle(fontSize: 9.5, color: scheme.primary, fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (_codeOtpError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, left: 3),
+                  child: Text(_codeOtpError!, style: TextStyle(fontSize: 9.5, color: scheme.error)),
+                ),
+            ],
           );
         }
 
@@ -619,31 +655,25 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GestureDetector(
+            _sysCodeShell(
               onTap: _sendCodeOtp,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHigh,
-                  borderRadius: AppRadius.chip,
-                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.lock_rounded, size: 12, color: scheme.onSurfaceVariant),
-                    SizedBox(width: 6.rs),
-                    Text('System Code', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-                    SizedBox(width: AppSpacing.xs),
-                    Icon(Icons.visibility_outlined, size: 12, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                  ],
-                ),
+              bg: scheme.surfaceContainerHigh,
+              border: scheme.outlineVariant.withValues(alpha: 0.4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.vpn_key_outlined, size: 13, color: scheme.onSurfaceVariant),
+                  SizedBox(width: 7.rs),
+                  Text('System Code', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
+                  SizedBox(width: 6.rs),
+                  Icon(Icons.visibility_outlined, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.55)),
+                ],
               ),
             ),
             if (_codeOtpError != null)
               Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(_codeOtpError!, style: TextStyle(fontSize: 9, color: scheme.error)),
+                padding: const EdgeInsets.only(top: 4, left: 3),
+                child: Text(_codeOtpError!, style: TextStyle(fontSize: 9.5, color: scheme.error)),
               ),
           ],
         );
@@ -651,17 +681,27 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
     );
   }
 
-  Future<void> _sendCodeOtp() async {
+  Future<void> _sendCodeOtp({bool forceEmail = false}) async {
     setState(() { _codeStep = 'sending'; _codeOtpError = null; });
     for (final c in _codeOtpControllers) { c.clear(); }
 
     try {
-      final email = await _getAdminEmailForCode();
-      if (email == null || email.isEmpty) {
-        setState(() { _codeStep = 'locked'; _codeOtpError = 'Admin email not available.'; });
-        return;
+      // 2FA belongs to the SIGNED-IN admin (their login email), which may differ
+      // from the company email — check it there. If on, use the authenticator;
+      // otherwise send an email code to the admin/company email.
+      final loginEmail = await _currentLoginEmail();
+      if (!forceEmail && loginEmail != null && loginEmail.isNotEmpty
+          && await ref.read(mfaServiceProvider).isEnabled(loginEmail)) {
+        _codeMfaMode = true;
+      } else {
+        _codeMfaMode = false;
+        final email = await _getAdminEmailForCode();
+        if (email == null || email.isEmpty) {
+          setState(() { _codeStep = 'locked'; _codeOtpError = 'Admin email not available.'; });
+          return;
+        }
+        await CloudFunctionsService.call('sendEmailOTP', {'email': email});
       }
-      await CloudFunctionsService.call('sendEmailOTP', {'email': email});
       if (mounted) {
         setState(() => _codeStep = 'otp');
         Future.delayed(Duration.zero, () { _codeOtpFocusNodes[0].requestFocus(); });
@@ -669,6 +709,14 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
     } catch (e) {
       if (mounted) setState(() { _codeStep = 'locked'; _codeOtpError = 'Failed to send OTP.'; });
     }
+  }
+
+  /// The signed-in admin's login email (whose 2FA we check) — distinct from the
+  /// company email used for the email-code fallback.
+  Future<String?> _currentLoginEmail() async {
+    final e = FirebaseAuth.instance.currentUser?.email;
+    if (e != null && e.isNotEmpty) return e;
+    return LocalCacheService.getCachedCurrentUserEmail();
   }
 
   Future<String?> _getAdminEmailForCode() async {
@@ -683,8 +731,13 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
 
   Future<void> _verifyCodeOtp(String otp) async {
     try {
-      final email = await _getAdminEmailForCode();
-      await CloudFunctionsService.call('verifyEmailOTP', {'email': email, 'otp': otp});
+      if (_codeMfaMode) {
+        // 2FA verifies against the signed-in admin's login email.
+        await ref.read(mfaServiceProvider).verifyCode(await _currentLoginEmail() ?? '', otp);
+      } else {
+        final email = await _getAdminEmailForCode();
+        await CloudFunctionsService.call('verifyEmailOTP', {'email': email, 'otp': otp});
+      }
       if (mounted) {
         setState(() => _codeStep = 'revealed');
         Future.delayed(const Duration(minutes: 1), () {
@@ -1235,6 +1288,28 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
       if (legacy != null && legacy.isNotEmpty) idDocImages = [legacy];
     }
 
+    // DigiLocker (Aadhaar) verification — the new handling. When present, the
+    // identity is fetched from the government issuer (with a photo URL), so we
+    // show that instead of uploaded scans.
+    final verificationMethod = op['verificationMethod'] as String? ?? '';
+    final verifiedPhotoUrl = op['verifiedPhotoUrl'] as String? ?? '';
+    final isDigiLocker = verificationMethod.contains('digilocker') || verifiedPhotoUrl.isNotEmpty;
+    final verifiedName = op['verifiedName'] as String? ?? '';
+    final verifiedDob = op['verifiedDob'] as String? ?? '';
+    final verifiedGender = op['verifiedGender'] as String? ?? '';
+    final aadhaarLast4 = op['aadhaarLast4'] as String? ?? '';
+    final verifiedAddress = op['verifiedAddress'] as String? ?? '';
+
+    Widget kvLine(IconData icon, String label, String value) => Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 15, color: scheme.onSurfaceVariant.withValues(alpha: 0.8)),
+            SizedBox(width: AppSpacing.sm),
+            Text('$label  ', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.8))),
+            Expanded(child: Text(value, style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600))),
+          ],
+        );
+
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -1249,9 +1324,9 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
               children: [
                 Row(
                   children: [
-                    Icon(Icons.badge_rounded, size: 20, color: scheme.primary),
+                    Icon(isDigiLocker ? Icons.verified_user_rounded : Icons.badge_rounded, size: 20, color: scheme.primary),
                     SizedBox(width: 10.rs),
-                    Text('Submitted ID Document', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(isDigiLocker ? 'Verified Identity' : 'Submitted ID Document', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                     const Spacer(),
                     IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded, size: 18)),
                   ],
@@ -1259,6 +1334,65 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                 SizedBox(height: 6.rs),
                 Text('ID details for "${op['name'] ?? 'Unknown'}"', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                 SizedBox(height: 18.rs),
+                if (isDigiLocker) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: AppSpacing.cardPadding,
+                    decoration: BoxDecoration(
+                      color: AppTheme.successColor.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(10.rs),
+                      border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.25)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            ClipOval(
+                              child: SizedBox(
+                                width: 56,
+                                height: 56,
+                                child: verifiedPhotoUrl.isNotEmpty
+                                    ? Image.network(verifiedPhotoUrl, fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(color: scheme.surfaceContainerHighest, child: Icon(Icons.person_rounded, color: scheme.onSurfaceVariant)))
+                                    : Container(color: scheme.surfaceContainerHighest, child: Icon(Icons.person_rounded, color: scheme.onSurfaceVariant)),
+                              ),
+                            ),
+                            SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(verifiedName.isNotEmpty ? verifiedName : (op['name'] as String? ?? ''),
+                                      style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                                  SizedBox(height: 3.rs),
+                                  Row(children: [
+                                    Icon(Icons.verified_rounded, size: 13, color: AppTheme.successColor),
+                                    SizedBox(width: 4.rs),
+                                    Text('Verified via DigiLocker',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
+                                  ]),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 14.rs),
+                        kvLine(Icons.badge_outlined, 'Aadhaar',
+                            aadhaarLast4.isNotEmpty ? 'XXXX-XXXX-$aadhaarLast4' : (idDocNumber.isNotEmpty ? idDocNumber : 'Not available')),
+                        if (verifiedDob.isNotEmpty || verifiedGender.isNotEmpty) ...[
+                          SizedBox(height: 10.rs),
+                          kvLine(Icons.cake_outlined, 'Born',
+                              [if (verifiedDob.isNotEmpty) verifiedDob, if (verifiedGender.isNotEmpty) verifiedGender].join('  •  ')),
+                        ],
+                        if (verifiedAddress.isNotEmpty) ...[
+                          SizedBox(height: 10.rs),
+                          kvLine(Icons.location_on_outlined, 'Address', verifiedAddress),
+                        ],
+                      ],
+                    ),
+                  ),
+                ] else ...[
                 Container(
                   width: double.infinity,
                   padding: AppSpacing.cardPadding,
@@ -1338,6 +1472,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       ],
                     ),
                   ),
+                ],
                 ],
                 SizedBox(height: 20.rs),
                 Align(
@@ -1488,6 +1623,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
   }
 
   Future<void> _rejectOperator(Map<String, dynamic> op, String reason) async {
+    if (_isAdminOp(op)) return; // the admin's own operator can't be rejected/deleted
     final paths = ref.read(firestorePathsProvider);
     final email = op['email'] as String? ?? '';
 
@@ -1653,6 +1789,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
   }
 
   Future<void> _deleteArchivedOperator(String id, String name) async {
+    if (id.startsWith('admin_')) return; // the admin's mirror operator is never deleted
     final scheme = Theme.of(context).colorScheme;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1728,14 +1865,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: scheme.surfaceContainerHigh,
-                child: Text(
-                  (op['name'] as String? ?? 'U').substring(0, 1).toUpperCase(),
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant),
-                ),
-              ),
+              _operatorAvatar(op, scheme, 20),
               SizedBox(width: 14.rs),
               Expanded(
                 child: Column(
@@ -1907,7 +2037,6 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                   itemBuilder: (_, i) {
                   final op = operators[i];
                   final isActive = op['isActive'] == true;
-                  final idStatus = op['idStatus'] as String? ?? 'not_submitted';
                   final phone = op['phone'] as String? ?? '';
                   final email = op['email'] as String? ?? '';
 
@@ -1955,7 +2084,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                           flex: 2,
                           child: Text(_formatShift(op), style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis, maxLines: 1),
                         ),
-                        Expanded(flex: 2, child: Align(alignment: Alignment.centerLeft, child: _buildIdStatusChip(idStatus, scheme))),
+                        Expanded(flex: 2, child: Align(alignment: Alignment.centerLeft, child: _buildFaceStatusChip(op, scheme))),
                         Expanded(
                           flex: 2,
                           child: Text(
@@ -1984,13 +2113,15 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               _iconAction(Icons.edit_outlined, 'Edit', scheme.primary, () => _showEditOperatorDialog(context, op)),
-                              _iconAction(
-                                isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
-                                isActive ? 'Deactivate' : 'Activate',
-                                isActive ? scheme.error : Colors.green.shade700,
-                                () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({'isActive': !isActive}),
-                              ),
-                              _iconAction(Icons.archive_outlined, 'Archive', scheme.error, () => _confirmArchive(context, op)),
+                              if (!_isAdminOp(op)) ...[
+                                _iconAction(
+                                  isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
+                                  isActive ? 'Deactivate' : 'Activate',
+                                  isActive ? scheme.error : Colors.green.shade700,
+                                  () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({'isActive': !isActive}),
+                                ),
+                                _iconAction(Icons.archive_outlined, 'Archive', scheme.error, () => _confirmArchive(context, op)),
+                              ],
                             ],
                           ),
                         ),
@@ -2044,7 +2175,6 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
 
   Widget _buildOperatorCard(Map<String, dynamic> op, ColorScheme scheme, TextTheme text) {
     final isActive = op['isActive'] == true;
-    final idStatus = op['idStatus'] as String? ?? 'not_submitted';
     final phone = op['phone'] as String? ?? '';
     final email = op['email'] as String? ?? '';
 
@@ -2114,7 +2244,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                 ),
                 child: Row(
                   children: [
-                    _buildIdStatusChip(idStatus, scheme),
+                    _buildFaceStatusChip(op, scheme),
                     const Spacer(),
                     Icon(Icons.access_time_rounded, size: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
                     SizedBox(width: AppSpacing.xs),
@@ -2137,24 +2267,26 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                       () => _showEditOperatorDialog(context, op),
                     ),
                   ),
-                  SizedBox(width: 6.rs),
-                  Expanded(
-                    child: _cardAction(
-                      isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
-                      isActive ? 'Deactivate' : 'Activate',
-                      isActive ? scheme.error : Colors.green.shade700,
-                      () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({'isActive': !isActive}),
+                  if (!_isAdminOp(op)) ...[
+                    SizedBox(width: 6.rs),
+                    Expanded(
+                      child: _cardAction(
+                        isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
+                        isActive ? 'Deactivate' : 'Activate',
+                        isActive ? scheme.error : Colors.green.shade700,
+                        () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({'isActive': !isActive}),
+                      ),
                     ),
-                  ),
-                  SizedBox(width: 6.rs),
-                  Expanded(
-                    child: _cardAction(
-                      Icons.archive_outlined,
-                      'Archive',
-                      scheme.error,
-                      () => _confirmArchive(context, op),
+                    SizedBox(width: 6.rs),
+                    Expanded(
+                      child: _cardAction(
+                        Icons.archive_outlined,
+                        'Archive',
+                        scheme.error,
+                        () => _confirmArchive(context, op),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ],
@@ -2286,13 +2418,40 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _operatorAvatar(Map<String, dynamic> op, ColorScheme scheme, double radius) {
+    Widget initials() => CircleAvatar(
+          radius: radius,
+          backgroundColor: scheme.secondaryContainer,
+          child: Text(
+            (op['name'] as String? ?? 'U').substring(0, 1).toUpperCase(),
+            style: TextStyle(fontSize: radius * 0.75, fontWeight: FontWeight.w600, color: scheme.onSecondaryContainer),
+          ),
+        );
+
+    // 1. Explicit base64 profile picture.
     final profilePic = op['profilePic'] as String? ?? '';
     if (profilePic.isNotEmpty) {
       try {
-        final bytes = base64Decode(profilePic);
-        return CircleAvatar(radius: radius, backgroundImage: MemoryImage(bytes));
+        return CircleAvatar(radius: radius, backgroundImage: MemoryImage(base64Decode(profilePic)));
       } catch (_) {}
     }
+
+    // 2. DigiLocker verified photo (network URL) — fetched, works across machines.
+    final verifiedPhotoUrl = op['verifiedPhotoUrl'] as String? ?? '';
+    if (verifiedPhotoUrl.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          verifiedPhotoUrl,
+          width: radius * 2,
+          height: radius * 2,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => initials(),
+          loadingBuilder: (context, child, progress) =>
+              progress == null ? child : initials(),
+        ),
+      );
+    }
+
+    // 3. Locally-enrolled face photo (only present on the enrolling machine).
     final facePhoto = op['facePhoto'] as String? ?? '';
     if (facePhoto.isNotEmpty) {
       final file = File(facePhoto);
@@ -2300,43 +2459,16 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
         return CircleAvatar(radius: radius, backgroundImage: FileImage(file));
       }
     }
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: scheme.secondaryContainer,
-      child: Text(
-        (op['name'] as String? ?? 'U').substring(0, 1).toUpperCase(),
-        style: TextStyle(fontSize: radius * 0.75, fontWeight: FontWeight.w600, color: scheme.onSecondaryContainer),
-      ),
-    );
+
+    return initials();
   }
 
 
-  Widget _buildIdStatusChip(String status, ColorScheme scheme) {
-    Color bgColor;
-    Color fgColor;
-    String label;
-
-    switch (status) {
-      case 'verified':
-        bgColor = Colors.green.withValues(alpha: 0.12);
-        fgColor = Colors.green;
-        label = 'Verified';
-        break;
-      case 'pending':
-        bgColor = Colors.amber.withValues(alpha: 0.12);
-        fgColor = Colors.amber.shade800;
-        label = 'Pending';
-        break;
-      case 'rejected':
-        bgColor = scheme.errorContainer;
-        fgColor = scheme.onErrorContainer;
-        label = 'Rejected';
-        break;
-      default:
-        bgColor = scheme.surfaceContainerHigh;
-        fgColor = scheme.onSurfaceVariant;
-        label = 'Not Submitted';
-    }
+  Widget _buildFaceStatusChip(Map<String, dynamic> op, ColorScheme scheme) {
+    final fe = op['faceEnrollment'] as Map<String, dynamic>?;
+    final enrolled = fe?['enrolled'] == true;
+    final bgColor = enrolled ? Colors.green.withValues(alpha: 0.12) : scheme.surfaceContainerHigh;
+    final fgColor = enrolled ? Colors.green : scheme.onSurfaceVariant;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -2344,7 +2476,14 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
         color: bgColor,
         borderRadius: BorderRadius.circular(4.rs),
       ),
-      child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fgColor)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(enrolled ? Icons.face_rounded : Icons.face_retouching_off_rounded, size: 12, color: fgColor),
+          SizedBox(width: 4.rs),
+          Text(enrolled ? 'Enrolled' : 'No Face', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fgColor)),
+        ],
+      ),
     );
   }
 
@@ -2382,7 +2521,13 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
   // ACTIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// The company admin's mirror operator. Such operators can't be deactivated,
+  /// archived or deleted — they track the admin account itself.
+  bool _isAdminOp(Map<String, dynamic> op) =>
+      op['role'] == 'companyAdmin' || op['isCompanyAdmin'] == true;
+
   void _confirmArchive(BuildContext context, Map<String, dynamic> op) {
+    if (_isAdminOp(op)) return; // admins are never archived
     final scheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
@@ -2845,7 +2990,6 @@ class _EditOperatorDialog extends StatefulWidget {
 
 class _EditOperatorDialogState extends State<_EditOperatorDialog> {
   late final TextEditingController _phoneCtrl;
-  late final TextEditingController _idDocNumberCtrl;
 
   late bool _shiftRestricted;
   late TimeOfDay _shiftStart;
@@ -2853,14 +2997,12 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
   late List<String> _shiftDays;
 
   late String _idStatus;
-  late String _idDocumentType;
 
   Map<String, dynamic>? _faceEnrollment;
 
   late bool _mustChangePassword;
   bool _hasPinSet = false;
-  final bool _settingPin = false;
-  String? _pinError;
+  bool _pinEntryOpen = false;
 
   // Screen visibility permissions
   late bool _canViewCustomers;
@@ -2873,18 +3015,12 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
   List<Map<String, String>> _allSites = [];
   late Set<String> _selectedSites;
 
-  // KYC upload & verification (multiple IDs)
+  // KYC verification via DigiLocker (multiple IDs)
   List<Map<String, dynamic>> _verifiedIds = [];
-  bool _kycScanning = false;
-  String? _kycError;
-  String? _kycExtractedName;
-  String? _kycExtractedAddress;
-  String? _kycNameMatch; // 'exact', 'close', 'mismatch'
-  String? _kycDuplicateWarning;
   late bool _wasAlreadyVerified;
   bool _showAddId = false;
+  bool _dlExpanded = false; // DigiLocker verified card expanded inline
   String? _kycSuccessMessage;
-  List<String> _kycScannedImages = [];
 
   // Email/phone change via OTP
   late String _currentEmail;
@@ -2893,13 +3029,16 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
   String _newValueForChange = '';
   bool _otpSent = false;
   bool _otpVerifying = false;
+  bool _changeMfaMode = false; // admin verifies via authenticator instead of email OTP
   String? _changeError;
   String _adminEmailDisplay = '';
+  // For the admin's own contact change: after the email code is verified we
+  // require a SECOND code on the existing phone (sequential dual-factor).
+  bool _adminPhoneStep = false;
   final _otpControllers = List.generate(6, (_) => TextEditingController());
   final _otpFocusNodes = List.generate(6, (_) => FocusNode());
 
   static const _allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  static const _documentTypes = ['Aadhaar', 'PAN', 'Driving License', 'Passport'];
 
   @override
   void initState() {
@@ -2907,7 +3046,6 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     final op = widget.operator;
 
     _phoneCtrl = TextEditingController(text: op['phone'] as String? ?? '');
-    _idDocNumberCtrl = TextEditingController(text: op['idDocumentNumber'] as String? ?? '');
     _currentEmail = op['email'] as String? ?? '';
     _currentPhone = op['phone'] as String? ?? '';
 
@@ -2921,10 +3059,6 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
         : null;
 
     _idStatus = op['idStatus'] as String? ?? 'not_submitted';
-    _idDocumentType = op['idDocumentType'] as String? ?? 'Aadhaar';
-    if (!_documentTypes.contains(_idDocumentType)) {
-      _idDocumentType = 'Aadhaar';
-    }
 
     // Load existing verified IDs
     final rawIds = op['verifiedIds'] as List<dynamic>? ?? [];
@@ -3003,13 +3137,18 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
   @override
   void dispose() {
     _phoneCtrl.dispose();
-    _idDocNumberCtrl.dispose();
     for (final c in _otpControllers) { c.dispose(); }
     for (final f in _otpFocusNodes) { f.dispose(); }
     super.dispose();
   }
 
   String get _otpValue => _otpControllers.map((c) => c.text).join();
+
+  /// The company admin's mirror operator doc. Such operators always have
+  /// weighment access (admin privileges override the per-operator flag), so the
+  /// Weighments toggle is shown locked rather than editable.
+  bool get _isAdminOperator =>
+      widget.operator['role'] == 'companyAdmin' || widget.operator['isCompanyAdmin'] == true;
 
   Future<void> _refreshFaceEnrollment() async {
     try {
@@ -3031,6 +3170,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     setState(() {
       _pendingChangeField = field;
       _otpSent = false;
+      _adminPhoneStep = false;
       _changeError = null;
       _newValueForChange = '';
       _adminEmailDisplay = email ?? '';
@@ -3052,12 +3192,49 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     }
     setState(() { _changeError = null; _otpVerifying = true; });
     try {
-      await CloudFunctionsService.call('sendEmailOTP', {'email': adminEmail});
-      setState(() => _otpSent = true);
+      // Prefer the admin's authenticator (2FA) over an email code if available.
+      if (await widget.ref.read(mfaServiceProvider).isEnabled(adminEmail)) {
+        setState(() { _changeMfaMode = true; _otpSent = true; });
+      } else {
+        _changeMfaMode = false;
+        await CloudFunctionsService.call('sendEmailOTP', {'email': adminEmail});
+        setState(() => _otpSent = true);
+      }
     } catch (e) {
       setState(() => _changeError = 'Failed to send OTP to admin.');
     } finally {
       setState(() => _otpVerifying = false);
+    }
+  }
+
+  /// Fallback to an email code when MFA is preferred for the contact-change flow.
+  Future<void> _useEmailForChange() async {
+    final adminEmail = await _getAdminEmail();
+    if (adminEmail == null || adminEmail.isEmpty) return;
+    setState(() { _changeMfaMode = false; _otpVerifying = true; _changeError = null; });
+    try {
+      await CloudFunctionsService.call('sendEmailOTP', {'email': adminEmail});
+    } catch (e) {
+      setState(() => _changeError = 'Failed to send code.');
+    } finally {
+      if (mounted) setState(() => _otpVerifying = false);
+    }
+  }
+
+  /// Resends the code for the current step — phone on the second admin step,
+  /// otherwise the admin-email code.
+  Future<void> _resendChangeOtp() async {
+    if (!_adminPhoneStep) {
+      await _sendAdminOTP();
+      return;
+    }
+    setState(() { _changeError = null; _otpVerifying = true; });
+    try {
+      await CloudFunctionsService.call('sendPhoneOTP', {'phone': _currentPhone});
+    } catch (e) {
+      setState(() => _changeError = 'Failed to resend code to phone.');
+    } finally {
+      if (mounted) setState(() => _otpVerifying = false);
     }
   }
 
@@ -3067,14 +3244,47 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
       setState(() => _changeError = 'Enter all 6 digits.');
       return;
     }
-    final adminEmail = await _getAdminEmail();
-    if (adminEmail == null || adminEmail.isEmpty) return;
 
     setState(() { _otpVerifying = true; _changeError = null; });
     try {
-      await CloudFunctionsService.call('verifyEmailOTP', {'email': adminEmail, 'otp': otp});
+      if (_adminPhoneStep) {
+        // Second factor — verify the code sent to the admin's existing phone.
+        await CloudFunctionsService.call('verifyPhoneOTP', {'phone': _currentPhone, 'otp': otp});
+      } else {
+        final adminEmail = await _getAdminEmail();
+        if (adminEmail == null || adminEmail.isEmpty) {
+          setState(() { _changeError = 'Admin email not available.'; _otpVerifying = false; });
+          return;
+        }
+        if (_changeMfaMode) {
+          await widget.ref.read(mfaServiceProvider).verifyCode(adminEmail, otp);
+        } else {
+          await CloudFunctionsService.call('verifyEmailOTP', {'email': adminEmail, 'otp': otp});
+        }
 
-      // OTP verified — apply the change
+        // Changing the admin's OWN email/phone requires a second code on the
+        // existing phone before the change is applied (dual-factor). Switch to
+        // the phone step first so a send failure just offers "Resend" rather
+        // than stranding the user on an already-consumed email code.
+        if (_isAdminOperator && _currentPhone.trim().isNotEmpty) {
+          if (!mounted) return;
+          setState(() {
+            _adminPhoneStep = true;
+            _changeError = null;
+            _otpVerifying = false;
+            for (final c in _otpControllers) { c.clear(); }
+          });
+          _otpFocusNodes.first.requestFocus();
+          try {
+            await CloudFunctionsService.call('sendPhoneOTP', {'phone': _currentPhone});
+          } catch (_) {
+            if (mounted) setState(() => _changeError = 'Could not send the phone code. Tap "Resend Code".');
+          }
+          return;
+        }
+      }
+
+      // All required factors verified — apply the change.
       final db = widget.ref.read(firestorePathsProvider);
       final field = _pendingChangeField!;
       final newVal = _newValueForChange.trim();
@@ -3107,6 +3317,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
         }
         _pendingChangeField = null;
         _otpSent = false;
+        _adminPhoneStep = false;
       });
 
       if (mounted) {
@@ -3125,6 +3336,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     setState(() {
       _pendingChangeField = null;
       _otpSent = false;
+      _adminPhoneStep = false;
       _changeError = null;
       for (final c in _otpControllers) { c.clear(); }
     });
@@ -3310,7 +3522,9 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                 SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    'A verification code will be sent to your admin email ($adminEmail) for confirmation.',
+                    _isAdminOperator
+                        ? 'A code is sent to your admin email ($adminEmail), then a second code to your registered phone — both are required to change your own contact details.'
+                        : 'A verification code will be sent to your admin email ($adminEmail) for confirmation.',
                     style: TextStyle(fontSize: 10, color: scheme.primary),
                   ),
                 ),
@@ -3336,7 +3550,11 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
 
         if (_otpSent) ...[
           Text(
-            'Enter code sent to $adminEmail',
+            _adminPhoneStep
+                ? 'Step 2 of 2 — enter the code sent to your phone ($_currentPhone)'
+                : _changeMfaMode
+                    ? (_isAdminOperator ? 'Step 1 of 2 — enter the code from your authenticator app' : 'Enter the code from your authenticator app')
+                    : (_isAdminOperator ? 'Step 1 of 2 — enter the code sent to $adminEmail' : 'Enter code sent to $adminEmail'),
             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
           ),
           SizedBox(height: 10.rs),
@@ -3386,15 +3604,20 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
               ),
               child: _otpVerifying
                   ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Verify & Update'),
+                  : Text((_isAdminOperator && !_adminPhoneStep) ? 'Verify & Continue' : 'Verify & Update'),
             ),
           ),
           SizedBox(height: AppSpacing.sm),
           Center(
-            child: TextButton(
-              onPressed: _otpVerifying ? null : _sendAdminOTP,
-              child: Text('Resend Code', style: TextStyle(fontSize: 11, color: scheme.primary)),
-            ),
+            child: (_changeMfaMode && !_adminPhoneStep)
+                ? TextButton(
+                    onPressed: _otpVerifying ? null : _useEmailForChange,
+                    child: Text('Send a code to my email instead', style: TextStyle(fontSize: 11, color: scheme.primary)),
+                  )
+                : TextButton(
+                    onPressed: _otpVerifying ? null : _resendChangeOtp,
+                    child: Text('Resend Code', style: TextStyle(fontSize: 11, color: scheme.primary)),
+                  ),
           ),
         ],
 
@@ -3495,7 +3718,147 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Face enrollment status
+        // Operator's submitted ID (from registration)
+        if ((op['idDocType'] as String? ?? '').isNotEmpty || (op['idDocNumber'] as String? ?? '').isNotEmpty) ...[
+          SizedBox(height: 14.rs),
+          Row(
+            children: [
+              Icon(Icons.badge_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+              SizedBox(width: AppSpacing.sm),
+              Text('Submitted at Registration', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+            ],
+          ),
+          SizedBox(height: AppSpacing.sm),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.06),
+              borderRadius: AppRadius.button,
+              border: Border.all(color: Colors.green.withValues(alpha: 0.25)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.verified_rounded, size: 15, color: Colors.green),
+                    SizedBox(width: 10.rs),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if ((op['idDocType'] as String? ?? '').isNotEmpty)
+                            Text(op['idDocType'] as String, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: Colors.green.shade700)),
+                          if ((op['idDocNumber'] as String? ?? '').isNotEmpty)
+                            Text(op['idDocNumber'] as String, style: text.bodySmall?.copyWith(color: scheme.onSurface, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    if (_hasIdDocImages(op))
+                      GestureDetector(
+                        onTap: () => _showViewIdFromEdit(op, scheme),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: scheme.primary.withValues(alpha: 0.08),
+                            borderRadius: AppRadius.chip,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.visibility_rounded, size: 12, color: scheme.primary),
+                              SizedBox(width: AppSpacing.xs),
+                              Text('View', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        SizedBox(height: 14.rs),
+        Row(
+          children: [
+            Icon(Icons.verified_user_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+            SizedBox(width: AppSpacing.sm),
+            Text('Identity Verification', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+          ],
+        ),
+        SizedBox(height: AppSpacing.sm),
+
+        // Success message
+        if (_kycSuccessMessage != null) ...[
+          Container(
+            padding: EdgeInsets.all(10.rs),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.08),
+              borderRadius: AppRadius.button,
+              border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, size: 15, color: Colors.green),
+                SizedBox(width: AppSpacing.sm),
+                Expanded(child: Text(_kycSuccessMessage!, style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w600))),
+              ],
+            ),
+          ),
+          SizedBox(height: AppSpacing.md),
+        ],
+
+        // Single DigiLocker (Aadhaar) verification — the only identity check.
+        if (_isDigiLockerVerified(op)) ...[
+          _buildDigiLockerVerifiedCard(scheme, text, op),
+          SizedBox(height: AppSpacing.md),
+        ] else if (!_showAddId)
+          Text('Aadhaar not verified yet.', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+
+        // Add new ID section — DigiLocker verification
+        if (_showAddId) ...[
+          DigiLockerVerifyCard(
+            purpose: 'operator_verification',
+            companyId: widget.ref.read(firestorePathsProvider).context.companyId,
+            expectedName: widget.operator['name'] as String?,
+            onVerified: (result) {
+              if (result.verified) {
+                _applyDigiLockerVerification(result);
+              } else {
+                setState(() => _showAddId = false);
+              }
+            },
+          ),
+          SizedBox(height: AppSpacing.md),
+          Center(
+            child: TextButton(
+              onPressed: () => setState(() => _showAddId = false),
+              child: Text('Cancel', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+            ),
+          ),
+        ],
+
+        // Verify-with-DigiLocker button (hidden once Aadhaar is verified)
+        if (!_showAddId && !_isDigiLockerVerified(op)) ...[
+          SizedBox(height: AppSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() => _showAddId = true),
+              icon: const Icon(Icons.verified_user_rounded, size: 16),
+              label: const Text('Verify with DigiLocker', style: TextStyle(fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
+              ),
+            ),
+          ),
+        ],
+
+        // Face Enrollment — shown below the identity verification.
+        SizedBox(height: 18.rs),
         Row(
           children: [
             Icon(Icons.face_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
@@ -3561,229 +3924,136 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
           existingFaceEnrollment: _faceEnrollment,
           onEnrollmentComplete: _refreshFaceEnrollment,
         ),
-
-        // Operator's submitted ID (from registration)
-        if ((op['idDocType'] as String? ?? '').isNotEmpty || (op['idDocNumber'] as String? ?? '').isNotEmpty) ...[
-          SizedBox(height: 14.rs),
-          Row(
-            children: [
-              Icon(Icons.badge_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-              SizedBox(width: AppSpacing.sm),
-              Text('Submitted at Registration', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
-            ],
-          ),
+        if (faceEnrolled) ...[
           SizedBox(height: AppSpacing.sm),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.06),
-              borderRadius: AppRadius.button,
-              border: Border.all(color: Colors.green.withValues(alpha: 0.25)),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.verified_rounded, size: 15, color: Colors.green),
-                    SizedBox(width: 10.rs),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if ((op['idDocType'] as String? ?? '').isNotEmpty)
-                            Text(op['idDocType'] as String, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: Colors.green.shade700)),
-                          if ((op['idDocNumber'] as String? ?? '').isNotEmpty)
-                            Text(op['idDocNumber'] as String, style: text.bodySmall?.copyWith(color: scheme.onSurface, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    if (_hasIdDocImages(op))
-                      GestureDetector(
-                        onTap: () => _showViewIdFromEdit(op, scheme),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: scheme.primary.withValues(alpha: 0.08),
-                            borderRadius: AppRadius.chip,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.visibility_rounded, size: 12, color: scheme.primary),
-                              SizedBox(width: AppSpacing.xs),
-                              Text('View', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                if (!_verifiedIds.any((id) => id['type'] == (op['idDocType'] as String? ?? '') && id['number'] == (op['idDocNumber'] as String? ?? ''))) ...[
-                  SizedBox(height: AppSpacing.sm),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _mergeRegistrationId(op),
-                      icon: const Icon(Icons.merge_rounded, size: 14),
-                      label: const Text('Merge to Verified IDs', style: TextStyle(fontSize: 11)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.green.shade700,
-                        side: BorderSide(color: Colors.green.withValues(alpha: 0.4)),
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7.rs)),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-
-        SizedBox(height: 14.rs),
-        Row(
-          children: [
-            Icon(Icons.verified_user_rounded, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-            SizedBox(width: AppSpacing.sm),
-            Text('Admin-Verified IDs', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
-          ],
-        ),
-        SizedBox(height: AppSpacing.sm),
-
-        // Success message
-        if (_kycSuccessMessage != null) ...[
-          Container(
-            padding: EdgeInsets.all(10.rs),
-            decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.08),
-              borderRadius: AppRadius.button,
-              border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, size: 15, color: Colors.green),
-                SizedBox(width: AppSpacing.sm),
-                Expanded(child: Text(_kycSuccessMessage!, style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w600))),
-              ],
-            ),
-          ),
-          SizedBox(height: AppSpacing.md),
-        ],
-
-        // Verified IDs list
-        if (_verifiedIds.isNotEmpty) ...[
-          ..._verifiedIds.asMap().entries.map((entry) {
-            final idx = entry.key;
-            final id = entry.value;
-            final type = id['type'] as String? ?? '';
-            final number = id['number'] as String? ?? '';
-            return Container(
-              margin: EdgeInsets.only(bottom: idx < _verifiedIds.length - 1 ? 8 : 0),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.06),
-                borderRadius: AppRadius.button,
-                border: Border.all(color: Colors.green.withValues(alpha: 0.25)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.verified_rounded, size: 15, color: Colors.green),
-                  SizedBox(width: 10.rs),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(type, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: Colors.green.shade700)),
-                        Text(number, style: text.bodySmall?.copyWith(color: scheme.onSurface, fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                  if ((id['localImageDir'] as String? ?? '').isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: GestureDetector(
-                        onTap: () => _showVerifiedIdImages(id, scheme),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: scheme.primary.withValues(alpha: 0.08),
-                            borderRadius: AppRadius.chip,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.visibility_rounded, size: 12, color: scheme.primary),
-                              SizedBox(width: AppSpacing.xs),
-                              Text('View', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (_verifiedIds.length > 1)
-                    GestureDetector(
-                      onTap: () => _removeVerifiedId(idx),
-                      child: Container(
-                        padding: EdgeInsets.all(4.rs),
-                        decoration: BoxDecoration(
-                          color: scheme.errorContainer.withValues(alpha: 0.3),
-                          borderRadius: AppRadius.chip,
-                        ),
-                        child: Icon(Icons.close_rounded, size: 12, color: scheme.error),
-                      ),
-                    ),
-                ],
-              ),
-            );
-          }),
-          SizedBox(height: AppSpacing.md),
-        ],
-
-        if (_verifiedIds.isEmpty && !_showAddId)
-          Text('No IDs verified yet.', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-
-        // Add new ID section — DigiLocker verification
-        if (_showAddId) ...[
-          DigiLockerVerifyCard(
-            purpose: 'operator_verification',
-            onVerified: (result) {
-              if (result.verified && result.name != null) {
-                _applyKycVerification(result.name);
-              }
-              setState(() => _showAddId = false);
-            },
-          ),
-          SizedBox(height: AppSpacing.md),
-          Center(
-            child: TextButton(
-              onPressed: () => setState(() => _showAddId = false),
-              child: Text('Cancel', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
-            ),
-          ),
-        ],
-
-        // Add ID button (hide if all types already verified)
-        if (!_showAddId && _documentTypes.any((e) => !_verifiedIds.any((id) => id['type'] == e))) ...[
-          SizedBox(height: AppSpacing.md),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () {
-                final available = _documentTypes.where((e) => !_verifiedIds.any((id) => id['type'] == e)).toList();
-                if (available.isEmpty) return;
-                setState(() { _showAddId = true; _kycError = null; _kycNameMatch = null; _idDocNumberCtrl.clear(); _idDocumentType = available.first; });
-              },
-              icon: const Icon(Icons.add_rounded, size: 16),
-              label: Text(_verifiedIds.isEmpty ? 'Add ID Document' : 'Add Another ID', style: const TextStyle(fontSize: 12)),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
-              ),
+              onPressed: () => showDialog<bool>(
+                context: context,
+                builder: (_) => FaceFramesDialog(
+                  operatorId: widget.operator['id'] as String,
+                  operatorEmail: op['email'] as String? ?? '',
+                  operatorName: op['name'] as String? ?? '',
+                ),
+              ).then((changed) { if (changed == true) _refreshFaceEnrollment(); }),
+              icon: const Icon(Icons.photo_library_outlined, size: 15),
+              label: const Text('Face Images — review & exclude', style: TextStyle(fontSize: 11)),
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
             ),
           ),
         ],
+      ],
+    );
+  }
 
+  /// Whether this operator has completed the single DigiLocker (Aadhaar)
+  /// verification. Reads the op-level fields the admin onboarding / the verify
+  /// flow stamp, with a fallback to a just-completed in-dialog verification.
+  bool _isDigiLockerVerified(Map<String, dynamic> op) {
+    if ((op['verificationMethod'] as String? ?? '').contains('digilocker')) return true;
+    if ((op['verifiedPhotoUrl'] as String? ?? '').isNotEmpty) return true;
+    return _verifiedIds.any((id) => id['source'] == 'digilocker');
+  }
+
+  Widget _buildDigiLockerVerifiedCard(ColorScheme scheme, TextTheme text, Map<String, dynamic> op) {
+    // Prefer a just-completed verification (op is a stale snapshot), else the
+    // stored op-level fields.
+    final live = _verifiedIds.where((id) => id['source'] == 'digilocker').toList();
+    final dl = live.isNotEmpty ? live.last : const <String, dynamic>{};
+    final name = (dl['name'] as String?) ?? (op['verifiedName'] as String?) ?? (op['name'] as String?) ?? '';
+    final photoUrl = (dl['photoUrl'] as String?) ?? (op['verifiedPhotoUrl'] as String?) ?? '';
+    final last4 = op['aadhaarLast4'] as String? ?? '';
+    final dob = op['verifiedDob'] as String? ?? '';
+    final gender = op['verifiedGender'] as String? ?? '';
+    final address = (op['verifiedAddress'] as String?) ?? (dl['address'] as String?) ?? '';
+    final photoSize = _dlExpanded ? 84.0 : 44.0;
+
+    Widget photo = ClipOval(
+      child: SizedBox(
+        width: photoSize,
+        height: photoSize,
+        child: photoUrl.isNotEmpty
+            ? Image.network(photoUrl, fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(color: scheme.surfaceContainerHighest, child: Icon(Icons.person_rounded, size: photoSize * 0.5, color: scheme.onSurfaceVariant)))
+            : Container(color: scheme.surfaceContainerHighest, child: Icon(Icons.person_rounded, size: photoSize * 0.5, color: scheme.onSurfaceVariant)),
+      ),
+    );
+
+    return GestureDetector(
+      onTap: () => setState(() => _dlExpanded = !_dlExpanded),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.successColor.withValues(alpha: 0.06),
+          borderRadius: AppRadius.button,
+          border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                photo,
+                SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (name.isNotEmpty)
+                        Text(name, style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+                      SizedBox(height: 2.rs),
+                      Row(
+                        children: [
+                          Icon(Icons.verified_rounded, size: 12, color: AppTheme.successColor),
+                          SizedBox(width: 4.rs),
+                          Text('Aadhaar verified via DigiLocker', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
+                        ],
+                      ),
+                      if (!_dlExpanded && last4.isNotEmpty) ...[
+                        SizedBox(height: 2.rs),
+                        Text('XXXX-XXXX-$last4', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant, letterSpacing: 0.5)),
+                      ],
+                    ],
+                  ),
+                ),
+                Icon(_dlExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
+              ],
+            ),
+            if (_dlExpanded) ...[
+              SizedBox(height: AppSpacing.md),
+              Divider(height: 1, color: AppTheme.successColor.withValues(alpha: 0.2)),
+              SizedBox(height: AppSpacing.md),
+              _dlDetailRow(Icons.badge_outlined, 'Aadhaar', last4.isNotEmpty ? 'XXXX-XXXX-$last4' : 'Not available', scheme, text),
+              if (dob.isNotEmpty || gender.isNotEmpty) ...[
+                SizedBox(height: 8.rs),
+                _dlDetailRow(Icons.cake_outlined, 'Born', [if (dob.isNotEmpty) dob, if (gender.isNotEmpty) gender].join('  •  '), scheme, text),
+              ],
+              if (address.isNotEmpty) ...[
+                SizedBox(height: 8.rs),
+                _dlDetailRow(Icons.location_on_outlined, 'Address', address, scheme, text, multiline: true),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dlDetailRow(IconData icon, String label, String value, ColorScheme scheme, TextTheme text, {bool multiline = false}) {
+    return Row(
+      crossAxisAlignment: multiline ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      children: [
+        Icon(icon, size: 14, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
+        SizedBox(width: AppSpacing.sm),
+        SizedBox(
+          width: 64,
+          child: Text(label, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.8))),
+        ),
+        Expanded(child: Text(value, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600))),
       ],
     );
   }
@@ -3793,76 +4063,6 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     if (images.isNotEmpty) return true;
     final legacy = op['idImageBase64'] as String?;
     return legacy != null && legacy.isNotEmpty;
-  }
-
-  void _showVerifiedIdImages(Map<String, dynamic> id, ColorScheme scheme) {
-    final text = Theme.of(context).textTheme;
-    final type = id['type'] as String? ?? '';
-    final number = id['number'] as String? ?? '';
-    final localDir = id['localImageDir'] as String? ?? '';
-
-    List<File> imageFiles = [];
-    if (localDir.isNotEmpty) {
-      final dir = Directory(localDir);
-      if (dir.existsSync()) {
-        imageFiles = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.png') || f.path.endsWith('.jpg')).toList()
-          ..sort((a, b) => a.path.compareTo(b.path));
-      }
-    }
-
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520, maxHeight: 750),
-          child: Padding(
-            padding: AppSpacing.pagePadding,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.verified_user_rounded, size: 20, color: scheme.primary),
-                    SizedBox(width: 10.rs),
-                    Expanded(child: Text('$type — $number', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700))),
-                    IconButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      icon: const Icon(Icons.close_rounded, size: 18),
-                      style: IconButton.styleFrom(backgroundColor: scheme.surfaceContainerHigh),
-                    ),
-                  ],
-                ),
-                if (id['verifiedBy'] != null) ...[
-                  SizedBox(height: AppSpacing.sm),
-                  Text('Verified by ${id['verifiedBy']}', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 11)),
-                ],
-                SizedBox(height: AppSpacing.lg),
-                if (imageFiles.isNotEmpty) ...[
-                  Text('Document Image${imageFiles.length > 1 ? 's (${imageFiles.length})' : ''}', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
-                  SizedBox(height: 10.rs),
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: imageFiles.length,
-                      separatorBuilder: (_, __) => SizedBox(height: 10.rs),
-                      itemBuilder: (_, i) {
-                        return ClipRRect(
-                          borderRadius: AppRadius.button,
-                          child: Image.file(imageFiles[i], fit: BoxFit.contain),
-                        );
-                      },
-                    ),
-                  ),
-                ] else
-                  Text('No document images available.', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   void _showViewIdFromEdit(Map<String, dynamic> op, ColorScheme scheme) {
@@ -3952,106 +4152,6 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
   }
 
 
-  Future<void> _showSetPinDialog(BuildContext ctx, Map<String, dynamic> op, ColorScheme scheme) async {
-    final pinCtrl = TextEditingController();
-    final confirmCtrl = TextEditingController();
-    String? dlgError;
-
-    final result = await showDialog<bool>(
-      context: ctx,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (dialogCtx, setDlgState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
-          title: Row(
-            children: [
-              Icon(Icons.pin_rounded, color: scheme.primary, size: 20),
-              SizedBox(width: 10.rs),
-              Text(_hasPinSet ? 'Reset PIN' : 'Set Verification PIN', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-            ],
-          ),
-          content: SizedBox(
-            width: 300,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Enter a 4-6 digit PIN for identity verification fallback.', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-                SizedBox(height: 20.rs),
-                TextField(
-                  controller: pinCtrl,
-                  keyboardType: TextInputType.number,
-                  obscureText: true,
-                  maxLength: 6,
-                  decoration: InputDecoration(
-                    labelText: 'New PIN',
-                    counterText: '',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
-                    prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
-                  ),
-                ),
-                SizedBox(height: AppSpacing.md),
-                TextField(
-                  controller: confirmCtrl,
-                  keyboardType: TextInputType.number,
-                  obscureText: true,
-                  maxLength: 6,
-                  decoration: InputDecoration(
-                    labelText: 'Confirm PIN',
-                    counterText: '',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),
-                    prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
-                  ),
-                ),
-                if (dlgError != null) ...[
-                  SizedBox(height: 10.rs),
-                  Text(dlgError!, style: TextStyle(fontSize: 11, color: scheme.error)),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(dialogCtx).pop(false), child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () async {
-                final pin = pinCtrl.text.trim();
-                final confirm = confirmCtrl.text.trim();
-                if (pin.length < 4) {
-                  setDlgState(() => dlgError = 'PIN must be at least 4 digits.');
-                  return;
-                }
-                if (pin != confirm) {
-                  setDlgState(() => dlgError = 'PINs do not match.');
-                  return;
-                }
-                if (!RegExp(r'^\d{4,6}$').hasMatch(pin)) {
-                  setDlgState(() => dlgError = 'PIN must be 4-6 digits only.');
-                  return;
-                }
-                setDlgState(() => dlgError = null);
-
-                try {
-                  final paths = widget.ref.read(firestorePathsProvider);
-                  final companyId = paths.context.companyId;
-                  final email = op['email'] as String? ?? '';
-
-                  await CloudFunctionsService.call('setOperatorPin', {'pin': pin, 'companyId': companyId, 'operatorEmail': email});
-
-                  if (dialogCtx.mounted) Navigator.of(dialogCtx).pop(true);
-                } catch (e) {
-                  setDlgState(() => dlgError = 'Failed to set PIN: $e');
-                }
-              },
-              child: const Text('Save PIN'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (result == true && mounted) {
-      setState(() { _hasPinSet = true; _pinError = null; });
-    }
-  }
-
   Future<void> _rejectId() async {
     final db = widget.ref.read(firestorePathsProvider);
     final status = _verifiedIds.isNotEmpty ? 'verified' : 'rejected';
@@ -4061,156 +4161,60 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     setState(() => _idStatus = status);
   }
 
-  String _idUploadHint() => switch (_idDocumentType) {
-    'Aadhaar' => 'Upload both sides (front + back) of your Aadhaar card.',
-    'PAN' => 'Upload full PAN card (front side with photo and number).',
-    'Driving License' => 'Upload both sides (front + back) of Driving License.',
-    'Passport' => 'Upload passport pages showing photo and details.',
-    _ => 'Upload all relevant pages/sides of the document.',
-  };
-
-  Future<void> _uploadAndScanId() async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      withData: true,
-    );
-    if (result == null || result.files.isEmpty) return;
-
-    setState(() { _kycScanning = true; _kycError = null; _kycExtractedName = null; _kycNameMatch = null; _kycDuplicateWarning = null; });
-
-    try {
-      // Read file bytes — withData may not work on desktop, fall back to path
-      final images = <String>[];
-      for (final f in result.files) {
-        if (f.bytes != null && f.bytes!.isNotEmpty) {
-          images.add(base64Encode(f.bytes!));
-        } else if (f.path != null && f.path!.isNotEmpty) {
-          try {
-            final file = File(f.path!);
-            if (await file.exists()) {
-              final fileBytes = await file.readAsBytes();
-              if (fileBytes.isNotEmpty) images.add(base64Encode(fileBytes));
-            }
-          } catch (_) {}
-        }
-      }
-      if (images.isEmpty) {
-        setState(() { _kycScanning = false; _kycError = 'Could not read the selected file(s). Try a PDF instead.'; });
-        return;
-      }
-      // Convert PDFs to PNG for viewable storage
-      final viewableImages = <String>[];
-      for (final img in images) {
-        final bytes = base64Decode(img);
-        if (bytes.length > 4 && String.fromCharCodes(bytes.sublist(0, 4)) == '%PDF') {
-          try {
-            final doc = await PdfDocument.openData(bytes);
-            for (int p = 1; p <= doc.pagesCount && p <= 4; p++) {
-              final page = await doc.getPage(p);
-              final pageImage = await page.render(width: page.width * 2, height: page.height * 2, format: PdfPageImageFormat.png);
-              if (pageImage != null) viewableImages.add(base64Encode(pageImage.bytes));
-              await page.close();
-            }
-            await doc.close();
-          } catch (_) {
-            viewableImages.add(img);
-          }
-        } else {
-          viewableImages.add(img);
-        }
-      }
-      _kycScannedImages = viewableImages;
-      final operatorName = widget.operator['name'] as String? ?? '';
-
-      final paths = widget.ref.read(firestorePathsProvider);
-      final data = await CloudFunctionsService.call('verifyOperatorId', {
-        'images': images,
-        'documentType': _idDocumentType,
-        'operatorName': operatorName,
-        'operatorId': widget.operator['id'] as String? ?? '',
-        'companyId': paths.context.companyId,
-      });
-
-      if (data['valid'] != true) {
-        setState(() => _kycError = data['message'] as String? ?? 'Verification failed.');
-        return;
-      }
-
-      final extractedName = data['extractedName'] as String?;
-      final extractedDocNumber = data['extractedDocNumber'] as String?;
-      final extractedAddress = data['extractedAddress'] as String?;
-      final nameMatch = data['nameMatch'] as String?;
-      final duplicateWarning = data['duplicateWarning'] as String?;
-
-      setState(() {
-        _kycExtractedName = extractedName;
-        _kycExtractedAddress = extractedAddress;
-        _kycNameMatch = nameMatch;
-        _kycDuplicateWarning = duplicateWarning;
-        if (extractedDocNumber != null && extractedDocNumber.isNotEmpty) {
-          _idDocNumberCtrl.text = extractedDocNumber;
-        }
-      });
-
-      // Auto-verify if exact match (with brief delay to show success state)
-      if (nameMatch == 'exact') {
-        await Future.delayed(const Duration(milliseconds: 1500));
-        if (mounted) await _applyKycVerification(null);
-      }
-    } on FirebaseFunctionsException catch (e) {
-      if (mounted) setState(() => _kycError = e.message ?? 'Scan failed.');
-    } catch (e) {
-      if (mounted) setState(() => _kycError = 'Failed to scan document.');
-    } finally {
-      if (mounted) setState(() => _kycScanning = false);
-    }
-  }
-
-  Future<void> _applyKycVerification(String? newName) async {
+  /// Persists a DigiLocker (Aadhaar) verification result. Writes the
+  /// `verified*` / `aadhaarLast4` / `verificationMethod` fields that the
+  /// DigiLocker-aware viewer ([_OperatorsScreenState._showViewId]) reads, and
+  /// appends an entry to `verifiedIds`.
+  Future<void> _applyDigiLockerVerification(DigiLockerVerificationResult result) async {
     final db = widget.ref.read(firestorePathsProvider);
     final adminEmail = await _getAdminEmail() ?? 'admin';
-    final docNumber = _idDocNumberCtrl.text.trim();
+
+    // Compose a single-line address from the issuer's address components.
+    final addressParts = <String>[
+      for (final p in [result.address, result.locality, result.dist, result.state, result.pincode])
+        if ((p ?? '').trim().isNotEmpty) p!.trim(),
+    ];
+    final composedAddress = addressParts.join(', ');
+    final maskedAadhaar = (result.aadhaarLast4 ?? '').isNotEmpty ? 'XXXX-XXXX-${result.aadhaarLast4}' : '';
+    final name = (result.name ?? '').trim();
 
     final newIdEntry = <String, dynamic>{
-      'type': _idDocumentType,
-      'number': docNumber,
+      'type': 'Aadhaar',
+      'number': maskedAadhaar,
+      'source': 'digilocker',
       'verifiedBy': adminEmail,
       'verifiedAt': DateTime.now().toIso8601String(),
-      if (_kycExtractedAddress != null) 'address': _kycExtractedAddress,
+      if (name.isNotEmpty) 'name': name,
+      if ((result.photoUrl ?? '').isNotEmpty) 'photoUrl': result.photoUrl,
+      if (composedAddress.isNotEmpty) 'address': composedAddress,
     };
-
-    // Save ID images to local disk (too large for Firestore)
-    if (_kycScannedImages.isNotEmpty) {
-      try {
-        final operatorId = widget.operator['id'] as String;
-        final dir = Directory('${Directory.systemTemp.path}/weigh_id_docs/$operatorId');
-        if (!dir.existsSync()) dir.createSync(recursive: true);
-        for (int i = 0; i < _kycScannedImages.length; i++) {
-          final file = File('${dir.path}/${_idDocumentType.toLowerCase()}_$i.png');
-          await file.writeAsBytes(base64Decode(_kycScannedImages[i]));
-        }
-        newIdEntry['localImageDir'] = dir.path;
-      } catch (_) {}
-    }
 
     final updatedIds = [..._verifiedIds, newIdEntry];
     final updateData = <String, dynamic>{
       'idStatus': 'verified',
       'idVerifiedAt': FieldValue.serverTimestamp(),
       'idVerifiedBy': adminEmail,
-      'idDocumentType': _idDocumentType,
-      'idDocumentNumber': docNumber,
       'verifiedIds': updatedIds,
+      // Fields read by the DigiLocker-aware identity viewer.
+      'verificationMethod': 'digilocker',
+      if (name.isNotEmpty) 'verifiedName': name,
+      if ((result.photoUrl ?? '').isNotEmpty) 'verifiedPhotoUrl': result.photoUrl,
+      if ((result.dob ?? '').isNotEmpty) 'verifiedDob': result.dob,
+      if ((result.gender ?? '').isNotEmpty) 'verifiedGender': result.gender,
+      if ((result.aadhaarLast4 ?? '').isNotEmpty) 'aadhaarLast4': result.aadhaarLast4,
+      if (composedAddress.isNotEmpty) 'verifiedAddress': composedAddress,
     };
-    if (newName != null && newName.isNotEmpty) {
-      updateData['name'] = newName;
+
+    // Adopt the Aadhaar holder's legal name as the operator's verified name.
+    if (name.isNotEmpty) {
+      updateData['name'] = name;
     }
-    if (_kycExtractedAddress != null && _kycExtractedAddress!.isNotEmpty) {
+    if (composedAddress.isNotEmpty) {
       final currentAddress = widget.operator['address'] as String? ?? '';
       if (currentAddress.isNotEmpty && widget.operator['registrationAddress'] == null) {
         updateData['registrationAddress'] = currentAddress;
       }
-      updateData['address'] = _kycExtractedAddress;
+      updateData['address'] = composedAddress;
     }
 
     try {
@@ -4219,15 +4223,10 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
       if (mounted) {
         setState(() {
           _idStatus = 'verified';
-          _kycNameMatch = null;
-          _kycExtractedName = null;
-          _kycExtractedAddress = null;
-          _kycDuplicateWarning = null;
-          _kycError = null;
           _showAddId = false;
-          _idDocNumberCtrl.clear();
-          _kycScannedImages = [];
-          _kycSuccessMessage = newName != null ? 'ID verified, name updated to "$newName".' : 'ID verified successfully.';
+          _kycSuccessMessage = name.isNotEmpty
+              ? 'Identity verified via DigiLocker — $name.'
+              : 'Identity verified via DigiLocker.';
         });
         Future.delayed(const Duration(seconds: 4), () {
           if (mounted) setState(() => _kycSuccessMessage = null);
@@ -4236,58 +4235,14 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _kycError = 'Failed to save verification: $e';
+          _kycSuccessMessage = null;
+          _showAddId = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save verification: $e')),
+        );
       }
     }
-  }
-
-  Future<void> _removeVerifiedId(int idx) async {
-    if (_verifiedIds.length <= 1) return;
-    final removed = _verifiedIds.removeAt(idx);
-    final db = widget.ref.read(firestorePathsProvider);
-    await db.operators.doc(widget.operator['id']).update({
-      'verifiedIds': _verifiedIds,
-    });
-    setState(() {
-      _kycSuccessMessage = '${removed['type'] ?? 'ID'} removed.';
-    });
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _kycSuccessMessage = null);
-    });
-  }
-
-  Future<void> _mergeRegistrationId(Map<String, dynamic> op) async {
-    final docType = op['idDocType'] as String? ?? '';
-    final docNumber = op['idDocNumber'] as String? ?? '';
-    if (docType.isEmpty && docNumber.isEmpty) return;
-
-    final db = widget.ref.read(firestorePathsProvider);
-    final adminEmail = await _getAdminEmail() ?? 'admin';
-
-    final newIdEntry = <String, dynamic>{
-      'type': docType,
-      'number': docNumber,
-      'verifiedBy': adminEmail,
-      'verifiedAt': DateTime.now().toIso8601String(),
-      'source': 'registration',
-    };
-    _verifiedIds.add(newIdEntry);
-
-    await db.operators.doc(widget.operator['id']).update({
-      'idStatus': 'verified',
-      'idVerifiedAt': FieldValue.serverTimestamp(),
-      'idVerifiedBy': adminEmail,
-      'verifiedIds': _verifiedIds,
-    });
-
-    setState(() {
-      _idStatus = 'verified';
-      _kycSuccessMessage = 'Registration ID merged to verified list.';
-    });
-    Future.delayed(const Duration(seconds: 4), () {
-      if (mounted) setState(() => _kycSuccessMessage = null);
-    });
   }
 
   @override
@@ -4295,7 +4250,6 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final op = widget.operator;
-    final facePhoto = op['facePhoto'] as String? ?? '';
     final isActive = op['isActive'] == true;
 
     return Dialog(
@@ -4315,7 +4269,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
               ),
               child: Row(
                 children: [
-                  _buildProfileAvatar(facePhoto, op['name'] as String? ?? '', scheme),
+                  _buildProfileAvatar(op, scheme),
                   SizedBox(width: 20.rs),
                   Expanded(
                     child: Column(
@@ -4347,7 +4301,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                                 color: scheme.surfaceContainerHigh,
                                 borderRadius: AppRadius.card,
                               ),
-                              child: Text(op['role'] ?? 'operator', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant)),
+                              child: Text(_isAdminOperator ? 'Admin' : (op['role'] ?? 'operator'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant)),
                             ),
                             if (op['shiftRestricted'] == true) ...[
                               SizedBox(width: AppSpacing.sm),
@@ -4370,14 +4324,6 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                           ],
                         ),
                       ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.close_rounded, size: 20, color: scheme.onSurfaceVariant),
-                    style: IconButton.styleFrom(
-                      backgroundColor: scheme.surfaceContainerHigh,
-                      shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                     ),
                   ),
                 ],
@@ -4421,23 +4367,13 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                             text: text,
                             child: _buildKycSection(scheme, text, op),
                           ),
-                          SizedBox(height: 14.rs),
-                          _sectionCard(
-                            title: 'Activity',
-                            icon: Icons.insights_rounded,
-                            scheme: scheme,
-                            text: text,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _metaRow(Icons.access_time_rounded, 'Last login', _formatTimestamp(op['lastLoginAt'], widget.ref.read(timeFormatProvider)), scheme, text),
-                                SizedBox(height: 6.rs),
-                                _metaRow(Icons.numbers_rounded, 'Total logins', '${op['loginCount'] ?? 0}', scheme, text),
-                                SizedBox(height: 6.rs),
-                                _metaRow(Icons.calendar_today_rounded, 'Created', _formatTimestamp(op['createdAt'], widget.ref.read(timeFormatProvider)), scheme, text),
-                              ],
-                            ),
-                          ),
+                          // Activity sits in the left column for regular operators;
+                          // for admins it moves to the right column to balance the
+                          // layout (their right column has fewer cards).
+                          if (!_isAdminOperator) ...[
+                            SizedBox(height: 14.rs),
+                            _buildActivityCard(scheme, text, op),
+                          ],
                         ],
                       ),
                     ),
@@ -4497,25 +4433,38 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                                   ],
                                 ),
                                 SizedBox(height: AppSpacing.sm),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: OutlinedButton.icon(
-                                    onPressed: _settingPin ? null : () => _showSetPinDialog(context, op, scheme),
-                                    icon: Icon(_hasPinSet ? Icons.refresh_rounded : Icons.add_rounded, size: 14),
-                                    label: Text(_hasPinSet ? 'Reset PIN' : 'Set PIN', style: const TextStyle(fontSize: 11)),
-                                    style: OutlinedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
-                                      shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
+                                if (!_pinEntryOpen)
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => setState(() => _pinEntryOpen = true),
+                                      icon: Icon(_hasPinSet ? Icons.refresh_rounded : Icons.add_rounded, size: 14),
+                                      label: Text(_hasPinSet ? 'Reset PIN' : 'Set PIN', style: const TextStyle(fontSize: 11)),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
+                                      ),
                                     ),
+                                  )
+                                else
+                                  PinResetInline(
+                                    operatorEmail: op['email'] as String? ?? '',
+                                    companyId: widget.ref.read(firestorePathsProvider).context.companyId,
+                                    isReset: _hasPinSet,
+                                    onSaved: () => setState(() { _hasPinSet = true; _pinEntryOpen = false; }),
+                                    onCancel: () => setState(() => _pinEntryOpen = false),
                                   ),
-                                ),
-                                if (_pinError != null) ...[
-                                  SizedBox(height: 6.rs),
-                                  Text(_pinError!, style: TextStyle(fontSize: 10, color: scheme.error)),
-                                ],
                               ],
                             ),
                           ),
+                          // Admins show Activity here (moved from the left column).
+                          if (_isAdminOperator) ...[
+                            SizedBox(height: 14.rs),
+                            _buildActivityCard(scheme, text, op),
+                          ],
+                          // Screen/site/shift access are irrelevant for the company
+                          // admin (full access always) — hide them for admin operators.
+                          if (!_isAdminOperator) ...[
                           SizedBox(height: 14.rs),
                           _sectionCard(
                             title: 'Screen Access',
@@ -4536,10 +4485,20 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Expanded(child: Text('Weighments', style: text.bodySmall)),
-                                    Switch(value: _canViewWeighments, onChanged: (v) { setState(() => _canViewWeighments = v); _saveField({'canViewWeighments': v}); }),
+                                    if (_isAdminOperator)
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.lock_rounded, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                                          SizedBox(width: 4.rs),
+                                          Text('Always on', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600)),
+                                        ],
+                                      )
+                                    else
+                                      Switch(value: _canViewWeighments, onChanged: (v) { setState(() => _canViewWeighments = v); _saveField({'canViewWeighments': v}); }),
                                   ],
                                 ),
-                                if (_canViewWeighments) ...[
+                                if (_canViewWeighments && !_isAdminOperator) ...[
                                   Padding(
                                     padding: const EdgeInsets.only(left: 16),
                                     child: Row(
@@ -4687,32 +4646,12 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                               ],
                             ),
                           ),
+                          ],
                         ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ),
-
-            // Footer
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3))),
-              ),
-              child: Row(
-                children: [
-                  const Spacer(),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
-                    ),
-                    child: const Text('Close'),
-                  ),
-                ],
               ),
             ),
           ],
@@ -4721,14 +4660,39 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     );
   }
 
-  Widget _buildProfileAvatar(String facePhoto, String name, ColorScheme scheme) {
+  Widget _buildProfileAvatar(Map<String, dynamic> op, ColorScheme scheme) {
+    final name = op['name'] as String? ?? '';
+    final facePhoto = op['facePhoto'] as String? ?? '';
     final file = facePhoto.isNotEmpty ? File(facePhoto) : null;
-    final hasPhoto = file != null && file.existsSync();
+    final hasFile = file != null && file.existsSync();
+    final verifiedPhotoUrl = op['verifiedPhotoUrl'] as String? ?? '';
+
+    Widget initials() => Container(
+          color: scheme.secondaryContainer,
+          alignment: Alignment.center,
+          child: Text(
+            name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'U',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: scheme.onSecondaryContainer),
+          ),
+        );
+
+    Widget inner;
+    VoidCallback? onTap;
+    if (hasFile) {
+      inner = Image.file(file, fit: BoxFit.cover, width: 64, height: 64);
+      onTap = () => _showEnlargedPhoto(FileImage(file), name);
+    } else if (verifiedPhotoUrl.isNotEmpty) {
+      inner = Image.network(verifiedPhotoUrl, fit: BoxFit.cover, width: 64, height: 64,
+          errorBuilder: (_, __, ___) => initials());
+      onTap = () => _showEnlargedPhoto(NetworkImage(verifiedPhotoUrl), name);
+    } else {
+      inner = initials();
+    }
 
     return GestureDetector(
-      onTap: hasPhoto ? () => _showEnlargedPhoto(file, name) : null,
+      onTap: onTap,
       child: MouseRegion(
-        cursor: hasPhoto ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
         child: Container(
           width: 64,
           height: 64,
@@ -4736,24 +4700,13 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
             shape: BoxShape.circle,
             border: Border.all(color: scheme.primary.withValues(alpha: 0.2), width: 2),
           ),
-          child: ClipOval(
-            child: hasPhoto
-                ? Image.file(file, fit: BoxFit.cover, width: 64, height: 64)
-                : Container(
-                    color: scheme.secondaryContainer,
-                    alignment: Alignment.center,
-                    child: Text(
-                      name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'U',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: scheme.onSecondaryContainer),
-                    ),
-                  ),
-          ),
+          child: ClipOval(child: inner),
         ),
       ),
     );
   }
 
-  void _showEnlargedPhoto(File file, String name) {
+  void _showEnlargedPhoto(ImageProvider image, String name) {
     final scheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
@@ -4778,7 +4731,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                   ),
                   child: ClipRRect(
                     borderRadius: AppRadius.dialog,
-                    child: Image.file(file, fit: BoxFit.contain),
+                    child: Image(image: image, fit: BoxFit.contain),
                   ),
                 ),
                 SizedBox(height: AppSpacing.lg),
@@ -4841,6 +4794,25 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
 
   Widget _fieldLabel(String label, TextTheme text) {
     return Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600));
+  }
+
+  Widget _buildActivityCard(ColorScheme scheme, TextTheme text, Map<String, dynamic> op) {
+    return _sectionCard(
+      title: 'Activity',
+      icon: Icons.insights_rounded,
+      scheme: scheme,
+      text: text,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _metaRow(Icons.access_time_rounded, 'Last login', _formatTimestamp(op['lastLoginAt'], widget.ref.read(timeFormatProvider)), scheme, text),
+          SizedBox(height: 6.rs),
+          _metaRow(Icons.numbers_rounded, 'Total logins', '${op['loginCount'] ?? 0}', scheme, text),
+          SizedBox(height: 6.rs),
+          _metaRow(Icons.calendar_today_rounded, 'Created', _formatTimestamp(op['createdAt'], widget.ref.read(timeFormatProvider)), scheme, text),
+        ],
+      ),
+    );
   }
 
   Widget _metaRow(IconData icon, String label, String value, ColorScheme scheme, TextTheme text) {
@@ -4912,6 +4884,12 @@ enum _OtpStage { notStarted, operatorSent, adminSent, adminVerified }
 class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
   static const _channel = MethodChannel('com.weighbridge/webcam');
   static const _requiredFrames = 5;
+  // Static-photo defense: a real person naturally varies head pose across the
+  // capture set (variance of several degrees²); a held-still photo stays near
+  // zero. Anchored to the old Vision pose-variance gate (0.15) but set lower so
+  // it only rejects a truly-static capture — tune from the logged `poseVar=` if
+  // field testing shows real users (who move) being rejected.
+  static const double _kMinPoseVariance = 0.1;
 
   bool _cameraReady = false;
   bool _cameraError = false;
@@ -4950,6 +4928,8 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
   _OtpStage _otpStage = _OtpStage.notStarted;
   bool _otpSending = false;
   bool _otpVerifying = false;
+  bool _mfaMode = false; // true → verify via authenticator code instead of email OTP
+  String? _otpEmail; // the account being verified this stage (for the email fallback)
   String? _otpError;
   final _otpControllers = List.generate(6, (_) => TextEditingController());
   final _otpFocusNodes = List.generate(6, (_) => FocusNode());
@@ -5096,8 +5076,52 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
     }
   }
 
+  void _clearPhaseFrames() {
+    _capturedFrames.clear();
+    if (_wearsSpecs == true && !_specsPhase) {
+      _noSpecsFrames.clear();
+    } else if (_wearsSpecs == true && _specsPhase) {
+      _specsFrames.clear();
+    }
+  }
+
   Future<void> _validatePhase(List<Uint8List> frames, {List<Uint8List>? referenceFrames, required VoidCallback onSuccess}) async {
     setState(() { _enrolling = true; _enrollError = null; });
+
+    // In-house validation via the local sidecar (no cloud Vision). Falls back to
+    // the cloud check only when the sidecar is unavailable or predates the
+    // validation fields.
+    //
+    // Validate WITHIN this phase only — never pool specs (glasses-on) with
+    // no-specs (glasses-off) frames: the same person's embeddings legitimately
+    // differ across those conditions, so a pooled consistency check would
+    // false-reject a genuine glasses-wearer. Cross-phase identity is intentionally
+    // not enforced here (the original two-phase design kept them separate too).
+    final sidecar = widget.ref.read(sidecarClientProvider);
+    final r = await sidecar.enrollFromImages(frames);
+    if (r != null && r.hasValidation) {
+      final moved = r.poseVariance >= _kMinPoseVariance;
+      debugPrint('[FaceValidate] faces=${r.facesUsed} consistent=${r.consistent} '
+          'live=${r.liveFrames}/${r.facesUsed} poseVar=${r.poseVariance} moved=$moved');
+      // No liveness/anti-spoof hard gate — single-RGB anti-spoof isn't reliable,
+      // so auth relies on face with a PIN fallback. live/pose logged for reference.
+      String? err;
+      if (r.facesUsed < 4) {
+        err = 'Only ${r.facesUsed} clear face(s) detected. Need at least 4 — improve lighting and face the camera.';
+      } else if (!r.consistent) {
+        err = "Captures don't look like the same person. Ensure only one person is in frame and retake.";
+      }
+      if (err == null) {
+        setState(() => _enrolling = false);
+        onSuccess();
+      } else {
+        setState(() { _enrolling = false; _enrollError = err; _clearPhaseFrames(); });
+      }
+      return;
+    }
+    debugPrint('[FaceValidate] sidecar validation unavailable (${r == null ? 'no sidecar' : 'old build'}) — cloud fallback');
+
+    // ---- Cloud fallback (original Vision-based consistency check) ----
     try {
       final images = frames.map((f) => base64Encode(f)).toList();
       final payload = <String, dynamic>{'images': images};
@@ -5173,12 +5197,32 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
   }
 
   Future<void> _sendOtp(String email) async {
+    if (_otpSending) return; // guard: a double-tap must not fire two sends (→ two OTPs)
+    _otpEmail = email;
     setState(() { _otpSending = true; _otpError = null; });
     try {
+      // If this account has an authenticator (2FA), prefer it — no email needed.
+      if (await widget.ref.read(mfaServiceProvider).isEnabled(email)) {
+        setState(() { _otpSending = false; _mfaMode = true; });
+        return;
+      }
+      _mfaMode = false;
       await CloudFunctionsService.call('sendEmailOTP', {'email': email});
       setState(() => _otpSending = false);
     } catch (e) {
       setState(() { _otpSending = false; _otpError = 'Failed to send OTP.'; });
+    }
+  }
+
+  /// Fallback when MFA is preferred but the user wants an email code instead.
+  Future<void> _useEmailOtpInstead(String email) async {
+    setState(() { _mfaMode = false; _otpSending = true; _otpError = null; });
+    try {
+      await CloudFunctionsService.call('sendEmailOTP', {'email': email});
+    } catch (e) {
+      setState(() => _otpError = 'Failed to send code.');
+    } finally {
+      if (mounted) setState(() => _otpSending = false);
     }
   }
 
@@ -5190,11 +5234,15 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
     }
     setState(() { _otpVerifying = true; _otpError = null; });
     try {
-      await CloudFunctionsService.call('verifyEmailOTP', {'email': email, 'otp': otp});
+      if (_mfaMode) {
+        await widget.ref.read(mfaServiceProvider).verifyCode(email, otp);
+      } else {
+        await CloudFunctionsService.call('verifyEmailOTP', {'email': email, 'otp': otp});
+      }
       setState(() => _otpVerifying = false);
       return true;
     } on FirebaseFunctionsException catch (e) {
-      setState(() { _otpVerifying = false; _otpError = e.message ?? 'Invalid OTP.'; });
+      setState(() { _otpVerifying = false; _otpError = e.message ?? 'Invalid code.'; });
       return false;
     } catch (e) {
       setState(() { _otpVerifying = false; _otpError = 'Verification failed.'; });
@@ -5220,7 +5268,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
 
   Future<void> _verifyTrainingAdminOtp() async {
     final adminEmail = await _getAdminEmail();
-    if (adminEmail == null) return;
+    if (adminEmail == null) { setState(() => _otpError = 'Admin email not available.'); return; }
     final verified = await _verifyOtp(adminEmail);
     if (verified) {
       _clearOtpFields();
@@ -5242,7 +5290,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
 
   Future<void> _verifyOperatorOtp() async {
     final opEmail = await _getOperatorEmail();
-    if (opEmail == null) return;
+    if (opEmail == null) { setState(() => _otpError = 'Operator email not available.'); return; }
     final verified = await _verifyOtp(opEmail);
     if (verified) {
       _clearOtpFields();
@@ -5260,7 +5308,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
 
   Future<void> _verifyFullResetAdminOtp() async {
     final adminEmail = await _getAdminEmail();
-    if (adminEmail == null) return;
+    if (adminEmail == null) { setState(() => _otpError = 'Admin email not available.'); return; }
     final verified = await _verifyOtp(adminEmail);
     if (verified) {
       _clearOtpFields();
@@ -5275,7 +5323,6 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
     } else {
       allFrames = List.from(_capturedFrames);
     }
-    final images = allFrames.map((f) => base64Encode(f)).toList();
 
     setState(() => _saving = true);
     try {
@@ -5283,54 +5330,86 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
       final companyId = paths.context.companyId;
       final opDoc = await paths.operators.doc(widget.operatorId).get();
       final operatorEmail = opDoc.data()?['email'] as String? ?? '';
+      final operatorName = opDoc.data()?['name'] as String? ?? '';
+      final isTraining = _reEnrollMode == _ReEnrollMode.training;
 
-      final String functionName = _reEnrollMode == _ReEnrollMode.training
-          ? 'trainOperatorFace'
-          : 'enrollOperatorFace';
+      // Fresh enrollment runs fully in-house through the local sidecar
+      // (validation + embedding, no cloud Vision). Training (progressive add to
+      // an existing embedding) and the sidecar-unavailable/old case fall back to
+      // the cloud function, which stays deployed for exactly that reason.
+      if (!isTraining) {
+        final sidecar = widget.ref.read(sidecarClientProvider);
+        final r = await sidecar.enrollFromImages(allFrames);
+        if (r != null && r.hasValidation && r.embedding.isNotEmpty) {
+          // Conservative gate: same-person consistency + enough faces +
+          // geometry-liveness. pose_variance (the static-photo signal) is logged
+          // logged for reference only — no liveness/anti-spoof hard gate.
+          final moved = r.poseVariance >= _kMinPoseVariance;
+          debugPrint('[FaceEnroll] sidecar faces=${r.facesUsed} consistent=${r.consistent} '
+              'live=${r.liveFrames}/${r.facesUsed} poseVar=${r.poseVariance} moved=$moved quality=${r.avgQuality}');
+          String? err;
+          if (r.facesUsed < 4) {
+            err = 'Only ${r.facesUsed} clear face(s) captured. Need at least 4 — improve lighting and face the camera.';
+          } else if (_wearsSpecs != true && !r.consistent) {
+            // For glasses-wearers `allFrames` pools glasses-on + glasses-off, whose
+            // cosine legitimately drops; the per-phase checks already confirmed a
+            // single person, so the cross-condition consistency gate is skipped.
+            err = "Captures don't look like the same person. Ensure only one person is in frame and retake.";
+          }
+          if (err != null) {
+            if (mounted) setState(() { _saving = false; _enrollError = err; _capturedFrames.clear(); });
+            return;
+          }
 
+          await paths.operators.doc(widget.operatorId).update({
+            'faceEmbedding': r.embedding,
+            'faceModelVersion': 'arcface_glintr100',
+            'faceEnrollment': {
+              'enrolled': true,
+              'validFrameCount': r.facesUsed,
+              'totalFrames': r.totalImages,
+              'averageConfidence': r.avgQuality,
+              'enrolledAt': FieldValue.serverTimestamp(),
+              'model': 'arcface_glintr100',
+            },
+          });
+          await sidecar.syncEnrollments(operators: [{
+            'operator_id': widget.operatorId,
+            'email': operatorEmail,
+            'name': operatorName,
+            'embedding': r.embedding,
+            'is_active': true,
+          }]);
+          // Persist the frames (+ per-frame quality and specs flag) so an admin
+          // can later review and exclude specific shots.
+          unawaited(_storeFaceFrames(allFrames,
+              qualities: r.frameQualities,
+              specsCount: _wearsSpecs == true ? _specsFrames.length : 0));
+          _finishEnrollSuccess(isTraining: false);
+          return;
+        }
+        debugPrint('[FaceEnroll] sidecar validation unavailable (${r == null ? 'no sidecar' : 'old build'}) — cloud fallback');
+      }
+
+      // ---- Cloud fallback: training, or sidecar unavailable/old ----
+      final images = allFrames.map((f) => base64Encode(f)).toList();
+      final functionName = isTraining ? 'trainOperatorFace' : 'enrollOperatorFace';
       final data = await CloudFunctionsService.call(functionName, {'images': images, 'companyId': companyId, 'operatorEmail': operatorEmail});
       if (data['success'] == true) {
-        // Generate local AdaFace embedding via sidecar, then refresh parent UI
-        _generateSidecarEmbedding(allFrames, widget.operatorId, operatorEmail, opDoc.data()?['name'] as String? ?? '').then((_) {
+        // Generate the local AdaFace embedding via sidecar, then refresh the UI.
+        _generateSidecarEmbedding(allFrames, widget.operatorId, operatorEmail, operatorName,
+            specsCount: _wearsSpecs == true ? _specsFrames.length : 0).then((_) {
           widget.onEnrollmentComplete?.call();
         });
-
-        _frameTimer?.cancel();
-        _autoCaptureTimer?.cancel();
-        await _stopCamera();
-        if (mounted) {
-          final wasTraining = _reEnrollMode == _ReEnrollMode.training;
-          setState(() {
-            _enrolled = true;
-            _saving = false;
-            _started = false;
-            _wearsSpecs = null;
-            _cameraReady = false;
-            _currentFrame = null;
-            _capturedFrames.clear();
-            _specsFrames.clear();
-            _noSpecsFrames.clear();
-            _specsPhaseComplete = false;
-            _transitionAcknowledged = false;
-            _specsPhase = true;
-            _autoCapturing = false;
-            _enrolling = false;
-            _enrollError = null;
-            _reEnrollMode = _ReEnrollMode.none;
-            _otpStage = _OtpStage.notStarted;
-            _warningAccepted = false;
-          });
-          AppError.success(context, wasTraining
-              ? 'Training data added successfully'
-              : 'Face enrolled successfully');
-          widget.onEnrollmentComplete?.call();
-        }
+        _finishEnrollSuccess(isTraining: isTraining);
       } else {
-        setState(() {
-          _saving = false;
-          _enrollError = data['message'] as String? ?? 'Enrollment failed. Please retry.';
-          _capturedFrames.clear();
-        });
+        if (mounted) {
+          setState(() {
+            _saving = false;
+            _enrollError = data['message'] as String? ?? 'Enrollment failed. Please retry.';
+            _capturedFrames.clear();
+          });
+        }
       }
     } on FirebaseFunctionsException catch (e) {
       if (mounted) setState(() { _saving = false; _enrollError = e.message ?? 'Enrollment failed.'; });
@@ -5339,8 +5418,38 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
     }
   }
 
+  /// Shared success cleanup for both the sidecar and cloud-fallback enroll paths.
+  void _finishEnrollSuccess({required bool isTraining}) {
+    _frameTimer?.cancel();
+    _autoCaptureTimer?.cancel();
+    _stopCamera();
+    if (!mounted) return;
+    setState(() {
+      _enrolled = true;
+      _saving = false;
+      _started = false;
+      _wearsSpecs = null;
+      _cameraReady = false;
+      _currentFrame = null;
+      _capturedFrames.clear();
+      _specsFrames.clear();
+      _noSpecsFrames.clear();
+      _specsPhaseComplete = false;
+      _transitionAcknowledged = false;
+      _specsPhase = true;
+      _autoCapturing = false;
+      _enrolling = false;
+      _enrollError = null;
+      _reEnrollMode = _ReEnrollMode.none;
+      _otpStage = _OtpStage.notStarted;
+      _warningAccepted = false;
+    });
+    AppError.success(context, isTraining ? 'Training data added successfully' : 'Face enrolled successfully');
+    widget.onEnrollmentComplete?.call();
+  }
+
   /// Generate embedding via local sidecar and store in Firestore for fast local identification.
-  Future<void> _generateSidecarEmbedding(List<Uint8List> frames, String operatorId, String email, String name) async {
+  Future<void> _generateSidecarEmbedding(List<Uint8List> frames, String operatorId, String email, String name, {int specsCount = 0}) async {
     try {
       final sidecar = widget.ref.read(sidecarClientProvider);
       final result = await sidecar.enrollFromImages(frames);
@@ -5365,9 +5474,34 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
           'embedding': result.embedding,
           'is_active': true,
         }]);
+        unawaited(_storeFaceFrames(frames, qualities: result.frameQualities, specsCount: specsCount));
       }
     } catch (e) {
       debugPrint('[SidecarEnroll] Failed: $e');
+    }
+  }
+
+  /// Uploads the enrollment frames to Storage so an admin can later review them
+  /// and exclude specific shots from the face model. Best-effort.
+  Future<void> _storeFaceFrames(List<Uint8List> frames, {List<double> qualities = const [], int specsCount = 0}) async {
+    try {
+      final paths = widget.ref.read(firestorePathsProvider);
+      final framesPayload = [
+        for (var i = 0; i < frames.length; i++)
+          {
+            'image': base64Encode(frames[i]),
+            'quality': i < qualities.length ? qualities[i] : 0.0,
+            'specs': i < specsCount,
+          },
+      ];
+      await CloudFunctionsService.call('storeFaceFrames', {
+        'companyId': paths.context.companyId,
+        'operatorId': widget.operatorId,
+        'frames': framesPayload,
+        'enrolledAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('[FaceFrames] store failed: $e');
     }
   }
 
@@ -5770,7 +5904,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
   }
 
   Widget _buildOtpInput(ColorScheme scheme) {
-    return Row(
+    final boxes = Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(6, (i) => Container(
         width: 32, height: 38,
@@ -5801,6 +5935,35 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
           },
         ),
       )),
+    );
+    if (!_mfaMode) return boxes;
+    // 2FA is on for this account — verify with an authenticator code, with an
+    // email-OTP fallback link.
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.shield_outlined, size: 13, color: scheme.primary),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text('Enter the code from your authenticator app',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: scheme.primary)),
+              ),
+            ],
+          ),
+        ),
+        boxes,
+        if (_otpEmail != null)
+          TextButton(
+            onPressed: _otpSending ? null : () => _useEmailOtpInstead(_otpEmail!),
+            child: Text('Send a code to my email instead',
+                style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+          ),
+      ],
     );
   }
 

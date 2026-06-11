@@ -83,8 +83,8 @@ class FaceVerificationNotifier extends StateNotifier<FaceVerificationState> {
   }
 
   bool needsVerification(FaceVerifyTrigger trigger, SecuritySettings settings, bool isAdmin) {
-    if (isAdmin) return false;
-
+    // Admins are verified the same as operators (face, with PIN fallback) — the
+    // earlier blanket `if (isAdmin) return false;` exemption is intentionally gone.
     switch (trigger) {
       case FaceVerifyTrigger.weighmentStart:
         return settings.faceVerifyOnWeighmentStart;

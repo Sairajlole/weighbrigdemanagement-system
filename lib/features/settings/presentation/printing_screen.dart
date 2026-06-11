@@ -15,6 +15,9 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/settings_scope_provider.dart';
+import 'package:weighbridgemanagement/shared/widgets/settings_scope_selector.dart';
+import 'package:weighbridgemanagement/shared/widgets/scope_change_dialog.dart';
 import 'package:weighbridgemanagement/shared/widgets/weighbridge_context_bar.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/print_provider.dart';
@@ -26,13 +29,20 @@ import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 // ─── Providers ──────────────────────────────────────────────────────────────
 
+const _printScopeArg = (feature: 'printing', fallback: CollectionScope.weighbridge);
+
 final _printSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = ref.watch(firestorePathsProvider);
-  final doc = await db.printingSettings.get();
+  if (!db.isConfigured) return {};
+  final scope = await ref.watch(settingsScopeProvider(_printScopeArg).future);
+  final doc = await scopedSettingDoc(db, 'printing', scope).get();
   return doc.exists ? doc.data()! : {};
 });
 
-final _companyLogoProvider = FutureProvider<Uint8List?>((ref) async {
+// autoDispose so the print preview re-reads `company_logo` every time the
+// screen is opened — picking up a freshly uploaded logo or a background-removed
+// ↔ original toggle made in General Settings.
+final _companyLogoProvider = FutureProvider.autoDispose<Uint8List?>((ref) async {
   final db = ref.watch(firestorePathsProvider);
   final doc = await db.generalDocsSettings.get();
   if (!doc.exists) return null;
@@ -160,7 +170,10 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
   bool _loaded = false;
   bool _saving = false;
   String _savedSnapshot = '';
-  bool get _dirty => _savedSnapshot.isNotEmpty && _savedSnapshot != jsonEncode(_buildPayload());
+  /// Staged scope change — applied only on Save; reverts on Cancel/leave.
+  CollectionScope? _pendingScope;
+  bool get _dirty =>
+      (_savedSnapshot.isNotEmpty && _savedSnapshot != jsonEncode(_buildPayload())) || _pendingScope != null;
   bool _normalOverflows = false;
   late TabController _tabController;
 
@@ -382,6 +395,7 @@ if (\$bins.Count -eq 0) {
   int _dmMarginLeft = 2;
   bool _dmLogo = false;
   double _dmLogoAspectRatio = 2.0; // width / height of original logo image
+  int _dmLogoLen = 0; // byte length of the logo the aspect was computed for
   int _dmLogoHeight = 6;
   // Physical width = (height_lines / lpi) * aspect_ratio inches, expressed as chars at 10 CPI
   int get _dmLogoWidth => ((_dmLogoHeight.toDouble() / _dmLpi) * _dmLogoAspectRatio * 10).round().clamp(4, 80);
@@ -1006,6 +1020,14 @@ if (\$bins.Count -eq 0) {
     });
   }
 
+  Future<void> _confirmScopeChange(CollectionScope from, CollectionScope to) async {
+    if (from == to) return;
+    final ok = await showScopeChangeDialog(context, ref, from: from, to: to, noun: 'template');
+    if (!ok) return;
+    final savedScope = ref.read(settingsScopeProvider(_printScopeArg)).valueOrNull ?? CollectionScope.weighbridge;
+    setState(() => _pendingScope = (to == savedScope) ? null : to);
+  }
+
   Future<void> _save() async {
     if (_materialRoutingEnabled && _materialPrinterRules.isEmpty) {
       setState(() => _materialRoutingEnabled = false);
@@ -1020,15 +1042,25 @@ if (\$bins.Count -eq 0) {
       await File('${dir.path}/printing_config.json').writeAsString(jsonEncode(payload));
 
       final db = ref.read(firestorePathsProvider);
-      await db.printingSettings.set({
+      final savedScope = ref.read(settingsScopeProvider(_printScopeArg)).valueOrNull ?? CollectionScope.weighbridge;
+      final targetScope = _pendingScope ?? savedScope;
+      await scopedSettingDoc(db, 'printing', targetScope).set({
         ...payload,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+      if (_pendingScope != null) {
+        // Commit the staged scope choice (company-wide flag) on save.
+        await db.companySetting('settingsScope').set({'printing': targetScope.name}, SetOptions(merge: true));
+      }
       ref.invalidate(_printSettingsProvider);
+      ref.invalidate(settingsScopeProvider(_printScopeArg));
       ref.read(auditServiceProvider).log(event: 'settingChange', description: 'Printing settings updated');
 
       if (mounted) {
-        setState(() => _savedSnapshot = jsonEncode(_buildPayload()));
+        setState(() {
+          _savedSnapshot = jsonEncode(_buildPayload());
+          _pendingScope = null;
+        });
         _showHeaderMsg('Print settings saved');
       }
     } catch (e) {
@@ -1152,8 +1184,15 @@ if (\$bins.Count -eq 0) {
               ref.invalidate(_printSettingsProvider);
               ref.invalidate(_companyInfoProvider);
               ref.invalidate(_companyLogoProvider);
-              setState(() => _loaded = false);
+              setState(() { _loaded = false; _pendingScope = null; });
             },
+            trailing: SettingsScopeSelector(
+              scope: _pendingScope ?? (ref.watch(settingsScopeProvider(_printScopeArg)).valueOrNull ?? CollectionScope.weighbridge),
+              onChanged: (to) => _confirmScopeChange(
+                _pendingScope ?? (ref.read(settingsScopeProvider(_printScopeArg)).valueOrNull ?? CollectionScope.weighbridge),
+                to,
+              ),
+            ),
           ),
           Expanded(
             child: settingsAsync.when(
@@ -1251,7 +1290,7 @@ if (\$bins.Count -eq 0) {
               ),
               const Spacer(),
               if (_dirty) ...[
-                TextButton(onPressed: () { setState(() { _loaded = false; _savedSnapshot = ''; }); ref.invalidate(_printSettingsProvider); }, child: const Text('Cancel')),
+                TextButton(onPressed: () { setState(() { _loaded = false; _savedSnapshot = ''; _pendingScope = null; }); ref.invalidate(_printSettingsProvider); }, child: const Text('Cancel')),
                 SizedBox(width: AppSpacing.sm),
               ],
               if (_normalOverflows)
@@ -1768,7 +1807,7 @@ if (\$bins.Count -eq 0) {
   int _computeDmPreviewHash() {
     var h = _dmColumns.hashCode ^ _dmPaperWidth.hashCode ^ _dmPageHeight.hashCode;
     h ^= _dmMarginTop.hashCode ^ _dmMarginBottom.hashCode ^ _dmMarginLeft.hashCode;
-    h ^= _dmLogo.hashCode ^ _dmLogoAspectRatio.hashCode ^ _dmLogoHeight.hashCode ^ _dmPdf417.hashCode ^ _dmPdf417Height.hashCode;
+    h ^= _dmLogo.hashCode ^ _dmLogoAspectRatio.hashCode ^ _dmLogoLen.hashCode ^ _dmLogoHeight.hashCode ^ _dmPdf417.hashCode ^ _dmPdf417Height.hashCode;
     h ^= _dmCpi.hashCode ^ _dmLpi.hashCode;
     h ^= _dmFeedAfterPrint.hashCode ^ _dmTopMargin.hashCode;
     h ^= _dmFormFeed.hashCode ^ _dmTearOffAdvance.hashCode;
@@ -1803,9 +1842,8 @@ if (\$bins.Count -eq 0) {
       var decoded = img.decodeImage(logoBytes);
       if (decoded != null) {
         decoded = img.bakeOrientation(decoded);
-        if (decoded.height > 0) {
-          _dmLogoAspectRatio = decoded.width / decoded.height;
-        }
+        // (Aspect ratio is settled in _buildDmPreviewContent before hashing, so
+        // the render must NOT mutate it here.)
         // Match actual print resolution: 60 DPI horizontal (ESC/P single density mode)
         final targetPx = ((_dmLogoWidth / 10.0) * 60).round().clamp(12, 600);
         if (decoded.width != targetPx) {
@@ -1997,8 +2035,22 @@ if (\$bins.Count -eq 0) {
   }
 
   Widget _buildDmPreviewContent(double boxWidth, ColorScheme scheme) {
-    final currentHash = _computeDmPreviewHash();
     final logoBytes = _dmLogo ? ref.watch(_companyLogoProvider).valueOrNull : null;
+    // Settle the logo's length + aspect ratio BEFORE hashing. Previously the
+    // aspect was set inside the async render, which mutated the hash mid-flight
+    // so the first render was discarded (and nothing re-triggered it) — only the
+    // next toggle, with the aspect already settled, rendered.
+    final newLen = logoBytes?.length ?? 0;
+    if (newLen != _dmLogoLen) {
+      _dmLogoLen = newLen;
+      if (logoBytes != null) {
+        final decoded = img.decodeImage(logoBytes);
+        if (decoded != null && decoded.height > 0) {
+          _dmLogoAspectRatio = decoded.width / decoded.height;
+        }
+      }
+    }
+    final currentHash = _computeDmPreviewHash();
 
     // Kick off render if needed
     if (_dmPreviewImage == null || _dmPreviewHash != currentHash) {

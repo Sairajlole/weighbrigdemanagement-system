@@ -44,7 +44,7 @@ const wizardSteps = [
   WizardStepDef(id: WizardStepId.companyInfo, title: 'Company', subtitle: 'GSTIN & identity', required: true, roles: {WizardRole.admin}),
   WizardStepDef(id: WizardStepId.companyCode, title: 'Company', subtitle: 'Join with code', required: true, roles: {WizardRole.operator}),
   WizardStepDef(id: WizardStepId.account, title: 'Account', subtitle: 'Create your account', required: true, roles: {WizardRole.admin, WizardRole.operator}),
-  WizardStepDef(id: WizardStepId.faceEnroll, title: 'Face ID', subtitle: 'Enroll your face', required: true, roles: {WizardRole.operator}),
+  WizardStepDef(id: WizardStepId.faceEnroll, title: 'Face ID', subtitle: 'Enroll your face', required: true, roles: {WizardRole.admin, WizardRole.operator}),
   WizardStepDef(id: WizardStepId.site, title: 'Site', subtitle: 'Site & weighbridge', required: true, roles: {WizardRole.admin, WizardRole.returning}),
   WizardStepDef(id: WizardStepId.license, title: 'License', subtitle: 'Choose your plan', required: true, roles: {WizardRole.admin}),
   WizardStepDef(id: WizardStepId.scale, title: 'Scale', subtitle: 'Weighbridge connection', required: false, roles: {WizardRole.admin}),

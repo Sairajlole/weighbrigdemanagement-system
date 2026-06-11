@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/services/gate_service.dart';
 
 // ─── Local persistence ──────────────────────────────────────────────────────
@@ -59,6 +60,29 @@ final gateServiceProvider = Provider<GateService>((ref) {
 final gateStateProvider = StreamProvider<Map<GateId, GateState>>((ref) {
   final service = ref.watch(gateServiceProvider);
   return service.stateStream;
+});
+
+/// Side-effecting: raises a throttled notification when a gate reports a fault
+/// (didn't actuate — vehicles can get stuck), re-arming when it recovers. Keep
+/// it alive by watching it from the shell.
+final gateAlertProvider = Provider<void>((ref) {
+  final paths = ref.watch(firestorePathsProvider);
+  ref.listen<AsyncValue<Map<GateId, GateState>>>(gateStateProvider, (prev, next) {
+    final states = next.valueOrNull;
+    if (states == null) return;
+    states.forEach((gateId, state) {
+      final key = 'gate-error-${gateId.name}';
+      if (state == GateState.error) {
+        AppNotifier.raise(paths,
+            category: 'system', severity: 'warn', link: '/settings/gate-control',
+            title: 'Gate fault',
+            body: 'The ${gateId.name} gate reported a fault and may not have opened or closed. Check the gate hardware/relay — vehicles could be waiting.',
+            throttleKey: key, throttle: const Duration(minutes: 15));
+      } else if (state == GateState.open || state == GateState.closed) {
+        AppNotifier.clearThrottle(key); // recovered — re-arm for the next fault
+      }
+    });
+  });
 });
 
 // ─── Remote command listener ────────────────────────────────────────────────

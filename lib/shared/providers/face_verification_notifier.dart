@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/face_verification_provider.dart';
 import 'package:weighbridgemanagement/shared/services/ai_sidecar_client.dart';
+import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 
 enum VerifyMode { face, pin }
 enum VerifyStatus { idle, verifying, success, failed, switchPrompt }
@@ -158,6 +159,11 @@ class VerificationLogicNotifier extends StateNotifier<VerificationDialogState> {
 
     if (matchedOp['isActive'] == false) {
       state = state.copyWith(status: VerifyStatus.failed, errorMessage: '${matchedOp['name']} is deactivated.');
+      AppNotifier.raiseCompany(companyId,
+          category: 'security', severity: 'warn', link: '/operators',
+          title: 'Deactivated operator sign-in attempt',
+          body: '${matchedOp['name'] ?? matchedEmail} (deactivated) tried to sign in. If they should have access, reactivate them in Operators.',
+          throttleKey: 'deactivated-login:$matchedEmail');
       await Future.delayed(const Duration(seconds: 2));
       state = state.copyWith(status: VerifyStatus.idle);
       return;
@@ -167,6 +173,11 @@ class VerificationLogicNotifier extends StateNotifier<VerificationDialogState> {
       final shiftMsg = checkShiftRestriction(matchedOp);
       if (shiftMsg != null) {
         state = state.copyWith(status: VerifyStatus.failed, errorMessage: '${matchedOp['name']}: $shiftMsg');
+        AppNotifier.raiseCompany(companyId,
+            category: 'security', severity: 'info', link: '/operators',
+            title: 'Off-shift sign-in attempt',
+            body: '${matchedOp['name'] ?? matchedEmail} tried to sign in outside their assigned shift.',
+            throttleKey: 'offshift-login:$matchedEmail');
         await Future.delayed(const Duration(seconds: 3));
         state = state.copyWith(status: VerifyStatus.idle);
         return;

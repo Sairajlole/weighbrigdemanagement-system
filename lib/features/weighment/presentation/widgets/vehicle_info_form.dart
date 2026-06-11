@@ -16,6 +16,7 @@ import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_card.dart';
 
 class VehicleInfoForm extends ConsumerStatefulWidget {
   const VehicleInfoForm({super.key});
@@ -233,48 +234,55 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
     final operatorName = ref.watch(currentOperatorNameProvider);
     final isVerified = verifyState.phase == VerificationUIPhase.verified;
     final verifiedDisplayName = verifyState.verifiedName ?? operatorName;
+    // Clear the operator identity (name + avatar) when the face wasn't recognised
+    // or the weighment was cleared/completed.
+    final faceFailed = verifyState.phase == VerificationUIPhase.pinRequired ||
+        verifyState.phase == VerificationUIPhase.failed;
+    final sessionDone = session == null || session.status == SessionStatus.completed;
+    final showIdentity = !faceFailed && !sessionDone;
     final scale = ref.watch(formScaleProvider);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // === SECTION: Operator ===
-        _buildSectionHeader(scheme, Icons.badge_outlined, 'Operator',
-          scale: scale,
-          trailing: !noSession && isVerified
-              ? InkWell(
-                  onTap: () async {
-                    ref.read(inlineVerificationProvider.notifier).reset();
-                    final opCam = await ref.read(operatorCameraConfigProvider.future);
-                    if (opCam.enabled) {
-                      ref.read(inlineVerificationProvider.notifier).startBackgroundVerification();
-                    } else {
-                      ref.read(inlineVerificationProvider.notifier).skipToPin();
-                    }
-                  },
-                  borderRadius: AppRadius.card,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: scheme.primary.withValues(alpha: 0.1),
-                      borderRadius: AppRadius.card,
-                      border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.refresh_outlined, size: 13, color: scheme.primary),
-                        SizedBox(width: AppSpacing.xs),
-                        Text('Re-verify', style: TextStyle(fontSize: 11, color: scheme.primary, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
+    final opCard = AppCard(
+      title: 'Operator',
+      icon: Icons.badge_outlined,
+      actions: !noSession && isVerified
+          ? [
+              InkWell(
+                onTap: () async {
+                  ref.read(inlineVerificationProvider.notifier).reset();
+                  final opCam = await ref.read(operatorCameraConfigProvider.future);
+                  if (opCam.enabled) {
+                    ref.read(inlineVerificationProvider.notifier).startBackgroundVerification();
+                  } else {
+                    ref.read(inlineVerificationProvider.notifier).skipToPin();
+                  }
+                },
+                borderRadius: AppRadius.card,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: 0.1),
+                    borderRadius: AppRadius.card,
+                    border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                   ),
-                )
-              : null,
-        ),
-        SizedBox(height: 10 * scale),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.refresh_outlined, size: 13, color: scheme.primary),
+                      SizedBox(width: AppSpacing.xs),
+                      Text('Re-verify', style: TextStyle(fontSize: 11, color: scheme.primary, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ]
+          : null,
+      child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
         _OperatorInfoRow(
-          name: isVerified ? verifiedDisplayName : operatorName,
+          name: showIdentity ? (isVerified ? verifiedDisplayName : operatorName) : '',
           phase: verifyState.phase,
           statusMessage: verifyState.statusMessage,
           errorMessage: verifyState.errorMessage,
@@ -295,17 +303,22 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
           },
           onCancelSwitch: () => ref.read(inlineVerificationProvider.notifier).cancelSwitch(),
           switchOperatorName: verifyState.switchOperatorName,
-          profilePic: ref.watch(sidebarCollapsedProvider)
-              ? ref.watch(currentOperatorProfilePicProvider).valueOrNull ?? ''
-              : '',
+          profilePic: showIdentity ? (ref.watch(currentOperatorProfilePicProvider).valueOrNull ?? '') : '',
+          showAvatar: showIdentity && ref.watch(sidebarCollapsedProvider),
           scale: scale,
         ),
 
-        SizedBox(height: 20 * scale),
+      ],
+    ));
 
-        // === SECTION: Vehicle ===
-        _buildSectionHeader(scheme, Icons.local_shipping_outlined, 'Vehicle', scale: scale),
-        SizedBox(height: 10 * scale),
+    final vehCard = AppCard(
+      title: 'Vehicle',
+      icon: Icons.local_shipping_outlined,
+      collapsible: true,
+      child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
 
         // Row 1: RST + Vehicle Number
         Row(
@@ -404,35 +417,41 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
           ),
         ],
 
-        SizedBox(height: 20 * scale),
+      ],
+    ));
 
-        // === SECTION: Customer Info ===
-        _buildSectionHeader(scheme, Icons.person_outlined, 'Customer Info',
-          scale: scale,
-          trailing: !noSession && custFace.detected
-              ? InkWell(
-                  onTap: _clearCustomerFace,
-                  borderRadius: AppRadius.card,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: scheme.error.withValues(alpha: 0.08),
-                      borderRadius: AppRadius.card,
-                      border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.close_outlined, size: 13, color: scheme.error),
-                        SizedBox(width: AppSpacing.xs),
-                        Text('Clear', style: TextStyle(fontSize: 11, color: scheme.error, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
+    final custCard = AppCard(
+      title: 'Customer Info',
+      icon: Icons.person_outlined,
+      collapsible: true,
+      actions: !noSession && custFace.detected
+          ? [
+              InkWell(
+                onTap: _clearCustomerFace,
+                borderRadius: AppRadius.card,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: scheme.error.withValues(alpha: 0.08),
+                    borderRadius: AppRadius.card,
+                    border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
                   ),
-                )
-              : null,
-        ),
-        SizedBox(height: 10 * scale),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.close_outlined, size: 13, color: scheme.error),
+                      SizedBox(width: AppSpacing.xs),
+                      Text('Clear', style: TextStyle(fontSize: 11, color: scheme.error, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ]
+          : null,
+      child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
 
         // Customer fields + camera (16:9) on right
         Row(
@@ -537,24 +556,20 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
                 ],
               ),
             ),
-            _CustomerFaceAvatar(
-              faceCropB64: custFace.faceCropB64,
-              isKnown: custFace.isKnown,
-              detected: custFace.detected,
-              isAmbiguous: custFace.isAmbiguous,
-              scanning: custFace.scanning,
-              show: custFace.enabled,
-              sessionActive: !noSession,
-              scale: scale,
-            ),
           ],
         ),
 
-        SizedBox(height: 20 * scale),
+      ],
+    ));
 
-        // === SECTION: Material & Details ===
-        _buildSectionHeader(scheme, Icons.category_outlined, 'Material & Details', scale: scale),
-        SizedBox(height: 10 * scale),
+    final matCard = AppCard(
+      title: 'Material & Details',
+      icon: Icons.category_outlined,
+      collapsible: true,
+      child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
 
         // Row 4: Material + direction toggle + first custom field (if any)
         Row(
@@ -653,28 +668,76 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
           ],
         ],
       ],
-    );
-  }
+    ));
 
-  Widget _buildSectionHeader(ColorScheme scheme, IconData icon, String title, {Widget? trailing, double scale = 0.7}) {
-    return Row(
+    // Customer camera (16:9) shown beside the Customer card, matching its height.
+    final custCamConfig = ref.watch(customerCameraConfigProvider).valueOrNull;
+    final custCamFeed = ref.watch(customerCameraFeedProvider);
+    final showCustomerCamera = (custCamConfig?.enabled ?? false) && custCamFeed.active;
+    final Widget custSection = showCustomerCamera
+        ? IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: custCard),
+                SizedBox(width: AppSpacing.lg),
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: _CustomerFaceAvatar(
+                    fillHeight: true,
+                    faceCropB64: custFace.faceCropB64,
+                    isKnown: custFace.isKnown,
+                    detected: custFace.detected,
+                    isAmbiguous: custFace.isAmbiguous,
+                    scanning: custFace.scanning,
+                    show: custFace.enabled,
+                    sessionActive: !noSession,
+                    scale: scale,
+                  ),
+                ),
+              ],
+            ),
+          )
+        : custCard;
+
+    final opVehRow = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20 * scale, color: scheme.onSurfaceVariant),
-        SizedBox(width: 8 * scale),
-        Text(
-          title.toUpperCase(),
-          style: TextStyle(fontSize: 22 * scale, fontWeight: FontWeight.w700, color: const Color(0xFF49454F)),
-        ),
-        SizedBox(width: 10 * scale),
-        Expanded(
-          child: Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.4)),
-        ),
-        if (trailing != null) ...[
-          SizedBox(width: AppSpacing.sm),
-          trailing,
-        ],
+        Expanded(child: opCard),
+        SizedBox(width: AppSpacing.lg),
+        Expanded(child: vehCard),
       ],
     );
+
+    // Two columns when there's room; the customer section takes a full row when
+    // its camera is showing (card + 16:9 feed side by side).
+    return LayoutBuilder(builder: (context, constraints) {
+      final wide = constraints.maxWidth >= 1024;
+      if (wide && !showCustomerCamera) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            opVehRow,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: custCard),
+                SizedBox(width: AppSpacing.lg),
+                Expanded(child: matCard),
+              ],
+            ),
+          ],
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (wide) opVehRow else ...[opCard, vehCard],
+          custSection,
+          matCard,
+        ],
+      );
+    });
   }
 
   Widget _buildCustomFieldWidget(Map<String, dynamic> field, ColorScheme scheme, bool fieldsLocked, double scale) {
@@ -966,6 +1029,7 @@ class _OperatorInfoRow extends StatelessWidget {
   final VoidCallback? onCancelSwitch;
   final String? switchOperatorName;
   final String profilePic;
+  final bool showAvatar;
   final double scale;
 
   const _OperatorInfoRow({
@@ -979,8 +1043,20 @@ class _OperatorInfoRow extends StatelessWidget {
     this.onCancelSwitch,
     this.switchOperatorName,
     this.profilePic = '',
+    this.showAvatar = false,
     this.scale = 0.7,
   });
+
+  /// Accepts either a base64 photo or an http(s) URL (DigiLocker verified photo).
+  ImageProvider? _avatarImage(String pic) {
+    if (pic.isEmpty) return null;
+    if (pic.startsWith('http')) return NetworkImage(pic);
+    try {
+      return MemoryImage(base64Decode(pic.contains(',') ? pic.split(',').last : pic));
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1022,27 +1098,39 @@ class _OperatorInfoRow extends StatelessWidget {
 
     return Row(
       children: [
-        if (profilePic.isNotEmpty) ...[
-          CircleAvatar(
-            radius: 18 * scale,
-            backgroundImage: MemoryImage(base64Decode(
-              profilePic.contains(',') ? profilePic.split(',').last : profilePic,
-            )),
-          ),
-          SizedBox(width: 10 * scale),
+        if (showAvatar) ...[
+          Builder(builder: (_) {
+            final img = _avatarImage(profilePic);
+            return CircleAvatar(
+              radius: 30,
+              backgroundColor: scheme.surfaceContainerHighest,
+              backgroundImage: img,
+              child: img == null
+                  ? Icon(Icons.person, size: 34, color: scheme.onSurfaceVariant)
+                  : null,
+            );
+          }),
+          SizedBox(width: 14),
         ],
-        Text(
-          (name.isNotEmpty ? name : 'Operator').toUpperCase(),
-          style: TextStyle(fontSize: 28 * scale, fontWeight: FontWeight.w600),
-          overflow: TextOverflow.ellipsis,
-        ),
-        SizedBox(width: 10 * scale),
-        statusIcon,
-        SizedBox(width: 6 * scale),
-        Text(
-          statusText,
-          style: TextStyle(fontSize: 22 * scale, color: statusColor, fontWeight: FontWeight.w500),
-        ),
+        if (name.isNotEmpty)
+          Flexible(
+            child: Text(
+              name.toUpperCase(),
+              style: TextStyle(fontSize: 28 * scale, fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        // Only show the status icon/text when there's an actual verification
+        // state — no idle "person" icon trailing the name.
+        if (statusText.isNotEmpty) ...[
+          SizedBox(width: 10 * scale),
+          statusIcon,
+          SizedBox(width: 6 * scale),
+          Text(
+            statusText,
+            style: TextStyle(fontSize: 22 * scale, color: statusColor, fontWeight: FontWeight.w500),
+          ),
+        ],
         if (isVerifying) ...[
           SizedBox(width: 8 * scale),
           Text(
@@ -1083,23 +1171,16 @@ class _OperatorInfoRow extends StatelessWidget {
           if (onRetryScan != null)
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: InkWell(
-                onTap: onRetryScan,
-                borderRadius: AppRadius.chip,
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 6 * scale),
-                  decoration: BoxDecoration(
-                    borderRadius: AppRadius.chip,
-                    border: Border.all(color: scheme.primary.withValues(alpha: 0.4)),
+              child: SizedBox(
+                height: 44,
+                child: OutlinedButton(
+                  onPressed: onRetryScan,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    side: BorderSide(color: scheme.primary.withValues(alpha: 0.4)),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.chip),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.face_outlined, size: 14 * scale, color: scheme.primary),
-                      SizedBox(width: 4 * scale),
-                      Text('Retry Scan', style: TextStyle(fontSize: 11 * scale, color: scheme.primary, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
+                  child: Text('Retry Scan', style: TextStyle(fontSize: 12, color: scheme.primary, fontWeight: FontWeight.w600)),
                 ),
               ),
             ),
@@ -1191,6 +1272,9 @@ class _CustomerFaceAvatar extends ConsumerWidget {
   final bool show;
   final bool sessionActive;
   final double scale;
+  /// When true, fills the parent (used beside the Customer card via AspectRatio
+  /// so it matches the card height) instead of a fixed 16:9 size.
+  final bool fillHeight;
 
   const _CustomerFaceAvatar({
     this.faceCropB64,
@@ -1201,6 +1285,7 @@ class _CustomerFaceAvatar extends ConsumerWidget {
     this.show = true,
     this.sessionActive = false,
     this.scale = 0.85,
+    this.fillHeight = false,
   });
 
   @override
@@ -1294,23 +1379,7 @@ class _CustomerFaceAvatar extends ConsumerWidget {
       detectionColor = Colors.white70;
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(left: 14),
-      child: Focus(
-        autofocus: false,
-        onKeyEvent: (node, event) {
-          if (scanning && event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
-            ref.read(customerFaceProvider.notifier).state = const CustomerFaceState(enabled: true);
-            return KeyEventResult.handled;
-          }
-          return KeyEventResult.ignored;
-        },
-        child: GestureDetector(
-          onTap: hasLiveFeed ? () => _showEnlargedFeed(context, cameraFeed, ref) : null,
-          child: SizedBox(
-            width: w,
-            height: h,
-            child: Container(
+    final box = Container(
               decoration: BoxDecoration(
                 borderRadius: AppRadius.card,
                 color: bgColor,
@@ -1405,12 +1474,30 @@ class _CustomerFaceAvatar extends ConsumerWidget {
                     ),
                 ],
               ),
-              ),
             ),
-          ),
-        ),
+    );
+
+    final interactive = Focus(
+      autofocus: false,
+      onKeyEvent: (node, event) {
+        if (scanning && event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+          ref.read(customerFaceProvider.notifier).state = const CustomerFaceState(enabled: true);
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: hasLiveFeed ? () => _showEnlargedFeed(context, cameraFeed, ref) : null,
+        child: box,
       ),
     );
+
+    return fillHeight
+        ? interactive
+        : Padding(
+            padding: const EdgeInsets.only(left: 14),
+            child: SizedBox(width: w, height: h, child: interactive),
+          );
   }
 
   static void _showEnlargedFeed(BuildContext context, CustomerCameraFeed feed, WidgetRef ref) {

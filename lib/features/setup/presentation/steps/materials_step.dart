@@ -80,7 +80,7 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
         'createdAt': FieldValue.serverTimestamp(),
       });
       setState(() {
-        _materials.add({'id': docRef.id, 'name': name.trim(), 'active': true});
+        _materials.add({'id': docRef.id, 'name': name.trim(), 'active': true, 'isDefault': _materials.isEmpty});
         _nameCtrl.clear();
       });
       _updateHasData();
@@ -90,11 +90,46 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
 
   Future<void> _removeMaterial(int index) async {
     final item = _materials[index];
+    final wasDefault = item['isDefault'] == true;
     final paths = ref.read(firestorePathsProvider);
     try {
       await paths.materials.doc(item['id'] as String).delete();
       setState(() => _materials.removeAt(index));
+      if (wasDefault && _materials.isNotEmpty) {
+        _setDefault(0);
+      }
       _updateHasData();
+    } catch (_) {}
+  }
+
+  Future<void> _setDefault(int index) async {
+    final paths = ref.read(firestorePathsProvider);
+    final batch = paths.firestore.batch();
+    for (int i = 0; i < _materials.length; i++) {
+      final id = _materials[i]['id'] as String;
+      batch.update(paths.materials.doc(id), {'isDefault': i == index});
+      _materials[i]['isDefault'] = i == index;
+    }
+    setState(() {});
+    try {
+      await batch.commit();
+    } catch (_) {}
+  }
+
+  Future<void> _onReorder(int oldIndex, int newIndex) async {
+    if (newIndex > oldIndex) newIndex--;
+    final item = _materials.removeAt(oldIndex);
+    _materials.insert(newIndex, item);
+    setState(() {});
+
+    final paths = ref.read(firestorePathsProvider);
+    final batch = paths.firestore.batch();
+    for (int i = 0; i < _materials.length; i++) {
+      final id = _materials[i]['id'] as String;
+      batch.update(paths.materials.doc(id), {'order': i});
+    }
+    try {
+      await batch.commit();
     } catch (_) {}
   }
 
@@ -173,28 +208,86 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
                 border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
                 borderRadius: BorderRadius.circular(10.rs),
               ),
-              child: Column(
-                children: [
-                  for (int i = 0; i < _materials.length; i++) ...[
-                    if (i > 0) Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.2)),
-                    ListTile(
+              clipBehavior: Clip.antiAlias,
+              child: ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
+                itemCount: _materials.length,
+                onReorder: _onReorder,
+                proxyDecorator: (child, index, animation) => Material(
+                  elevation: 4,
+                  borderRadius: BorderRadius.circular(8.rs),
+                  child: child,
+                ),
+                itemBuilder: (context, i) {
+                  final mat = _materials[i];
+                  final isDefault = mat['isDefault'] == true;
+                  return Container(
+                    key: ValueKey(mat['id']),
+                    decoration: BoxDecoration(
+                      border: i > 0 ? Border(top: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2))) : null,
+                    ),
+                    child: ListTile(
                       dense: true,
-                      leading: CircleAvatar(
-                        radius: 14,
-                        backgroundColor: scheme.primaryContainer,
-                        child: Text('${i + 1}', style: TextStyle(fontSize: 11, color: scheme.primary)),
+                      leading: ReorderableDragStartListener(
+                        index: i,
+                        child: Icon(Icons.drag_handle_rounded, size: 18, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
                       ),
-                      title: Text(_materials[i]['name'] as String, style: const TextStyle(fontSize: 13)),
-                      trailing: IconButton(
-                        icon: Icon(Icons.close_rounded, size: 16, color: scheme.error),
-                        onPressed: () => _removeMaterial(i),
+                      title: Row(
+                        children: [
+                          Text(mat['name'] as String, style: const TextStyle(fontSize: 13)),
+                          if (isDefault) ...[
+                            SizedBox(width: 8.rs),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: scheme.primaryContainer.withValues(alpha: 0.4),
+                                borderRadius: AppRadius.chip,
+                              ),
+                              child: Text('Default', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: scheme.primary)),
+                            ),
+                          ],
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: Icon(
+                                isDefault ? Icons.star_rounded : Icons.star_outline_rounded,
+                                size: 16,
+                                color: isDefault ? scheme.primary : scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                              ),
+                              tooltip: isDefault ? 'Default' : 'Set as default',
+                              onPressed: isDefault ? null : () => _setDefault(i),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: Icon(Icons.close_rounded, size: 16, color: scheme.error),
+                              onPressed: () => _removeMaterial(i),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ],
+                  );
+                },
               ),
             ),
-            SizedBox(height: 20.rs),
+            SizedBox(height: 4.rs),
+            Text('Drag to reorder. Tap the star to set default material.', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+            SizedBox(height: 16.rs),
           ],
 
           // Allow Other toggle
@@ -236,7 +329,7 @@ class _MaterialsStepState extends ConsumerState<MaterialsStep> {
                 SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    'You can reorder, rename, and manage AI training for materials in Settings later.',
+                    'You can rename materials and manage AI training in Settings later.',
                     style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ),

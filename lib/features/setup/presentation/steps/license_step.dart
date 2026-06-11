@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/models/license_model.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:weighbridgemanagement/shared/providers/connectivity_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
@@ -112,6 +115,12 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
 
     if (success) {
       ref.read(setupWizardProvider.notifier).setLicenseTier(_selectedTier);
+      // Pro activates via the activateLicense Cloud Function (which already sends
+      // the confirmation); trial/free activate client-side, so confirm here.
+      if (_selectedTier != LicenseTier.pro) {
+        unawaited(CloudFunctionsService.call('notifyLicenseActivated', {'companyId': companyId})
+            .catchError((_) => <String, dynamic>{}));
+      }
     }
 
     setState(() => _loading = false);

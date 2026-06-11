@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:weighbridgemanagement/shared/models/license_model.dart';
 import 'package:weighbridgemanagement/shared/providers/license_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
-import 'package:weighbridgemanagement/shared/providers/version_provider.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
@@ -63,7 +62,6 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final license = ref.watch(licenseProvider);
-    final versionAsync = ref.watch(versionProvider);
 
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
@@ -91,8 +89,8 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('License & Updates', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    Text('Manage subscription, activate keys, and check for updates', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                    Text('License', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                    Text('Manage subscription and activate keys', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                   ],
                 ),
               ],
@@ -126,12 +124,6 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                           _buildLicenseDetails(license, scheme, text),
                           SizedBox(height: 20.rs),
                           _buildUsageLimits(license, scheme, text),
-                          SizedBox(height: 20.rs),
-                          versionAsync.when(
-                            data: (info) => _buildVersionCard(info, scheme, text),
-                            loading: () => const SizedBox.shrink(),
-                            error: (_, __) => const SizedBox.shrink(),
-                          ),
                         ],
                       )),
                     ],
@@ -570,7 +562,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
           SizedBox(height: AppSpacing.lg),
           _FeatureGroupWidget(
             icon: Icons.videocam_rounded,
-            title: 'Cameras & AI',
+            title: 'Cameras & Recognition',
             items: [
               _FeatureItem('USB camera verification', true, true),
               _FeatureItem('IP cameras & RTSP streams', false, true),
@@ -814,108 +806,6 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
         SizedBox(width: 90, child: Text(label, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
         Expanded(child: Text(value, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
       ],
-    );
-  }
-
-  Widget _buildVersionCard(VersionInfo info, ColorScheme scheme, TextTheme text) {
-    final statusColor = switch (info.status) {
-      VersionStatus.upToDate => Colors.green,
-      VersionStatus.updateAvailable => Colors.orange,
-      VersionStatus.updateRequired => scheme.error,
-      VersionStatus.unknown => scheme.onSurfaceVariant,
-    };
-
-    final statusIcon = switch (info.status) {
-      VersionStatus.upToDate => Icons.check_circle_rounded,
-      VersionStatus.updateAvailable => Icons.arrow_circle_up_rounded,
-      VersionStatus.updateRequired => Icons.error_rounded,
-      VersionStatus.unknown => Icons.help_outline_rounded,
-    };
-
-    final statusLabel = switch (info.status) {
-      VersionStatus.upToDate => 'Up to date',
-      VersionStatus.updateAvailable => 'Update available',
-      VersionStatus.updateRequired => 'Update required',
-      VersionStatus.unknown => 'Unable to check',
-    };
-
-    return Container(
-      padding: EdgeInsets.all(20.rs),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(14.rs),
-        border: Border.all(color: info.status == VersionStatus.updateRequired
-            ? scheme.error.withValues(alpha: 0.3)
-            : scheme.outlineVariant.withValues(alpha: 0.25)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 28, height: 28,
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(7.rs),
-                ),
-                child: Icon(Icons.system_update_rounded, size: 14, color: statusColor),
-              ),
-              SizedBox(width: 10.rs),
-              Text('App Version', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-            ],
-          ),
-          SizedBox(height: 14.rs),
-          Row(
-            children: [
-              Icon(statusIcon, size: 18, color: statusColor),
-              SizedBox(width: AppSpacing.sm),
-              Text(statusLabel, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: statusColor)),
-            ],
-          ),
-          SizedBox(height: 10.rs),
-          _detailRow('Current', 'v${info.currentVersion}', scheme, text),
-          if (info.latestVersion != null && info.status != VersionStatus.upToDate) ...[
-            SizedBox(height: AppSpacing.sm),
-            _detailRow('Latest', 'v${info.latestVersion}', scheme, text),
-          ],
-          if (info.releaseNotes != null && info.releaseNotes!.isNotEmpty) ...[
-            SizedBox(height: 10.rs),
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(10.rs),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerLow,
-                borderRadius: AppRadius.chip,
-              ),
-              child: Text(
-                info.releaseNotes!,
-                style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-          if (info.status == VersionStatus.updateAvailable || info.status == VersionStatus.updateRequired) ...[
-            SizedBox(height: AppSpacing.md),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.download_rounded, size: 16),
-                label: const Text('Download Update'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
-                  backgroundColor: statusColor,
-                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 

@@ -15,6 +15,7 @@ dependencies:
   firebase_auth: ^5.5.3
   cloud_firestore: ^5.6.7
   cloud_functions: ^5.2.3
+  firebase_messaging: ^15.2.0  # targeted push — macOS only (no Windows/Linux impl)
 
   # State Management
   flutter_riverpod: ^2.6.1
@@ -51,6 +52,9 @@ dependencies:
   image: ^4.5.3
   pdfx: ^2.6.0
 
+  # Two-factor auth QR
+  qr_flutter: ^4.1.0
+
   # Printing
   pdf: ^3.11.2
   printing: ^5.14.2
@@ -66,7 +70,10 @@ dependencies:
   package_info_plus: ^8.3.0
   file_picker: ^8.1.6
   csv: ^6.0.0
+  path_provider: ^2.1.5
   url_launcher: ^6.2.5
+  desktop_webview_window: ^0.2.3
+  flutter_inappwebview: ^6.1.5
 
 dev_dependencies:
   flutter_test:

@@ -3,7 +3,9 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  desktop_webview_window
   flutter_libserialport
+  media_kit_libs_linux
   media_kit_video
   printing
   screen_retriever_linux

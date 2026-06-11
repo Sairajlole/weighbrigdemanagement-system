@@ -293,5 +293,5 @@ final weighmentModeConfigProvider = FutureProvider<WeighmentModeConfig>((ref) as
   return const WeighmentModeConfig();
 });
 
-// Form font scale: compact (0.6) or regular (0.85)
-final formScaleProvider = StateProvider<double>((ref) => 0.85);
+// Form font scale — Compact is the only density now (Regular toggle removed).
+final formScaleProvider = StateProvider<double>((ref) => 0.6);

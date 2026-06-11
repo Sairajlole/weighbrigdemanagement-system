@@ -9,6 +9,7 @@ class WeighmentActionBar extends StatelessWidget {
   final bool isComplete;
   final bool canCapture;
   final bool canManualEntry;
+  final bool canSave;
   final VoidCallback onNew;
   final VoidCallback onCapture;
   final VoidCallback? onManualEntry;
@@ -28,6 +29,7 @@ class WeighmentActionBar extends StatelessWidget {
     required this.isComplete,
     required this.canCapture,
     this.canManualEntry = false,
+    this.canSave = true,
     required this.onNew,
     required this.onCapture,
     this.onManualEntry,
@@ -60,7 +62,7 @@ class WeighmentActionBar extends StatelessWidget {
       if (canManualEntry && hasSession && !isComplete)
         _BtnDef('MANUAL', 'F3', true, onManualEntry),
       if (hasSession && hasFirstWeight && !isComplete)
-        _BtnDef('SAVE', 'F4', true, onSaveWait),
+        _BtnDef('SAVE', 'F4', canSave, canSave ? onSaveWait : null),
     ];
 
     final rightButtons = <_BtnDef>[
@@ -72,8 +74,10 @@ class WeighmentActionBar extends StatelessWidget {
     ];
 
     return BottomAppBar(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      height: 68,
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 20),
+      // Transparent background — only the F-key buttons carry colour.
+      color: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       child: Row(

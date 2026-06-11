@@ -16,7 +16,6 @@ import 'package:weighbridgemanagement/features/weighment/application/weighment_s
 import 'package:weighbridgemanagement/features/weighment/presentation/widgets/action_bar.dart';
 import 'package:weighbridgemanagement/features/weighment/presentation/widgets/ai_confirmation_dialog.dart';
 import 'package:weighbridgemanagement/features/weighment/presentation/widgets/device_context_bar.dart';
-import 'package:weighbridgemanagement/features/weighment/presentation/widgets/device_status_bar.dart';
 import 'package:weighbridgemanagement/features/weighment/presentation/widgets/identity_cameras.dart';
 import 'package:weighbridgemanagement/features/weighment/presentation/widgets/live_weight_banner.dart';
 import 'package:weighbridgemanagement/features/weighment/presentation/widgets/pending_queue_panel.dart';
@@ -26,6 +25,7 @@ import 'package:weighbridgemanagement/features/weighment/presentation/widgets/we
 import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/providers/gate_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/integrations_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/print_provider.dart';
@@ -39,6 +39,7 @@ import 'package:weighbridgemanagement/shared/services/training_data_service.dart
 import 'package:weighbridgemanagement/shared/utils/app_shortcuts.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
+import 'package:weighbridgemanagement/shared/widgets/app_card.dart';
 import 'package:weighbridgemanagement/shared/providers/traffic_signal_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/voice_guidance_provider.dart';
 import 'package:weighbridgemanagement/shared/services/traffic_signal_service.dart';
@@ -232,6 +233,9 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     }
 
     final needsVerify = verifier.needsVerification(FaceVerifyTrigger.weighmentStart, settings, isAdmin);
+    debugPrint('[weigh-verify] isAdmin=$isAdmin needsVerify=$needsVerify '
+        'weighmentStart=${settings.faceVerifyOnWeighmentStart} '
+        'sessionStart=${settings.faceVerifyOnSessionStart} dayStart=${settings.faceVerifyOnDayStart}');
     if (needsVerify) {
       ref.read(inlineVerificationProvider.notifier).reset();
       final opCam = await ref.read(operatorCameraConfigProvider.future);
@@ -584,7 +588,16 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final snapshotSvc = ref.read(snapshotServiceProvider);
     final cameras = ref.read(activeWeighbridgeCamerasProvider).valueOrNull ?? [];
     final frames = await snapshotSvc.captureAllCameras(cameras);
-    if (frames.isEmpty) return;
+    if (frames.isEmpty) {
+      if (cameras.isNotEmpty) {
+        AppNotifier.raise(ref.read(firestorePathsProvider),
+            category: 'system', severity: 'warn', link: '/settings/cameras',
+            title: 'CCTV snapshot failed',
+            body: "Weighment snapshots couldn't be captured — the receipt will have no CCTV evidence. Check the camera connection.",
+            throttleKey: 'snapshot-fail', throttle: const Duration(minutes: 15));
+      }
+      return;
+    }
     final paths = await snapshotSvc.saveSnapshots(
       weighmentId: session.id,
       weightPhase: phase,
@@ -639,6 +652,15 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final machine = ref.read(weighmentMachineProvider);
     final session = machine.session;
     if (session == null) return;
+    if (!_verificationSatisfied()) { _blockUnverifiedSave(); return; }
+
+    // Manual weight bypasses the live scale — a fraud-sensitive action. Alert
+    // (throttled) so a scale-down day doesn't flood, but the admin still knows.
+    AppNotifier.raise(ref.read(firestorePathsProvider),
+        category: 'security', severity: 'warn', link: '/weighments',
+        title: 'Manual weight entry used',
+        body: 'A weight was entered manually instead of read from the scale. Manual weights bypass the live reading — verify the entry.',
+        throttleKey: 'manual-weight', throttle: const Duration(minutes: 15));
 
     final notifier = ref.read(weighmentMachineProvider.notifier);
     final gateAuto = ref.read(gateAutomationProvider);
@@ -714,10 +736,31 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     // Wait for operator to press SAVE button.
   }
 
+  /// Identity verification (face/PIN) must be satisfied — for admins too — before
+  /// a weighment can be committed.
+  bool _verificationSatisfied() {
+    final needs = ref.read(faceVerificationProvider.notifier).needsVerification(
+      FaceVerifyTrigger.weighmentStart,
+      ref.read(securitySettingsProvider).valueOrNull ?? const SecuritySettings(),
+      ref.read(isAdminProvider),
+    );
+    if (!needs) return true;
+    return ref.read(inlineVerificationProvider).phase == VerificationUIPhase.verified;
+  }
+
+  void _blockUnverifiedSave() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Identity verification (face or PIN) is required before this action.')),
+      );
+    }
+  }
+
   Future<void> _handleSaveComplete() async {
     final notifier = ref.read(weighmentMachineProvider.notifier);
     final session = ref.read(weighmentMachineProvider).session;
     if (session == null) return;
+    if (!_verificationSatisfied()) { _blockUnverifiedSave(); return; }
 
     notifier.markCompleted();
     notifier.advanceToStep(WeighmentStep.saveToFirestore);
@@ -753,7 +796,9 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
 
     final docId = ref.read(weighmentMachineProvider).session?.existingDocId;
     if (docId != null) {
-      ref.read(printServiceProvider).printWeighment(weighmentId: docId);
+      ref.read(printServiceProvider).printWeighment(weighmentId: docId).then((r) {
+        if (!r.success) _notifyPrintFailed(r.error);
+      });
     }
 
     WeighmentAudio.playComplete();
@@ -764,6 +809,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final notifier = ref.read(weighmentMachineProvider.notifier);
     final session = ref.read(weighmentMachineProvider).session;
     if (session == null || session.firstWeight == null) return;
+    if (!_verificationSatisfied()) { _blockUnverifiedSave(); return; }
 
     await _saveToFirestore();
     notifier.markAwaitingSecondWeight();
@@ -878,10 +924,25 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     } catch (_) {}
   }
 
+  void _notifyPrintFailed(String? error) {
+    AppNotifier.raise(
+      ref.read(firestorePathsProvider),
+      category: 'system',
+      severity: 'warn',
+      title: "Receipt didn't print",
+      body: "A weighment receipt failed to print${error != null && error.isNotEmpty ? ': $error' : ''}. Check the printer, then reprint from the weighment.",
+      link: '/settings/printing',
+      throttleKey: 'print-fail',
+      throttle: const Duration(minutes: 10),
+    );
+  }
+
   void _handlePrintSlip() {
     final session = ref.read(weighmentMachineProvider).session;
     if (session != null && session.existingDocId != null && session.status == SessionStatus.completed) {
-      ref.read(printServiceProvider).printWeighment(weighmentId: session.existingDocId!);
+      ref.read(printServiceProvider).printWeighment(weighmentId: session.existingDocId!).then((r) {
+        if (!r.success) _notifyPrintFailed(r.error);
+      });
       return;
     }
     // No completed session — show print search panel
@@ -904,22 +965,8 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     _screenFocusNode.requestFocus();
   }
 
-  void _handleCancel() async {
-    final session = ref.read(weighmentMachineProvider).session;
-    if (session != null && session.firstWeight != null) {
-      final discard = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Cancel this weighment?'),
-          content: const Text('First weight and vehicle data will be lost.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep Weighing')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Discard')),
-          ],
-        ),
-      );
-      if (discard != true) return;
-    }
+  void _handleCancel() {
+    // Cancelling a weighment in progress is immediate — no confirmation prompt.
     _handleClear();
   }
 
@@ -993,6 +1040,15 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final inlineVerify = ref.watch(inlineVerificationProvider);
     final reading = ref.watch(scaleReadingProvider).valueOrNull;
 
+    // Identity verification must be satisfied (face/PIN) before a weighment can
+    // be captured, entered manually or saved — applies to admins too.
+    final verifyNeeded = ref.watch(faceVerificationProvider.notifier).needsVerification(
+      FaceVerifyTrigger.weighmentStart,
+      ref.watch(securitySettingsProvider).valueOrNull ?? const SecuritySettings(),
+      ref.watch(isAdminProvider),
+    );
+    final verifyOk = !verifyNeeded || inlineVerify.phase == VerificationUIPhase.verified;
+
     final gateConfig = ref.watch(gateConfigProvider).valueOrNull ?? const GateSystemConfig();
     final gateEnabled = gateConfig.systemEnabled && (gateConfig.entry.enabled || gateConfig.exit.enabled);
     const printConfigured = true;
@@ -1004,7 +1060,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
         autofocus: true,
         child: Column(
           children: [
-            // Top: Context bar
+            // Top: context bar (device status chips).
             const DeviceContextBar(),
 
             // Middle: 3-column layout
@@ -1017,13 +1073,15 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
                   // CENTER: Scale + Form + Identity cameras
                   Expanded(
                     child: Padding(
-                      padding: AppSpacing.cardPadding,
+                      // Match the 24px page padding used by Settings/Profile so
+                      // the cards end consistently on the left & right.
+                      padding: AppSpacing.pagePadding,
                       child: Column(
                         children: [
                           // Scale reading banner
                           LiveWeightBanner(
                             key: _weightBannerKey,
-                            canManualEntry: ref.watch(permissionServiceProvider).canManualWeight,
+                            canManualEntry: ref.watch(permissionServiceProvider).canManualWeight && verifyOk,
                             onManualSubmit: _handleManualWeight,
                           ),
                           SizedBox(height: AppSpacing.lg),
@@ -1062,13 +1120,9 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
                   session.status != SessionStatus.completed &&
                   (reading?.stable ?? false) &&
                   _canCaptureWeight(session) &&
-                  (inlineVerify.phase == VerificationUIPhase.verified ||
-                      !ref.watch(faceVerificationProvider.notifier).needsVerification(
-                        FaceVerifyTrigger.weighmentStart,
-                        ref.watch(securitySettingsProvider).valueOrNull ?? const SecuritySettings(),
-                        ref.watch(isAdminProvider),
-                      )),
-              canManualEntry: ref.watch(permissionServiceProvider).canManualWeight,
+                  verifyOk,
+              canManualEntry: ref.watch(permissionServiceProvider).canManualWeight && verifyOk,
+              canSave: verifyOk,
               onNew: _handleNewWeighment,
               onCapture: _handleCaptureWeight,
               onManualEntry: _showManualEntryDialog,
@@ -1080,17 +1134,6 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
               onCloseGate: gateEnabled ? _handleCloseGate : null,
               onCustomerSearch: _handleCustomerSearch,
               printConfigured: printConfigured,
-            ),
-
-            // Status bar
-            DeviceStatusBar(
-              elapsed: machine.elapsed,
-              sessionActive: !machine.isIdle,
-              isVerified: inlineVerify.phase == VerificationUIPhase.verified ||
-                  ref.watch(faceVerificationProvider).lastWeighmentVerified != null,
-              verificationMethod: inlineVerify.phase == VerificationUIPhase.verified
-                  ? (inlineVerify.verifiedName ?? 'face')
-                  : (ref.watch(faceVerificationProvider).lastWeighmentVerified != null ? 'face' : null),
             ),
           ],
         ),
@@ -1112,24 +1155,27 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
 
           // Weight summary (always visible)
           if (!_showPrintSearch) ...[
-            WeightSummaryStrip(
-              firstWeight: session?.firstWeight,
-              secondWeight: session?.secondWeight,
-              firstWeighType: session?.firstWeighType ?? 'gross',
-              firstWeightAt: session?.firstWeightAt,
-              secondWeightAt: session?.secondWeightAt,
-              onToggleType: session != null && session.status != SessionStatus.completed
-                  ? () {
-                      ref.read(weighmentMachineProvider.notifier).updateSession(
-                        (s) => s.copyWith(firstWeighType: s.firstWeighType == 'gross' ? 'tare' : 'gross'),
-                      );
-                    }
-                  : null,
+            AppCard(
+              title: 'Weighments',
+              icon: Icons.scale_rounded,
+              child: WeightSummaryStrip(
+                firstWeight: session?.firstWeight,
+                secondWeight: session?.secondWeight,
+                firstWeighType: session?.firstWeighType ?? 'gross',
+                firstWeightAt: session?.firstWeightAt,
+                secondWeightAt: session?.secondWeightAt,
+                onToggleType: session != null && session.status != SessionStatus.completed
+                    ? () {
+                        ref.read(weighmentMachineProvider.notifier).updateSession(
+                          (s) => s.copyWith(firstWeighType: s.firstWeighType == 'gross' ? 'tare' : 'gross'),
+                        );
+                      }
+                    : null,
+              ),
             ),
-            SizedBox(height: AppSpacing.lg),
           ],
 
-          // Vehicle form — always visible, locked until verified / session started
+          // Vehicle form — renders its own section cards (Operator/Vehicle/Customer/Material)
           if (!_showCustomerSearch && !_showPrintSearch) const VehicleInfoForm(),
 
           // Inline customer search panel
@@ -1302,7 +1348,9 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
                       ),
                       trailing: FilledButton.tonalIcon(
                         onPressed: docId.isNotEmpty ? () {
-                          ref.read(printServiceProvider).printWeighment(weighmentId: docId);
+                          ref.read(printServiceProvider).printWeighment(weighmentId: docId).then((r) {
+                            if (!r.success) _notifyPrintFailed(r.error);
+                          });
                           setState(() => _showPrintSearch = false);
                         } : null,
                         icon: const Icon(Icons.print_outlined, size: 16),

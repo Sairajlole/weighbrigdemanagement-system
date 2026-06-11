@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:weighbridgemanagement/features/weighment/application/weighment_providers.dart';
@@ -16,20 +17,30 @@ class PendingQueuePanel extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final collapsed = ref.watch(pendingPanelCollapsedProvider);
 
-    final expandedWidth = Responsive.wp(18).clamp(200.0, 320.0);
+    // Match the cameras card's width so the two side panels carry equal weight.
+    final expandedWidth = Responsive.wp(28).clamp(280.0, 500.0);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       width: collapsed ? 48 : expandedWidth,
+      margin: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, 0, AppSpacing.lg),
       decoration: BoxDecoration(
-        border: Border(
-          right: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-        ),
+        color: scheme.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.25)),
+        boxShadow: AppElevation.card(scheme.shadow),
       ),
-      clipBehavior: Clip.hardEdge,
+      clipBehavior: Clip.antiAlias,
+      // Keep the expanded content laid out at full width while the container
+      // animates (otherwise the header Row overflows during the open/close tween).
       child: collapsed
           ? _buildCollapsedState(context, ref, pending)
-          : _buildExpandedState(context, ref, pending),
+          : OverflowBox(
+              alignment: Alignment.centerLeft,
+              minWidth: expandedWidth,
+              maxWidth: expandedWidth,
+              child: _buildExpandedState(context, ref, pending),
+            ),
     );
   }
 
