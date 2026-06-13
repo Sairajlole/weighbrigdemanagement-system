@@ -103,6 +103,17 @@ class WeighmentStateMachine extends StateNotifier<WeighmentMachineState> {
     session.persistToDisk(siteId: _siteId, weighbridgeId: _wbId);
   }
 
+  /// Load a completed weighment read-only (dragged in for view / re-print). The
+  /// session is NOT persisted and isn't "running" — the screen locks editing.
+  void loadSavedForView(Map<String, dynamic> data, String docId) {
+    final session = WeighmentSession.fromMap(data).copyWith(existingDocId: docId);
+    state = WeighmentMachineState(
+      session: session,
+      currentStep: WeighmentStep.vehicleExit,
+      isRunning: false,
+    );
+  }
+
   void updateSession(WeighmentSession Function(WeighmentSession) updater) {
     if (state.session == null) return;
     final updated = updater(state.session!);

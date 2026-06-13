@@ -82,19 +82,20 @@ class _MfaSettingsCardState extends ConsumerState<MfaSettingsCard> {
   }
 
   Future<void> _submitPassword() async {
-    final password = _password.text;
-    if (password.isEmpty) {
-      setState(() => _error = 'Enter your password.');
+    final value = _password.text.trim();
+    final action = _pendingAction;
+    if (value.isEmpty) {
+      setState(() => _error = action == 'disable' ? 'Enter your authenticator or backup code.' : 'Enter your password.');
       return;
     }
-    final action = _pendingAction;
     setState(() { _busy = true; _error = null; });
     try {
       if (action == 'enroll') {
-        final enr = await ref.read(mfaServiceProvider).beginEnroll(_email, password);
+        final enr = await ref.read(mfaServiceProvider).beginEnroll(_email, value);
         if (mounted) setState(() { _enrollment = enr; _pendingAction = null; _password.clear(); });
       } else if (action == 'disable') {
-        await ref.read(mfaServiceProvider).disable(_email, password: password);
+        // Disabling 2FA requires the SECOND factor, not the password.
+        await ref.read(mfaServiceProvider).disable(_email, code: value);
         if (mounted) {
           setState(() {
             _enabled = false;
@@ -105,7 +106,7 @@ class _MfaSettingsCardState extends ConsumerState<MfaSettingsCard> {
           });
         }
       } else if (action == 'regenerate') {
-        final codes = await ref.read(mfaServiceProvider).regenerateBackupCodes(_email, password);
+        final codes = await ref.read(mfaServiceProvider).regenerateBackupCodes(_email, value);
         if (mounted) {
           setState(() {
             _backupRemaining = codes.length;
@@ -234,14 +235,15 @@ class _MfaSettingsCardState extends ConsumerState<MfaSettingsCard> {
                   height: 40,
                   child: TextField(
                     controller: _password,
-                    obscureText: true,
+                    obscureText: _pendingAction != 'disable',
                     autofocus: true,
+                    keyboardType: _pendingAction == 'disable' ? TextInputType.number : null,
                     style: const TextStyle(fontSize: 13),
-                    decoration: const InputDecoration(
-                      hintText: 'Password',
+                    decoration: InputDecoration(
+                      hintText: _pendingAction == 'disable' ? 'Authenticator code' : 'Password',
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: const OutlineInputBorder(),
                     ),
                     onSubmitted: (_) => _submitPassword(),
                   ),

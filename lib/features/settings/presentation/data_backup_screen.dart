@@ -15,6 +15,7 @@ import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.d
 import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/offline_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_error.dart';
 import 'package:weighbridgemanagement/shared/widgets/app_loading.dart';
@@ -306,7 +307,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     ref.read(auditServiceProvider).log(event: 'export', description: 'Site-level backup created');
     AppNotifier.raise(ref.read(firestorePathsProvider),
         category: 'backup', severity: 'info', link: '/settings/backup',
-        title: 'Data backup exported',
+        title: 'Backup exported',
         body: 'A site-level data backup was exported to a file.',
         throttleKey: 'data-export', throttle: const Duration(minutes: 5));
 
@@ -383,6 +384,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
       progress.value = 'Exporting sites...';
       final sitesSnap = await firestore.collection('companies/$companyId/sites').get();
       final sitesData = <Map<String, dynamic>>[];
+      var weighbridgeCount = 0;
 
       for (final siteDoc in sitesSnap.docs) {
         final siteId = siteDoc.id;
@@ -408,6 +410,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
 
         // Weighbridges
         final wbSnap = await firestore.collection('companies/$companyId/sites/$siteId/weighbridges').get();
+        weighbridgeCount += wbSnap.docs.length;
         for (final wbDoc in wbSnap.docs) {
           final wbId = wbDoc.id;
           final wbDir = Directory('${siteDir.path}/weighbridges/$wbId');
@@ -467,14 +470,14 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
         'companyId': companyId,
         'timestamp': DateTime.now().toIso8601String(),
         'siteCount': sitesSnap.docs.length,
-        'weighbridgeCount': sitesSnap.docs.fold<int>(0, (total, _) => total),
+        'weighbridgeCount': weighbridgeCount,
       };
       await File('${dir.path}/manifest.json').writeAsString(_encodeJson(manifest));
 
       ref.read(auditServiceProvider).log(event: 'export', description: 'Full company backup created');
       AppNotifier.raise(ref.read(firestorePathsProvider),
           category: 'backup', severity: 'info', link: '/settings/backup',
-          title: 'Data backup exported',
+          title: 'Backup exported',
           body: 'A full company data backup was exported to a file.',
           throttleKey: 'data-export', throttle: const Duration(minutes: 5));
 
@@ -684,7 +687,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
       ref.read(auditServiceProvider).log(event: 'settingChange', description: 'Company backup restored from ${manifest['timestamp']}');
       AppNotifier.raise(ref.read(firestorePathsProvider),
           category: 'backup', severity: 'warn', link: '/settings/backup',
-          title: 'Data restored from backup',
+          title: 'Data restored',
           body: 'Company data was restored from a backup. Live records may have been overwritten — verify recent entries.',
           throttleKey: 'data-restore', throttle: const Duration(minutes: 1));
 
@@ -899,13 +902,25 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
   }
 
   Future<void> _forceSync() async {
-    setState(() => _pendingChanges = 0);
+    final queue = ref.read(offlineQueueProvider);
+    await queue.flush();
+    final remaining = await queue.pendingCount;
+    final succeeded = queue.lastSyncSuccess;
+    if (!mounted) return;
     final now = DateTime.now();
-    setState(() => _lastSyncTime = '${DateFormat('yyyy-MM-dd').format(now)} ${getTimeFormatter(ref.read(timeFormatProvider)).format(now)}');
+    setState(() {
+      _pendingChanges = remaining;
+      if (succeeded) {
+        _lastSyncTime = '${DateFormat('yyyy-MM-dd').format(now)} ${getTimeFormatter(ref.read(timeFormatProvider)).format(now)}';
+      }
+    });
     _markDirty();
     await _save();
-    if (mounted) {
+    if (!mounted) return;
+    if (succeeded && remaining == 0) {
       AppError.success(context, 'Sync complete');
+    } else {
+      AppError.show(context, "Sync incomplete — $remaining change(s) still pending. They'll retry automatically.");
     }
   }
 
@@ -1393,7 +1408,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
           child: Text('$_pendingChanges changes', style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: _pendingChanges > 0 ? scheme.onErrorContainer : scheme.primary)),
         )),
         SizedBox(height: 10.rs),
-        _buildRow('Conflict', scheme, text, child: Text('Ask before overwriting', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
+        _buildRow('Conflict', scheme, text, child: Text('Restore merges & overwrites existing records', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
         SizedBox(height: 10.rs),
         Row(
           children: [

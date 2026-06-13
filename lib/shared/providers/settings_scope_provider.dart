@@ -92,21 +92,3 @@ final settingsScopeProvider = StreamProvider.family<CollectionScope, ({String fe
       );
 });
 
-/// Changes the scope for a document-based [feature], copying the current data
-/// from the old scope up/down to the new one so the new level isn't blank
-/// (copy-on-switch), then persisting the choice.
-Future<void> setSettingScope(
-  FirestorePaths paths,
-  String feature, {
-  required CollectionScope from,
-  required CollectionScope to,
-}) async {
-  if (from != to) {
-    final src = await scopedSettingDoc(paths, feature, from).get();
-    final data = src.data();
-    if (src.exists && data != null) {
-      await scopedSettingDoc(paths, feature, to).set(data, SetOptions(merge: true));
-    }
-  }
-  await paths.companySetting('settingsScope').set({feature: to.name}, SetOptions(merge: true));
-}

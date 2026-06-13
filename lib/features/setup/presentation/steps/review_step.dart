@@ -171,10 +171,11 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
     _playSuccessSound();
 
     await Future.delayed(const Duration(milliseconds: 2200));
+    if (!mounted) return;
     // Mark the just-completed admin as logged in so the router's login gate
     // lets them into the dashboard (the desktop Firebase user is anonymous).
     ref.read(sessionLoggedInProvider.notifier).state = true;
-    if (mounted) context.go('/dashboard');
+    context.go('/dashboard');
   }
 
   void _playSuccessSound() {
@@ -869,12 +870,11 @@ class _ReviewStepState extends ConsumerState<ReviewStep> with TickerProviderStat
           setState(() { _completed = false; _completing = false; _pendingApproval = true; });
         }
       } catch (e) {
+        if (!mounted) return;
         setState(() { _completing = false; });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to submit: $e')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit: $e')),
+        );
       }
     }
   }

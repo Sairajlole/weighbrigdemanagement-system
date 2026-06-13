@@ -142,6 +142,23 @@ final customerCameraConfigProvider = FutureProvider<IdentityCameraConfig>((ref) 
   }
 });
 
+/// Reactive native device name of the CUSTOMER-assigned camera ('' if RTSP or
+/// unset). Used to exclude that physical device from operator-only camera pickers
+/// (face unlock / authorization / operator face enrolment). Streams the settings
+/// doc so the picker updates the moment the assignment changes.
+final customerCameraDeviceNameProvider = StreamProvider<String>((ref) async* {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) { yield ''; return; }
+  yield* paths.camerasAiSettings.snapshots().map((doc) {
+    final cameras = (doc.data()?['cameras'] as Map<String, dynamic>?) ?? const {};
+    final cust = cameras['customer'] as Map<String, dynamic>?;
+    if (cust == null || cust['enabled'] != true) return '';
+    final usb = (cust['usbDevice'] as String?) ?? '';
+    final builtIn = (cust['builtInDevice'] as String?) ?? '';
+    return usb.isNotEmpty ? usb : builtIn;
+  });
+});
+
 final cameraPrivacyZonesProvider = FutureProvider<Map<String, List<List<double>>>>((ref) async {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return {};

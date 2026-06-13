@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 
-enum _PrimaryAction { newSession, capture, print }
-
 class WeighmentActionBar extends StatelessWidget {
   final bool hasSession;
   final bool hasFirstWeight;
   final bool isComplete;
   final bool canCapture;
+  // Whether the CAPTURE button is shown at all (live scale + verified).
+  final bool showCapture;
   final bool canManualEntry;
   final bool canSave;
   final VoidCallback onNew;
@@ -21,6 +21,9 @@ class WeighmentActionBar extends StatelessWidget {
   final VoidCallback? onCloseGate;
   final VoidCallback? onCustomerSearch;
   final bool printConfigured;
+  // Operator verification is enforced and not yet satisfied this weighment —
+  // hide SEARCH and PRINT until the operator is verified.
+  final bool lockedUntilVerified;
 
   const WeighmentActionBar({
     super.key,
@@ -28,6 +31,7 @@ class WeighmentActionBar extends StatelessWidget {
     required this.hasFirstWeight,
     required this.isComplete,
     required this.canCapture,
+    this.showCapture = true,
     this.canManualEntry = false,
     this.canSave = true,
     required this.onNew,
@@ -41,35 +45,37 @@ class WeighmentActionBar extends StatelessWidget {
     this.onCloseGate,
     this.onCustomerSearch,
     this.printConfigured = false,
+    this.lockedUntilVerified = false,
   });
-
-  _PrimaryAction get _primaryAction {
-    if (isComplete) return _PrimaryAction.print;
-    if (canCapture) return _PrimaryAction.capture;
-    return _PrimaryAction.newSession;
-  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final primary = _primaryAction;
 
+    // NEW is hidden once a weighment is in the workflow cycle, and reappears
+    // when it's finished (completed) or cleared (no session).
     final newEnabled = !hasSession || isComplete;
     final leftButtons = <_BtnDef>[
-      _BtnDef('NEW', 'F1', newEnabled, newEnabled ? onNew : null, isPrimary: primary == _PrimaryAction.newSession),
-      _BtnDef('CAPTURE', 'F5', canCapture, canCapture ? onCapture : null, isPrimary: primary == _PrimaryAction.capture),
+      if (newEnabled)
+        _BtnDef('NEW', 'F1', true, onNew),
+      if (showCapture)
+        _BtnDef('CAPTURE', 'F5', canCapture, canCapture ? onCapture : null),
       if (canManualEntry && hasSession && !isComplete)
         _BtnDef('MANUAL', 'F3', true, onManualEntry),
+      // SAVE is always visible during a weighment; greyed (but still tappable, so
+      // it can flag the missing fields) until the required info is filled.
       if (hasSession && hasFirstWeight && !isComplete)
-        _BtnDef('SAVE', 'F4', canSave, canSave ? onSaveWait : null),
+        _BtnDef('SAVE', 'F4', true, onSaveWait, muted: !canSave),
     ];
 
     final rightButtons = <_BtnDef>[
       if (gateEnabled) _BtnDef('OPEN GATE', 'F6', true, onOpenGate),
       if (gateEnabled) _BtnDef('CLOSE GATE', 'F7', true, onCloseGate),
-      if (hasSession) _BtnDef('SEARCH', 'F10', true, onCustomerSearch),
-      _BtnDef('PRINT', 'F11', printConfigured, printConfigured ? onPrint : null, isPrimary: primary == _PrimaryAction.print),
+      // Search (Browse) and Print are available any time — except while an
+      // unverified operator is mid-verification (hidden until verified).
+      if (!lockedUntilVerified) _BtnDef('SEARCH', 'F10', true, onCustomerSearch),
+      if (!lockedUntilVerified) _BtnDef('PRINT', 'F11', printConfigured, printConfigured ? onPrint : null),
       if (hasSession) _BtnDef('CANCEL', 'Esc', true, onCancel, destructive: true),
     ];
 
@@ -101,34 +107,26 @@ class WeighmentActionBar extends StatelessWidget {
 
   Widget _buildButton(_BtnDef def, ColorScheme scheme, TextTheme textTheme) {
     final active = def.enabled && def.onPressed != null;
-    final isPrimary = def.isPrimary && active;
+    // A `muted` button stays tappable (so SAVE can flag missing fields) but is
+    // styled as if disabled.
+    final showActive = active && !def.muted;
 
-    final ButtonStyle style;
-    if (isPrimary) {
-      style = FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        backgroundColor: scheme.primary,
-        foregroundColor: scheme.onPrimary,
-        shape: const StadiumBorder(),
-      );
-    } else if (def.destructive && active) {
-      style = FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        backgroundColor: scheme.errorContainer,
-        foregroundColor: scheme.onErrorContainer,
-        shape: const StadiumBorder(),
-      );
-    } else {
-      style = FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        backgroundColor: active ? scheme.primaryContainer : scheme.surfaceContainerHighest,
-        foregroundColor: active ? scheme.onPrimaryContainer : scheme.onSurfaceVariant.withValues(alpha: 0.4),
-        shape: const StadiumBorder(),
-      );
-    }
+    // All actionable buttons share one neutral style; only CANCEL/Esc is red.
+    final ButtonStyle style = (def.destructive && showActive)
+        ? FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            backgroundColor: scheme.errorContainer,
+            foregroundColor: scheme.onErrorContainer,
+            shape: const StadiumBorder(),
+          )
+        : FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            backgroundColor: showActive ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+            foregroundColor: showActive ? scheme.onPrimaryContainer : scheme.onSurfaceVariant.withValues(alpha: 0.4),
+            shape: const StadiumBorder(),
+          );
 
     return SizedBox(
       height: 40,
@@ -147,13 +145,11 @@ class WeighmentActionBar extends StatelessWidget {
               def.shortcut,
               style: textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: isPrimary
-                    ? scheme.onPrimary.withValues(alpha: 0.7)
-                    : def.destructive && active
-                        ? scheme.onErrorContainer.withValues(alpha: 0.7)
-                        : active
-                            ? scheme.onPrimaryContainer.withValues(alpha: 0.6)
-                            : scheme.onSurfaceVariant.withValues(alpha: 0.3),
+                color: def.destructive && showActive
+                    ? scheme.onErrorContainer.withValues(alpha: 0.7)
+                    : showActive
+                        ? scheme.onPrimaryContainer.withValues(alpha: 0.6)
+                        : scheme.onSurfaceVariant.withValues(alpha: 0.3),
               ),
             ),
           ],
@@ -169,7 +165,7 @@ class _BtnDef {
   final bool enabled;
   final VoidCallback? onPressed;
   final bool destructive;
-  final bool isPrimary;
+  final bool muted;
 
   const _BtnDef(
     this.label,
@@ -177,6 +173,6 @@ class _BtnDef {
     this.enabled,
     this.onPressed, {
     this.destructive = false,
-    this.isPrimary = false,
+    this.muted = false,
   });
 }

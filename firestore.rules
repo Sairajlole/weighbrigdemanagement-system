@@ -3,6 +3,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // A client (anonymous) may update operator docs (activate/verify/archive/etc.)
+    // but must NOT touch security-critical fields — those are written only by the
+    // server (Admin SDK bypasses rules). Blocks privilege escalation (role/isAdmin),
+    // single-session bypass (activeSessionId) and PIN/uid tampering. Verified: no
+    // client flow writes these on update; role/pinHash are set only at create.
+    function operatorUpdateSafe() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['role', 'pinHash', 'activeSessionId', 'uid', 'isAdmin', 'isCompanyAdmin', 'mfaRequired']);
+    }
+
     // ─── Top-level: Companies ───────────────────────────────────────
     match /companies/{companyId} {
       allow read: if true;
@@ -26,7 +36,8 @@ service cloud.firestore {
       // ─── Company-wide collections ──────────────────────────────────
 
       match /operators/{operatorId} {
-        allow read, write: if true;
+        allow read, create, delete: if true;
+        allow update: if operatorUpdateSafe();
       }
 
       match /customers/{customerId} {
@@ -77,7 +88,8 @@ service cloud.firestore {
         allow read, write: if true;
 
         match /operators/{operatorId} {
-          allow read, write: if true;
+          allow read, create, delete: if true;
+          allow update: if operatorUpdateSafe();
         }
 
         match /settings/{settingId} {
@@ -99,7 +111,11 @@ service cloud.firestore {
           allow read, write: if true;
 
           match /weighments/{weighmentId} {
-            allow read, write: if true;
+            // Weighments are the billable/legal record. Clients create (incl. the
+            // offline queue) and may edit, but must NOT delete — that's evidence
+            // destruction. No client flow deletes weighments (verified).
+            allow read, create, update: if true;
+            allow delete: if false;
           }
 
           match /queues/{queueId} {
@@ -121,7 +137,11 @@ service cloud.firestore {
           }
 
           match /gateCommands/{commandId} {
-            allow read, write: if true;
+            // Gate commands are CREATED only by triggerGate (server). Clients read
+            // and mark status (update), but must not inject/delete commands —
+            // direct creation = unauthorized physical gate actuation.
+            allow read, update: if true;
+            allow create, delete: if false;
           }
 
           match /settings/{settingId} {
@@ -148,7 +168,8 @@ service cloud.firestore {
     // ─── Legacy flat collections (migration period) ─────────────────
 
     match /operators/{operatorId} {
-      allow read, write: if true;
+      allow read, create, delete: if true;
+      allow update: if operatorUpdateSafe();
     }
 
     match /settings/{settingId} {
@@ -186,7 +207,8 @@ service cloud.firestore {
     }
 
     match /weighments/{weighmentId} {
-      allow read, write: if true;
+      allow read, create, update: if true;
+      allow delete: if false; // legal record — never client-deletable
     }
 
     match /queues/{queueId} {
@@ -208,7 +230,8 @@ service cloud.firestore {
     }
 
     match /gateCommands/{commandId} {
-      allow read, write: if true;
+      allow read, update: if true;
+      allow create, delete: if false; // created only by triggerGate (server)
     }
 
     // ─── Server-only collections (Cloud Functions / Admin SDK only) ──────
@@ -218,6 +241,24 @@ service cloud.firestore {
     // Salted password credentials — must NEVER be client-readable.
     match /credentials/{id} {
       allow read, write: if false;
+    }
+
+    // Server-issued session tokens (loginUser mints; sensitive callables validate).
+    match /auth_sessions/{token} {
+      allow read, write: if false;
+    }
+
+    // Operator PIN hashes — server-only so the 4-6 digit PIN can't be brute-forced
+    // offline. Set/verified via callables; the operator doc carries only `hasPin`.
+    match /operator_pins/{id} {
+      allow read, write: if false;
+    }
+
+    // Client crash/error reports — write-only mailbox: clients append, only the
+    // server (console / functions) reads. No read/update/delete from clients.
+    match /error_reports/{id} {
+      allow create: if true;
+      allow read, update, delete: if false;
     }
 
     // Single-use password-reset tokens.
@@ -257,6 +298,13 @@ service cloud.firestore {
     // Address-verification status + 30-day deadline. Client may READ it (to
     // drive the grace gate) but only Cloud Functions may write it.
     match /address_verifications/{companyId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // App-version / auto-update feed — public read so clients can check for
+    // updates; writes are server/admin-only (via deploy).
+    match /global/app_version {
       allow read: if true;
       allow write: if false;
     }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -283,11 +284,17 @@ class CustomerNativeFeedNotifier extends StateNotifier<CustomerNativeFeedState> 
   CustomerNativeFeedNotifier() : super(const CustomerNativeFeedState());
 
   Future<void> start(String deviceName) async {
-    if (state.initialized) return;
+    if (state.initialized) {
+      debugPrint('[CustNative] start("$deviceName") skipped — already initialized (textureId=${state.feed?.textureId})');
+      return;
+    }
 
     final devices = await MultiCameraService.listDevices();
     final match = devices.where((d) => d.name == deviceName).firstOrNull;
-    if (match == null) return;
+    if (match == null) {
+      debugPrint('[CustNative] device NOT FOUND: "$deviceName" (available: ${devices.map((d) => d.name).toList()})');
+      return;
+    }
 
     final feed = await MultiCameraService.start(
       sessionId: 'identity_customer',
@@ -295,6 +302,7 @@ class CustomerNativeFeedNotifier extends StateNotifier<CustomerNativeFeedState> 
       width: 960,
       height: 540,
     );
+    debugPrint('[CustNative] MultiCameraService.start device="$deviceName" id=${match.deviceId} -> feed=${feed != null} textureId=${feed?.textureId} ${feed?.width}x${feed?.height}');
 
     if (feed != null) {
       state = CustomerNativeFeedState(feed: feed, initialized: true);

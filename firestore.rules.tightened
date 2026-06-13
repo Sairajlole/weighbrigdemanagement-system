@@ -1,0 +1,134 @@
+// ⚠️ STAGING — NOT DEPLOYED. Multi-tenant per-company isolation (Stage 3).
+// DO NOT deploy until: (1) the client claim-carry fix (welcome_step _submit:
+// unconditional ensureFirebaseAuth + getIdToken(true)) is in a BUILT, running app,
+// and (2) `getIdTokenResult().claims.companyId` is confirmed present client-side.
+// First attempt (2026-06-13) failed with permission-denied because the claim was
+// set server-side but NOT carried in the live token. To deploy:
+//   cp firestore.rules.tightened firestore.rules && firebase deploy --only firestore:rules --project tulanam
+// Revert: cp firestore.rules.bak firestore.rules && firebase deploy --only firestore:rules --project tulanam
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function operatorUpdateSafe() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['role', 'pinHash', 'activeSessionId', 'uid', 'isAdmin', 'isCompanyAdmin', 'mfaRequired']);
+    }
+
+    // Per-company access: companyId claim (fast path) OR the company's admin by uid
+    // (claimless setup window). `||` short-circuits on the claim → no get() on normal ops.
+    function isMember(cid) {
+      return request.auth != null && request.auth.token.companyId == cid;
+    }
+    function isAdminUid(cid) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/companies/$(cid))
+        && get(/databases/$(database)/documents/companies/$(cid)).data.adminUid == request.auth.uid;
+    }
+    function belongs(cid) { return isMember(cid) || isAdminUid(cid); }
+
+    match /companies/{companyId} {
+      allow read: if belongs(companyId);
+      allow create: if request.auth != null
+        && request.resource.data.adminUid == request.auth.uid;
+      allow update, delete: if belongs(companyId);
+
+      match /settings/{settingId}            { allow read, write: if belongs(companyId); }
+      match /usage/{period}                  { allow read: if belongs(companyId); allow write: if false; }
+      match /operators/{operatorId} {
+        allow read, create, delete: if belongs(companyId);
+        allow update: if belongs(companyId) && operatorUpdateSafe();
+      }
+      match /customers/{customerId}          { allow read, write: if belongs(companyId); }
+      match /customers_deleted/{customerId}  { allow read, write: if belongs(companyId); }
+      match /customer_merges/{mergeId}       { allow read, write: if belongs(companyId); }
+      match /materials/{materialId}          { allow read, write: if belongs(companyId); }
+      match /vehicles/{vehicleId}            { allow read, write: if belongs(companyId); }
+      match /auditLog/{logId} {
+        allow read: if belongs(companyId);
+        allow create: if belongs(companyId);
+        allow update, delete: if false;
+      }
+      match /notifications/{notifId}         { allow read, write: if belongs(companyId); }
+      match /training_data/{sampleId}        { allow read, write: if belongs(companyId); }
+      match /rejections/{rejectionId}        { allow read, write: if belongs(companyId); }
+      match /gstin_verifications/{vid}       { allow read, write: if belongs(companyId); }
+
+      match /sites/{siteId} {
+        allow read, write: if belongs(companyId);
+        match /operators/{operatorId} {
+          allow read, create, delete: if belongs(companyId);
+          allow update: if belongs(companyId) && operatorUpdateSafe();
+        }
+        match /settings/{settingId}   { allow read, write: if belongs(companyId); }
+        match /materials/{materialId} { allow read, write: if belongs(companyId); }
+        match /sessions/{sessionId}   { allow read, write: if belongs(companyId); }
+        match /weighbridges/{weighbridgeId} {
+          allow read, write: if belongs(companyId);
+          match /weighments/{weighmentId} {
+            allow read, create, update: if belongs(companyId);
+            allow delete: if false;
+          }
+          match /queues/{queueId}     { allow read, write: if belongs(companyId); }
+          match /counters/{counterId} { allow read, write: if belongs(companyId); }
+          match /cameras/{cameraId}   { allow read, write: if belongs(companyId); }
+          match /gateEvents/{eventId} {
+            allow read: if belongs(companyId);
+            allow create: if belongs(companyId);
+            allow update, delete: if false;
+          }
+          match /gateCommands/{commandId} {
+            allow read, update: if belongs(companyId);
+            allow create, delete: if false;
+          }
+          match /settings/{settingId}  { allow read, write: if belongs(companyId); }
+          match /materials/{materialId} { allow read, write: if belongs(companyId); }
+          match /print_log/{logId}      { allow read, write: if belongs(companyId); }
+        }
+      }
+    }
+
+    // Login looks up an operator by email across companies (pre-company-context),
+    // so this can't be company-scoped — tightened to require auth. Fully closing it
+    // needs the lookup moved to a Cloud Function.
+    match /{path=**}/operators/{operatorId} {
+      allow read: if request.auth != null;
+    }
+
+    // Legacy flat root collections — app is fully hierarchical; closed to clients.
+    match /operators/{operatorId}        { allow read, write: if false; }
+    match /settings/{settingId}          { allow read, write: if false; }
+    match /auditLog/{logId}              { allow read, write: if false; }
+    match /notifications/{notifId}       { allow read, write: if false; }
+    match /customers/{customerId}        { allow read, write: if false; }
+    match /customers_deleted/{customerId}{ allow read, write: if false; }
+    match /customer_merges/{mergeId}     { allow read, write: if false; }
+    match /materials/{materialId}        { allow read, write: if false; }
+    match /vehicles/{vehicleId}          { allow read, write: if false; }
+    match /weighments/{weighmentId}      { allow read, write: if false; }
+    match /queues/{queueId}              { allow read, write: if false; }
+    match /counters/{counterId}          { allow read, write: if false; }
+    match /cameras/{cameraId}            { allow read, write: if false; }
+    match /gateEvents/{eventId}          { allow read, write: if false; }
+    match /gateCommands/{commandId}      { allow read, write: if false; }
+
+    // Server-only collections (Admin SDK bypasses rules).
+    match /credentials/{id}              { allow read, write: if false; }
+    match /auth_sessions/{token}         { allow read, write: if false; }
+    match /operator_pins/{id}            { allow read, write: if false; }
+    match /error_reports/{id}            { allow create: if true; allow read, update, delete: if false; }
+    match /password_reset_tokens/{id}    { allow read, write: if false; }
+    match /licenses/{licenseId}          { allow read, write: if false; }
+    match /verification_otps/{otpId}     { allow read, write: if false; }
+    match /notification_cooldowns/{id}   { allow read, write: if false; }
+    match /mailers/{companyId}           { allow read, write: if false; }
+    match /address_verifications/{companyId} { allow read: if true; allow write: if false; }
+    match /global/app_version            { allow read: if true; allow write: if false; }
+    match /global/{docPath=**}           { allow read, write: if false; }
+
+    // Intentionally open (public / shared, not tenant data).
+    match /gstin_registry/{gstinId}      { allow read, write: if true; }
+    match /gstin_lookups/{lookupId}      { allow read, write: if true; }
+  }
+}

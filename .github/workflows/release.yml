@@ -1,0 +1,98 @@
+# Release on tag: build the desktop packages and upload them to Firebase Storage.
+# The Storage-triggered Cloud Function (onReleaseUploaded) then fills the
+# global/app_version feed automatically, so installed apps auto-update.
+#
+# Push a tag like  v1.1.0  to release. The version (without the leading "v") must
+# match the version in pubspec.yaml.
+#
+# One-time setup: add a GitHub Actions secret  GCP_SA_KEY  = a service-account JSON
+# key with "Storage Object Admin" on project tulanam.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+env:
+  BUCKET: tulanam.firebasestorage.app
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - run: flutter pub get
+      - run: flutter build windows --release
+        env: { CMAKE_POLICY_VERSION_MINIMUM: "3.5" }
+      - name: Zip
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart('v')
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "Tulanam-$ver-win.zip"
+          echo "VER=$ver" >> $env:GITHUB_ENV
+      - uses: google-github-actions/auth@v2
+        with: { credentials_json: '${{ secrets.GCP_SA_KEY }}' }
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Upload to Storage (feed auto-published by onReleaseUploaded)
+        shell: pwsh
+        run: gcloud storage cp "Tulanam-$env:VER-win.zip" "gs://${{ env.BUCKET }}/releases/$env:VER/"
+
+  # macOS: Developer-ID signed + notarized + stapled, or Gatekeeper blocks the
+  # relaunch after self-update. Requires these repo secrets:
+  #   APPLE_CERT_P12_BASE64   base64 of the "Developer ID Application" .p12
+  #   APPLE_CERT_PASSWORD     the .p12 export password
+  #   APPLE_SIGN_IDENTITY     e.g. "Developer ID Application: Your Co (TEAMID)"
+  #   APPLE_NOTARY_KEY_P8_BASE64 / APPLE_NOTARY_KEY_ID / APPLE_NOTARY_ISSUER_ID
+  #                           an App Store Connect API key (for notarytool)
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - run: flutter pub get
+      - run: flutter build macos --release
+
+      - name: Import signing certificate
+        env:
+          CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/build.keychain"
+          KPW="$(openssl rand -hex 16)"
+          echo "$CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KPW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KPW" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KPW" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain
+
+      - name: Sign, notarize, staple, zip
+        env:
+          SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+          NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+          NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          VER="${GITHUB_REF_NAME#v}"
+          APP="$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' | head -1)"
+          codesign --force --deep --options runtime --timestamp \
+            --entitlements macos/Runner/Release.entitlements \
+            --sign "$SIGN_IDENTITY" "$APP"
+          echo "$NOTARY_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
+            --key "$RUNNER_TEMP/notary.p8" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" --wait
+          xcrun stapler staple "$APP"
+          ditto -c -k --keepParent "$APP" "Tulanam-$VER-mac.zip"
+          echo "VER=$VER" >> "$GITHUB_ENV"
+
+      - uses: google-github-actions/auth@v2
+        with: { credentials_json: '${{ secrets.GCP_SA_KEY }}' }
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Upload to Storage (feed auto-published by onReleaseUploaded)
+        run: gcloud storage cp "Tulanam-$VER-mac.zip" "gs://${BUCKET}/releases/$VER/"

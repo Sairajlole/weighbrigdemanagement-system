@@ -134,7 +134,10 @@ class DisplayBoardConnection {
 
   Future<bool> _sendModbus(List<int> payload) async {
     // Modbus RTU: address(1) + function(1) + data + CRC(2)
-    final modbusFrame = [0x01, 0x06, ...payload, ..._crc16(payload)];
+    // CRC must cover the entire frame body (address + function + payload),
+    // not just the payload, or every frame is rejected as malformed.
+    final body = [0x01, 0x06, ...payload];
+    final modbusFrame = [...body, ..._crc16(body)];
     try {
       final file = File(config.port);
       await file.writeAsBytes(modbusFrame, mode: FileMode.append, flush: true);

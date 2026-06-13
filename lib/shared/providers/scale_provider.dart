@@ -95,7 +95,7 @@ final scaleAlertProvider = Provider<void>((ref) {
         paths,
         category: 'system',
         severity: 'warn',
-        title: errored ? 'Weighbridge scale error' : 'Weighbridge scale disconnected',
+        title: errored ? 'Scale error' : 'Scale disconnected',
         body: "The weighbridge isn't sending readings, so weighments can't be captured until it reconnects. Check the cable/port or the scale power.",
         link: '/settings/weighbridge',
         throttleKey: key,

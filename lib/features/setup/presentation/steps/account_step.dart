@@ -205,6 +205,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
   bool _existingOperatorApproved = false;
   String? _existingOperatorMessage;
   int _redirectCountdown = 5;
+  Timer? _redirectTimer;
   final _address = TextEditingController();
   final _address2 = TextEditingController();
 
@@ -253,6 +254,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
   @override
   void dispose() {
     _codeVerifyTimer?.cancel();
+    _redirectTimer?.cancel();
     _name.dispose();
     _email.dispose();
     _phone.dispose();
@@ -514,7 +516,8 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
     });
 
     // Countdown then auto-redirect to clean welcome page
-    Timer.periodic(const Duration(seconds: 1), (timer) {
+    _redirectTimer?.cancel();
+    _redirectTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) { timer.cancel(); return; }
       if (_redirectCountdown <= 1) {
         timer.cancel();
@@ -524,21 +527,6 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
         setState(() => _redirectCountdown--);
       }
     });
-  }
-
-  Future<void> _acceptCorrectedName(String correctedName) async {
-    setState(() {
-      _name.text = correctedName;
-      _idVerified = true;
-      _idError = null;
-      _idCorrectedName = null;
-    });
-
-    final verifiedName = _toTitleCase(correctedName);
-    final verifiedAddress = '${_address.text.trim()} ${_address2.text.trim()}'.trim();
-    if (verifiedName.isEmpty || verifiedAddress.isEmpty) return;
-
-    await _checkExistingOperator(verifiedName, verifiedAddress);
   }
 
   Future<bool> _checkExistingOperator(String name, String address) async {
@@ -828,7 +816,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
       setState(() => _emailOtpError = 'Enter 6-digit code');
       return;
     }
-    if (_emailOtp.text.trim() == '000000') {
+    if (!const bool.fromEnvironment('dart.vm.product') && _emailOtp.text.trim() == '000000') {
       if (mounted) setState(() { _emailVerified = true; _verifyingEmailOtp = false; });
       _tryFinalize();
       return;
@@ -848,7 +836,7 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
       setState(() => _phoneOtpError = 'Enter 6-digit code');
       return;
     }
-    if (_phoneOtp.text.trim() == '000000') {
+    if (!const bool.fromEnvironment('dart.vm.product') && _phoneOtp.text.trim() == '000000') {
       if (mounted) setState(() { _phoneVerified = true; _verifyingPhoneOtp = false; });
       _tryFinalize();
       return;
@@ -895,6 +883,18 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
       final email = _email.text.trim();
       final companyId = ref.read(wizardCompanyIdProvider);
       final isAdmin = wizardState.role == WizardRole.admin;
+
+      // Create a server-side salted credential up front so loginUser authenticates
+      // against it and IGNORES the doc `passwordHash` — closing the operator-doc
+      // passwordHash-overwrite takeover for every newly-registered account (the
+      // credential takes precedence in loginUser regardless of which write path
+      // below runs). Best-effort: the legacy passwordHash writes below remain the
+      // fallback if this call fails, so registration can never break.
+      try {
+        await CloudFunctionsService.call('registerCredential', {'email': email, 'password': _password.text});
+      } catch (e) {
+        debugPrint('registerCredential (account setup) failed, falling back to legacy hash: $e');
+      }
 
       // Check if account already exists
       final existingOp = await db.collectionGroup('operators')

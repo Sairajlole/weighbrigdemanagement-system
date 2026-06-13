@@ -104,13 +104,13 @@ function buildReceiptHtml(d, assets = {}) {
 
   const cust = d.customer || {};
   const photo = cust.photo
-    ? `<div class=photo><img src="${cust.photo}"></div>`
+    ? `<div class=photo><img src="${esc(cust.photo)}"></div>`
     : `<div class=photo>${PERSON}</div>`;
   const custMeta = [has(cust.phone) && esc(cust.phone), has(cust.address) && esc(cust.address)]
     .filter(Boolean).join("<br>");
 
   const op = d.operator || {};
-  const opPhoto = op.photo ? `<div class=opav><img src="${op.photo}"></div>` : `<div class=opav>${PERSON}</div>`;
+  const opPhoto = op.photo ? `<div class=opav><img src="${esc(op.photo)}"></div>` : `<div class=opav>${PERSON}</div>`;
   const opMeta = [has(op.shift) && `Shift ${esc(op.shift)}`, has(op.weighbridge) && `Weighbridge ${esc(op.weighbridge)}`,
     has(op.port) && `Port ${esc(op.port)}`, has(op.pc) && `PC ${esc(op.pc)}`].filter(Boolean).join(" &nbsp;·&nbsp; ");
 
@@ -119,7 +119,7 @@ function buildReceiptHtml(d, assets = {}) {
     cf.map((f) => `<div class=cfrow><span class=k>${esc(f.k)}</span><span class=v>${esc(f.v)}</span></div>`).join("")}</div>` : "";
 
   // CCTV — render only present snapshots; up to 3 per column.
-  const frame = (s) => `<div class=frame>${s.img ? `<img src="${s.img}">` : ""}` +
+  const frame = (s) => `<div class=frame>${s.img ? `<img src="${esc(s.img)}">` : ""}` +
     `${has(s.cam) ? `<span class=t1>${esc(s.cam)}</span>` : ""}${has(s.ts) ? `<span class=ts>${esc(s.ts)}</span>` : ""}</div>`;
   const tare = (d.cctv && d.cctv.tare || []).slice(0, 3);
   const gross = (d.cctv && d.cctv.gross || []).slice(0, 3);

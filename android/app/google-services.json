@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "189506147559",
-    "project_id": "weighbridge-management",
-    "storage_bucket": "weighbridge-management.firebasestorage.app"
+    "project_number": "399747278429",
+    "project_id": "tulanam",
+    "storage_bucket": "tulanam.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:189506147559:android:5c43a6d823085de718fe42",
+        "mobilesdk_app_id": "1:399747278429:android:f65f617a6e94b54dc9cfb4",
         "android_client_info": {
           "package_name": "com.example.weighbridgemanagement"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBDhPTCTtMQoSdxo5u8NJ1GMdaIjFzI8t4"
+          "current_key": "AIzaSyDlb5FsA8TDrUXxNEH2jdPBZry_luNsTxg"
         }
       ],
       "services": {

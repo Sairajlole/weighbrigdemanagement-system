@@ -144,10 +144,12 @@ class VerificationLogicNotifier extends StateNotifier<VerificationDialogState> {
     } on FirebaseFunctionsException catch (e) {
       state = state.copyWith(status: VerifyStatus.failed, errorMessage: e.message ?? 'Verification service error.');
       await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
       state = state.copyWith(status: VerifyStatus.idle);
     } catch (e) {
       state = state.copyWith(status: VerifyStatus.failed, errorMessage: 'Connection error. Try again.');
       await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
       state = state.copyWith(status: VerifyStatus.idle);
     }
   }
@@ -161,10 +163,11 @@ class VerificationLogicNotifier extends StateNotifier<VerificationDialogState> {
       state = state.copyWith(status: VerifyStatus.failed, errorMessage: '${matchedOp['name']} is deactivated.');
       AppNotifier.raiseCompany(companyId,
           category: 'security', severity: 'warn', link: '/operators',
-          title: 'Deactivated operator sign-in attempt',
+          title: 'Deactivated sign-in attempt',
           body: '${matchedOp['name'] ?? matchedEmail} (deactivated) tried to sign in. If they should have access, reactivate them in Operators.',
           throttleKey: 'deactivated-login:$matchedEmail');
       await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
       state = state.copyWith(status: VerifyStatus.idle);
       return;
     }
@@ -175,10 +178,11 @@ class VerificationLogicNotifier extends StateNotifier<VerificationDialogState> {
         state = state.copyWith(status: VerifyStatus.failed, errorMessage: '${matchedOp['name']}: $shiftMsg');
         AppNotifier.raiseCompany(companyId,
             category: 'security', severity: 'info', link: '/operators',
-            title: 'Off-shift sign-in attempt',
+            title: 'Off-shift sign-in',
             body: '${matchedOp['name'] ?? matchedEmail} tried to sign in outside their assigned shift.',
             throttleKey: 'offshift-login:$matchedEmail');
         await Future.delayed(const Duration(seconds: 3));
+        if (!mounted) return;
         state = state.copyWith(status: VerifyStatus.idle);
         return;
       }
@@ -239,9 +243,11 @@ class VerificationLogicNotifier extends StateNotifier<VerificationDialogState> {
 
     if (newAttempts >= maxAttempts) {
       await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return;
       state = state.copyWith(mode: VerifyMode.pin, status: VerifyStatus.idle, clearError: true);
     } else {
       await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
       state = state.copyWith(status: VerifyStatus.idle);
     }
   }
@@ -289,11 +295,13 @@ class VerificationLogicNotifier extends StateNotifier<VerificationDialogState> {
           attempts: newAttempts,
         );
         await Future.delayed(const Duration(seconds: 1));
+        if (!mounted) return;
         state = state.copyWith(status: VerifyStatus.idle);
       }
     } catch (e) {
       state = state.copyWith(status: VerifyStatus.failed, errorMessage: 'Verification failed. Try again.');
       await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return;
       state = state.copyWith(status: VerifyStatus.idle);
     }
   }

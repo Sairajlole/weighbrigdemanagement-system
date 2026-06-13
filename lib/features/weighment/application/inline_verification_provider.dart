@@ -68,6 +68,7 @@ class InlineVerificationNotifier extends StateNotifier<InlineVerificationState> 
   final Future<void> Function()? onSyncNeeded;
 
   Timer? _autoTimer;
+  Timer? _timeoutTimer;
   bool _cameraWarmedUp = false;
   int _warmupFrames = 0;
   bool _syncTriggered = false;
@@ -86,6 +87,18 @@ class InlineVerificationNotifier extends StateNotifier<InlineVerificationState> 
     _warmupFrames = 0;
     state = state.copyWith(phase: VerificationUIPhase.background, statusMessage: 'Starting camera...');
     _autoTimer?.cancel();
+    // Overall 10-second cap: if the operator isn't recognised within 10s, fall
+    // back to PIN entry instead of scanning indefinitely.
+    _timeoutTimer?.cancel();
+    _timeoutTimer = Timer(const Duration(seconds: 10), () {
+      if (state.phase == VerificationUIPhase.background) {
+        _autoTimer?.cancel();
+        state = state.copyWith(
+          phase: VerificationUIPhase.pinRequired,
+          statusMessage: 'Face not recognised',
+        );
+      }
+    });
     _autoTimer = Timer(const Duration(milliseconds: 1200), () {
       if (state.phase == VerificationUIPhase.background) {
         state = state.copyWith(statusMessage: 'Verifying...');
@@ -287,12 +300,14 @@ class InlineVerificationNotifier extends StateNotifier<InlineVerificationState> 
 
   void reset() {
     _autoTimer?.cancel();
+    _timeoutTimer?.cancel();
     state = const InlineVerificationState();
   }
 
   @override
   void dispose() {
     _autoTimer?.cancel();
+    _timeoutTimer?.cancel();
     super.dispose();
   }
 }

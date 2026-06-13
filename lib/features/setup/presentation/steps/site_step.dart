@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
@@ -292,8 +293,10 @@ class _SiteStepState extends ConsumerState<SiteStep> {
                     _StyledTextField(
                       controller: _newSiteCtrl,
                       label: 'Site Name',
-                      hint: 'e.g. Main Yard',
+                      hint: 'e.g. MainYard',
                       icon: Icons.location_on_outlined,
+                      inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
+                      helper: 'No spaces allowed',
                       onChanged: (_) { _clearError(); setState(() {}); },
                     ),
                     SizedBox(height: 10.rs),
@@ -406,6 +409,8 @@ class _SiteStepState extends ConsumerState<SiteStep> {
                       label: 'Weighbridge Name',
                       hint: 'e.g. WB-01',
                       icon: Icons.scale_outlined,
+                      inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
+                      helper: 'No spaces allowed',
                       onChanged: (_) { _clearError(); setState(() {}); },
                     ),
                     SizedBox(height: AppSpacing.md),
@@ -578,10 +583,12 @@ class _StyledTextField extends StatelessWidget {
   final String hint;
   final IconData icon;
   final ValueChanged<String>? onChanged;
+  final List<TextInputFormatter>? inputFormatters;
+  final String? helper;
 
   const _StyledTextField({
     required this.controller, required this.label, required this.hint,
-    required this.icon, this.onChanged,
+    required this.icon, this.onChanged, this.inputFormatters, this.helper,
   });
 
   @override
@@ -589,9 +596,11 @@ class _StyledTextField extends StatelessWidget {
     return TextField(
       controller: controller,
       onChanged: onChanged,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
+        helperText: helper,
         prefixIcon: Icon(icon, size: 18),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.rs)),

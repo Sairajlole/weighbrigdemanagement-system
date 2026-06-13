@@ -204,11 +204,14 @@ class PrintService {
   }
 
   String _substitutePlaceholders(String template, Map<String, String> values) {
-    var result = template;
-    for (final entry in values.entries) {
-      result = result.replaceAll(entry.key, entry.value);
-    }
-    return result;
+    if (values.isEmpty) return template;
+    // Single-pass replace: a value substituted for one token must never be
+    // re-scanned for another token. Build one alternation RegExp over all keys
+    // (longest first so e.g. {custom_x} wins over a hypothetical {custom}).
+    final keys = values.keys.toList()
+      ..sort((a, b) => b.length.compareTo(a.length));
+    final pattern = RegExp(keys.map(RegExp.escape).join('|'));
+    return template.replaceAllMapped(pattern, (m) => values[m[0]] ?? m[0]!);
   }
 
 
@@ -631,7 +634,7 @@ class PrintService {
 
       if (Platform.isWindows) {
         final printerArg = (printer.isNotEmpty && printer != 'default')
-            ? '-Name "$printer"'
+            ? '-Name ${_psSingleQuote(printer)}'
             : '';
         for (var i = 0; i < copies; i++) {
           final result = await Process.run('powershell', [
@@ -1325,6 +1328,19 @@ class PrintService {
 
   // ─── Print Submission ──────────────────────────────────────────────────────
 
+  /// Escapes a value for safe embedding inside a PowerShell *single-quoted*
+  /// string literal. Single-quoted strings do not interpolate `$`, backtick,
+  /// or `"`, so the ASCII single quote (doubled) is the main escape. PowerShell
+  /// also treats the Unicode smart-quote variants (U+2018–U+201B) as string
+  /// delimiters, so those are stripped first. This neutralizes command injection
+  /// via operator-editable printer names before any `-Command` interpolation.
+  String _psSingleQuote(String value) {
+    final sanitized = value
+        .replaceAll(RegExp('[‘’‚‛]'), '')
+        .replaceAll("'", "''");
+    return "'$sanitized'";
+  }
+
   Future<PrintResult> _sendPdfToLpr(Uint8List pdfBytes, String printer, int copies, {String tray = ''}) async {
     try {
       final tmpFile = File('${Directory.systemTemp.path}/weighbridge_docket_${DateTime.now().millisecondsSinceEpoch}.pdf');
@@ -1334,7 +1350,7 @@ class PrintService {
         final useDefaultPrinter = printer.isEmpty || printer == 'default';
         final cmd = useDefaultPrinter
             ? '\$p = (Get-CimInstance -ClassName Win32_Printer -Filter "Default=True").Name; if (-not \$p) { throw "No default printer configured" }; Start-Process -FilePath "${tmpFile.path}" -Verb PrintTo -ArgumentList \$p -Wait -WindowStyle Hidden'
-            : 'Start-Process -FilePath "${tmpFile.path}" -Verb PrintTo -ArgumentList "$printer" -Wait -WindowStyle Hidden';
+            : 'Start-Process -FilePath "${tmpFile.path}" -Verb PrintTo -ArgumentList ${_psSingleQuote(printer)} -Wait -WindowStyle Hidden';
         final result = await Process.run('powershell', ['-NoProfile', '-Command', cmd]);
         await tmpFile.delete().catchError((_) => tmpFile);
         if (result.exitCode != 0) {
@@ -1382,7 +1398,7 @@ class PrintService {
       if (Platform.isWindows) {
         final result = await Process.run('powershell', [
           '-NoProfile', '-Command',
-          'Start-Process -FilePath "${tmpFile.path}" -Verb PrintTo -ArgumentList "$backupPrinter" -Wait -WindowStyle Hidden'
+          'Start-Process -FilePath "${tmpFile.path}" -Verb PrintTo -ArgumentList ${_psSingleQuote(backupPrinter)} -Wait -WindowStyle Hidden'
         ]);
         await tmpFile.delete().catchError((_) => tmpFile);
         if (result.exitCode == 0) return PrintResult(success: true, usedBackup: true);

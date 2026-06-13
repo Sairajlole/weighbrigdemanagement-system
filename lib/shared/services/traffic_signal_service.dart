@@ -313,6 +313,10 @@ class TrafficSignalService {
 
   void _setState(SignalId signalId, SignalState state) {
     _states[signalId] = state;
+    // dispose() closes the controller without awaiting the in-flight disconnect(),
+    // and socket callbacks can fire after close — guard against add-after-close
+    // (was a fatal `Bad state: Cannot add new events after calling close`).
+    if (_stateController.isClosed) return;
     _stateController.add(Map.from(_states));
   }
 

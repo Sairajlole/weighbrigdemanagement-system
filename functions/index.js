@@ -1,4 +1,8 @@
 const functions = require("firebase-functions");
+// All gen-1 triggers run in asia-south1 (Mumbai), co-located with Firestore.
+// (functions.https.HttpsError / functions.config / functions.logger stay on the
+// base import — only the trigger BUILDERS use this regional one.)
+const fns = functions.region("asia-south1");
 const admin = require("firebase-admin");
 
 // functions.config() THROWS in the gen-2 runtime (it's removed there) and is
@@ -16,11 +20,11 @@ function _fnConfig() {
 
 admin.initializeApp();
 const db = admin.firestore();
-const bucket = admin.storage().bucket("weighbridge-management.firebasestorage.app");
+const bucket = admin.storage().bucket("tulanam.firebasestorage.app");
 
 // ─── Operator Created: Set defaults ─────────────────────────────────────────
 
-exports.onOperatorCreated = functions.firestore
+exports.onOperatorCreated = fns.firestore
   .document("companies/{companyId}/operators/{operatorId}")
   .onCreate(async (snap, context) => {
     const { companyId } = context.params;
@@ -60,7 +64,7 @@ exports.onOperatorCreated = functions.firestore
             });
             await _writeInApp({
               companyId, category: "security", severity: "warn", link: "/operators",
-              title: "Operator invite rejected",
+              title: "Invite rejected",
               body: `${data.email} couldn't be added — domain @${userDomain} isn't in your allowed list (@${allowedDomains.join(", @")}).`,
             });
             return;
@@ -121,10 +125,56 @@ exports.onOperatorCreated = functions.firestore
 
 // ─── Ensure Firebase Auth: callable to migrate existing operators ────────────
 
-exports.ensureFirebaseAuth = functions.https.onCall(async (data, context) => {
+// Resolve the {companyId, role} a Firebase Auth user belongs to, for custom
+// claims that future Firestore rules will scope per-company access on. Prefers
+// an operator doc (carries role); falls back to the company doc (admin owner).
+async function _resolveCompanyClaims(email) {
+  const opSnap = await db.collectionGroup("operators").where("email", "==", email).limit(1).get();
+  if (!opSnap.empty) {
+    const d = opSnap.docs[0];
+    const companyId = d.data().companyId || (d.ref.parent.parent ? d.ref.parent.parent.id : null);
+    if (companyId) return { companyId, role: d.data().role || "operator" };
+  }
+  const compSnap = await db.collection("companies").where("email", "==", email).limit(1).get();
+  if (!compSnap.empty) return { companyId: compSnap.docs[0].id, role: "admin" };
+  return null;
+}
+
+// Mint the per-company custom claims on a uid AND return a Firebase custom token
+// that embeds those claims, so the client can signInWithCustomToken and have the
+// companyId claim carried deterministically in its session (the email/password
+// sign-in did NOT reliably surface Admin-SDK claims). setCustomUserClaims keeps
+// the claim across token refreshes; the custom token carries it for this session.
+// claims is null mid-setup (before the company doc exists) — token still issued so
+// the client gets an authenticated session for the bootstrap company-create.
+async function _mintCompanyClaims(uid, email) {
+  const claims = await _resolveCompanyClaims(email);
+  const tokenClaims = claims ? { companyId: claims.companyId, role: claims.role } : {};
+  if (claims) {
+    await admin.auth().setCustomUserClaims(uid, tokenClaims);
+  }
+  let customToken = null;
+  try {
+    customToken = await admin.auth().createCustomToken(uid, tokenClaims);
+  } catch (e) {
+    functions.logger.warn("createCustomToken failed:", e.message);
+  }
+  return { companyId: claims ? claims.companyId : null, role: claims ? claims.role : null, customToken };
+}
+
+exports.ensureFirebaseAuth = fns.https.onCall(async (data, context) => {
   const email = (data.email || "").trim().toLowerCase();
   const password = data.password || "";
   if (!email) throw new functions.https.HttpsError("invalid-argument", "Email required");
+  // Only the account owner (a valid post-login session) may sync/create their
+  // Firebase Auth account — blocks the takeover where anyone could overwrite the
+  // password of an existing account by email.
+  {
+    const _s = await _requireSession(data);
+    if (_s.email !== email) {
+      throw new functions.https.HttpsError("permission-denied", "Not authorized for this account.");
+    }
+  }
 
   try {
     const userRecord = await admin.auth().getUserByEmail(email);
@@ -141,7 +191,8 @@ exports.ensureFirebaseAuth = functions.https.onCall(async (data, context) => {
         await companySnap.docs[0].ref.update({ passwordHash: admin.firestore.FieldValue.delete() });
       }
     }
-    return { uid: userRecord.uid, created: false };
+    const c = await _mintCompanyClaims(userRecord.uid, email);
+    return { uid: userRecord.uid, created: false, companyId: c.companyId, role: c.role, customToken: c.customToken };
   } catch (err) {
     if (err.code !== "auth/user-not-found") {
       throw new functions.https.HttpsError("internal", err.message);
@@ -162,7 +213,8 @@ exports.ensureFirebaseAuth = functions.https.onCall(async (data, context) => {
     if (!companySnap.empty) {
       await companySnap.docs[0].ref.update({ passwordHash: admin.firestore.FieldValue.delete() });
     }
-    return { uid: newUser.uid, created: true };
+    const c = await _mintCompanyClaims(newUser.uid, email);
+    return { uid: newUser.uid, created: true, companyId: c.companyId, role: c.role, customToken: c.customToken };
   }
 });
 
@@ -291,9 +343,10 @@ function _generateBackupCodes(n = 8) {
 }
 
 function _mfaKey() {
-  // Set MFA_ENC_KEY in functions env for production. Falls back to a constant so
-  // the feature works without env setup (secrets still sit on a server-only doc).
-  const src = process.env.MFA_ENC_KEY || "tulanam-mfa-default-key";
+  // Fail CLOSED — no hardcoded fallback, or anyone with the source could decrypt
+  // every stored TOTP secret. MFA_ENC_KEY must be set in the functions env.
+  const src = process.env.MFA_ENC_KEY;
+  if (!src) throw new functions.https.HttpsError("failed-precondition", "MFA_ENC_KEY is not configured.");
   return require("crypto").createHash("sha256").update(src).digest();
 }
 
@@ -318,13 +371,161 @@ function _companyIdFromPath(path) {
   return m ? m[1] : null;
 }
 
+// ─── Server-issued session tokens ────────────────────────────────────────────
+// loginUser mints one; sensitive callables validate it. Stored in the server-only
+// `auth_sessions` collection (default-deny rules). Closes the unauthenticated-
+// callable IDOR (anon clients can't act on another company/operator).
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+async function _mintSessionToken(email, companyId, role) {
+  // Invalidate this account's prior session tokens (newest login wins — matches
+  // the single-active-session model), then issue a fresh one. Done in a single
+  // transaction so a concurrent login can't leave two live tokens behind.
+  const token = require("crypto").randomBytes(32).toString("hex");
+  const q = db.collection("auth_sessions").where("email", "==", email);
+  await db.runTransaction(async (tx) => {
+    const prior = await tx.get(q);
+    prior.forEach((d) => tx.delete(d.ref));
+    tx.set(db.collection("auth_sessions").doc(token), {
+      email, companyId, role: role || "operator",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + SESSION_TTL_MS),
+    });
+  });
+  return token;
+}
+
+// Revokes ALL server-issued session tokens for an account (by email) — used
+// when an operator is deleted/deactivated/archived/demoted so an already-issued
+// token can't outlive the account-state change for up to the 30-day TTL.
+async function _revokeSessionsForEmail(email) {
+  const e = (email || "").trim().toLowerCase();
+  if (!e) return;
+  const snap = await db.collection("auth_sessions").where("email", "==", e).get();
+  if (snap.empty) return;
+  const batch = db.batch();
+  snap.forEach((d) => batch.delete(d.ref));
+  await batch.commit().catch((err) => console.warn("session revoke failed:", err.message));
+}
+
+// Validates data.sessionToken → { email, companyId, role }. Throws if missing/
+// invalid/expired.
+async function _requireSession(data) {
+  const token = (data && data.sessionToken) || "";
+  if (!token) throw new functions.https.HttpsError("unauthenticated", "Please sign in again to continue.");
+  const snap = await db.collection("auth_sessions").doc(String(token)).get();
+  if (!snap.exists) throw new functions.https.HttpsError("unauthenticated", "Your session expired. Sign in again.");
+  const s = snap.data();
+  const exp = (s.expiresAt && s.expiresAt.toMillis) ? s.expiresAt.toMillis() : 0;
+  if (exp < Date.now()) {
+    await snap.ref.delete().catch(() => {});
+    throw new functions.https.HttpsError("unauthenticated", "Your session expired. Sign in again.");
+  }
+  // Re-validate against LIVE account state — a token minted before the account
+  // was deleted/deactivated/archived/demoted must not keep working for the full
+  // 30-day TTL. Use the current operator/company role, not the mint-time value.
+  const live = await _liveAccountState(s.email, s.companyId);
+  // Fail-CLOSED only on a definitive negative (the doc is genuinely gone /
+  // deactivated / archived). On a transient lookup error (errored, no answer)
+  // fail-OPEN with the mint-time role so a network blip can't log a valid user
+  // out — security goal (revoke deleted accounts) is still met because deletion
+  // returns "empty", not "error".
+  if (live.errored && !live.exists) {
+    return { email: s.email, companyId: s.companyId, role: s.role };
+  }
+  if (!live.exists || live.isDeleted || live.isArchived || live.isActive === false) {
+    await snap.ref.delete().catch(() => {});
+    throw new functions.https.HttpsError("permission-denied", "This account is no longer active. Sign in again.");
+  }
+  return { email: s.email, companyId: s.companyId, role: live.role || s.role };
+}
+
+// Loads the current operator/company doc for {email, companyId} and reports the
+// account's live state + role. Operator first (scoped to the company), then the
+// company-admin doc. Returns {exists:false} when neither is found. `errored` is
+// set when a lookup threw, so the caller can fail-open instead of locking out a
+// valid user on a transient infrastructure error.
+async function _liveAccountState(email, companyId) {
+  const e = (email || "").trim().toLowerCase();
+  if (!e) return { exists: false };
+  let errored = false;
+  if (companyId) {
+    try {
+      const opSnap = await db.collection(`companies/${companyId}/operators`)
+        .where("email", "==", e).limit(1).get();
+      if (!opSnap.empty) {
+        const d = opSnap.docs[0].data() || {};
+        return {
+          exists: true,
+          isDeleted: d.isDeleted === true,
+          isArchived: d.isArchived === true,
+          isActive: d.isActive,
+          role: d.role || "operator",
+        };
+      }
+    } catch (e2) {
+      errored = true;
+      console.warn("live operator lookup failed:", e2.message);
+    }
+    try {
+      const coSnap = await db.doc(`companies/${companyId}`).get();
+      if (coSnap.exists) {
+        const d = coSnap.data() || {};
+        if ((d.email || "").trim().toLowerCase() === e) {
+          return {
+            exists: true,
+            isDeleted: d.isDeleted === true,
+            isArchived: d.isArchived === true,
+            isActive: d.isActive,
+            role: d.role || "companyAdmin",
+          };
+        }
+      }
+    } catch (e3) {
+      errored = true;
+      console.warn("live company lookup failed:", e3.message);
+    }
+  }
+  // Fallback: locate the operator anywhere by email (handles a missing/stale
+  // companyId on the session).
+  try {
+    const opSnap = await db.collectionGroup("operators").where("email", "==", e).limit(1).get();
+    if (!opSnap.empty) {
+      const d = opSnap.docs[0].data() || {};
+      return {
+        exists: true,
+        isDeleted: d.isDeleted === true,
+        isArchived: d.isArchived === true,
+        isActive: d.isActive,
+        role: d.role || "operator",
+      };
+    }
+  } catch (e4) {
+    errored = true;
+    console.warn("live operator group lookup failed:", e4.message);
+  }
+  return { exists: false, errored };
+}
+
+// Requires the session to be an admin of [companyId] (when given).
+async function _requireAdminSession(data, companyId) {
+  const s = await _requireSession(data);
+  if (s.role !== "admin" && s.role !== "companyAdmin") {
+    throw new functions.https.HttpsError("permission-denied", "Admin access required.");
+  }
+  if (companyId && s.companyId !== companyId) {
+    throw new functions.https.HttpsError("permission-denied", "Not authorized for this company.");
+  }
+  return s;
+}
+
 /**
  * loginUser - Server-side password verification. Replaces the old client-side
  * hash compare so clients never read `passwordHash`. Verifies against the
  * salted credential, falling back to (and upgrading from) the legacy unsalted
  * hash on first login. Returns identity (never the hash) or throws.
  */
-exports.loginUser = functions.https.onCall(async (data, context) => {
+exports.loginUser = fns.https.onCall(async (data, context) => {
   const email = (data.email || "").trim().toLowerCase();
   const password = data.password || "";
   if (!email || !password) {
@@ -352,6 +553,16 @@ exports.loginUser = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("not-found", "No account found with this email.");
   }
 
+  // Per-account password lockout — throttle online brute-force. Counters live on
+  // the account doc (always present, unlike the credential doc for legacy users).
+  const pwNowMs = Date.now();
+  const pwLockMs = (docData.loginLockUntil && docData.loginLockUntil.toMillis)
+    ? docData.loginLockUntil.toMillis() : 0;
+  if (pwLockMs > pwNowMs) {
+    throw new functions.https.HttpsError("resource-exhausted",
+      "Too many failed sign-in attempts. Wait a few minutes and try again.");
+  }
+
   const credSnap = await db.collection("credentials").doc(email).get();
   let ok = false;
   if (credSnap.exists) {
@@ -369,7 +580,18 @@ exports.loginUser = functions.https.onCall(async (data, context) => {
   }
 
   if (!ok) {
+    const fails = (docData.loginFailCount || 0) + 1;
+    await docRef.update(fails >= 5
+      ? { loginFailCount: 0, loginLockUntil: admin.firestore.Timestamp.fromMillis(pwNowMs + 15 * 60 * 1000) }
+      : { loginFailCount: fails }).catch(() => {});
     throw new functions.https.HttpsError("permission-denied", "Invalid email or password.");
+  }
+  // Password verified — clear any password-attempt throttle.
+  if (docData.loginFailCount || docData.loginLockUntil) {
+    await docRef.update({
+      loginFailCount: admin.firestore.FieldValue.delete(),
+      loginLockUntil: admin.firestore.FieldValue.delete(),
+    }).catch(() => {});
   }
   if (docData.isDeleted) throw new functions.https.HttpsError("permission-denied", "This account has been deleted.");
   if (docData.isArchived) throw new functions.https.HttpsError("permission-denied", "This account has been archived.");
@@ -390,29 +612,49 @@ exports.loginUser = functions.https.onCall(async (data, context) => {
       return { mfaRequired: true };
     }
     // Accept the 6-digit TOTP, or a one-time recovery code (consumed on use).
-    let pass = _verifyTotp(_decryptSecret(credForMfa.mfaSecret), code);
-    let usedBackup = -1;
-    if (!pass && Array.isArray(credForMfa.mfaBackupCodes)) {
-      usedBackup = credForMfa.mfaBackupCodes.indexOf(_hashBackup(code));
-      if (usedBackup >= 0) pass = true;
-    }
+    // Tolerate a decrypt failure (MFA_ENC_KEY rotated / corrupt secret blob) so a
+    // valid backup code still works as the recovery path it exists to be.
+    let totpOk = false;
+    try { totpOk = _verifyTotp(_decryptSecret(credForMfa.mfaSecret), code); } catch (_) { totpOk = false; }
+    const backupAvailable = !totpOk && Array.isArray(credForMfa.mfaBackupCodes)
+      && credForMfa.mfaBackupCodes.indexOf(_hashBackup(code)) >= 0;
     const credRef = db.collection("credentials").doc(email);
-    if (!pass) {
+    if (!totpOk && !backupAvailable) {
       const fails = (credForMfa.mfaFailCount || 0) + 1;
       await credRef.update(fails >= 5
         ? { mfaFailCount: 0, mfaLockUntil: admin.firestore.Timestamp.fromMillis(nowMs + 15 * 60 * 1000) }
         : { mfaFailCount: fails });
       throw new functions.https.HttpsError("permission-denied", "Invalid authentication code.");
     }
-    // Success — clear throttle and consume the recovery code if one was used.
-    const upd = {
-      mfaFailCount: admin.firestore.FieldValue.delete(),
-      mfaLockUntil: admin.firestore.FieldValue.delete(),
-    };
-    if (usedBackup >= 0) {
-      upd.mfaBackupCodes = credForMfa.mfaBackupCodes.filter((_, i) => i !== usedBackup);
+    if (backupAvailable) {
+      // Consume the one-time backup code ATOMICALLY — two concurrent logins with
+      // the same backup code must not both succeed (double-spend).
+      await db.runTransaction(async (tx) => {
+        const s = await tx.get(credRef);
+        const codes = Array.isArray(s.data() && s.data().mfaBackupCodes) ? s.data().mfaBackupCodes : [];
+        const idx = codes.indexOf(_hashBackup(code));
+        if (idx < 0) throw new functions.https.HttpsError("permission-denied", "Invalid authentication code.");
+        tx.update(credRef, {
+          mfaBackupCodes: codes.filter((_, i) => i !== idx),
+          mfaFailCount: admin.firestore.FieldValue.delete(),
+          mfaLockUntil: admin.firestore.FieldValue.delete(),
+        });
+      });
+    } else {
+      // TOTP success — just clear the throttle.
+      await credRef.update({
+        mfaFailCount: admin.firestore.FieldValue.delete(),
+        mfaLockUntil: admin.firestore.FieldValue.delete(),
+      });
     }
-    await credRef.update(upd);
+  }
+
+  // Re-authentication on the SAME device (e.g. unlocking a locked session):
+  // password/MFA is now verified, but we must NOT rotate the active session —
+  // doing so would change activeSessionId and make the single-session guard
+  // sign this very device out to the welcome page ("another device").
+  if (data.reauth === true) {
+    return { ok: true, reauth: true };
   }
 
   // Single active session: mint a new session id and stamp it on the user doc.
@@ -425,18 +667,25 @@ exports.loginUser = functions.https.onCall(async (data, context) => {
   });
 
   const companyId = kind === "company" ? docRef.id : (docData.companyId || _companyIdFromPath(docRef.path));
+  const role = docData.role || (kind === "company" ? "companyAdmin" : "operator");
+
+  // Server-issued session token — bound to {email, companyId, role}, stored in a
+  // server-only collection. Sensitive callables require + validate it so an
+  // anonymous client can't act on another company/operator (closes IDOR).
+  const sessionToken = await _mintSessionToken(email, companyId, role);
 
   return {
     ok: true,
     kind,
     uid: docData.uid || null,
     companyId,
-    role: docData.role || (kind === "company" ? "companyAdmin" : "operator"),
+    role,
     name: docData.name || "",
     mustChangePassword: docData.mustChangePassword === true,
     isVerified: docData.isVerified === true,
     isActive: docData.isActive !== false,
     activeSessionId: sessionId,
+    sessionToken,
     // Server-authoritative address-verification gate — uses server time, so a
     // tampered device clock can't bypass the 30-day deadline.
     addressLocked: await _addressGateLocked(companyId),
@@ -448,7 +697,7 @@ exports.loginUser = functions.https.onCall(async (data, context) => {
 /**
  * mfaStatus - Returns whether TOTP 2FA is enabled for an account.
  */
-exports.mfaStatus = functions.https.onCall(async (data) => {
+exports.mfaStatus = fns.https.onCall(async (data) => {
   const email = (data.email || "").trim().toLowerCase();
   if (!email) throw new functions.https.HttpsError("invalid-argument", "Email required");
   const snap = await db.collection("credentials").doc(email).get();
@@ -464,7 +713,7 @@ exports.mfaStatus = functions.https.onCall(async (data) => {
  * codes with a fresh set (the old ones stop working). Returns the new plaintext
  * codes once.
  */
-exports.mfaRegenerateBackupCodes = functions.https.onCall(async (data) => {
+exports.mfaRegenerateBackupCodes = fns.https.onCall(async (data) => {
   const email = (data.email || "").trim().toLowerCase();
   const password = data.password || "";
   if (!email || !password) throw new functions.https.HttpsError("invalid-argument", "Email and password required");
@@ -481,13 +730,28 @@ exports.mfaRegenerateBackupCodes = functions.https.onCall(async (data) => {
   return { ok: true, backupCodes };
 });
 
+// Verifies a code against the account's CURRENTLY-ACTIVE second factor (live
+// TOTP or an unused backup code). Used to gate operations that overwrite an
+// already-active MFA secret so a stolen password alone can't rebind it.
+function _verifyCurrentMfaFactor(cred, rawCode) {
+  const code = String(rawCode || "").replace(/\s/g, "");
+  if (!code) return false;
+  // Decrypt failure (key rotated/corrupt) must fall through to the backup code,
+  // not throw — otherwise the second-factor gate can never be satisfied.
+  try {
+    if (cred.mfaSecret && _verifyTotp(_decryptSecret(cred.mfaSecret), code)) return true;
+  } catch (_) { /* fall through to backup code */ }
+  if (Array.isArray(cred.mfaBackupCodes) && cred.mfaBackupCodes.includes(_hashBackup(code))) return true;
+  return false;
+}
+
 /**
  * mfaBeginEnroll - Verifies the password, generates a fresh TOTP secret, stores
  * it as a PENDING (not-yet-active) encrypted secret, and returns the base32 +
  * otpauth URI so the client can show a QR. Requires the password so only the
  * account owner can start enrollment.
  */
-exports.mfaBeginEnroll = functions.https.onCall(async (data) => {
+exports.mfaBeginEnroll = fns.https.onCall(async (data) => {
   const email = (data.email || "").trim().toLowerCase();
   const password = data.password || "";
   if (!email || !password) throw new functions.https.HttpsError("invalid-argument", "Email and password required");
@@ -495,6 +759,16 @@ exports.mfaBeginEnroll = functions.https.onCall(async (data) => {
   const snap = await credRef.get();
   if (!snap.exists || !_verifyCredential(password, snap.data())) {
     throw new functions.https.HttpsError("permission-denied", "Incorrect password.");
+  }
+  // Re-enrollment guard: if 2FA is already on, the password alone must NOT be
+  // able to rebind the secret to an attacker's authenticator. Require the CURRENT
+  // second factor (live TOTP or an unused backup code) before re-enrolling, or
+  // disable 2FA first. Prevents password-only MFA takeover via re-binding.
+  if (snap.data().mfaEnabled === true) {
+    if (!_verifyCurrentMfaFactor(snap.data(), data.currentCode)) {
+      throw new functions.https.HttpsError("failed-precondition",
+        "Two-factor authentication is already enabled. Enter a current authenticator or backup code to re-enroll, or disable it first.");
+    }
   }
   const secret = _generateTotpSecret();
   await credRef.set({
@@ -511,13 +785,19 @@ exports.mfaBeginEnroll = functions.https.onCall(async (data) => {
  * mfaConfirmEnroll - Verifies a code against the pending secret and, on success,
  * activates 2FA (promotes pending → active secret).
  */
-exports.mfaConfirmEnroll = functions.https.onCall(async (data) => {
+exports.mfaConfirmEnroll = fns.https.onCall(async (data) => {
   const email = (data.email || "").trim().toLowerCase();
   const code = String(data.code || data.code1 || "").replace(/\s/g, "");
   if (!email) throw new functions.https.HttpsError("invalid-argument", "Email required");
   const credRef = db.collection("credentials").doc(email);
   const snap = await credRef.get();
   const cred = snap.exists ? snap.data() : {};
+  // Re-enrollment guard (defense in depth with mfaBeginEnroll): never promote a
+  // pending secret over an already-active one without the CURRENT second factor.
+  if (cred.mfaEnabled === true && !_verifyCurrentMfaFactor(cred, data.currentCode)) {
+    throw new functions.https.HttpsError("failed-precondition",
+      "Two-factor authentication is already enabled. Enter a current authenticator or backup code to re-enroll, or disable it first.");
+  }
   const pending = cred.mfaPendingSecret || null;
   if (!pending) throw new functions.https.HttpsError("failed-precondition", "No pending enrollment. Start again.");
   // The QR / pending secret expires 10 minutes after it was generated, so an
@@ -549,25 +829,51 @@ exports.mfaConfirmEnroll = functions.https.onCall(async (data) => {
 });
 
 /**
- * mfaDisable - Turns off 2FA. Requires either the password or a current code.
+ * mfaDisable - Turns off 2FA. Requires a current authenticator or backup code
+ * (the second factor) — a stolen password alone cannot disable it.
  */
-exports.mfaDisable = functions.https.onCall(async (data) => {
+exports.mfaDisable = fns.https.onCall(async (data) => {
   const email = (data.email || "").trim().toLowerCase();
-  const password = data.password || "";
   const code = String(data.code || "").replace(/\s/g, "");
   if (!email) throw new functions.https.HttpsError("invalid-argument", "Email required");
   const credRef = db.collection("credentials").doc(email);
   const snap = await credRef.get();
   if (!snap.exists) throw new functions.https.HttpsError("not-found", "Account not found.");
   const cred = snap.data();
+  // Throttle code attempts (same lockout the other MFA callables use) so a
+  // stolen password can't be paired with an unbounded brute-force of TOTP codes
+  // to strip a victim's 2FA.
+  const nowMs = Date.now();
+  const lockMs = (cred.mfaLockUntil && cred.mfaLockUntil.toMillis) ? cred.mfaLockUntil.toMillis() : 0;
+  if (lockMs > nowMs) {
+    throw new functions.https.HttpsError("resource-exhausted", "Too many incorrect codes. Wait a few minutes and try again.");
+  }
+  // Disabling 2FA requires the SECOND factor (authenticator or backup code) — a
+  // stolen password alone must not be able to turn MFA off.
   let allowed = false;
-  if (password && _verifyCredential(password, cred)) allowed = true;
-  if (!allowed && cred.mfaSecret && _verifyTotp(_decryptSecret(cred.mfaSecret), code)) allowed = true;
-  if (!allowed) throw new functions.https.HttpsError("permission-denied", "Password or a valid code is required to disable 2FA.");
+  // Decrypt failure (key rotated/corrupt) must not throw — the backup code below
+  // has to remain a valid way to disable 2FA.
+  try {
+    if (code && cred.mfaSecret && _verifyTotp(_decryptSecret(cred.mfaSecret), code)) allowed = true;
+  } catch (_) { /* fall through to backup code */ }
+  if (!allowed && code && Array.isArray(cred.mfaBackupCodes) && cred.mfaBackupCodes.includes(_hashBackup(code))) allowed = true;
+  if (!allowed) {
+    const fails = (cred.mfaFailCount || 0) + 1;
+    await credRef.update(fails >= 5
+      ? { mfaFailCount: 0, mfaLockUntil: admin.firestore.Timestamp.fromMillis(nowMs + 15 * 60 * 1000) }
+      : { mfaFailCount: fails });
+    throw new functions.https.HttpsError("permission-denied", "A valid authenticator or backup code is required to disable 2FA.");
+  }
+  // Tear down ALL 2FA state — leaving stale backup codes / throttle counters
+  // behind would let them apply to a future re-enrollment.
   await credRef.set({
     mfaEnabled: admin.firestore.FieldValue.delete(),
     mfaSecret: admin.firestore.FieldValue.delete(),
     mfaPendingSecret: admin.firestore.FieldValue.delete(),
+    mfaPendingAt: admin.firestore.FieldValue.delete(),
+    mfaBackupCodes: admin.firestore.FieldValue.delete(),
+    mfaFailCount: admin.firestore.FieldValue.delete(),
+    mfaLockUntil: admin.firestore.FieldValue.delete(),
   }, { merge: true });
   _notifyMfaChanged(email, false).catch((e) => console.warn("mfa-disabled notice failed:", e.message));
   return { ok: true };
@@ -579,7 +885,7 @@ exports.mfaDisable = functions.https.onCall(async (data) => {
  * re-enrollment, profile/settings changes, …) whenever the account has 2FA on.
  * Same TOTP/backup/lockout logic loginUser uses.
  */
-exports.verifyMfaCode = functions.https.onCall(async (data) => {
+exports.verifyMfaCode = fns.https.onCall(async (data) => {
   const email = (data.email || "").trim().toLowerCase();
   const code = String(data.code || data.otp || "").replace(/\s/g, "");
   if (!email || !code) {
@@ -596,25 +902,40 @@ exports.verifyMfaCode = functions.https.onCall(async (data) => {
   if (lockMs > nowMs) {
     throw new functions.https.HttpsError("resource-exhausted", "Too many incorrect codes. Wait a few minutes and try again.");
   }
-  let pass = _verifyTotp(_decryptSecret(cred.mfaSecret), code);
-  let usedBackup = -1;
-  if (!pass && Array.isArray(cred.mfaBackupCodes)) {
-    usedBackup = cred.mfaBackupCodes.indexOf(_hashBackup(code));
-    if (usedBackup >= 0) pass = true;
-  }
-  if (!pass) {
+  // Decrypt failure (key rotated/corrupt) → fall through to the backup-code path.
+  let totpOk = false;
+  try { totpOk = _verifyTotp(_decryptSecret(cred.mfaSecret), code); } catch (_) { totpOk = false; }
+  const backupIdx = (!totpOk && Array.isArray(cred.mfaBackupCodes))
+    ? cred.mfaBackupCodes.indexOf(_hashBackup(code)) : -1;
+
+  if (!totpOk && backupIdx < 0) {
     const fails = (cred.mfaFailCount || 0) + 1;
     await credRef.update(fails >= 5
       ? { mfaFailCount: 0, mfaLockUntil: admin.firestore.Timestamp.fromMillis(nowMs + 15 * 60 * 1000) }
       : { mfaFailCount: fails });
     throw new functions.https.HttpsError("permission-denied", "Invalid authentication code.");
   }
-  const upd = {
-    mfaFailCount: admin.firestore.FieldValue.delete(),
-    mfaLockUntil: admin.firestore.FieldValue.delete(),
-  };
-  if (usedBackup >= 0) upd.mfaBackupCodes = cred.mfaBackupCodes.filter((_, i) => i !== usedBackup);
-  await credRef.update(upd);
+
+  if (backupIdx >= 0) {
+    // Consume the one-time backup code ATOMICALLY — two concurrent requests with
+    // the same backup code must not both succeed (and both mint a reset token).
+    await db.runTransaction(async (tx) => {
+      const s = await tx.get(credRef);
+      const codes = Array.isArray(s.data() && s.data().mfaBackupCodes) ? s.data().mfaBackupCodes : [];
+      const idx = codes.indexOf(_hashBackup(code));
+      if (idx < 0) throw new functions.https.HttpsError("permission-denied", "Invalid authentication code.");
+      tx.update(credRef, {
+        mfaBackupCodes: codes.filter((_, i) => i !== idx),
+        mfaFailCount: admin.firestore.FieldValue.delete(),
+        mfaLockUntil: admin.firestore.FieldValue.delete(),
+      });
+    });
+  } else {
+    await credRef.update({
+      mfaFailCount: admin.firestore.FieldValue.delete(),
+      mfaLockUntil: admin.firestore.FieldValue.delete(),
+    });
+  }
   const out = { success: true, verified: true };
   // For password reset: issue the same one-time reset token verifyPasswordResetOTP
   // mints, so an authenticator code can stand in for the email reset OTP.
@@ -627,7 +948,7 @@ exports.verifyMfaCode = functions.https.onCall(async (data) => {
  * strips any legacy `passwordHash` from the doc. Called by the client during
  * registration instead of writing `passwordHash` into Firestore directly.
  */
-exports.registerCredential = functions.https.onCall(async (data, context) => {
+exports.registerCredential = fns.https.onCall(async (data, context) => {
   const email = (data.email || "").trim().toLowerCase();
   const password = data.password || "";
   if (!email || !password) {
@@ -635,6 +956,17 @@ exports.registerCredential = functions.https.onCall(async (data, context) => {
   }
   if (password.length < 6) {
     throw new functions.https.HttpsError("invalid-argument", "Password must be at least 6 characters");
+  }
+  // Overwriting an EXISTING credential requires proof of ownership — a valid
+  // session for this email (the force-change flow has one right after loginUser).
+  // A brand-new account (no credential yet) may bootstrap. Closes the takeover
+  // where anyone could reset any account's password by email.
+  const _existing = await db.collection("credentials").doc(email).get();
+  if (_existing.exists) {
+    const _s = await _requireSession(data);
+    if (_s.email !== email) {
+      throw new functions.https.HttpsError("permission-denied", "Not authorized to change this account's password.");
+    }
   }
   await _writeCredential(email, password);
   // Best-effort: remove any legacy hash that may have been written to the doc.
@@ -653,7 +985,7 @@ exports.registerCredential = functions.https.onCall(async (data, context) => {
 
 // ─── Operator Updated: Audit trail for KYC status changes ───────────────────
 
-exports.onOperatorUpdated = functions.firestore
+exports.onOperatorUpdated = fns.firestore
   .document("companies/{companyId}/operators/{operatorId}")
   .onUpdate(async (change, context) => {
     const { companyId } = context.params;
@@ -715,6 +1047,14 @@ exports.onOperatorUpdated = functions.firestore
       });
     }
 
+    // Revoke live session tokens when access is removed (deactivated/archived) so
+    // a still-valid token can't outlive the change for the 30-day TTL.
+    if (after.email &&
+        ((before.isActive === true && after.isActive === false) ||
+         (before.isArchived !== true && after.isArchived === true))) {
+      await _revokeSessionsForEmail(after.email);
+    }
+
     // Log deactivation
     if (before.isActive === true && after.isActive === false) {
       await db.collection(`companies/${companyId}/auditLog`).add({
@@ -739,7 +1079,7 @@ exports.onOperatorUpdated = functions.firestore
             link: "/operators",
             operatorEmail: after.email || null,
             accent: "warn",
-            heading: "Your operator access was deactivated",
+            heading: "Access deactivated",
             intro: `Hi ${after.name || "there"}, your operator access on ${BRAND.name} has been deactivated, so you will no longer be able to sign in.`,
             note: `If you believe this is a mistake, contact your ${BRAND.name} administrator.`,
           }),
@@ -749,6 +1089,9 @@ exports.onOperatorUpdated = functions.firestore
 
     // Role / privilege change — notify the affected operator (security).
     if (before.role !== after.role && (after.email || after.phone)) {
+      // Revoke live tokens so a demoted admin can't keep ADMIN rights on a token
+      // whose role was frozen at mint time; re-login mints one with the new role.
+      if (after.email) await _revokeSessionsForEmail(after.email);
       await db.collection(`companies/${companyId}/auditLog`).add({
         event: "operatorRoleChanged",
         description: `Role for ${after.name || after.email} changed: ${before.role || "none"} → ${after.role || "none"}`,
@@ -767,7 +1110,7 @@ exports.onOperatorUpdated = functions.firestore
           link: "/operators",
           operatorEmail: after.email || null,
           accent: "warn",
-          heading: "Your access level changed",
+          heading: "Access level changed",
           intro: `Your role on ${BRAND.name} was changed to "${after.role || "none"}". Your permissions may be different now.`,
           note: "If you didn't expect this change, contact your administrator.",
         }),
@@ -776,7 +1119,7 @@ exports.onOperatorUpdated = functions.firestore
   });
 
 // ─── Operator deleted: clean up the Auth account + notify ───────────────────
-exports.onOperatorDeleted = functions.firestore
+exports.onOperatorDeleted = fns.firestore
   .document("companies/{companyId}/operators/{operatorId}")
   .onDelete(async (snap, context) => {
     const { companyId } = context.params;
@@ -792,6 +1135,20 @@ exports.onOperatorDeleted = functions.firestore
       }
     } catch (e) {
       console.warn("operator auth cleanup failed:", e.message);
+    }
+    // Revoke any live server-issued session tokens so a deleted operator can't
+    // keep calling session-guarded APIs until the 30-day TTL expires.
+    if (op.email) await _revokeSessionsForEmail(op.email);
+    // Remove the operator's enrolled face frames from Storage — otherwise they
+    // orphan forever. Cover BOTH key schemes: storeFaceFrames writes under the
+    // operatorId, the legacy enrollOperatorFace writes under the email.
+    try {
+      await bucket.deleteFiles({ prefix: `face-enrollment/${companyId}/${context.params.operatorId}/` });
+      if (op.email) {
+        await bucket.deleteFiles({ prefix: `face-enrollment/${companyId}/${op.email}/` });
+      }
+    } catch (e) {
+      console.warn("operator face-frame cleanup failed:", e.message);
     }
     await db.collection(`companies/${companyId}/auditLog`).add({
       event: "operatorDeleted",
@@ -817,7 +1174,7 @@ exports.onOperatorDeleted = functions.firestore
         notif: ({
           category: "account",
           accent: "warn",
-          heading: "Your account was removed",
+          heading: "Account removed",
           intro: `Your operator account on ${BRAND.name} has been permanently removed, so you no longer have access.`,
           note: "If you believe this is a mistake, contact your administrator.",
         }),
@@ -825,8 +1182,35 @@ exports.onOperatorDeleted = functions.firestore
     }
   });
 
+// ─── Company deleted: purge its Storage (face frames + KYC photo) ───────────
+// Firestore doc deletion leaves Storage untouched, so without this a deleted
+// company strands every operator's face frames plus its Aadhaar/KYC photo.
+exports.onCompanyDeleted = fns.firestore
+  .document("companies/{companyId}")
+  .onDelete(async (snap, context) => {
+    const { companyId } = context.params;
+    const c = snap.data() || {};
+    // All face-enrollment frames for the company (every operator, both schemes).
+    try {
+      await bucket.deleteFiles({ prefix: `face-enrollment/${companyId}/` });
+    } catch (e) {
+      console.warn("company face-frame cleanup failed:", e.message);
+    }
+    // The company's KYC photo lives at kyc/{reference}/… — derive the reference
+    // from the stored verifiedPhotoUrl ( …/o/<urlencoded path>?… ).
+    try {
+      const m = String(c.verifiedPhotoUrl || "").match(/\/o\/([^?]+)/);
+      if (m) {
+        const ref = decodeURIComponent(m[1]).split("/")[1];
+        if (ref) await bucket.deleteFiles({ prefix: `kyc/${ref}/` });
+      }
+    } catch (e) {
+      console.warn("company kyc cleanup failed:", e.message);
+    }
+  });
+
 // ─── Weighbridge created: alert when the plan limit is reached ──────────────
-exports.onWeighbridgeCreated = functions.firestore
+exports.onWeighbridgeCreated = fns.firestore
   .document("companies/{companyId}/sites/{siteId}/weighbridges/{weighbridgeId}")
   .onCreate(async (snap, context) => {
     const { companyId } = context.params;
@@ -855,7 +1239,7 @@ exports.onWeighbridgeCreated = functions.firestore
             category: "billing",
             link: "/settings/license",
             accent: "warn",
-            heading: "You've reached your weighbridge limit",
+            heading: "Weighbridge limit reached",
             intro: `Your ${BRAND.name} plan allows ${max} weighbridge${max === 1 ? "" : "s"} and you've now reached that limit. Upgrade your plan to add more.`,
             rows: [["Plan limit", String(max)], ["In use", String(count)]],
             ctaText: "Upgrade plan",
@@ -872,7 +1256,7 @@ exports.onWeighbridgeCreated = functions.firestore
 
 // ─── Security Settings Changed: Audit + Emergency Lockdown ──────────────────
 
-exports.onSecuritySettingsChanged = functions.firestore
+exports.onSecuritySettingsChanged = fns.firestore
   .document("companies/{companyId}/settings/security")
   .onUpdate(async (change, context) => {
     const { companyId } = context.params;
@@ -922,7 +1306,7 @@ exports.onSecuritySettingsChanged = functions.firestore
 
 // ─── Scheduled: Audit Log Cleanup ───────────────────────────────────────────
 
-exports.cleanupAuditLogs = functions.pubsub
+exports.cleanupAuditLogs = fns.pubsub
   .schedule("every 24 hours")
   .onRun(async () => {
     const retentionDays = 365;
@@ -953,7 +1337,7 @@ exports.cleanupAuditLogs = functions.pubsub
 
 // ─── Scheduled: Password Expiry Check ───────────────────────────────────────
 
-exports.checkPasswordExpiry = functions.pubsub
+exports.checkPasswordExpiry = fns.pubsub
   .schedule("every 24 hours")
   .onRun(async () => {
     const expiryDays = 90;
@@ -994,7 +1378,7 @@ exports.checkPasswordExpiry = functions.pubsub
             link: "/settings/mfa",
             operatorEmail: o.email,
             accent: "warn",
-            heading: "Your password has expired",
+            heading: "Password expired",
             intro: `Your ${BRAND.name} password is more than ${expiryDays} days old. You'll be asked to set a new one at your next sign-in.`,
             note: "Choosing a fresh password regularly keeps your account secure.",
           }),
@@ -1007,7 +1391,7 @@ exports.checkPasswordExpiry = functions.pubsub
 
 // ─── Scheduled: Inactive Operator Deactivation ──────────────────────────────
 
-exports.deactivateInactiveOperators = functions.pubsub
+exports.deactivateInactiveOperators = fns.pubsub
   .schedule("every 168 hours")
   .timeZone("Asia/Kolkata")
   .onRun(async () => {
@@ -1025,6 +1409,15 @@ exports.deactivateInactiveOperators = functions.pubsub
     operators.docs.forEach((doc) => {
       const data = doc.data();
       const lastLogin = data.lastLoginAt;
+
+      // Never auto-deactivate a company owner/admin. With the live-session
+      // re-check, isActive:false on the admin's own mirror doc would reject every
+      // guarded callable (and delete the session) with no in-app reactivation path
+      // — the activate toggle is hidden for admin operators — hard-locking them out.
+      if (data.role === "companyAdmin" || data.role === "admin"
+        || data.isCompanyAdmin === true || data.isAdmin === true) {
+        return;
+      }
 
       if (lastLogin && lastLogin.toDate() < cutoff) {
         batch.update(doc.ref, { isActive: false });
@@ -1053,28 +1446,16 @@ exports.deactivateInactiveOperators = functions.pubsub
 
 // ─── HTTP: Admin endpoint to bulk update operator shifts ────────────────────
 
-exports.bulkUpdateShifts = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
-  }
-
-  // Verify caller is admin via Custom Claims (cannot be self-modified)
-  if (context.auth.token.admin !== true) {
-    const callerSnap = await db.collectionGroup("operators")
-      .where("email", "==", context.auth.token.email)
-      .limit(1)
-      .get();
-
-    if (!callerSnap.empty) {
-      throw new functions.https.HttpsError("permission-denied", "Admin access required");
-    }
-  }
-
+exports.bulkUpdateShifts = fns.https.onCall(async (data, context) => {
   const { companyId, operatorIds, shiftStart, shiftEnd, shiftDays, shiftRestricted } = data;
 
   if (!companyId || !operatorIds || !Array.isArray(operatorIds)) {
     throw new functions.https.HttpsError("invalid-argument", "companyId and operatorIds array required");
   }
+
+  // Authorize via the server-issued session token — caller must be an admin of
+  // THIS company. Replaces the dead `token.admin` custom-claim check.
+  await _requireAdminSession(data, companyId);
 
   const batch = db.batch();
   for (const id of operatorIds) {
@@ -1093,27 +1474,15 @@ exports.bulkUpdateShifts = functions.https.onCall(async (data, context) => {
 
 // ─── HTTP: Reset operator password flag ─────────────────────────────────────
 
-exports.forcePasswordReset = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
-  }
-
-  // Verify caller is admin via Custom Claims
-  if (context.auth.token.admin !== true) {
-    const callerSnap = await db.collectionGroup("operators")
-      .where("email", "==", context.auth.token.email)
-      .limit(1)
-      .get();
-
-    if (!callerSnap.empty) {
-      throw new functions.https.HttpsError("permission-denied", "Admin access required");
-    }
-  }
-
+exports.forcePasswordReset = fns.https.onCall(async (data, context) => {
   const { companyId, operatorId } = data;
   if (!companyId || !operatorId) {
     throw new functions.https.HttpsError("invalid-argument", "companyId and operatorId required");
   }
+
+  // Authorize via the server-issued session token — caller must be an admin of
+  // THIS company. Replaces the dead `token.admin` custom-claim check.
+  const _as = await _requireAdminSession(data, companyId);
 
   await db.collection(`companies/${companyId}/operators`).doc(operatorId).update({
     mustChangePassword: true,
@@ -1122,7 +1491,7 @@ exports.forcePasswordReset = functions.https.onCall(async (data, context) => {
   await db.collection(`companies/${companyId}/auditLog`).add({
     event: "passwordReset",
     description: `Password reset forced for operator ${operatorId}`,
-    user: context.auth.token.email || "admin",
+    user: _as.email || "admin",
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
     success: true,
   });
@@ -1157,7 +1526,13 @@ exports.forcePasswordReset = functions.https.onCall(async (data, context) => {
 
 // ─── Trigger: Login audit — update operator lastLoginAt + security alerts ───
 
-exports.onAuditLogCreated = functions.firestore
+// Firestore doc-id-safe key for a user identifier (emails can't contain "/" but
+// guard anyway so a malformed `user` value can't escape the collection).
+function _alertDocId(user) {
+  return String(user || "unknown").replace(/[/\\#?]/g, "_").slice(0, 256);
+}
+
+exports.onAuditLogCreated = fns.firestore
   .document("companies/{companyId}/auditLog/{logId}")
   .onCreate(async (snap, context) => {
     const { companyId } = context.params;
@@ -1181,8 +1556,23 @@ exports.onAuditLogCreated = functions.firestore
       }
     }
 
-    // Failed login alert — notify admin after 3 consecutive failures from same user
-    if (data.event === "login" && !data.success && data.user) {
+    // A successful login clears the per-user failed-login alert cooldown so the
+    // next genuine streak can alert again.
+    if (data.event === "login" && data.success && data.user && data.user !== "unknown") {
+      await db.doc(`companies/${companyId}/login_alert_state/${_alertDocId(data.user)}`)
+        .delete().catch(() => {});
+    }
+
+    // Failed login alert — notify admin only on 3 ACTUALLY-CONSECUTIVE failures
+    // from the same user, and at most once per cooldown window (avoid spamming
+    // the free in-app channel on every subsequent failure).
+    if (data.event === "login" && !data.success && data.user && data.user !== "unknown") {
+      // Two queries that both fit the EXISTING (event,user,success,timestamp)
+      // index — no new composite index needed:
+      //  1) the user's last 3 FAILURES,
+      //  2) whether a SUCCESS landed after the oldest of those 3.
+      // A success newer than the oldest failure breaks the streak, so only an
+      // unbroken run of 3 failures counts as "consecutive".
       const recentFails = await db.collection(`companies/${companyId}/auditLog`)
         .where("event", "==", "login")
         .where("user", "==", data.user)
@@ -1190,13 +1580,42 @@ exports.onAuditLogCreated = functions.firestore
         .orderBy("timestamp", "descending")
         .limit(3)
         .get();
+      let consecutiveFails = recentFails.docs.length >= 3;
+      if (consecutiveFails) {
+        const oldestFailTs = recentFails.docs[recentFails.docs.length - 1].data().timestamp;
+        if (oldestFailTs) {
+          const interveningSuccess = await db.collection(`companies/${companyId}/auditLog`)
+            .where("event", "==", "login")
+            .where("user", "==", data.user)
+            .where("success", "==", true)
+            .where("timestamp", ">", oldestFailTs)
+            .orderBy("timestamp", "descending")
+            .limit(1)
+            .get();
+          if (!interveningSuccess.empty) consecutiveFails = false;
+        }
+      }
 
-      if (recentFails.docs.length >= 3) {
-        await sendAdminNotification(
-          "Security Alert: Repeated Failed Logins",
-          `${data.user} has ${recentFails.docs.length}+ consecutive failed login attempts from ${data.machine || data.ip || "unknown machine"}.`,
-          { companyId, sms: { template: "securityAlert", vars: ["repeated failed logins"] } }
-        );
+      if (consecutiveFails) {
+        // Per-user cooldown so we alert once per streak, not on every failure.
+        const ALERT_COOLDOWN_MS = 15 * 60 * 1000;
+        const stateRef = db.doc(`companies/${companyId}/login_alert_state/${_alertDocId(data.user)}`);
+        const shouldAlert = await db.runTransaction(async (tx) => {
+          const st = await tx.get(stateRef);
+          const lastMs = (st.exists && st.data().lastAlertAt && st.data().lastAlertAt.toMillis)
+            ? st.data().lastAlertAt.toMillis() : 0;
+          if (Date.now() - lastMs < ALERT_COOLDOWN_MS) return false;
+          tx.set(stateRef, { lastAlertAt: admin.firestore.FieldValue.serverTimestamp(), user: data.user });
+          return true;
+        }).catch(() => false);
+
+        if (shouldAlert) {
+          await sendAdminNotification(
+            "Security Alert: Repeated Failed Logins",
+            `${data.user} has 3+ consecutive failed login attempts from ${data.machine || data.ip || "unknown machine"}.`,
+            { companyId, sms: { template: "securityAlert", vars: ["repeated failed logins"] } }
+          );
+        }
       }
     }
 
@@ -1212,7 +1631,7 @@ exports.onAuditLogCreated = functions.firestore
 
 // ─── Trigger: Security settings — notify on critical changes ────────────────
 
-exports.onSecurityCriticalChange = functions.firestore
+exports.onSecurityCriticalChange = fns.firestore
   .document("companies/{companyId}/settings/security")
   .onUpdate(async (change, context) => {
     const { companyId } = context.params;
@@ -1253,7 +1672,7 @@ exports.onSecurityCriticalChange = functions.firestore
 
 // ─── Gate Settings Changed: Audit trail ────────────────────────────────────────
 
-exports.onGateSettingsChanged = functions.firestore
+exports.onGateSettingsChanged = fns.firestore
   .document("companies/{companyId}/sites/{siteId}/weighbridges/{weighbridgeId}/settings/gateControl")
   .onUpdate(async (change, context) => {
     const { companyId } = context.params;
@@ -1307,7 +1726,7 @@ exports.onGateSettingsChanged = functions.firestore
 
 // ─── Gate Event Logging ────────────────────────────────────────────────────────
 
-exports.logGateEvent = functions.https.onCall(async (data, context) => {
+exports.logGateEvent = fns.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
   }
@@ -1360,27 +1779,18 @@ exports.logGateEvent = functions.https.onCall(async (data, context) => {
 
 // ─── Remote Gate Trigger (cloud-initiated open/close) ─────────────────────────
 
-exports.triggerGate = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
-  }
-
-  // Only admin can remotely trigger gates
-  if (context.auth.token.admin !== true) {
-    const callerSnap = await db.collectionGroup("operators")
-      .where("email", "==", context.auth.token.email)
-      .limit(1)
-      .get();
-
-    if (!callerSnap.empty) {
-      throw new functions.https.HttpsError("permission-denied", "Admin access required for remote gate control");
-    }
-  }
-
+exports.triggerGate = fns.https.onCall(async (data, context) => {
   const { companyId, siteId, weighbridgeId, gateId, action } = data;
 
   if (!companyId || !siteId || !weighbridgeId) {
     throw new functions.https.HttpsError("invalid-argument", "companyId, siteId, and weighbridgeId required");
+  }
+  // Caller must hold a valid session for THIS company (any role — operators
+  // trigger gates). Replaces the old dead `context.auth.token.admin` check that
+  // never denied anyone under anonymous auth.
+  const _gs = await _requireSession(data);
+  if (_gs.companyId !== companyId) {
+    throw new functions.https.HttpsError("permission-denied", "Not authorized for this company.");
   }
   if (!gateId || !["entry", "exit"].includes(gateId)) {
     throw new functions.https.HttpsError("invalid-argument", "gateId must be 'entry' or 'exit'");
@@ -1454,7 +1864,7 @@ exports.triggerGate = functions.https.onCall(async (data, context) => {
 
 // ─── RFID Tag Validation ──────────────────────────────────────────────────────
 
-exports.validateRfidTag = functions.https.onCall(async (data, context) => {
+exports.validateRfidTag = fns.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
   }
@@ -1497,7 +1907,7 @@ exports.validateRfidTag = functions.https.onCall(async (data, context) => {
     if (await _alertSmsAllowed(companyId, "unknownRfid")) {
       await _writeInApp({
         companyId, category: "security", severity: "warn", link: "/settings/gate-control",
-        title: "Unregistered vehicle at gate",
+        title: "Unknown vehicle at gate",
         body: `An unregistered RFID tag (${tagId}) was scanned at ${gateId || "the"} gate. If it's a known vehicle, register its tag — otherwise it may be an unauthorized entry attempt.`,
       }).catch((e) => console.warn("unknown-rfid alert failed:", e.message));
     }
@@ -1552,26 +1962,16 @@ exports.validateRfidTag = functions.https.onCall(async (data, context) => {
 
 // ─── RFID Tag Registration ────────────────────────────────────────────────────
 
-exports.registerRfidTag = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
-  }
-
-  if (context.auth.token.admin !== true) {
-    const callerSnap = await db.collectionGroup("operators")
-      .where("email", "==", context.auth.token.email)
-      .limit(1)
-      .get();
-    if (!callerSnap.empty) {
-      throw new functions.https.HttpsError("permission-denied", "Admin access required");
-    }
-  }
-
+exports.registerRfidTag = fns.https.onCall(async (data, context) => {
   const { companyId, vehicleId, tagId } = data;
 
   if (!companyId || !vehicleId || !tagId) {
     throw new functions.https.HttpsError("invalid-argument", "companyId, vehicleId, and tagId are required");
   }
+
+  // Authorize via the server-issued session token — caller must be an admin of
+  // THIS company. Replaces the dead `token.admin` custom-claim check.
+  const _as = await _requireAdminSession(data, companyId);
 
   // Check tag not already assigned
   const existing = await db.collection(`companies/${companyId}/vehicles`)
@@ -1594,7 +1994,7 @@ exports.registerRfidTag = functions.https.onCall(async (data, context) => {
   await db.collection(`companies/${companyId}/auditLog`).add({
     event: "rfidRegistration",
     description: `RFID tag ${tagId} registered to vehicle ${vehicleId}`,
-    user: context.auth.token.email || "admin",
+    user: _as.email || "admin",
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
     success: true,
     metadata: { vehicleId, tagId },
@@ -1605,7 +2005,7 @@ exports.registerRfidTag = functions.https.onCall(async (data, context) => {
 
 // ─── Gate Event Cleanup (older than 30 days) ──────────────────────────────────
 
-exports.cleanupGateEvents = functions.pubsub
+exports.cleanupGateEvents = fns.pubsub
   .schedule("every 24 hours")
   .onRun(async () => {
     const cutoff = new Date();
@@ -1635,7 +2035,7 @@ exports.cleanupGateEvents = functions.pubsub
 
 // ─── Gate Command Watcher: Clean up stale commands ────────────────────────────
 
-exports.cleanupStaleGateCommands = functions.pubsub
+exports.cleanupStaleGateCommands = fns.pubsub
   .schedule("every 1 hours")
   .onRun(async () => {
     const cutoff = new Date();
@@ -1666,7 +2066,7 @@ exports.cleanupStaleGateCommands = functions.pubsub
 
 // ─── Gate Status Endpoint (for dashboard/monitoring) ──────────────────────────
 
-exports.getGateStatus = functions.https.onCall(async (data, context) => {
+exports.getGateStatus = fns.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
   }
@@ -1856,7 +2256,7 @@ async function sendAdminNotification(title, body, opts = {}) {
 
 // ─── Weighment Created: RST counter, customer stats, audit ──────────────────
 
-exports.onWeighmentCreated = functions.firestore
+exports.onWeighmentCreated = fns.firestore
   .document("companies/{companyId}/sites/{siteId}/weighbridges/{weighbridgeId}/weighments/{weighmentId}")
   .onCreate(async (snap, context) => {
     const { companyId, siteId, weighbridgeId } = context.params;
@@ -1925,7 +2325,7 @@ exports.onWeighmentCreated = functions.firestore
 
 // ─── Weighment Updated: Status changes, customer transfer, face sync ────────
 
-exports.onWeighmentUpdated = functions.firestore
+exports.onWeighmentUpdated = fns.firestore
   .document("companies/{companyId}/sites/{siteId}/weighbridges/{weighbridgeId}/weighments/{weighmentId}")
   .onUpdate(async (change, context) => {
     const { companyId } = context.params;
@@ -2096,7 +2496,7 @@ exports.onWeighmentUpdated = functions.firestore
 
 // ─── Weighment Deleted: Decrement customer stats ────────────────────────────
 
-exports.onWeighmentDeleted = functions.firestore
+exports.onWeighmentDeleted = fns.firestore
   .document("companies/{companyId}/sites/{siteId}/weighbridges/{weighbridgeId}/weighments/{weighmentId}")
   .onDelete(async (snap, context) => {
     const { companyId } = context.params;
@@ -2139,7 +2539,7 @@ exports.onWeighmentDeleted = functions.firestore
 
 // ─── Customer Created: Set defaults ─────────────────────────────────────────
 
-exports.onCustomerCreated = functions.firestore
+exports.onCustomerCreated = fns.firestore
   .document("companies/{companyId}/customers/{customerId}")
   .onCreate(async (snap, context) => {
     const { companyId } = context.params;
@@ -2170,7 +2570,7 @@ exports.onCustomerCreated = functions.firestore
 
 // ─── Customer Deleted (moved to recycle bin): Audit ─────────────────────────
 
-exports.onCustomerArchived = functions.firestore
+exports.onCustomerArchived = fns.firestore
   .document("companies/{companyId}/customers_deleted/{customerId}")
   .onCreate(async (snap, context) => {
     const { companyId } = context.params;
@@ -2193,7 +2593,7 @@ exports.onCustomerArchived = functions.firestore
 
 // ─── Customer Restored from recycle bin: Audit ──────────────────────────────
 
-exports.onCustomerRestoredFromBin = functions.firestore
+exports.onCustomerRestoredFromBin = fns.firestore
   .document("companies/{companyId}/customers_deleted/{customerId}")
   .onDelete(async (snap, context) => {
     const { companyId } = context.params;
@@ -2218,7 +2618,7 @@ exports.onCustomerRestoredFromBin = functions.firestore
 
 // ─── Customer Merge: Audit ──────────────────────────────────────────────────
 
-exports.onCustomerMergeCreated = functions.firestore
+exports.onCustomerMergeCreated = fns.firestore
   .document("companies/{companyId}/customer_merges/{mergeId}")
   .onCreate(async (snap, context) => {
     const { companyId } = context.params;
@@ -2243,7 +2643,7 @@ exports.onCustomerMergeCreated = functions.firestore
 
 // ─── Customer Merge Reverted: Audit ─────────────────────────────────────────
 
-exports.onCustomerMergeUpdated = functions.firestore
+exports.onCustomerMergeUpdated = fns.firestore
   .document("companies/{companyId}/customer_merges/{mergeId}")
   .onUpdate(async (change, context) => {
     const { companyId } = context.params;
@@ -2268,7 +2668,7 @@ exports.onCustomerMergeUpdated = functions.firestore
 
 // ─── Customer Updated: Track name/phone changes ─────────────────────────────
 
-exports.onCustomerUpdated = functions.firestore
+exports.onCustomerUpdated = fns.firestore
   .document("companies/{companyId}/customers/{customerId}")
   .onUpdate(async (change, context) => {
     const { companyId } = context.params;
@@ -2300,7 +2700,7 @@ exports.onCustomerUpdated = functions.firestore
   });
 
 // ─── Vehicle blacklist toggle: audit + admin alert (security) ───────────────
-exports.onVehicleUpdated = functions.firestore
+exports.onVehicleUpdated = fns.firestore
   .document("companies/{companyId}/vehicles/{vehicleId}")
   .onUpdate(async (change, context) => {
     const { companyId } = context.params;
@@ -2334,7 +2734,7 @@ exports.onVehicleUpdated = functions.firestore
 // ─── Operator Archive/Restore + Face Enrollment audit ───────────────────────
 // (extends existing onOperatorUpdated)
 
-exports.onOperatorLifecycle = functions.firestore
+exports.onOperatorLifecycle = fns.firestore
   .document("companies/{companyId}/operators/{operatorId}")
   .onUpdate(async (change, context) => {
     const { companyId } = context.params;
@@ -2366,7 +2766,7 @@ exports.onOperatorLifecycle = functions.firestore
             link: "/operators",
             operatorEmail: after.email || null,
             accent: "warn",
-            heading: "Your operator access was removed",
+            heading: "Access removed",
             intro: `Hi ${after.name || "there"}, your operator account on ${BRAND.name} has been archived, so you can no longer sign in.`,
             note: `If you believe this is a mistake, contact your ${BRAND.name} administrator.`,
           }),
@@ -2416,7 +2816,7 @@ exports.onOperatorLifecycle = functions.firestore
 // DATA MIGRATION: Flat → Multi-Site Hierarchy
 // ═══════════════════════════════════════════════════════════════════════════════
 
-exports.migrateToHierarchy = functions.https.onCall(async (data, context) => {
+exports.migrateToHierarchy = fns.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
   }
@@ -2535,10 +2935,13 @@ function generateKey() {
 
 // ─── Generate License Key (admin only) ─────────────────────────────────────
 
-exports.generateLicenseKey = functions.https.onCall(async (data, context) => {
+exports.generateLicenseKey = fns.https.onCall(async (data, context) => {
   const { tier, maxWeighbridges, maxSites, features, adminSecret } = data;
 
-  if (adminSecret !== "wb_admin_2026") {
+  // Secret lives in the server env (LICENSE_ADMIN_SECRET), never hardcoded in
+  // source. Fail closed if unset so a misconfig can't mint licences openly.
+  const expected = process.env.LICENSE_ADMIN_SECRET;
+  if (!expected || adminSecret !== expected) {
     throw new functions.https.HttpsError("permission-denied", "Invalid admin secret");
   }
 
@@ -2590,7 +2993,7 @@ async function _sendLicenseActivatedNotice(companyId, tier, maxWeighbridges, exp
     notif: ({
       category: "licence",
       link: "/settings/license",
-      heading: "Your plan is active",
+      heading: "Plan active",
       intro: `Your ${BRAND.name} license has been activated — you're all set to run your weighbridge operations.`,
       rows: [["Plan", planLabel], ["Weighbridges", wbLabel], ["Valid until", validLabel]],
       note: `Manage your subscription anytime at ${BRAND.website}.`,
@@ -2600,7 +3003,7 @@ async function _sendLicenseActivatedNotice(companyId, tier, maxWeighbridges, exp
 
 // Client-triggered activation confirmation for trial/free (those activate
 // directly in Firestore, with no activateLicense call to hook server-side).
-exports.notifyLicenseActivated = functions.https.onCall(async (data, context) => {
+exports.notifyLicenseActivated = fns.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
   const companyId = data && data.companyId ? String(data.companyId) : "";
   if (!companyId) return { success: false };
@@ -2612,7 +3015,7 @@ exports.notifyLicenseActivated = functions.https.onCall(async (data, context) =>
   return { success: true };
 });
 
-exports.activateLicense = functions.https.onCall(async (data, context) => {
+exports.activateLicense = fns.https.onCall(async (data, context) => {
   const { licenseKey, gstin, companyId, deviceFingerprint } = data;
 
   if (!licenseKey || !gstin || !companyId || !deviceFingerprint) {
@@ -2710,7 +3113,7 @@ exports.activateLicense = functions.https.onCall(async (data, context) => {
 
 // ─── Validate License ──────────────────────────────────────────────────────
 
-exports.validateLicense = functions.https.onCall(async (data, context) => {
+exports.validateLicense = fns.https.onCall(async (data, context) => {
   const { licenseKey, companyId, deviceFingerprint } = data;
 
   if (!companyId) {
@@ -2791,7 +3194,7 @@ exports.validateLicense = functions.https.onCall(async (data, context) => {
 
 // ─── Check Expired Licenses (daily scheduled) ──────────────────────────────
 
-exports.checkExpiredLicenses = functions.pubsub
+exports.checkExpiredLicenses = fns.pubsub
   .schedule("every 24 hours")
   .onRun(async () => {
     const now = admin.firestore.Timestamp.now();
@@ -2826,7 +3229,7 @@ exports.checkExpiredLicenses = functions.pubsub
           category: "licence",
           link: "/settings/license",
           accent: "warn",
-          heading: "Your subscription has expired",
+          heading: "Subscription expired",
           intro: `Your ${BRAND.name} subscription has expired. Renew now to restore full access to your weighbridge operations.`,
           ctaText: "Renew subscription",
           ctaUrl: `https://${BRAND.website}/billing`,
@@ -2838,7 +3241,7 @@ exports.checkExpiredLicenses = functions.pubsub
   });
 
 // ─── Scheduled: subscription expiry reminders (7 / 3 / 1 days out) ───────────
-exports.licenseExpiryReminders = functions.pubsub
+exports.licenseExpiryReminders = fns.pubsub
   .schedule("every 24 hours")
   .timeZone("Asia/Kolkata")
   .onRun(async () => {
@@ -2866,7 +3269,7 @@ exports.licenseExpiryReminders = functions.pubsub
           category: "licence",
           link: "/settings/license",
           accent: "warn",
-          heading: "Your subscription is expiring",
+          heading: "Subscription expiring",
           intro: `Your ${BRAND.name} subscription expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"}. Renew to avoid interruption to weighbridge operations.`,
           rows: [["Expires in", `${daysLeft} day${daysLeft === 1 ? "" : "s"}`]],
           ctaText: "Renew subscription",
@@ -2880,7 +3283,7 @@ exports.licenseExpiryReminders = functions.pubsub
   });
 
 // ─── Scheduled: address-verification grace reminders (7 / 3 / 1 days out) ────
-exports.addressGraceReminders = functions.pubsub
+exports.addressGraceReminders = fns.pubsub
   .schedule("every 24 hours")
   .timeZone("Asia/Kolkata")
   .onRun(async () => {
@@ -2907,7 +3310,7 @@ exports.addressGraceReminders = functions.pubsub
           category: "account",
           link: "/address-verify",
           accent: "warn",
-          heading: "Verify your business address",
+          heading: "Verify business address",
           intro: `To keep your ${BRAND.name} account active, enter the verification code from the letter we mailed to your registered address. You have ${daysLeft} day${daysLeft === 1 ? "" : "s"} left.`,
           rows: [["Time left", `${daysLeft} day${daysLeft === 1 ? "" : "s"}`]],
           note: `Didn't receive the letter? Contact ${BRAND.support} for a reissue.`,
@@ -2925,8 +3328,9 @@ const nodemailer = require("nodemailer");
 
 function generateOTP() {
   // Length is driven by OTP_LENGTH (defined below; evaluated at call time).
+  // Use a CSPRNG — Math.random() is not cryptographically secure for OTPs.
   const min = Math.pow(10, OTP_LENGTH - 1);
-  return Math.floor(min + Math.random() * (min * 9)).toString();
+  return require("crypto").randomInt(min, min * 10).toString();
 }
 
 function getMailTransporter() {
@@ -3082,6 +3486,60 @@ async function _sendBrandEmail(toEmail, subject, html) {
   }
 }
 
+// ─── Scheduled: daily client-error digest ────────────────────────────────────
+// Summarises the last 24h of `error_reports` (the client crash/error log) and
+// emails it, so production app bugs surface without watching the console. Also
+// prunes reports older than 30 days. Recipient: ERROR_DIGEST_TO env, else support.
+exports.errorReportDigest = fns.pubsub
+  .schedule("every day 08:00")
+  .timeZone("Asia/Kolkata")
+  .onRun(async () => {
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c]));
+    const now = Date.now();
+    const since = admin.firestore.Timestamp.fromMillis(now - 24 * 60 * 60 * 1000);
+    const snap = await db.collection("error_reports").where("createdAt", ">=", since).get();
+
+    if (!snap.empty) {
+      const groups = new Map(); // message -> { count, versions, platforms }
+      snap.forEach((d) => {
+        const e = d.data();
+        const key = (e.message || "unknown").slice(0, 160);
+        const g = groups.get(key) || { count: 0, versions: new Set(), platforms: new Set() };
+        g.count++;
+        if (e.version) g.versions.add(e.version);
+        if (e.platform) g.platforms.add(e.platform);
+        groups.set(key, g);
+      });
+      const rows = [...groups.entries()]
+        .sort((a, b) => b[1].count - a[1].count)
+        .map(([msg, g]) => `<tr>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee;font-weight:700;color:#b00020">${g.count}&times;</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee">
+            <div style="font-family:monospace;font-size:12px;color:#222">${esc(msg)}</div>
+            <div style="font-size:11px;color:#777">${[...g.platforms].join(", ")} &middot; ${[...g.versions].join(", ")}</div>
+          </td></tr>`).join("");
+      const html = `<h2 style="font-family:sans-serif">${BRAND.name} — client errors (last 24h)</h2>
+        <p style="font-family:sans-serif;color:#555">${snap.size} report(s), ${groups.size} distinct. Full detail in Firestore &rarr; error_reports.</p>
+        <table style="border-collapse:collapse;width:100%;max-width:680px;font-family:sans-serif">${rows}</table>`;
+      await _sendBrandEmail(process.env.ERROR_DIGEST_TO || BRAND.support,
+        `${BRAND.name}: ${snap.size} client error(s) in the last 24h`, html);
+    }
+
+    // Retention: drop reports older than 30 days (batched).
+    try {
+      const old = await db.collection("error_reports")
+        .where("createdAt", "<", admin.firestore.Timestamp.fromMillis(now - 30 * 24 * 60 * 60 * 1000))
+        .limit(400).get();
+      if (!old.empty) {
+        const batch = db.batch();
+        old.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+    } catch (e) { console.warn("error_reports prune failed:", e.message); }
+
+    return null;
+  });
+
 // ── Rendered email documents (inline image + PDF attachment) ─────────────────
 // Calls the isolated gen-2 renderEmailDoc over HTTP. Best-effort: returns null
 // on any failure so callers fall back to the plain buildBrandEmail HTML.
@@ -3157,7 +3615,9 @@ async function _sendRenderedEmail(toEmail, subject, opts) {
 // snapshot and customFields shapes are best-effort — verify against real docs.
 function _asImageUri(s) {
   if (!s || typeof s !== "string") return null;
-  if (s.startsWith("data:") || s.startsWith("http")) return s;
+  // Only data: URIs and https URLs — block plaintext http:// so a malicious
+  // photo URL can't make the renderer fetch internal/metadata endpoints (SSRF).
+  if (s.startsWith("data:") || s.startsWith("https://")) return s;
   return `data:image/jpeg;base64,${s}`;
 }
 async function _weighmentToReceiptData(companyId, w, ticket) {
@@ -3442,7 +3902,7 @@ async function _consumeQuota(companyId, kind, opts = {}) {
       await ref.set({ [`${kind}Warned`]: true }, { merge: true });
       await _writeInApp({
         companyId, category: "billing", severity: "warn", link: "/settings/license",
-        title: `${label} limit almost reached`,
+        title: `${label} limit near`,
         body: `${label} usage is ${used + 1} of ${cap} this month. Once the limit is hit, further ${things} are skipped — security alerts still send.`,
       });
     }
@@ -3518,7 +3978,7 @@ async function _notifyPasswordChanged(email) {
       link: "/settings/mfa",
       operatorEmail: addr,
       accent: "danger",
-      heading: "Your password was changed",
+      heading: "Password changed",
       intro: `The password for your ${BRAND.name} account (${addr}) was just changed. If this was you, no further action is needed.`,
       note: `If you did NOT do this, contact ${BRAND.support} immediately — your account may be at risk.`,
     }),
@@ -3548,7 +4008,7 @@ async function _enforceOtpCooldown(docId) {
  * sendEmailOTP - Sends a 6-digit OTP to the user's email.
  * Stores OTP hash in Firestore with 10-minute expiry.
  */
-exports.sendEmailOTP = functions.https.onCall(async (data, context) => {
+exports.sendEmailOTP = fns.https.onCall(async (data, context) => {
   const { email } = data;
   if (!email || !email.includes("@")) {
     throw new functions.https.HttpsError("invalid-argument", "Valid email required");
@@ -3602,7 +4062,7 @@ exports.sendEmailOTP = functions.https.onCall(async (data, context) => {
 /**
  * verifyEmailOTP - Verifies the 6-digit OTP for email.
  */
-exports.verifyEmailOTP = functions.https.onCall(async (data, context) => {
+exports.verifyEmailOTP = fns.https.onCall(async (data, context) => {
   const { email, otp } = data;
   if (!email || !otp) {
     throw new functions.https.HttpsError("invalid-argument", "Email and OTP required");
@@ -3680,7 +4140,7 @@ exports.verifyEmailOTP = functions.https.onCall(async (data, context) => {
 /**
  * sendPhoneOTP - Sends a 6-digit OTP via FAST2SMS (DLT route).
  */
-exports.sendPhoneOTP = functions.https.onCall(async (data, context) => {
+exports.sendPhoneOTP = fns.https.onCall(async (data, context) => {
   const { phone } = data;
   if (!phone || phone.length < 10) {
     throw new functions.https.HttpsError("invalid-argument", "Valid phone number required");
@@ -3723,7 +4183,7 @@ exports.sendPhoneOTP = functions.https.onCall(async (data, context) => {
 /**
  * verifyPhoneOTP - Verifies the 6-digit OTP for phone.
  */
-exports.verifyPhoneOTP = functions.https.onCall(async (data, context) => {
+exports.verifyPhoneOTP = fns.https.onCall(async (data, context) => {
   const { phone, otp } = data;
   if (!phone || !otp) {
     throw new functions.https.HttpsError("invalid-argument", "Phone and OTP required");
@@ -3801,7 +4261,7 @@ exports.verifyPhoneOTP = functions.https.onCall(async (data, context) => {
  * verifyOTP - Verifies an OTP without performing any update action.
  * Used to confirm current email/phone ownership before allowing a change.
  */
-exports.verifyOTP = functions.https.onCall(async (data) => {
+exports.verifyOTP = fns.https.onCall(async (data) => {
   const { target, otp, type } = data;
 
   if (!target || !otp || !type) {
@@ -3854,12 +4314,13 @@ exports.verifyOTP = functions.https.onCall(async (data) => {
  * updateCompanyContact - Updates email or phone after OTP verification.
  * Propagates to: generalSettings, company doc, license record, operator record.
  */
-exports.updateCompanyContact = functions.https.onCall(async (data, context) => {
+exports.updateCompanyContact = fns.https.onCall(async (data, context) => {
   const { companyId, siteId, weighbridgeId, field, newValue, otp } = data;
 
   if (!companyId || !field || !newValue || !otp) {
     throw new functions.https.HttpsError("invalid-argument", "Missing required fields");
   }
+  await _requireAdminSession(data, companyId); // only an admin of this company may change its contact
 
   if (field !== "email" && field !== "phone") {
     throw new functions.https.HttpsError("invalid-argument", "Field must be 'email' or 'phone'");
@@ -3953,8 +4414,9 @@ exports.updateCompanyContact = functions.https.onCall(async (data, context) => {
 
   await batch.commit();
 
-  // Audit log
-  await db.collection(`companies/${companyId}/audit_log`).add({
+  // Audit log — use the canonical `auditLog` collection (the onAuditLogCreated
+  // trigger fires on `auditLog`; the old `audit_log` name was a dead write).
+  await db.collection(`companies/${companyId}/auditLog`).add({
     event: "contactUpdate",
     description: `Company ${field} updated to ${field === "email" ? newValue.toLowerCase() : newValue}`,
     user: context.auth?.token?.email || "system",
@@ -3973,7 +4435,7 @@ exports.updateCompanyContact = functions.https.onCall(async (data, context) => {
     link: "/profile",
     operatorEmail: oldData.email || newVal || null, // the account whose contact changed
     accent: "warn",
-    heading: `Your account ${label} was updated`,
+    heading: `Account ${label} updated`,
     intro: `Hi ${adminName}, the ${label} on your ${BRAND.name} account was just changed.`,
     rows: [["Updated field", label], ["New value", newVal]],
     note: `If you did not make this change, contact ${BRAND.support} immediately.`,
@@ -4001,7 +4463,7 @@ exports.updateCompanyContact = functions.https.onCall(async (data, context) => {
  * lookupGstin - Looks up GSTIN via public API and returns trade/legal name + status.
  * Used for owner confirmation and company name cross-validation.
  */
-exports.lookupGstin = functions.https.onCall(async (data, context) => {
+exports.lookupGstin = fns.https.onCall(async (data, context) => {
   const { gstin } = data;
 
   if (!gstin || gstin.length !== 15) {
@@ -4203,7 +4665,7 @@ exports.lookupGstin = functions.https.onCall(async (data, context) => {
  * The user provides an e-way bill they generated; we verify the supplier GSTIN matches.
  * Fallback: structural validation of e-way bill format + GSTIN cross-check.
  */
-exports.verifyGstinOwnership = functions.https.onCall(async (data, context) => {
+exports.verifyGstinOwnership = fns.https.onCall(async (data, context) => {
   const { gstin, ewayBillNo, companyId } = data;
 
   if (!gstin || gstin.length !== 15) {
@@ -4320,7 +4782,7 @@ exports.verifyGstinOwnership = functions.https.onCall(async (data, context) => {
 
 // ─── Migrate Free Tier Users to Trial ─────────────────────────────────────────
 
-exports.migrateFreeTierToTrial = functions.https.onCall(async (data, context) => {
+exports.migrateFreeTierToTrial = fns.https.onCall(async (data, context) => {
   const now = admin.firestore.Timestamp.now();
   const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
   const expiresAt = admin.firestore.Timestamp.fromMillis(now.toMillis() + thirtyDaysMs);
@@ -4400,7 +4862,7 @@ exports.migrateFreeTierToTrial = functions.https.onCall(async (data, context) =>
 const vision = require("@google-cloud/vision");
 const Jimp = require("jimp");
 
-exports.verifyDocument = functions.runWith({ timeoutSeconds: 60, memory: "512MB" }).https.onCall(async (data) => {
+exports.verifyDocument = fns.runWith({ timeoutSeconds: 60, memory: "512MB" }).https.onCall(async (data) => {
   const { imageBase64, documentType, expectedGstin, expectedPan } = data;
 
   if (!imageBase64 || !documentType) {
@@ -4644,7 +5106,7 @@ exports.verifyDocument = functions.runWith({ timeoutSeconds: 60, memory: "512MB"
  * Extracts name, verifies document type, compares name with operator's name.
  * Returns: extracted name, document number, match status, suggested name if mismatch.
  */
-exports.verifyOperatorId = functions.runWith({ timeoutSeconds: 90, memory: "512MB" }).https.onCall(async (data) => {
+exports.verifyOperatorId = fns.runWith({ timeoutSeconds: 90, memory: "512MB" }).https.onCall(async (data) => {
   const { images, imageBase64, documentType, operatorName, operatorId, companyId } = data;
 
   // Support both: `images` (array) and legacy `imageBase64` (single string)
@@ -5235,7 +5697,7 @@ exports.verifyOperatorId = functions.runWith({ timeoutSeconds: 90, memory: "512M
  * sendPasswordResetOTP - Looks up user by email, sends OTP to both email and phone.
  * Returns masked phone number so the client knows where SMS was sent.
  */
-exports.sendPasswordResetOTP = functions.https.onCall(async (data, context) => {
+exports.sendPasswordResetOTP = fns.https.onCall(async (data, context) => {
   const { email } = data;
   if (!email || !email.includes("@")) {
     throw new functions.https.HttpsError("invalid-argument", "Valid email required");
@@ -5248,6 +5710,7 @@ exports.sendPasswordResetOTP = functions.https.onCall(async (data, context) => {
   // Look up operator by email (try collectionGroup, fallback to top-level companies)
   let phone = null;
   let userName = "User";
+  let accountFound = false;
 
   try {
     const opSnap = await db.collectionGroup("operators")
@@ -5259,13 +5722,14 @@ exports.sendPasswordResetOTP = functions.https.onCall(async (data, context) => {
       const opData = opSnap.docs[0].data();
       phone = opData.phone || null;
       userName = opData.name || "Operator";
+      accountFound = true;
     }
   } catch (e) {
     console.warn("collectionGroup operators query failed:", e.message);
   }
 
   // If not found as operator, check company-level email
-  if (!phone && userName === "User") {
+  if (!accountFound) {
     try {
       const compSnap = await db.collection("companies")
         .where("email", "==", normalizedEmail)
@@ -5275,10 +5739,23 @@ exports.sendPasswordResetOTP = functions.https.onCall(async (data, context) => {
         const compData = compSnap.docs[0].data();
         phone = compData.phone || compData.contactPhone || null;
         userName = compData.contactName || compData.companyName || "Admin";
+        accountFound = true;
       }
     } catch (e) {
       console.warn("companies email lookup failed:", e.message);
     }
+  }
+
+  // Constant, non-enumerating response — never reveal whether an account exists
+  // (or whether it has a phone). Only do OTP work for a real account; otherwise
+  // return the same shape so an attacker can't distinguish registered emails.
+  const CONSTANT_RESPONSE = {
+    success: true,
+    emailSent: true,
+    message: `If an account exists for ${normalizedEmail}, a reset code has been sent.`,
+  };
+  if (!accountFound) {
+    return CONSTANT_RESPONSE;
   }
 
   // Generate OTP
@@ -5313,30 +5790,20 @@ exports.sendPasswordResetOTP = functions.https.onCall(async (data, context) => {
     console.warn("Password reset email send failed:", e.message);
   }
 
-  // Send OTP via SMS if phone is available
-  let phoneSent = false;
-  let maskedPhone = null;
+  // Send OTP via SMS if phone is available — but do NOT leak whether/where it
+  // was sent in the response (that would re-enable phone-presence enumeration).
   if (phone) {
     const digits = phone.replace(/\D/g, "").slice(-10);
     if (digits.length === 10) {
-      maskedPhone = `******${digits.slice(-4)}`;
       try {
-        phoneSent = await _sendOtpSms(digits, otp);
+        await _sendOtpSms(digits, otp);
       } catch (e) {
         console.warn("Password reset SMS send failed:", e.message);
       }
     }
   }
 
-  return {
-    success: true,
-    emailSent: true,
-    phoneSent,
-    maskedPhone,
-    message: phoneSent
-      ? `OTP sent to ${normalizedEmail} and ${maskedPhone}`
-      : `OTP sent to ${normalizedEmail}`,
-  };
+  return CONSTANT_RESPONSE;
 });
 
 /**
@@ -5361,7 +5828,7 @@ async function _mintPasswordResetToken(normalizedEmail) {
   return token;
 }
 
-exports.verifyPasswordResetOTP = functions.https.onCall(async (data, context) => {
+exports.verifyPasswordResetOTP = fns.https.onCall(async (data, context) => {
   const { email, otp } = data;
   if (!email || !otp) {
     throw new functions.https.HttpsError("invalid-argument", "Email and OTP required");
@@ -5414,7 +5881,7 @@ exports.verifyPasswordResetOTP = functions.https.onCall(async (data, context) =>
  * Uses Admin SDK so no reauthentication is required on client.
  * Caller must have already verified OTP via verifyPasswordResetOTP.
  */
-exports.resetUserPassword = functions.https.onCall(async (data, context) => {
+exports.resetUserPassword = fns.https.onCall(async (data, context) => {
   const { email, newPassword, verificationToken } = data;
 
   if (!newPassword) {
@@ -5535,7 +6002,7 @@ exports.resetUserPassword = functions.https.onCall(async (data, context) => {
 // For events that happen on the client (Firebase Auth password change / MFA,
 // local cloud-backup outcome) where there is no server-side trigger to hook.
 
-exports.notifyPasswordChanged = functions.https.onCall(async (data, context) => {
+exports.notifyPasswordChanged = fns.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
   const email = (context.auth.token.email || (data && data.email) || "").toLowerCase();
   await _notifyPasswordChanged(email);
@@ -5563,7 +6030,7 @@ async function _notifyMfaChanged(email, enabled) {
       link: "/settings/mfa",
       operatorEmail: addr,
       accent: enabled ? undefined : "danger",
-      heading: `Two-factor authentication ${state}`,
+      heading: `2FA ${state}`,
       intro: `Two-factor authentication was just ${state} on your ${BRAND.name} account.`,
       note: enabled
         ? `If this wasn't you, contact ${BRAND.support} immediately.`
@@ -5572,7 +6039,7 @@ async function _notifyMfaChanged(email, enabled) {
   });
 }
 
-exports.notifyMfaChanged = functions.https.onCall(async (data, context) => {
+exports.notifyMfaChanged = fns.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
   const email = (context.auth.token.email || "").toLowerCase();
   if (!email) return { success: false };
@@ -5580,7 +6047,7 @@ exports.notifyMfaChanged = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
-exports.notifyBackupResult = functions.https.onCall(async (data, context) => {
+exports.notifyBackupResult = fns.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
   if (data && data.success) return { success: true }; // only alert on failure
   const companyId = data && data.companyId ? String(data.companyId) : null;
@@ -5593,7 +6060,7 @@ exports.notifyBackupResult = functions.https.onCall(async (data, context) => {
       category: "backup",
       link: "/settings/backup",
       accent: "warn",
-      heading: "Your cloud backup failed",
+      heading: "Cloud backup failed",
       intro: `A scheduled ${BRAND.name} cloud backup did not complete. Your data is safe locally, but the off-site copy was not updated.`,
       rows: [["Status", "Failed"], ["Reason", reason]],
       note: `Open Settings → Integrations to check your backup configuration, or contact ${BRAND.support}.`,
@@ -5606,7 +6073,7 @@ exports.notifyBackupResult = functions.https.onCall(async (data, context) => {
 // The client (macOS only) obtains an FCM token and registers it here; we store
 // it on the caller's operator doc so security alerts can target their devices.
 
-exports.registerFcmToken = functions.https.onCall(async (data, context) => {
+exports.registerFcmToken = fns.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
   const token = data && data.token ? String(data.token) : "";
   const email = (context.auth.token.email || "").toLowerCase();
@@ -5623,7 +6090,7 @@ exports.registerFcmToken = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
-exports.unregisterFcmToken = functions.https.onCall(async (data, context) => {
+exports.unregisterFcmToken = fns.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
   const token = data && data.token ? String(data.token) : "";
   const email = (context.auth.token.email || "").toLowerCase();
@@ -5644,7 +6111,7 @@ exports.unregisterFcmToken = functions.https.onCall(async (data, context) => {
  * updateOperatorEmail - Admin updates an operator's Firebase Auth email.
  * Requires admin context (caller must be authenticated).
  */
-exports.updateOperatorEmail = functions.https.onCall(async (data, context) => {
+exports.updateOperatorEmail = fns.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Authentication required");
   }
@@ -5652,6 +6119,17 @@ exports.updateOperatorEmail = functions.https.onCall(async (data, context) => {
   const { uid, newEmail } = data;
   if (!uid || !newEmail || !newEmail.includes("@")) {
     throw new functions.https.HttpsError("invalid-argument", "Valid uid and newEmail required");
+  }
+  // Authorize: an admin may change the sign-in email only for an operator in
+  // their OWN company (resolve company from the uid). Closes the IDOR takeover.
+  {
+    const _es = await _requireAdminSession(data);
+    const _opS = await db.collectionGroup("operators").where("uid", "==", uid).limit(1).get();
+    if (_opS.empty) throw new functions.https.HttpsError("not-found", "Operator not found.");
+    const _opCo = _opS.docs[0].ref.parent.parent ? _opS.docs[0].ref.parent.parent.id : (_opS.docs[0].data().companyId || null);
+    if (_opCo !== _es.companyId) {
+      throw new functions.https.HttpsError("permission-denied", "Not authorized for this operator.");
+    }
   }
 
   try {
@@ -5670,7 +6148,7 @@ exports.updateOperatorEmail = functions.https.onCall(async (data, context) => {
       if (companyId) {
         await _writeInApp({
           companyId, operatorEmail: oldEmail || newAddr, category: "account", severity: "critical", link: "/profile",
-          title: "Your sign-in email was changed",
+          title: "Sign-in email changed",
           body: `The email used to sign in to your ${BRAND.name} account was changed to ${newAddr}. If this wasn't you, contact your administrator immediately.`,
         });
       }
@@ -5682,7 +6160,7 @@ exports.updateOperatorEmail = functions.https.onCall(async (data, context) => {
           subject: `${BRAND.name}: your sign-in email was changed`,
           notif: ({
             category: "account", link: "/profile", accent: "danger",
-            heading: "Your sign-in email was changed",
+            heading: "Sign-in email changed",
             intro: `The email used to sign in to your ${BRAND.name} account was changed to ${newAddr}.`,
             note: "If you did NOT make this change, contact your administrator immediately — your account may be at risk.",
           }),
@@ -5700,7 +6178,7 @@ exports.updateOperatorEmail = functions.https.onCall(async (data, context) => {
 // Receives webcam face snapshots, detects faces, and stores face landmark
 // embeddings for future operator verification during login.
 
-exports.validateFaceConsistency = functions.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onCall(async (data) => {
+exports.validateFaceConsistency = fns.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onCall(async (data) => {
   const { images, referenceImages } = data;
 
   if (!images || !images.length) {
@@ -6053,7 +6531,7 @@ exports.validateFaceConsistency = functions.runWith({ timeoutSeconds: 120, memor
 }
 });
 
-exports.enrollOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onCall(async (data) => {
+exports.enrollOperatorFace = fns.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onCall(async (data) => {
   const { images, companyId, operatorEmail } = data;
 
   if (!images || !images.length) {
@@ -6150,7 +6628,31 @@ exports.enrollOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "5
     if (outlierCounts[i] < halfGroup) validIndices.push(i);
   }
 
-  // Upload non-outlier frames to Cloud Storage (use temp prefix to avoid overwriting old data)
+  // Resolve the operator's canonical id up-front so reference frames are keyed
+  // by operatorId — matching storeFaceFrames/getFaceFrames and the
+  // onOperatorDeleted / onCompanyDeleted cleanup. Falls back to the email only
+  // when no operator doc exists yet (in which case faceEnrollment isn't saved
+  // anyway, so behaviour is unchanged).
+  let flatRef = null, companyRef = null, operatorId = null;
+  try {
+    const flatSnap = await db.collection("operators")
+      .where("companyId", "==", companyId)
+      .where("email", "==", operatorEmail)
+      .limit(1).get();
+    if (flatSnap.docs.length > 0) { flatRef = flatSnap.docs[0].ref; }
+    const companySnap = await db.collection(`companies/${companyId}/operators`)
+      .where("email", "==", operatorEmail)
+      .limit(1).get();
+    if (companySnap.docs.length > 0) { companyRef = companySnap.docs[0].ref; operatorId = companySnap.docs[0].id; }
+  } catch (e) {
+    functions.logger.warn("operator lookup for face key failed:", e.message);
+  }
+  // Key by the COMPANY-scoped operatorId (matches getFaceFrames + the
+  // onOperatorDeleted cleanup prefix); the flat operators id differs and must
+  // not be used. Fall back to email only when no company operator doc exists.
+  const storageKey = operatorId || operatorEmail;
+
+  // Upload non-outlier frames to Cloud Storage, keyed by operatorId.
   const storagePaths = [];
   try {
     const uploadPromises = validIndices.map(async (faceIdx, storageIdx) => {
@@ -6158,7 +6660,7 @@ exports.enrollOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "5
       // image via the stored imageIndex so a skipped frame can't misalign uploads.
       const imgBase64 = images[faceResults[faceIdx].imageIndex];
       const imgBuffer = Buffer.from(imgBase64, "base64");
-      const path = `face-enrollment/${companyId}/${operatorEmail}/${storageIdx}.jpg`;
+      const path = `face-enrollment/${companyId}/${storageKey}/${storageIdx}.jpg`;
       const file = bucket.file(path);
       await file.save(imgBuffer, { contentType: "image/jpeg", metadata: { cacheControl: "private,max-age=31536000" } });
       storagePaths.push(path);
@@ -6189,23 +6691,10 @@ exports.enrollOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "5
     enrolled: true,
   };
 
-  // Save to operator document
+  // Save to operator document (refs resolved above for the storage key).
   try {
-    const opsSnap = await db.collection("operators")
-      .where("companyId", "==", companyId)
-      .where("email", "==", operatorEmail)
-      .limit(1).get();
-
-    if (opsSnap.docs.length > 0) {
-      await opsSnap.docs[0].ref.update({ faceEnrollment: enrollmentData });
-    }
-
-    const companyOps = await db.collection(`companies/${companyId}/operators`)
-      .where("email", "==", operatorEmail)
-      .limit(1).get();
-    if (companyOps.docs.length > 0) {
-      await companyOps.docs[0].ref.update({ faceEnrollment: enrollmentData });
-    }
+    if (flatRef) await flatRef.update({ faceEnrollment: enrollmentData });
+    if (companyRef) await companyRef.update({ faceEnrollment: enrollmentData });
   } catch (e) {
     functions.logger.warn("Could not save face enrollment:", e.message);
     return {
@@ -6217,7 +6706,7 @@ exports.enrollOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "5
 
   // Delete previously stored face frames only after successful enrollment
   try {
-    const [existingFiles] = await bucket.getFiles({ prefix: `face-enrollment/${companyId}/${operatorEmail}/` });
+    const [existingFiles] = await bucket.getFiles({ prefix: `face-enrollment/${companyId}/${storageKey}/` });
     const oldFiles = existingFiles.filter(f => !storagePaths.includes(f.name));
     if (oldFiles.length > 0) {
       await Promise.all(oldFiles.map(f => f.delete()));
@@ -6238,7 +6727,7 @@ exports.enrollOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "5
 // trainOperatorFace - Adds training frames to existing face enrollment with relaxed tolerance.
 // Validates new frames against existing reference frames to ensure same person,
 // then appends valid new frames to storage.
-exports.trainOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onCall(async (data) => {
+exports.trainOperatorFace = fns.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onCall(async (data) => {
   const { images, companyId, operatorEmail } = data;
 
   if (!images || !images.length) {
@@ -6281,6 +6770,16 @@ exports.trainOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "51
   if (existingPaths.length === 0 && !existingLandmarks) {
     throw new functions.https.HttpsError("failed-precondition", "No existing reference data found.");
   }
+
+  // Resolve the COMPANY-scoped operatorId for the storage key so new training
+  // frames match getFaceFrames + the onOperatorDeleted cleanup prefix (the flat
+  // operators id differs). Fall back to email only if no company doc exists.
+  let storageKey = operatorEmail;
+  try {
+    const co = await db.collection(`companies/${companyId}/operators`)
+      .where("email", "==", operatorEmail).limit(1).get();
+    if (!co.empty) storageKey = co.docs[0].id;
+  } catch (_) { /* keep email fallback */ }
 
   const client = new vision.ImageAnnotatorClient();
 
@@ -6352,7 +6851,7 @@ exports.trainOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "51
     const uploadPromises = newFaceResults.map(async (face, idx) => {
       const imgBase64 = images[face.imageIndex];
       const imgBuffer = Buffer.from(imgBase64, "base64");
-      const path = `face-enrollment/${companyId}/${operatorEmail}/train_${existingCount + idx}.jpg`;
+      const path = `face-enrollment/${companyId}/${storageKey}/train_${existingCount + idx}.jpg`;
       const file = bucket.file(path);
       await file.save(imgBuffer, { contentType: "image/jpeg", metadata: { cacheControl: "private,max-age=31536000" } });
       newStoragePaths.push(path);
@@ -6409,7 +6908,7 @@ exports.trainOperatorFace = functions.runWith({ timeoutSeconds: 120, memory: "51
 
 // verifyOperatorFace - Real-time face identification across all enrolled operators in a company.
 // Detects face in frame, compares against ALL enrolled operators, returns best match.
-exports.verifyOperatorFace = functions.runWith({ timeoutSeconds: 30, memory: "512MB" }).https.onCall(async (data) => {
+exports.verifyOperatorFace = fns.runWith({ timeoutSeconds: 30, memory: "512MB" }).https.onCall(async (data) => {
   const { image, companyId } = data;
 
   if (!image) {
@@ -6524,10 +7023,50 @@ exports.verifyOperatorFace = functions.runWith({ timeoutSeconds: 30, memory: "51
   }
 });
 
+// ─── Operator PIN storage (server-only `operator_pins`) ──────────────────────
+// PINs are 4-6 digits, so a client-readable hash on the operator doc can be
+// brute-forced offline. The hash now lives in the server-only `operator_pins`
+// collection; the operator doc carries only a non-sensitive `hasPin` flag.
+function _pinDocId(companyId, email) {
+  return `${companyId}__${String(email || "").trim().toLowerCase()}`;
+}
+
+// Read the PIN hash: operator_pins first, then the operator doc (transition fallback).
+async function _readPinHash(companyId, email) {
+  const ps = await db.collection("operator_pins").doc(_pinDocId(companyId, email)).get();
+  if (ps.exists && ps.data().pinHash) return ps.data().pinHash;
+  const nested = await db.collection(`companies/${companyId}/operators`)
+    .where("email", "==", email).limit(1).get();
+  if (!nested.empty && nested.docs[0].data().pinHash) return nested.docs[0].data().pinHash;
+  const flat = await db.collection("operators")
+    .where("companyId", "==", companyId).where("email", "==", email).limit(1).get();
+  if (!flat.empty && flat.docs[0].data().pinHash) return flat.docs[0].data().pinHash;
+  return null;
+}
+
+// Write the hash to operator_pins + set hasPin:true on the operator doc(s).
+// stripDoc=true also deletes the legacy pinHash from the doc.
+async function _writePinHash(companyId, email, pinHash, { stripDoc = true } = {}) {
+  const emailLc = String(email || "").trim().toLowerCase();
+  await db.collection("operator_pins").doc(_pinDocId(companyId, emailLc)).set({
+    pinHash, companyId, email: emailLc,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  const upd = { hasPin: true, pinSetAt: admin.firestore.FieldValue.serverTimestamp() };
+  if (stripDoc) upd.pinHash = admin.firestore.FieldValue.delete();
+  for (const q of [
+    db.collection(`companies/${companyId}/operators`).where("email", "==", emailLc).limit(1),
+    db.collection("operators").where("companyId", "==", companyId).where("email", "==", emailLc).limit(1),
+  ]) {
+    const s = await q.get();
+    if (!s.empty) await s.docs[0].ref.update(upd);
+  }
+}
+
 // verifyOperatorPin - Verify operator PIN for fallback authentication.
 // If PIN doesn't match the current operator, checks all operators in the company.
 // Returns operatorEmail/operatorName of the matched operator for switch detection.
-exports.verifyOperatorPin = functions.https.onCall(async (data) => {
+exports.verifyOperatorPin = fns.https.onCall(async (data) => {
   const { pin, companyId, operatorEmail } = data;
 
   if (!pin || !companyId) {
@@ -6567,7 +7106,7 @@ exports.verifyOperatorPin = functions.https.onCall(async (data) => {
     }
 
     if (operatorDoc) {
-      const storedHash = operatorDoc.data().pinHash;
+      const storedHash = await _readPinHash(companyId, operatorEmail);
       if (storedHash) {
         const inputHash = crypto.createHash("sha256").update(pin + operatorEmail).digest("hex");
         if (inputHash === storedHash) {
@@ -6587,7 +7126,8 @@ exports.verifyOperatorPin = functions.https.onCall(async (data) => {
     const opData = doc.data();
     const opEmail = opData.email || "";
     if (opEmail === operatorEmail) continue;
-    const storedHash = opData.pinHash;
+    const _ps = await db.collection("operator_pins").doc(_pinDocId(companyId, opEmail)).get();
+    const storedHash = (_ps.exists && _ps.data().pinHash) ? _ps.data().pinHash : opData.pinHash;
     if (!storedHash) continue;
     const inputHash = crypto.createHash("sha256").update(pin + opEmail).digest("hex");
     if (inputHash === storedHash) {
@@ -6614,11 +7154,18 @@ exports.verifyOperatorPin = functions.https.onCall(async (data) => {
 });
 
 // setOperatorPin - Set or update operator PIN.
-exports.setOperatorPin = functions.https.onCall(async (data) => {
+exports.setOperatorPin = fns.https.onCall(async (data) => {
   const { pin, companyId, operatorEmail } = data;
 
   if (!pin || !companyId || !operatorEmail) {
     throw new functions.https.HttpsError("invalid-argument", "pin, companyId, and operatorEmail required");
+  }
+  // Caller must be the operator themselves, or an admin of the same company.
+  const _sess = await _requireSession(data);
+  const _isSelf = _sess.email === String(operatorEmail).trim().toLowerCase();
+  const _isAdmin = _sess.role === "admin" || _sess.role === "companyAdmin";
+  if (_sess.companyId !== companyId || (!_isSelf && !_isAdmin)) {
+    throw new functions.https.HttpsError("permission-denied", "Not authorized to set this PIN.");
   }
 
   if (pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
@@ -6627,22 +7174,7 @@ exports.setOperatorPin = functions.https.onCall(async (data) => {
 
   const crypto = require("crypto");
   const pinHash = crypto.createHash("sha256").update(pin + operatorEmail).digest("hex");
-
-  // Update both locations
-  const companyOps = await db.collection(`companies/${companyId}/operators`)
-    .where("email", "==", operatorEmail)
-    .limit(1).get();
-  if (!companyOps.empty) {
-    await companyOps.docs[0].ref.update({ pinHash, pinSetAt: admin.firestore.FieldValue.serverTimestamp() });
-  }
-
-  const flatOps = await db.collection("operators")
-    .where("companyId", "==", companyId)
-    .where("email", "==", operatorEmail)
-    .limit(1).get();
-  if (!flatOps.empty) {
-    await flatOps.docs[0].ref.update({ pinHash, pinSetAt: admin.firestore.FieldValue.serverTimestamp() });
-  }
+  await _writePinHash(companyId, operatorEmail, pinHash); // server-only store + hasPin flag; strips legacy doc hash
 
   return { success: true, message: "PIN set successfully." };
 });
@@ -6652,7 +7184,7 @@ exports.setOperatorPin = functions.https.onCall(async (data) => {
 // embedding without losing them. The re-embed itself runs on the local sidecar
 // client-side; these functions only handle Storage I/O (admin SDK, no rules).
 
-exports.storeFaceFrames = functions.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onCall(async (data) => {
+exports.storeFaceFrames = fns.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onCall(async (data) => {
   const companyId = String((data && data.companyId) || "").trim();
   const operatorId = String((data && data.operatorId) || "").trim();
   // New shape: frames = [{image, quality, specs}]. Back-compat: images = [b64].
@@ -6696,7 +7228,7 @@ exports.storeFaceFrames = functions.runWith({ timeoutSeconds: 120, memory: "512M
   return { success: true, count: meta.length };
 });
 
-exports.getFaceFrames = functions.runWith({ timeoutSeconds: 60, memory: "512MB" }).https.onCall(async (data) => {
+exports.getFaceFrames = fns.runWith({ timeoutSeconds: 60, memory: "512MB" }).https.onCall(async (data) => {
   const companyId = String((data && data.companyId) || "").trim();
   const operatorId = String((data && data.operatorId) || "").trim();
   if (!companyId || !operatorId) {
@@ -6727,7 +7259,7 @@ exports.getFaceFrames = functions.runWith({ timeoutSeconds: 60, memory: "512MB" 
 // sendPinResetChallenge - Begins a verified PIN reset for [email] (the actor).
 // If the actor has 2FA, they verify with their authenticator (no OTP sent).
 // Otherwise the SAME one-time code is sent to their email and phone.
-exports.sendPinResetChallenge = functions.https.onCall(async (data) => {
+exports.sendPinResetChallenge = fns.https.onCall(async (data) => {
   const email = (data.email || "").trim().toLowerCase();
   if (!email) throw new functions.https.HttpsError("invalid-argument", "Email required");
 
@@ -6774,7 +7306,7 @@ exports.sendPinResetChallenge = functions.https.onCall(async (data) => {
 // verifyPinResetCode - Step 1 of a PIN reset: validate the actor's TOTP or OTP.
 // On success a short-lived grant is recorded so the new PIN can be set next —
 // keeps TOTP (which rotates) from expiring while the user types the new PIN.
-exports.verifyPinResetCode = functions.https.onCall(async (data) => {
+exports.verifyPinResetCode = fns.https.onCall(async (data) => {
   const email = (data.email || "").trim().toLowerCase();
   const code = String(data.code || "").replace(/\s/g, "");
   if (!email) throw new functions.https.HttpsError("invalid-argument", "Email required");
@@ -6806,13 +7338,21 @@ exports.verifyPinResetCode = functions.https.onCall(async (data) => {
 });
 
 // resetOperatorPin - Step 2: with a fresh verifyPinResetCode grant, set the PIN.
-exports.resetOperatorPin = functions.https.onCall(async (data) => {
+exports.resetOperatorPin = fns.https.onCall(async (data) => {
   const actorEmail = (data.actorEmail || "").trim().toLowerCase();
   const operatorEmail = (data.operatorEmail || "").trim().toLowerCase();
   const companyId = data.companyId;
   const pin = data.pin;
   if (!actorEmail || !operatorEmail || !companyId || !pin) {
     throw new functions.https.HttpsError("invalid-argument", "actorEmail, operatorEmail, companyId and pin required");
+  }
+  // Session must belong to the actor; actor may reset only their own PIN, or any
+  // operator's if they're an admin of the same company (fixes the grant IDOR).
+  const _sess = await _requireSession(data);
+  const _isAdmin = _sess.role === "admin" || _sess.role === "companyAdmin";
+  if (_sess.companyId !== companyId || _sess.email !== actorEmail ||
+      (!(actorEmail === operatorEmail) && !_isAdmin)) {
+    throw new functions.https.HttpsError("permission-denied", "Not authorized to reset this PIN.");
   }
   if (pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
     throw new functions.https.HttpsError("invalid-argument", "PIN must be 4-6 digits.");
@@ -6825,13 +7365,59 @@ exports.resetOperatorPin = functions.https.onCall(async (data) => {
   }
   const crypto = require("crypto");
   const pinHash = crypto.createHash("sha256").update(pin + operatorEmail).digest("hex");
-  const stamp = { pinHash, pinSetAt: admin.firestore.FieldValue.serverTimestamp() };
-  const companyOps = await db.collection(`companies/${companyId}/operators`).where("email", "==", operatorEmail).limit(1).get();
-  if (!companyOps.empty) await companyOps.docs[0].ref.update(stamp);
-  const flatOps = await db.collection("operators").where("companyId", "==", companyId).where("email", "==", operatorEmail).limit(1).get();
-  if (!flatOps.empty) await flatOps.docs[0].ref.update(stamp);
+  await _writePinHash(companyId, operatorEmail, pinHash); // server-only store + hasPin flag; strips legacy doc hash
   await grantRef.delete();
   return { ok: true };
+});
+
+// Move a single operator doc's legacy pinHash into operator_pins and strip it.
+// Writes operator_pins FIRST, so a failure can never leave the operator pin-less.
+async function _relocatePinFromDoc(docRef, opData) {
+  if (!opData.pinHash || !opData.email) return false;
+  const companyId = opData.companyId || _companyIdFromPath(docRef.path);
+  if (!companyId) return false;
+  const ref = db.collection("operator_pins").doc(_pinDocId(companyId, opData.email));
+  // operator_pins is authoritative — a PIN change (setOperatorPin) writes it
+  // directly. NEVER overwrite an existing entry with the doc's possibly-stale
+  // copy (e.g. a site-operator doc the strip query missed); only fill a gap.
+  // Otherwise a PIN change would silently revert on the next sweep.
+  if (!(await ref.get()).exists) {
+    await ref.set({
+      pinHash: opData.pinHash, companyId, email: String(opData.email).trim().toLowerCase(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+  await docRef.update({ pinHash: admin.firestore.FieldValue.delete(), hasPin: true });
+  return true;
+}
+
+// One-time backfill for a company: relocate every legacy doc pinHash (nested,
+// site, or flat) into operator_pins. Admin-of-company only. Idempotent.
+exports.migratePinHashes = fns.https.onCall(async (data) => {
+  const companyId = data.companyId;
+  if (!companyId) throw new functions.https.HttpsError("invalid-argument", "companyId required");
+  await _requireAdminSession(data, companyId);
+  let moved = 0;
+  const snap = await db.collectionGroup("operators").get();
+  for (const d of snap.docs) {
+    const o = d.data();
+    if (!o.pinHash || !o.email) continue;
+    if ((o.companyId || _companyIdFromPath(d.ref.path)) !== companyId) continue;
+    if (await _relocatePinFromDoc(d.ref, o)) moved++;
+  }
+  return { ok: true, moved };
+});
+
+// Hourly backstop: relocate any pinHash that slipped onto a doc (e.g. a new
+// registration), so the brute-force exposure window is at most ~1 hour.
+exports.sweepPinHashes = fns.pubsub.schedule("every 60 minutes").timeZone("Asia/Kolkata").onRun(async () => {
+  const snap = await db.collectionGroup("operators").get();
+  let moved = 0;
+  for (const d of snap.docs) {
+    if (await _relocatePinFromDoc(d.ref, d.data())) moved++;
+  }
+  if (moved) console.log(`sweepPinHashes relocated ${moved} pin hash(es)`);
+  return null;
 });
 
 // Compute similarity between two faces using discriminative facial ratios.
@@ -7005,7 +7591,7 @@ async function meonFetch(path, body) {
  * Input:  { purpose?, documents?, companyId? }
  * Output: { reference, url, redirectUrl }
  */
-exports.initiateMeonDigilocker = functions.runWith({ timeoutSeconds: 30 }).https.onCall(async (data, context) => {
+exports.initiateMeonDigilocker = fns.runWith({ timeoutSeconds: 30 }).https.onCall(async (data, context) => {
   const uid = context.auth?.uid || data.uid || `anon_${Date.now()}`;
   if (!MEON_COMPANY || !MEON_SECRET) {
     throw new functions.https.HttpsError("failed-precondition", "Meon DigiLocker credentials not configured");
@@ -7057,7 +7643,7 @@ exports.initiateMeonDigilocker = functions.runWith({ timeoutSeconds: 30 }).https
  * Output: { verified, name, dob, gender, aadhaarLast4, fatherName, address,
  *           locality, dist, state, pincode, photoUrl }
  */
-exports.fetchMeonAadhaar = functions.runWith({ timeoutSeconds: 60, memory: "512MB" }).https.onCall(async (data, context) => {
+exports.fetchMeonAadhaar = fns.runWith({ timeoutSeconds: 60, memory: "512MB" }).https.onCall(async (data, context) => {
   const uid = context.auth?.uid || data.uid || null;
   const { reference } = data;
   if (!reference) {
@@ -7175,7 +7761,7 @@ function _buildReportEmailHtml(periodLabel, totalWeighments, vehicleCount, total
   });
 }
 
-exports.scheduledEmailReport = functions.pubsub
+exports.scheduledEmailReport = fns.pubsub
   .schedule("30 2 * * *") // 8:00 AM IST daily
   .timeZone("Asia/Kolkata")
   .onRun(async () => {
@@ -7292,7 +7878,7 @@ This is an automated report from ${BRAND.name}.
             }).catch(() => {});
             await _writeInApp({
               companyId, category: "system", severity: "warn", link: "/reports",
-              title: "Daily report had a delivery issue",
+              title: "Daily report not delivered",
               body: `Your scheduled ${period} report couldn't be sent the usual way and was queued as a plain email. Check your report settings if reports stop arriving.`,
             }).catch(() => {});
           }
@@ -7335,11 +7921,70 @@ This is an automated report from ${BRAND.name}.
 // ─── On-demand Report Email (callable) ───────────────────────────────────────
 // Admin can trigger a report email immediately from the app
 
-exports.sendReportEmail = functions.https.onCall(async (data, context) => {
+// Allowlist gate for report recipients: the company's own contact address, any
+// operator of the company, or the signed-in caller. Stops the company summary
+// from being mailed to an arbitrary external destination.
+async function _isCompanyReportRecipient(companyId, recipientEmail, callerEmail) {
+  const target = (recipientEmail || "").trim().toLowerCase();
+  if (!target) return false;
+  if (callerEmail && target === (callerEmail || "").trim().toLowerCase()) return true;
+  try {
+    const coSnap = await db.doc(`companies/${companyId}`).get();
+    if (coSnap.exists) {
+      const c = coSnap.data() || {};
+      const contacts = [c.email, c.contactEmail, c.companyEmail]
+        .filter(Boolean).map((x) => String(x).trim().toLowerCase());
+      if (contacts.includes(target)) return true;
+    }
+  } catch (e) {
+    console.warn("report-recipient company lookup failed:", e.message);
+  }
+  try {
+    const opSnap = await db.collection(`companies/${companyId}/operators`)
+      .where("email", "==", target).limit(1).get();
+    if (!opSnap.empty) return true;
+  } catch (e) {
+    console.warn("report-recipient operator lookup failed:", e.message);
+  }
+  try {
+    // The company's own SAVED scheduled-report recipient: the daily cron mails to
+    // this exact address with NO allowlist check, so the interactive "Send Test
+    // Now" path must accept it too — otherwise a legitimate, already-working
+    // schedule (e.g. an external accountant) reports as invalid.
+    const schedSnap = await db.doc(`companies/${companyId}/settings/emailSchedule`).get();
+    if (schedSnap.exists) {
+      const saved = String((schedSnap.data() || {}).recipient || "").trim().toLowerCase();
+      if (saved && saved === target) return true;
+    }
+  } catch (e) {
+    console.warn("report-recipient schedule lookup failed:", e.message);
+  }
+  return false;
+}
+
+exports.sendReportEmail = fns.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
 
   const { companyId, recipient, period } = data;
   if (!companyId || !recipient) throw new functions.https.HttpsError("invalid-argument", "Missing companyId or recipient");
+  // Company-scoped: caller must be signed in to THIS company (fixes cross-company
+  // exfil) — any role, since report emailing isn't admin-only.
+  const _rs = await _requireSession(data);
+  if (_rs.companyId !== companyId) throw new functions.https.HttpsError("permission-denied", "Not authorized for this company.");
+
+  // Strict recipient validation + allowlist — the report contains the company's
+  // aggregate data, so it may only go to a known company address (company
+  // contact, an operator of this company, or the signed-in caller), never an
+  // arbitrary client-supplied destination.
+  const recipientEmail = String(recipient).trim().toLowerCase();
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!EMAIL_RE.test(recipientEmail) || recipientEmail.length > 254) {
+    throw new functions.https.HttpsError("invalid-argument", "Recipient is not a valid email address.");
+  }
+  if (!(await _isCompanyReportRecipient(companyId, recipientEmail, _rs.email))) {
+    throw new functions.https.HttpsError("permission-denied",
+      "Reports may only be emailed to a company contact or an operator of this company.");
+  }
 
   const daysBack = period === "weekly" ? 7 : 1;
   const now = new Date();
@@ -7393,14 +8038,14 @@ ${materialLines || "  No data"}
 
 ---
 Generated: ${now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
-Requested by: ${context.auth.token.email || "admin"}
+Requested by: ${_rs.email || "admin"}
   `.trim();
 
   const transporter = getMailTransporter();
   const senderEmail = _fnConfig().gmail?.email || process.env.GMAIL_EMAIL;
   await transporter.sendMail({
     from: `"${BRAND.name}" <${senderEmail}>`,
-    to: recipient,
+    to: recipientEmail,
     subject: `${BRAND.name} Report — ${periodLabel} (${totalWeighments} weighments, ${(totalNet / 1000).toFixed(1)}T)`,
     html: _buildReportEmailHtml(periodLabel, totalWeighments, totalVehicles.size, totalNet, materialTotals),
     text: body,
@@ -7496,7 +8141,7 @@ async function _ensureAdminOperator(companyId, companyData) {
   return "created";
 }
 
-exports.onCompanyCreated = functions.firestore
+exports.onCompanyCreated = fns.firestore
   .document("companies/{companyId}")
   .onCreate(async (snap, context) => {
     const { companyId } = context.params;
@@ -7564,7 +8209,7 @@ exports.onCompanyCreated = functions.firestore
     });
   });
 
-exports.verifyAddressCode = functions.https.onCall(async (data, context) => {
+exports.verifyAddressCode = fns.https.onCall(async (data, context) => {
   const companyId = String((data && data.companyId) || "").trim();
   const code = String((data && data.code) || "").trim().toUpperCase();
   if (!companyId || !code) {
@@ -7629,7 +8274,7 @@ async function _addressGateLocked(companyId) {
 
 // Lightweight callable the client consults when online to get the authoritative
 // (server-time) locked state, overriding the device-clock fallback.
-exports.checkAddressGate = functions.https.onCall(async (data, context) => {
+exports.checkAddressGate = fns.https.onCall(async (data, context) => {
   const companyId = String((data && data.companyId) || "").trim();
   const snap = companyId
     ? await db.collection("address_verifications").doc(companyId).get()
@@ -7648,7 +8293,7 @@ exports.checkAddressGate = functions.https.onCall(async (data, context) => {
 // Read notifications older than 30 days and unread older than 90 days are
 // deleted per company, so the notification collection doesn't grow unbounded.
 // (Uses the existing notifications (read, createdAt) composite index.)
-exports.cleanupNotifications = functions.pubsub
+exports.cleanupNotifications = fns.pubsub
   .schedule("every 24 hours")
   .timeZone("Asia/Kolkata")
   .onRun(async () => {
@@ -7675,3 +8320,168 @@ exports.cleanupNotifications = functions.pubsub
 // ── Gen-2 email document renderer (isolated; Chromium loads only in ITS own ──
 // instances, never in the gen-1 functions above — see functions/email_render.js).
 exports.renderEmailDoc = require("./email_render").renderEmailDoc;
+
+// Storage-triggered: publishes the app-update feed when a release zip is uploaded.
+exports.onReleaseUploaded = require("./release_publish").onReleaseUploaded;
+
+// ── Daily: stamp every tulanam.com user's Google account photo with the brand ──
+// wordmark. ENFORCE policy — overwrites custom photos too (chosen behaviour), so
+// every account carries the brand mark no matter how the user was created.
+// Runs as the gen-1 runtime SA (tulanam@appspot.gserviceaccount.com), which
+// impersonates a Workspace super admin via KEYLESS domain-wide delegation:
+// IAM signJwt mints an admin-scoped JWT, exchanged for a Directory API token —
+// no service-account key is stored anywhere.
+//
+// One-time setup (see CLAUDE.md → Workspace user provisioning):
+//   • Admin console → Domain-wide delegation: authorize SA client
+//     113449181934687086088 for scope .../auth/admin.directory.user
+//   • runtime SA holds roles/iam.serviceAccountTokenCreator on itself
+//   • iamcredentials.googleapis.com enabled on the project
+const _WORKSPACE_ADMIN_SUBJECT = "tech@tulanam.com";
+const _DIRECTORY_SCOPE = "https://www.googleapis.com/auth/admin.directory.user";
+const _BRAND_AVATAR_PATH = require("path").join(__dirname, "assets", "brand_avatar.png");
+
+async function _gceMetadata(suffix) {
+  const res = await fetch(`http://metadata.google.internal/computeMetadata/v1/${suffix}`, {
+    headers: { "Metadata-Flavor": "Google" },
+  });
+  if (!res.ok) throw new Error(`metadata ${suffix} -> HTTP ${res.status}`);
+  return (await res.text()).trim();
+}
+
+// Keyless domain-wide delegation: sign an admin-impersonating JWT with the
+// runtime SA (IAM Credentials), then exchange it for a Directory access token.
+async function _directoryAccessToken() {
+  const saEmail = process.env.FUNCTION_IDENTITY
+    || await _gceMetadata("instance/service-accounts/default/email");
+  const saTokenJson = await _gceMetadata(
+    "instance/service-accounts/default/token?scopes=https://www.googleapis.com/auth/cloud-platform");
+  const saToken = JSON.parse(saTokenJson).access_token;
+
+  const now = Math.floor(Date.now() / 1000);
+  const claims = {
+    iss: saEmail,
+    sub: _WORKSPACE_ADMIN_SUBJECT,
+    scope: _DIRECTORY_SCOPE,
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600,
+  };
+
+  const signRes = await fetch(
+    `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${encodeURIComponent(saEmail)}:signJwt`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${saToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ payload: JSON.stringify(claims) }),
+    });
+  const signJson = await signRes.json();
+  if (!signRes.ok) {
+    throw new Error(`signJwt failed (${signRes.status}) — is serviceAccountTokenCreator granted on `
+      + `${saEmail}? ${JSON.stringify(signJson.error || signJson)}`);
+  }
+
+  const tokRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: signJson.signedJwt,
+    }),
+  });
+  const tokJson = await tokRes.json();
+  if (!tokRes.ok || !tokJson.access_token) {
+    throw new Error(`JWT-bearer exchange failed (${tokRes.status}) — is domain-wide delegation `
+      + `authorized for the SA client ID + scope? ${JSON.stringify(tokJson)}`);
+  }
+  return tokJson.access_token;
+}
+
+async function _listWorkspaceUsers(token) {
+  const users = [];
+  let pageToken = null;
+  do {
+    const url = new URL("https://admin.googleapis.com/admin/directory/v1/users");
+    url.searchParams.set("customer", "my_customer");
+    url.searchParams.set("domain", "tulanam.com");
+    url.searchParams.set("maxResults", "200");
+    url.searchParams.set("projection", "basic");
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const json = await res.json();
+    if (!res.ok) throw new Error(`users.list failed (${res.status}): ${JSON.stringify(json.error || json)}`);
+    for (const u of (json.users || [])) users.push(u);
+    pageToken = json.nextPageToken || null;
+  } while (pageToken);
+  return users;
+}
+
+exports.brandUserPhotos = fns.pubsub
+  .schedule("every 24 hours")
+  .timeZone("Asia/Kolkata")
+  .onRun(async () => {
+    const fs = require("fs");
+    if (!fs.existsSync(_BRAND_AVATAR_PATH)) {
+      throw new Error(`brand avatar not bundled at ${_BRAND_AVATAR_PATH}`);
+    }
+    // URL-safe Base64 with padding (GAM-style) — verified accepted by the API.
+    const photoData = fs.readFileSync(_BRAND_AVATAR_PATH).toString("base64")
+      .replace(/\+/g, "-").replace(/\//g, "_");
+
+    const token = await _directoryAccessToken();
+    const users = await _listWorkspaceUsers(token);
+    const active = users.filter((u) => !u.suspended && !u.archived);
+
+    // SAFE BY DEFAULT: until global/brandUserPhotos.enabled === true, this run
+    // only mints the token, lists users, and records the blast radius — it
+    // writes NO photos. This makes deploy + the first run non-destructive (the
+    // cloud analog of the CLI's --check). Flip the flag to start enforcing; the
+    // enforce policy then OVERWRITES every active user's photo daily.
+    const cfgSnap = await db.collection("global").doc("brandUserPhotos").get();
+    const enabled = cfgSnap.exists && cfgSnap.data().enabled === true;
+    if (!enabled) {
+      const sample = active.slice(0, 25).map((u) => u.primaryEmail);
+      functions.logger.info(`brandUserPhotos DRY RUN (set global/brandUserPhotos.enabled=true `
+        + `to enforce): token OK, would stamp ${active.length} active of ${users.length} users. `
+        + `Sample: ${sample.join(", ")}`);
+      await db.collection("global").doc("brandUserPhotos").set({
+        lastDryRunAt: admin.firestore.FieldValue.serverTimestamp(),
+        enabled: false, total: users.length, wouldStamp: active.length, sampleEmails: sample,
+      }, { merge: true });
+      return null;
+    }
+
+    let stamped = 0, failed = 0;
+    const skipped = users.length - active.length; // suspended / archived
+    const CHUNK = 5; // modest concurrency to stay well under Directory API quotas
+    for (let i = 0; i < active.length; i += CHUNK) {
+      const results = await Promise.allSettled(active.slice(i, i + CHUNK).map(async (u) => {
+        const res = await fetch(
+          `https://admin.googleapis.com/admin/directory/v1/users/${encodeURIComponent(u.id)}/photos/thumbnail`,
+          {
+            method: "PUT",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ photoData }),
+          });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(`${u.primaryEmail}: HTTP ${res.status} ${JSON.stringify(j.error || j)}`);
+        }
+        stamped++;
+      }));
+      for (const r of results) {
+        if (r.status === "rejected") {
+          failed++;
+          functions.logger.warn(`brandUserPhotos: ${(r.reason && r.reason.message) || r.reason}`);
+        }
+      }
+    }
+
+    functions.logger.info(`brandUserPhotos: ${stamped} stamped, ${skipped} skipped (suspended), `
+      + `${failed} failed, of ${users.length} users`);
+    await db.collection("global").doc("brandUserPhotos").set({
+      lastRunAt: admin.firestore.FieldValue.serverTimestamp(),
+      enabled: true, total: users.length, stamped, skipped, failed,
+    }, { merge: true });
+    return null;
+  });

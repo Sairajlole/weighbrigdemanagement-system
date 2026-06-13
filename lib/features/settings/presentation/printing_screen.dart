@@ -177,6 +177,12 @@ class _PrintingScreenState extends ConsumerState<PrintingScreen> with SingleTick
   bool _normalOverflows = false;
   late TabController _tabController;
 
+  // Stable controllers for the number/double build-helper inputs, keyed by a
+  // caller-supplied field key. Created once (not per rebuild) so they stop
+  // leaking and resetting the cursor on every keystroke.
+  final Map<String, TextEditingController> _numberInputCtrls = {};
+  final Map<String, FocusNode> _numberInputFocus = {};
+
   String? _headerMsg;
   bool _headerMsgIsError = false;
 
@@ -803,6 +809,12 @@ if (\$bins.Count -eq 0) {
   @override
   void dispose() {
     _tabController.dispose();
+    for (final c in _numberInputCtrls.values) {
+      c.dispose();
+    }
+    for (final f in _numberInputFocus.values) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -1184,6 +1196,10 @@ if (\$bins.Count -eq 0) {
               ref.invalidate(_printSettingsProvider);
               ref.invalidate(_companyInfoProvider);
               ref.invalidate(_companyLogoProvider);
+              for (final c in _numberInputCtrls.values) { c.dispose(); }
+              _numberInputCtrls.clear();
+              for (final f in _numberInputFocus.values) { f.dispose(); }
+              _numberInputFocus.clear();
               setState(() { _loaded = false; _pendingScope = null; });
             },
             trailing: SettingsScopeSelector(
@@ -1290,7 +1306,7 @@ if (\$bins.Count -eq 0) {
               ),
               const Spacer(),
               if (_dirty) ...[
-                TextButton(onPressed: () { setState(() { _loaded = false; _savedSnapshot = ''; _pendingScope = null; }); ref.invalidate(_printSettingsProvider); }, child: const Text('Cancel')),
+                TextButton(onPressed: () { for (final c in _numberInputCtrls.values) { c.dispose(); } _numberInputCtrls.clear(); for (final f in _numberInputFocus.values) { f.dispose(); } _numberInputFocus.clear(); setState(() { _loaded = false; _savedSnapshot = ''; _pendingScope = null; }); ref.invalidate(_printSettingsProvider); }, child: const Text('Cancel')),
                 SizedBox(width: AppSpacing.sm),
               ],
               if (_normalOverflows)
@@ -1381,7 +1397,7 @@ if (\$bins.Count -eq 0) {
                     SizedBox(height: 6.rs),
                     Row(
                       children: [
-                        SizedBox(width: 100, child: _buildNumberInput('H', _dmLogoHeight, (v) { setState(() => _dmLogoHeight = v); _markDirty(); }, text)),
+                        SizedBox(width: 100, child: _buildNumberInput('dmLogoHeight', 'H', _dmLogoHeight, (v) { setState(() => _dmLogoHeight = v); _markDirty(); }, text)),
                         SizedBox(width: AppSpacing.md),
                         Text('W: $_dmLogoWidth chars (auto)', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
                       ],
@@ -1419,11 +1435,11 @@ if (\$bins.Count -eq 0) {
                   SizedBox(height: 6.rs),
                   Row(
                     children: [
-                      Expanded(child: _buildNumberInput('Top', _dmMarginTop, (v) { _dmMarginTop = v; _markDirty(); }, text)),
+                      Expanded(child: _buildNumberInput('dmMarginTop', 'Top', _dmMarginTop, (v) { _dmMarginTop = v; _markDirty(); }, text)),
                       SizedBox(width: AppSpacing.sm),
-                      Expanded(child: _buildNumberInput('Bottom', _dmMarginBottom, (v) { _dmMarginBottom = v; _markDirty(); }, text)),
+                      Expanded(child: _buildNumberInput('dmMarginBottom', 'Bottom', _dmMarginBottom, (v) { _dmMarginBottom = v; _markDirty(); }, text)),
                       SizedBox(width: AppSpacing.sm),
-                      Expanded(child: _buildNumberInput('L & R', _dmMarginLeft, (v) { _dmMarginLeft = v; _markDirty(); }, text)),
+                      Expanded(child: _buildNumberInput('dmMarginLeft', 'L & R', _dmMarginLeft, (v) { _dmMarginLeft = v; _markDirty(); }, text)),
                     ],
                   ),
                   SizedBox(height: AppSpacing.md),
@@ -2216,9 +2232,9 @@ if (\$bins.Count -eq 0) {
                     SizedBox(height: 6.rs),
                     Row(
                       children: [
-                        Expanded(child: _buildDoubleInput('W', _thermalLogoWidth, (v) { setState(() => _thermalLogoWidth = v); _markDirty(); }, text)),
+                        Expanded(child: _buildDoubleInput('thermalLogoWidth', 'W', _thermalLogoWidth, (v) { setState(() => _thermalLogoWidth = v); _markDirty(); }, text)),
                         SizedBox(width: AppSpacing.sm),
-                        Expanded(child: _buildDoubleInput('H', _thermalLogoHeight, (v) { setState(() => _thermalLogoHeight = v); _markDirty(); }, text)),
+                        Expanded(child: _buildDoubleInput('thermalLogoHeight', 'H', _thermalLogoHeight, (v) { setState(() => _thermalLogoHeight = v); _markDirty(); }, text)),
                       ],
                     ),
                   ],
@@ -2534,13 +2550,13 @@ if (\$bins.Count -eq 0) {
                   SizedBox(height: AppSpacing.sm),
                   Row(
                     children: [
-                      Expanded(child: _buildDoubleInput('T', _normalMarginTop, (v) { setState(() => _normalMarginTop = v); _markDirty(); }, text)),
+                      Expanded(child: _buildDoubleInput('normalMarginTop', 'T', _normalMarginTop, (v) { setState(() => _normalMarginTop = v); _markDirty(); }, text)),
                       SizedBox(width: 6.rs),
-                      Expanded(child: _buildDoubleInput('B', _normalMarginBottom, (v) { setState(() => _normalMarginBottom = v); _markDirty(); }, text)),
+                      Expanded(child: _buildDoubleInput('normalMarginBottom', 'B', _normalMarginBottom, (v) { setState(() => _normalMarginBottom = v); _markDirty(); }, text)),
                       SizedBox(width: 6.rs),
-                      Expanded(child: _buildDoubleInput('L', _normalMarginLeft, (v) { setState(() => _normalMarginLeft = v); _markDirty(); }, text)),
+                      Expanded(child: _buildDoubleInput('normalMarginLeft', 'L', _normalMarginLeft, (v) { setState(() => _normalMarginLeft = v); _markDirty(); }, text)),
                       SizedBox(width: 6.rs),
-                      Expanded(child: _buildDoubleInput('R', _normalMarginRight, (v) { setState(() => _normalMarginRight = v); _markDirty(); }, text)),
+                      Expanded(child: _buildDoubleInput('normalMarginRight', 'R', _normalMarginRight, (v) { setState(() => _normalMarginRight = v); _markDirty(); }, text)),
                     ],
                   ),
                   SizedBox(height: 10.rs),
@@ -2567,9 +2583,9 @@ if (\$bins.Count -eq 0) {
                     SizedBox(height: 6.rs),
                     Row(
                       children: [
-                        Expanded(child: _buildDoubleInput('W', _normalLogoWidth, (v) { setState(() => _normalLogoWidth = v); _markDirty(); }, text)),
+                        Expanded(child: _buildDoubleInput('normalLogoWidth', 'W', _normalLogoWidth, (v) { setState(() => _normalLogoWidth = v); _markDirty(); }, text)),
                         SizedBox(width: AppSpacing.sm),
-                        Expanded(child: _buildDoubleInput('H', _normalLogoHeight, (v) { setState(() => _normalLogoHeight = v); _markDirty(); }, text)),
+                        Expanded(child: _buildDoubleInput('normalLogoHeight', 'H', _normalLogoHeight, (v) { setState(() => _normalLogoHeight = v); _markDirty(); }, text)),
                       ],
                     ),
                   ],
@@ -3802,14 +3818,21 @@ if (\$bins.Count -eq 0) {
     );
   }
 
-  Widget _buildNumberInput(String label, int value, ValueChanged<int> onChanged, TextTheme text) {
+  Widget _buildNumberInput(String fieldKey, String label, int value, ValueChanged<int> onChanged, TextTheme text) {
+    final focus = _numberInputFocus.putIfAbsent(fieldKey, () => FocusNode());
+    final ctrl = _numberInputCtrls.putIfAbsent(fieldKey, () => TextEditingController(text: value.toString()));
+    // Re-sync when the value changed programmatically (dropdown / reset / async
+    // settings load) and the user isn't editing — otherwise the field goes stale.
+    final shown = value.toString();
+    if (!focus.hasFocus && ctrl.text != shown) ctrl.text = shown;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
         SizedBox(height: AppSpacing.xs),
         TextField(
-          controller: TextEditingController(text: value.toString()),
+          controller: ctrl,
+          focusNode: focus,
           keyboardType: TextInputType.number,
           style: text.bodySmall,
           onChanged: (v) { final n = int.tryParse(v); if (n != null) onChanged(n); },
@@ -3819,14 +3842,21 @@ if (\$bins.Count -eq 0) {
     );
   }
 
-  Widget _buildDoubleInput(String label, double value, ValueChanged<double> onChanged, TextTheme text) {
+  Widget _buildDoubleInput(String fieldKey, String label, double value, ValueChanged<double> onChanged, TextTheme text) {
+    final focus = _numberInputFocus.putIfAbsent(fieldKey, () => FocusNode());
+    final ctrl = _numberInputCtrls.putIfAbsent(fieldKey, () => TextEditingController(text: value.toStringAsFixed(0)));
+    // Re-sync when the value changed programmatically (dropdown / reset / async
+    // settings load) and the user isn't editing — otherwise the field goes stale.
+    final shown = value.toStringAsFixed(0);
+    if (!focus.hasFocus && ctrl.text != shown) ctrl.text = shown;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
         SizedBox(height: AppSpacing.xs),
         TextField(
-          controller: TextEditingController(text: value.toStringAsFixed(0)),
+          controller: ctrl,
+          focusNode: focus,
           keyboardType: TextInputType.number,
           style: text.bodySmall,
           onChanged: (v) { final n = double.tryParse(v); if (n != null) onChanged(n); },

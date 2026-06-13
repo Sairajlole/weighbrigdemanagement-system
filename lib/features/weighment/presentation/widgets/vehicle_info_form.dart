@@ -1,6 +1,10 @@
 import 'dart:convert';
+import 'dart:ui' show ImageFilter;
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -39,6 +43,18 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
 
   bool _synced = false;
 
+  // The FocusNode that the customer-name Autocomplete hands us via
+  // fieldViewBuilder. We attach our blur listener once on this node instead of
+  // re-adding a fresh listener on every rebuild.
+  FocusNode? _customerFocusNode;
+
+  void _onCustomerFocusChange() {
+    if (_customerFocusNode != null && !_customerFocusNode!.hasFocus) {
+      _formatCustomerName();
+      _pushToSession();
+    }
+  }
+
   @override
   void dispose() {
     _vehicleCtrl.dispose();
@@ -46,6 +62,7 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
     _addressCtrl.dispose();
     _phoneCtrl.dispose();
     _materialCtrl.dispose();
+    _customerFocusNode?.removeListener(_onCustomerFocusChange);
     for (final c in _customCtrls.values) {
       c.dispose();
     }
@@ -189,8 +206,29 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
     }
   }
 
+  void _clearFields() {
+    _vehicleCtrl.clear();
+    _customerCtrl.clear();
+    _addressCtrl.clear();
+    _phoneCtrl.clear();
+    _materialCtrl.clear();
+    for (final c in _customCtrls.values) {
+      c.clear();
+    }
+    _customDropdownValues.clear();
+    _selectedMaterial = '';
+    _phoneError = null;
+    _synced = false; // let the next weighment re-sync from its session
+  }
+
   @override
   Widget build(BuildContext context) {
+    // When the weighment is cleared (ESC/cancel/complete → no session), wipe the
+    // input fields so stale data doesn't linger.
+    ref.listen<WeighmentMachineState>(weighmentMachineProvider, (prev, next) {
+      if (prev?.session != null && next.session == null) _clearFields();
+    });
+
     final machineState = ref.watch(weighmentMachineProvider);
     final session = machineState.session;
 
@@ -203,6 +241,12 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
     final scheme = Theme.of(context).colorScheme;
     final materials = ref.watch(materialsListProvider).valueOrNull ?? [];
     final allowOtherMaterial = ref.watch(materialAllowOtherProvider).valueOrNull ?? true;
+    final recentVehicles = ref.watch(recentVehicleNumbersProvider).valueOrNull ?? const <String>[];
+    final addressOptions = (ref.watch(weighmentCustomersProvider).valueOrNull ?? const <Map<String, dynamic>>[])
+        .map((c) => (c['address'] as String? ?? '').trim())
+        .where((a) => a.isNotEmpty)
+        .toSet()
+        .toList();
     final customers = ref.watch(customerNamesProvider).valueOrNull ?? [];
     final customFields = ref.watch(customFieldsProvider).valueOrNull ?? [];
     final modeConfig = ref.watch(weighmentModeConfigProvider).valueOrNull ?? const WeighmentModeConfig();
@@ -215,7 +259,26 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
         verifyState.phase != VerificationUIPhase.idle &&
         verifyState.phase != VerificationUIPhase.verified;
     final noSession = session == null;
-    final fieldsLocked = noSession || verificationLocked || (modeConfig.lockFieldsOnSecondWeigh && session.existingDocId != null);
+    final viewingSaved = ref.watch(viewingSavedTicketProvider);
+    final fieldsLocked = noSession || verificationLocked || viewingSaved ||
+        (modeConfig.lockFieldsOnSecondWeigh && session.existingDocId != null);
+
+    // A failed SAVE bumps this tick; flag the empty required fields (red + shake).
+    final validateTick = ref.watch(saveValidateTickProvider);
+    final nameMissing = validateTick > 0 && _customerCtrl.text.trim().isEmpty;
+    final addressMissing = validateTick > 0 && _addressCtrl.text.trim().isEmpty;
+    final materialMissing = validateTick > 0 && _materialCtrl.text.trim().isEmpty;
+
+    // When exactly one material is configured, auto-write it.
+    if (!fieldsLocked && materials.length == 1 && session.material.trim().isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _materialCtrl.text.trim().isEmpty) {
+          _materialCtrl.text = materials.first;
+          _selectedMaterial = materials.first;
+          _pushToSession();
+        }
+      });
+    }
 
     final anprCameras = ref.watch(anprCamerasProvider).valueOrNull ?? [];
     final anprEnabled = anprCameras.isNotEmpty;
@@ -234,196 +297,240 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
     final operatorName = ref.watch(currentOperatorNameProvider);
     final isVerified = verifyState.phase == VerificationUIPhase.verified;
     final verifiedDisplayName = verifyState.verifiedName ?? operatorName;
-    // Clear the operator identity (name + avatar) when the face wasn't recognised
-    // or the weighment was cleared/completed.
+    // Show the operator identity (name + avatar) only during an active, verified
+    // weighment. Hide it while scanning or on a failed/PIN scan, and clear it once
+    // the weighment ends — ESCAPE/cancel (session reset) or a completed weighment.
     final faceFailed = verifyState.phase == VerificationUIPhase.pinRequired ||
         verifyState.phase == VerificationUIPhase.failed;
+    final verifying = verifyState.phase == VerificationUIPhase.background;
     final sessionDone = session == null || session.status == SessionStatus.completed;
-    final showIdentity = !faceFailed && !sessionDone;
+    final showIdentity = !faceFailed && !verifying && !sessionDone;
+    final needsPin = verifyState.phase == VerificationUIPhase.pinRequired;
+    final opCamEnabled = ref.watch(operatorCameraConfigProvider).valueOrNull?.enabled ?? false;
     final scale = ref.watch(formScaleProvider);
 
     final opCard = AppCard(
-      title: 'Operator',
-      icon: Icons.badge_outlined,
-      actions: !noSession && isVerified
-          ? [
-              InkWell(
-                onTap: () async {
-                  ref.read(inlineVerificationProvider.notifier).reset();
-                  final opCam = await ref.read(operatorCameraConfigProvider.future);
-                  if (opCam.enabled) {
-                    ref.read(inlineVerificationProvider.notifier).startBackgroundVerification();
-                  } else {
-                    ref.read(inlineVerificationProvider.notifier).skipToPin();
-                  }
-                },
-                borderRadius: AppRadius.card,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.1),
-                    borderRadius: AppRadius.card,
-                    border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.refresh_outlined, size: 13, color: scheme.primary),
-                      SizedBox(width: AppSpacing.xs),
-                      Text('Re-verify', style: TextStyle(fontSize: 11, color: scheme.primary, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-              ),
-            ]
-          : null,
-      child: Column(
+      child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
       children: [
-        _OperatorInfoRow(
-          name: showIdentity ? (isVerified ? verifiedDisplayName : operatorName) : '',
-          phase: verifyState.phase,
-          statusMessage: verifyState.statusMessage,
-          errorMessage: verifyState.errorMessage,
-          onPinSubmit: (pin) => ref.read(inlineVerificationProvider.notifier).submitPin(pin),
-          onRetryScan: (ref.watch(operatorCameraConfigProvider).valueOrNull?.enabled ?? false)
-              ? () {
-                  ref.read(inlineVerificationProvider.notifier).reset();
-                  ref.read(inlineVerificationProvider.notifier).startBackgroundVerification();
-                }
-              : null,
-          onConfirmSwitch: () async {
-            final email = verifyState.switchOperatorEmail ?? '';
-            if (email.isNotEmpty) {
-              await LocalCacheService.cacheCurrentUserEmail(email);
-              ref.read(operatorIdentityRefreshProvider.notifier).state++;
-            }
-            ref.read(inlineVerificationProvider.notifier).confirmSwitch();
-          },
-          onCancelSwitch: () => ref.read(inlineVerificationProvider.notifier).cancelSwitch(),
-          switchOperatorName: verifyState.switchOperatorName,
-          profilePic: showIdentity ? (ref.watch(currentOperatorProfilePicProvider).valueOrNull ?? '') : '',
-          showAvatar: showIdentity && ref.watch(sidebarCollapsedProvider),
-          scale: scale,
-        ),
-
-      ],
-    ));
-
-    final vehCard = AppCard(
-      title: 'Vehicle',
-      icon: Icons.local_shipping_outlined,
-      collapsible: true,
-      child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-
-        // Row 1: RST + Vehicle Number
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            // RST field (read-only)
-            Expanded(
-              child: _buildField(
-                label: 'RST NUMBER',
-                scale: scale,
-                child: TextField(
-                  controller: TextEditingController(text: hasRst ? session.rstNumber! : ''),
-                  decoration: _inputDecoration('', scheme, scale: scale),
-                  style: TextStyle(
-                    fontSize: 28 * scale,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w700,
-                  ),
-                  enabled: false,
-                  readOnly: true,
-                ),
-              ),
-            ),
-            SizedBox(width: 12 * scale),
-
-            // Vehicle Number field
-            Expanded(
-              flex: 2,
-              child: _buildField(
-                label: 'Vehicle Number',
-                scale: scale,
+        // Column 1: operator (name / verification / PIN) — 70%.
+        Expanded(
+          flex: 70,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Headline: OPERATOR + a subtle circular retry-scan icon while a PIN
+              // is being requested (face not recognised).
+              SizedBox(
+                height: 24,
                 child: Row(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _vehicleCtrl,
-                        decoration: _inputDecoration('', scheme, scale: scale).copyWith(
-                          prefixIcon: plateType != 'unknown'
-                              ? Padding(
-                                  padding: const EdgeInsets.only(left: 8, right: 4),
-                                  child: _PlateTypeIcon(type: plateType),
-                                )
-                              : null,
-                          prefixIconConstraints: const BoxConstraints(minHeight: 0, minWidth: 0),
-                          suffixIcon: hasAnpr && (session.anprConfidence ?? 1.0) < 0.7
-                              ? Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: Tooltip(
-                                    message: 'Low confidence detection',
-                                    child: Icon(Icons.warning_amber_rounded, size: 20 * scale, color: scheme.error),
-                                  ),
-                                )
-                              : null,
-                          suffixIconConstraints: const BoxConstraints(minHeight: 0, minWidth: 0),
+                    _ColumnLabel('OPERATOR', scale: scale),
+                    if (needsPin && opCamEnabled) ...[
+                      SizedBox(width: 8 * scale),
+                      Tooltip(
+                        message: 'Retry face scan',
+                        child: InkWell(
+                          onTap: () {
+                            ref.read(inlineVerificationProvider.notifier).reset();
+                            ref.read(inlineVerificationProvider.notifier).startBackgroundVerification();
+                          },
+                          customBorder: const CircleBorder(),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: scheme.primary.withValues(alpha: 0.08),
+                            ),
+                            child: Icon(Icons.refresh_rounded, size: 16, color: scheme.primary),
+                          ),
                         ),
-                        textCapitalization: TextCapitalization.characters,
-                        inputFormatters: [_UpperCaseFormatter()],
-                        style: TextStyle(fontSize: 28 * scale, fontWeight: FontWeight.w600, letterSpacing: 0.5),
-                        enabled: !fieldsLocked,
-                        onChanged: (_) => _pushToSession(),
                       ),
-                    ),
-                    if (anprEnabled) ...[
-                      SizedBox(width: AppSpacing.sm),
-                      SizedBox(
-                        height: 56 * scale,
-                        width: 56 * 3.5 * scale,
-                        child: hasPlateCrop
-                            ? _PlateCropThumbnail(b64: displayCropB64)
-                            : Container(
-                                decoration: BoxDecoration(
-                                  color: scheme.surfaceContainerHigh,
-                                  borderRadius: AppRadius.chip,
-                                ),
-                                child: Icon(Icons.image_outlined, size: 22 * scale, color: scheme.onSurfaceVariant.withValues(alpha: 0.3)),
-                              ),
-                      ),
-                      SizedBox(width: AppSpacing.xs),
-                      _RescanAnprButton(isScanning: ref.watch(anprScanningProvider)),
                     ],
                   ],
                 ),
               ),
-            ),
-          ],
+              SizedBox(height: 10 * scale),
+              // PIN box sits under the headline when face wasn't recognised;
+              // otherwise the normal operator row (name / verify / switch).
+              if (needsPin)
+                SizedBox(
+                  width: 220,
+                  height: 44,
+                  child: _InlinePinField(
+                    onSubmit: (pin) => ref.read(inlineVerificationProvider.notifier).submitPin(pin),
+                    errorMessage: verifyState.errorMessage,
+                  ),
+                )
+              else
+                _OperatorInfoRow(
+                  name: showIdentity
+                      ? (isVerified ? verifiedDisplayName : (operatorName.isNotEmpty ? operatorName : 'No operator'))
+                      : '',
+                  phase: verifyState.phase,
+                  statusMessage: verifyState.statusMessage,
+                  errorMessage: verifyState.errorMessage,
+                  onPinSubmit: (pin) => ref.read(inlineVerificationProvider.notifier).submitPin(pin),
+                  onRetryScan: opCamEnabled
+                      ? () {
+                          ref.read(inlineVerificationProvider.notifier).reset();
+                          ref.read(inlineVerificationProvider.notifier).startBackgroundVerification();
+                        }
+                      : null,
+                  onConfirmSwitch: () async {
+                    final email = verifyState.switchOperatorEmail ?? '';
+                    if (email.isNotEmpty) {
+                      await LocalCacheService.cacheCurrentUserEmail(email);
+                      ref.read(operatorIdentityRefreshProvider.notifier).state++;
+                    }
+                    ref.read(inlineVerificationProvider.notifier).confirmSwitch();
+                  },
+                  onCancelSwitch: () => ref.read(inlineVerificationProvider.notifier).cancelSwitch(),
+                  switchOperatorName: verifyState.switchOperatorName,
+                  profilePic: showIdentity ? (ref.watch(currentOperatorProfilePicProvider).valueOrNull ?? '') : '',
+                  showAvatar: showIdentity && ref.watch(sidebarCollapsedProvider),
+                  scale: scale,
+                ),
+            ],
+          ),
+        ),
+        SizedBox(width: 28 * scale),
+        // Column 2: RST number — system-generated, not editable; updates live — 30%.
+        Expanded(
+          flex: 30,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 24,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _ColumnLabel('RST NUMBER', scale: scale),
+                ),
+              ),
+              SizedBox(height: 10 * scale),
+              Text(
+                hasRst ? session.rstNumber! : '—',
+                style: TextStyle(
+                  fontSize: 28 * scale,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w700,
+                  color: hasRst ? scheme.onSurface : scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ));
+
+    final vehCard = AppCard(
+      child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Left: Vehicle Number + RFID badge.
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Same label width (130) as Phone/Name/Address/Material so the input
+              // box lines up; the label wraps to "VEHICLE" / "NUMBER".
+              _buildField(
+                label: 'Vehicle Number',
+                labelWidth: 130,
+                scale: scale,
+                trailing: fieldsLocked
+                    ? null
+                    : _valueDropdownButton(
+                        values: recentVehicles,
+                        current: _vehicleCtrl.text,
+                        scheme: scheme,
+                        onPick: (v) {
+                          setState(() => _vehicleCtrl.text = v);
+                          _pushToSession();
+                        },
+                      ),
+                child: TextField(
+                  controller: _vehicleCtrl,
+                  decoration: _inputDecoration('', scheme, scale: scale).copyWith(
+                    prefixIcon: plateType != 'unknown'
+                        ? Padding(
+                            padding: const EdgeInsets.only(left: 8, right: 4),
+                            child: _PlateTypeIcon(type: plateType),
+                          )
+                        : null,
+                    prefixIconConstraints: const BoxConstraints(minHeight: 0, minWidth: 0),
+                    suffixIcon: hasAnpr && (session.anprConfidence ?? 1.0) < 0.7
+                        ? Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Tooltip(
+                              message: 'Low confidence detection',
+                              child: Icon(Icons.warning_amber_rounded, size: 20 * scale, color: scheme.error),
+                            ),
+                          )
+                        : null,
+                    suffixIconConstraints: const BoxConstraints(minHeight: 0, minWidth: 0),
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                  inputFormatters: [_UpperCaseFormatter()],
+                  style: TextStyle(fontSize: 28 * scale, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                  enabled: !fieldsLocked,
+                  onChanged: (_) => _pushToSession(),
+                ),
+              ),
+              if (session != null && session.rfidTag != null && session.rfidTag!.isNotEmpty) ...[
+                SizedBox(height: AppSpacing.sm),
+                Chip(
+                  avatar: Icon(Icons.nfc_outlined, size: 16 * scale),
+                  label: Text(session.rfidTag!, style: TextStyle(fontSize: 12 * scale, fontFamily: 'monospace')),
+                  visualDensity: VisualDensity.compact,
+                  side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+                ),
+              ],
+            ],
+          ),
         ),
 
-        // RFID tag badge
-        if (session != null && session.rfidTag != null && session.rfidTag!.isNotEmpty) ...[
-          SizedBox(height: AppSpacing.sm),
-          Chip(
-            avatar: Icon(Icons.nfc_outlined, size: 16 * scale),
-            label: Text(session.rfidTag!, style: TextStyle(fontSize: 12 * scale, fontFamily: 'monospace')),
-            visualDensity: VisualDensity.compact,
-            side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+        // Right: ANPR snapshot fills the remaining space of the Vehicle card.
+        if (anprEnabled) ...[
+          SizedBox(width: AppSpacing.lg),
+          SizedBox(
+            width: 280,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Text('ANPR SNAPSHOT', style: TextStyle(fontSize: 12 * scale, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
+                    const Spacer(),
+                    _RescanAnprButton(isScanning: ref.watch(anprScanningProvider)),
+                  ],
+                ),
+                SizedBox(height: 6 * scale),
+                SizedBox(
+                  height: 96,
+                  child: hasPlateCrop
+                      ? ClipRRect(borderRadius: AppRadius.chip, child: _PlateCropThumbnail(b64: displayCropB64))
+                      : Container(
+                          decoration: BoxDecoration(
+                            color: scheme.surfaceContainerHigh,
+                            borderRadius: AppRadius.chip,
+                          ),
+                          child: Center(child: Icon(Icons.image_outlined, size: 30, color: scheme.onSurfaceVariant.withValues(alpha: 0.3))),
+                        ),
+                ),
+              ],
+            ),
           ),
         ],
-
       ],
     ));
 
     final custCard = AppCard(
-      title: 'Customer Info',
-      icon: Icons.person_outlined,
-      collapsible: true,
       actions: !noSession && custFace.detected
           ? [
               InkWell(
@@ -466,22 +573,29 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
                     label: 'Phone',
                     labelWidth: 130,
                     scale: scale,
-                    child: TextField(
-                      controller: _phoneCtrl,
-                      decoration: _inputDecoration('', scheme, scale: scale).copyWith(
-                        counterText: '',
-                        errorText: _phoneError,
-                        errorStyle: TextStyle(fontSize: 10 * scale),
-                      ),
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      maxLength: 10,
-                      style: TextStyle(fontSize: 28 * scale),
-                      enabled: !fieldsLocked,
-                      onChanged: (_) {
-                        _validatePhone();
-                        _pushToSession();
+                    trailing: fieldsLocked ? null : _customerDropdownButton(_phoneCtrl.text, scheme),
+                    // Only flag an incomplete phone (<10 digits) once the field
+                    // loses focus — never red while still typing.
+                    child: Focus(
+                      onFocusChange: (hasFocus) {
+                        if (hasFocus) {
+                          if (_phoneError != null) setState(() => _phoneError = null);
+                        } else {
+                          _validatePhone();
+                        }
                       },
+                      child: TextField(
+                        controller: _phoneCtrl,
+                        decoration: _inputDecoration('', scheme, scale: scale, error: _phoneError != null).copyWith(
+                          counterText: '',
+                        ),
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        maxLength: 10,
+                        style: TextStyle(fontSize: 28 * scale),
+                        enabled: !fieldsLocked,
+                        onChanged: (_) => _pushToSession(),
+                      ),
                     ),
                   ),
                   SizedBox(height: 10 * scale),
@@ -489,6 +603,9 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
                     label: 'Name',
                     labelWidth: 130,
                     scale: scale,
+                    shakeTick: validateTick,
+                    shakeActive: nameMissing,
+                    trailing: fieldsLocked ? null : _customerDropdownButton(_customerCtrl.text, scheme),
                     aiDetected: custFace.isKnown,
                     aiConfidence: custFace.isKnown ? custFace.confidence : null,
                     child: fieldsLocked
@@ -507,16 +624,18 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
                             initialValue: TextEditingValue(text: _customerCtrl.text),
                             fieldViewBuilder: (_, ctrl, focus, onSubmit) {
                               _customerCtrl.text = ctrl.text;
-                              focus.addListener(() {
-                                if (!focus.hasFocus) {
-                                  _formatCustomerName();
-                                  _pushToSession();
-                                }
-                              });
+                              // Attach the blur listener exactly once on the node
+                              // Autocomplete owns — re-adding it every rebuild
+                              // accumulates listeners.
+                              if (!identical(_customerFocusNode, focus)) {
+                                _customerFocusNode?.removeListener(_onCustomerFocusChange);
+                                _customerFocusNode = focus;
+                                focus.addListener(_onCustomerFocusChange);
+                              }
                               return TextField(
                                 controller: ctrl,
                                 focusNode: focus,
-                                decoration: _inputDecoration('', scheme, scale: scale),
+                                decoration: _inputDecoration('', scheme, scale: scale, error: nameMissing),
                                 textCapitalization: TextCapitalization.words,
                                 inputFormatters: [_TitleCaseFormatter()],
                                 style: TextStyle(fontSize: 28 * scale),
@@ -539,17 +658,23 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
                     label: 'Address',
                     labelWidth: 130,
                     scale: scale,
-                    child: TextField(
+                    shakeTick: validateTick,
+                    shakeActive: addressMissing,
+                    trailing: fieldsLocked ? null : _customerDropdownButton(_addressCtrl.text, scheme),
+                    child: _GhostAutofillField(
                       controller: _addressCtrl,
-                      decoration: _inputDecoration('', scheme, scale: scale),
+                      options: addressOptions,
+                      enabled: !fieldsLocked,
+                      style: TextStyle(fontSize: 28 * scale),
+                      decoration: _inputDecoration('', scheme, scale: scale, error: addressMissing),
                       textCapitalization: TextCapitalization.words,
                       inputFormatters: [_TitleCaseFormatter()],
-                      style: TextStyle(fontSize: 28 * scale),
-                      enabled: !fieldsLocked,
                       onChanged: (_) => _pushToSession(),
-                      onEditingComplete: () {
-                        _formatAddress();
-                        _pushToSession();
+                      onFocusChange: (hasFocus) {
+                        if (!hasFocus) {
+                          _formatAddress();
+                          _pushToSession();
+                        }
                       },
                     ),
                   ),
@@ -563,10 +688,7 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
     ));
 
     final matCard = AppCard(
-      title: 'Material & Details',
-      icon: Icons.category_outlined,
-      collapsible: true,
-      child: Column(
+      child:Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -579,6 +701,8 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
                 label: 'Material',
                 labelWidth: 130,
                 scale: scale,
+                shakeTick: validateTick,
+                shakeActive: materialMissing,
                 aiDetected: hasMaterialAi,
                 aiConfidence: session?.materialConfidence,
                 child: Row(
@@ -591,54 +715,51 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
                               style: TextStyle(fontSize: 28 * scale),
                               enabled: false,
                             )
-                          : Autocomplete<String>(
-                              optionsBuilder: (value) {
-                                if (value.text.isEmpty) return materials.take(10);
-                                final query = value.text.toLowerCase();
-                                final matches = materials.where((m) => m.toLowerCase().contains(query)).take(10).toList();
-                                if (allowOtherMaterial && matches.isEmpty) return [value.text];
-                                return matches;
-                              },
-                              initialValue: TextEditingValue(text: _materialCtrl.text),
-                              fieldViewBuilder: (_, ctrl, focus, onSubmit) {
-                                _materialCtrl.text = ctrl.text;
-                                focus.addListener(() {
-                                  if (!focus.hasFocus) {
-                                    final text = ctrl.text.trim();
-                                    if (text.isNotEmpty && (!materials.contains(text) && !allowOtherMaterial)) {
-                                      ctrl.text = _selectedMaterial;
-                                    } else {
-                                      setState(() => _selectedMaterial = text);
-                                      _pushToSession();
-                                    }
-                                  }
-                                });
-                                return TextField(
-                                  controller: ctrl,
-                                  focusNode: focus,
-                                  decoration: _inputDecoration('', scheme, scale: scale).copyWith(
-                                    suffixIcon: hasMaterialAi
-                                        ? Padding(
-                                            padding: const EdgeInsets.only(right: 8),
-                                            child: _AiBadge(confidence: session.materialConfidence),
-                                          )
-                                        : null,
-                                    suffixIconConstraints: const BoxConstraints(minHeight: 0, minWidth: 0),
-                                  ),
-                                  style: TextStyle(fontSize: 28 * scale),
-                                  onChanged: (v) {
-                                    _materialCtrl.text = v;
-                                  },
-                                  onSubmitted: (_) => onSubmit(),
-                                );
-                              },
-                              onSelected: (value) {
-                                _materialCtrl.text = value;
-                                setState(() => _selectedMaterial = value);
-                                _pushToSession();
+                          : _GhostAutofillField(
+                              controller: _materialCtrl,
+                              options: materials,
+                              style: TextStyle(fontSize: 28 * scale),
+                              // ALL-CAPS words kept (e.g. "PCC", "M20"); otherwise Title Case.
+                              inputFormatters: [_SmartTitleCaseFormatter()],
+                              decoration: _inputDecoration('', scheme, scale: scale, error: materialMissing).copyWith(
+                                suffixIcon: hasMaterialAi
+                                    ? Padding(
+                                        padding: const EdgeInsets.only(right: 8),
+                                        child: _AiBadge(confidence: session.materialConfidence),
+                                      )
+                                    : null,
+                                suffixIconConstraints: const BoxConstraints(minHeight: 0, minWidth: 0),
+                              ),
+                              onChanged: (_) => setState(() {}),
+                              // Commit / validate on blur (no Autocomplete overlay).
+                              onFocusChange: (hasFocus) {
+                                if (hasFocus) return;
+                                final text = _materialCtrl.text.trim();
+                                final known = materials.any((m) => m.toLowerCase() == text.toLowerCase());
+                                if (text.isNotEmpty && !known && !allowOtherMaterial) {
+                                  _materialCtrl.text = _selectedMaterial;
+                                  setState(() {});
+                                } else {
+                                  setState(() => _selectedMaterial = text);
+                                  _pushToSession();
+                                }
                               },
                             ),
                     ),
+                    // Dropdown button — opens the full material list (even when
+                    // the field is empty).
+                    if (!fieldsLocked)
+                      _valueDropdownButton(
+                        values: materials,
+                        current: _materialCtrl.text,
+                        scheme: scheme,
+                        showWhenEmpty: true,
+                        onPick: (m) {
+                          _materialCtrl.text = m;
+                          setState(() => _selectedMaterial = m);
+                          _pushToSession();
+                        },
+                      ),
                   ],
                 ),
               ),
@@ -670,36 +791,8 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
       ],
     ));
 
-    // Customer camera (16:9) shown beside the Customer card, matching its height.
-    final custCamConfig = ref.watch(customerCameraConfigProvider).valueOrNull;
-    final custCamFeed = ref.watch(customerCameraFeedProvider);
-    final showCustomerCamera = (custCamConfig?.enabled ?? false) && custCamFeed.active;
-    final Widget custSection = showCustomerCamera
-        ? IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: custCard),
-                SizedBox(width: AppSpacing.lg),
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: _CustomerFaceAvatar(
-                    fillHeight: true,
-                    faceCropB64: custFace.faceCropB64,
-                    isKnown: custFace.isKnown,
-                    detected: custFace.detected,
-                    isAmbiguous: custFace.isAmbiguous,
-                    scanning: custFace.scanning,
-                    show: custFace.enabled,
-                    sessionActive: !noSession,
-                    scale: scale,
-                  ),
-                ),
-              ],
-            ),
-          )
-        : custCard;
-
+    // (The customer-face CCTV now lives in the right-side cameras list, pinned to
+    // the top — it's no longer rendered inside this form.)
     final opVehRow = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -709,11 +802,10 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
       ],
     );
 
-    // Two columns when there's room; the customer section takes a full row when
-    // its camera is showing (card + 16:9 feed side by side).
     return LayoutBuilder(builder: (context, constraints) {
       final wide = constraints.maxWidth >= 1024;
-      if (wide && !showCustomerCamera) {
+
+      if (wide) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -731,11 +823,7 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
       }
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (wide) opVehRow else ...[opCard, vehCard],
-          custSection,
-          matCard,
-        ],
+        children: [opCard, vehCard, custCard, matCard],
       );
     });
   }
@@ -785,9 +873,9 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
     );
   }
 
-  Widget _buildField({required String label, required Widget child, bool aiDetected = false, double? aiConfidence, Widget? trailing, double? labelWidth, double scale = 0.7}) {
+  Widget _buildField({required String label, required Widget child, bool aiDetected = false, double? aiConfidence, Widget? trailing, double? labelWidth, double scale = 0.7, int? shakeTick, bool shakeActive = false}) {
     final scheme = Theme.of(context).colorScheme;
-    return Row(
+    final field = Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
@@ -819,9 +907,13 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
         ],
       ],
     );
+    if (shakeTick == null) return field;
+    return _ShakeOnTick(tick: shakeTick, active: shakeActive, child: field);
   }
 
-  InputDecoration _inputDecoration(String hint, ColorScheme scheme, {double scale = 0.7}) {
+  InputDecoration _inputDecoration(String hint, ColorScheme scheme, {double scale = 0.7, bool error = false}) {
+    // On a validation error we only tint the border red — no error message text.
+    final errSide = BorderSide(color: scheme.error, width: 1.5);
     return InputDecoration(
       hintText: hint,
       hintStyle: TextStyle(fontSize: 22 * scale, color: scheme.onSurfaceVariant),
@@ -829,9 +921,9 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
       filled: true,
       fillColor: scheme.surfaceContainerHigh,
       contentPadding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 14 * scale),
-      border: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide.none),
-      enabledBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide.none),
-      focusedBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide(color: scheme.primary, width: 1.5)),
+      border: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: error ? errSide : BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: error ? errSide : BorderSide.none),
+      focusedBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: error ? errSide : BorderSide(color: scheme.primary, width: 1.5)),
       disabledBorder: OutlineInputBorder(borderRadius: AppRadius.chip, borderSide: BorderSide.none),
     );
   }
@@ -845,6 +937,118 @@ class _VehicleInfoFormState extends ConsumerState<VehicleInfoForm> {
       });
       _pushToSession();
     }
+  }
+
+  /// Fill the whole customer (name + phone + address) from a directory entry.
+  void _applyCustomer(Map<String, dynamic> c) {
+    setState(() {
+      _customerCtrl.text = c['name'] as String? ?? '';
+      _phoneCtrl.text = c['phone'] as String? ?? '';
+      _addressCtrl.text = c['address'] as String? ?? '';
+    });
+    _pushToSession();
+  }
+
+  /// Chevron listing customers matching [filterText] (name/phone/address) — only
+  /// once something's typed; selecting one fills the whole customer.
+  Widget _customerDropdownButton(String filterText, ColorScheme scheme) {
+    final all = ref.watch(weighmentCustomersProvider).valueOrNull ?? const <Map<String, dynamic>>[];
+    final q = filterText.trim().toLowerCase();
+    final matches = q.isEmpty
+        ? const <Map<String, dynamic>>[]
+        : all.where((c) {
+            final name = (c['name'] as String? ?? '').toLowerCase();
+            final phone = (c['phone'] as String? ?? '').toLowerCase();
+            final addr = (c['address'] as String? ?? '').toLowerCase();
+            return name.contains(q) || phone.contains(q) || addr.contains(q);
+          }).take(20).toList();
+    return _dropdownSlot(
+      enabled: matches.isNotEmpty,
+      scheme: scheme,
+      child: PopupMenuButton<Map<String, dynamic>>(
+        icon: Icon(Icons.expand_more_rounded,
+            size: 20, color: matches.isEmpty ? scheme.onSurfaceVariant.withValues(alpha: 0.35) : scheme.primary),
+        tooltip: 'Find customer',
+        enabled: matches.isNotEmpty,
+        padding: EdgeInsets.zero,
+        position: PopupMenuPosition.under,
+        offset: const Offset(0, 6),
+        elevation: 8,
+        color: scheme.surfaceContainerHigh,
+        shadowColor: Colors.black.withValues(alpha: 0.25),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        constraints: const BoxConstraints(maxHeight: 360, minWidth: 260, maxWidth: 340),
+        itemBuilder: (_) => matches
+            .map((c) => PopupMenuItem<Map<String, dynamic>>(
+                  value: c,
+                  height: 52,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(c['name'] as String? ?? '',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: scheme.onSurface)),
+                      Builder(builder: (_) {
+                        final sub = [c['phone'], c['address']].where((v) => (v as String? ?? '').isNotEmpty).join(' · ');
+                        return sub.isEmpty
+                            ? const SizedBox.shrink()
+                            : Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(sub,
+                                    style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
+                                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                              );
+                      }),
+                    ],
+                  ),
+                ))
+            .toList(),
+        onSelected: _applyCustomer,
+      ),
+    );
+  }
+
+  /// A fixed-width slot so the dropdown button always reserves the same space —
+  /// the text field never widens/narrows as the button enables/disables.
+  Widget _dropdownSlot({required bool enabled, required ColorScheme scheme, required Widget child}) {
+    return SizedBox(width: 34, height: 36, child: Center(child: child));
+  }
+
+  /// Chevron listing [values] matching [current] (only once typed unless
+  /// [showWhenEmpty]); selecting one calls [onPick].
+  Widget _valueDropdownButton({
+    required List<String> values,
+    required String current,
+    required ColorScheme scheme,
+    required ValueChanged<String> onPick,
+    bool showWhenEmpty = false,
+  }) {
+    final q = current.trim().toLowerCase();
+    final matches = (q.isEmpty && !showWhenEmpty)
+        ? const <String>[]
+        : values.where((v) => q.isEmpty || v.toLowerCase().contains(q)).take(20).toList();
+    return _dropdownSlot(
+      enabled: matches.isNotEmpty,
+      scheme: scheme,
+      child: PopupMenuButton<String>(
+        icon: Icon(Icons.expand_more_rounded,
+            size: 20, color: matches.isEmpty ? scheme.onSurfaceVariant.withValues(alpha: 0.35) : scheme.primary),
+        tooltip: 'Choose',
+        enabled: matches.isNotEmpty,
+        padding: EdgeInsets.zero,
+        position: PopupMenuPosition.under,
+        offset: const Offset(0, 6),
+        elevation: 8,
+        color: scheme.surfaceContainerHigh,
+        shadowColor: Colors.black.withValues(alpha: 0.25),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        constraints: const BoxConstraints(maxHeight: 360, minWidth: 200, maxWidth: 320),
+        itemBuilder: (_) => matches
+            .map((v) => PopupMenuItem(value: v, height: 44, child: Text(v, style: TextStyle(fontSize: 14, color: scheme.onSurface))))
+            .toList(),
+        onSelected: onPick,
+      ),
+    );
   }
 }
 
@@ -1018,6 +1222,28 @@ class _TitleCaseFormatter extends TextInputFormatter {
   }
 }
 
+/// Like [_TitleCaseFormatter], but preserves any word the user typed entirely in
+/// CAPS (e.g. grades / acronyms such as "PCC", "M20", "RMC"). A mixed/lowercase
+/// word is title-cased. Used for the material field.
+class _SmartTitleCaseFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final text = newValue.text;
+    if (text.isEmpty) return newValue;
+    final words = text.split(' ');
+    for (var i = 0; i < words.length; i++) {
+      final w = words[i];
+      if (w.isEmpty) continue;
+      final hasLetter = w.contains(RegExp('[A-Za-z]'));
+      // A word with a letter and no lowercase (already ALL CAPS) is kept as-is.
+      if (hasLetter && w == w.toUpperCase()) continue;
+      words[i] = w[0].toUpperCase() + w.substring(1).toLowerCase();
+    }
+    // Case-only change keeps the length, so newValue's selection stays valid.
+    return newValue.copyWith(text: words.join(' '));
+  }
+}
+
 class _OperatorInfoRow extends StatelessWidget {
   final String name;
   final VerificationUIPhase phase;
@@ -1086,15 +1312,12 @@ class _OperatorInfoRow extends StatelessWidget {
                       )
                     : Icon(Icons.person_outlined, size: 20 * scale, color: scheme.onSurfaceVariant);
 
-    final statusText = isVerified
-        ? 'VERIFIED'
-        : isSwitch
-            ? 'SWITCH TO ${switchOperatorName?.toUpperCase() ?? "OTHER"}?'
-            : needsPin
-                ? (statusMessage?.toUpperCase() ?? 'PIN REQUIRED')
-                : isVerifying
-                    ? (statusMessage?.toUpperCase() ?? 'VERIFYING...')
-                    : '';
+    // No "verified"/"verifying" badge — only the functional switch/PIN prompts.
+    final statusText = isSwitch
+        ? 'SWITCH TO ${switchOperatorName?.toUpperCase() ?? "OTHER"}?'
+        : needsPin
+            ? (statusMessage?.toUpperCase() ?? 'PIN REQUIRED')
+            : '';
 
     return Row(
       children: [
@@ -1129,13 +1352,6 @@ class _OperatorInfoRow extends StatelessWidget {
           Text(
             statusText,
             style: TextStyle(fontSize: 22 * scale, color: statusColor, fontWeight: FontWeight.w500),
-          ),
-        ],
-        if (isVerifying) ...[
-          SizedBox(width: 8 * scale),
-          Text(
-            '· Look at operator camera',
-            style: TextStyle(fontSize: 20 * scale, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
           ),
         ],
         const Spacer(),
@@ -1263,7 +1479,232 @@ class _InlinePinFieldState extends State<_InlinePinField> {
   }
 }
 
-class _CustomerFaceAvatar extends ConsumerWidget {
+/// Horizontally shakes its child each time [tick] changes while [active] — used
+/// to draw attention to an empty required field on a failed SAVE.
+class _ShakeOnTick extends StatefulWidget {
+  final int tick;
+  final bool active;
+  final Widget child;
+  const _ShakeOnTick({required this.tick, required this.active, required this.child});
+
+  @override
+  State<_ShakeOnTick> createState() => _ShakeOnTickState();
+}
+
+class _ShakeOnTickState extends State<_ShakeOnTick> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 450));
+
+  @override
+  void didUpdateWidget(_ShakeOnTick old) {
+    super.didUpdateWidget(old);
+    if (widget.tick != old.tick && widget.active) _c.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      child: widget.child,
+      builder: (_, child) {
+        final dx = _c.isAnimating ? math.sin(_c.value * math.pi * 5) * 8 * (1 - _c.value) : 0.0;
+        return Transform.translate(offset: Offset(dx, 0), child: child);
+      },
+    );
+  }
+}
+
+/// A text field with inline "ghost" autofill: the best matching option's
+/// remainder shows in a watermark colour after the cursor. Tab accepts it;
+/// deleting characters dismisses the suggestion for that edit.
+class _GhostAutofillField extends StatefulWidget {
+  final TextEditingController controller;
+  final List<String> options;
+  final InputDecoration decoration;
+  final TextStyle style;
+  final bool enabled;
+  final List<TextInputFormatter>? inputFormatters;
+  final TextCapitalization textCapitalization;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<bool>? onFocusChange;
+
+  const _GhostAutofillField({
+    required this.controller,
+    required this.options,
+    required this.decoration,
+    required this.style,
+    this.enabled = true,
+    this.inputFormatters,
+    this.textCapitalization = TextCapitalization.none,
+    this.onChanged,
+    this.onFocusChange,
+  });
+
+  @override
+  State<_GhostAutofillField> createState() => _GhostAutofillFieldState();
+}
+
+class _GhostAutofillFieldState extends State<_GhostAutofillField> {
+  final _focus = FocusNode();
+  String _match = ''; // the full canonical option being suggested
+  String _suffix = ''; // the ghost remainder shown after the typed text
+  int _prevLen = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _prevLen = widget.controller.text.length;
+    _focus.addListener(() {
+      // Leaving the field auto-accepts a pending suggestion (unless it was
+      // dismissed by deleting) — clicking away fills it in.
+      if (!_focus.hasFocus) _acceptSuffix();
+      if (mounted) setState(() {});
+      widget.onFocusChange?.call(_focus.hasFocus);
+    });
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _compute(String v, {required bool isDelete}) {
+    if (isDelete || v.isEmpty) {
+      _match = '';
+      _suffix = '';
+      return;
+    }
+    final lower = v.toLowerCase();
+    var best = '';
+    for (final o in widget.options) {
+      if (o.length > v.length && o.toLowerCase().startsWith(lower)) {
+        best = o;
+        break;
+      }
+    }
+    _match = best;
+    _suffix = best.isEmpty ? '' : best.substring(v.length);
+  }
+
+  bool _acceptSuffix() {
+    if (_suffix.isEmpty || _match.isEmpty) return false;
+    // Accept the canonical option (not typed-prefix + suffix) so the casing
+    // matches the source exactly, then run it through the field's formatters so
+    // autocomplete obeys the same formatting (e.g. Title Case) as manual typing.
+    var value = TextEditingValue(text: _match, selection: TextSelection.collapsed(offset: _match.length));
+    final formatters = widget.inputFormatters;
+    if (formatters != null) {
+      var old = widget.controller.value;
+      for (final f in formatters) {
+        value = f.formatEditUpdate(old, value);
+        old = value;
+      }
+    }
+    widget.controller.value = value;
+    _prevLen = value.text.length;
+    _match = '';
+    _suffix = '';
+    widget.onChanged?.call(value.text);
+    return true;
+  }
+
+  void _acceptOrTraverse() {
+    if (_acceptSuffix()) {
+      setState(() {});
+    } else {
+      _focus.nextFocus();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final showGhost = _suffix.isNotEmpty && _focus.hasFocus;
+    return CallbackShortcuts(
+      bindings: {const SingleActivator(LogicalKeyboardKey.tab): _acceptOrTraverse},
+      child: Stack(
+        children: [
+          TextField(
+            controller: widget.controller,
+            focusNode: _focus,
+            decoration: widget.decoration,
+            style: widget.style,
+            enabled: widget.enabled,
+            inputFormatters: widget.inputFormatters,
+            textCapitalization: widget.textCapitalization,
+            onChanged: (v) {
+              final isDelete = v.length < _prevLen;
+              _prevLen = v.length;
+              _compute(v, isDelete: isDelete);
+              setState(() {});
+              widget.onChanged?.call(v);
+            },
+          ),
+          if (showGhost)
+            Positioned.fill(
+              child: IgnorePointer(
+                // Reuse the field's exact layout (same contentPadding / border /
+                // density, minus the fill + icons) so the ghost text lands in the
+                // identical spot the TextField paints its own text — pixel-precise.
+                child: InputDecorator(
+                  baseStyle: widget.style,
+                  isEmpty: false,
+                  decoration: InputDecoration(
+                    isDense: widget.decoration.isDense,
+                    isCollapsed: widget.decoration.isCollapsed,
+                    filled: false,
+                    contentPadding: widget.decoration.contentPadding,
+                    border: widget.decoration.border,
+                    enabledBorder: widget.decoration.enabledBorder,
+                    focusedBorder: widget.decoration.focusedBorder,
+                    disabledBorder: widget.decoration.disabledBorder,
+                  ),
+                  child: Text.rich(
+                    TextSpan(children: [
+                      TextSpan(text: widget.controller.text, style: widget.style.copyWith(color: Colors.transparent)),
+                      TextSpan(text: _suffix, style: widget.style.copyWith(color: scheme.onSurfaceVariant.withValues(alpha: 0.45))),
+                    ]),
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small uppercase field label shared by the in-card columns.
+class _ColumnLabel extends StatelessWidget {
+  final String text;
+  final double scale;
+  const _ColumnLabel(this.text, {this.scale = 0.7});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 20 * scale,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.6,
+        color: scheme.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
+class CustomerFaceAvatar extends ConsumerWidget {
   final String? faceCropB64;
   final bool isKnown;
   final bool detected;
@@ -1276,7 +1717,8 @@ class _CustomerFaceAvatar extends ConsumerWidget {
   /// so it matches the card height) instead of a fixed 16:9 size.
   final bool fillHeight;
 
-  const _CustomerFaceAvatar({
+  const CustomerFaceAvatar({
+    super.key,
     this.faceCropB64,
     this.isKnown = false,
     this.detected = false,
@@ -1302,6 +1744,13 @@ class _CustomerFaceAvatar extends ConsumerWidget {
 
     final hasFaceCrop = faceCropB64 != null && faceCropB64!.isNotEmpty;
     final hasResult = (detected || isKnown) && hasFaceCrop;
+
+    // Customer face scan is only allowed in "weighing mode": a weighment has
+    // started AND operator verification has cleared (when it applies). While the
+    // operator is still being verified (background/pin/failed/switch) the button
+    // is suppressed; `idle` means verification isn't required for this weighment.
+    final verifyPhase = ref.watch(inlineVerificationProvider).phase;
+    final operatorOk = verifyPhase == VerificationUIPhase.verified || verifyPhase == VerificationUIPhase.idle;
 
     final borderColor = isKnown
         ? scheme.primary
@@ -1400,25 +1849,43 @@ class _CustomerFaceAvatar extends ConsumerWidget {
                 children: [
                   feedContent,
 
-                  // Scan button — bottom of feed, visible only during active weighment
-                  if (!scanning && !hasResult && sessionActive)
+                  // Scan button — frosted-glass (glassmorphism) footer that blurs
+                  // the live feed behind it. Only in weighing mode (started +
+                  // operator verified if applied).
+                  if (!scanning && !hasResult && sessionActive && operatorOk)
                     Positioned(
                       left: 0, right: 0, bottom: 0,
                       child: GestureDetector(
                         onTap: () {
                           ref.read(customerFaceProvider.notifier).state = const CustomerFaceState(enabled: true, scanning: true);
                         },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Colors.black.withValues(alpha: 0.0), Colors.black.withValues(alpha: 0.7)],
+                        child: ClipRect(
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(vertical: 12.rs),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.14),
+                                border: Border(
+                                  top: BorderSide(color: Colors.white.withValues(alpha: 0.28), width: 1),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.center_focus_strong_rounded, size: 18, color: Colors.white),
+                                  SizedBox(width: 8.rs),
+                                  const Text(
+                                    'SCAN FACE',
+                                    style: TextStyle(
+                                      fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.8,
+                                      shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          alignment: Alignment.center,
-                          child: Text('SCAN FACE', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: scheme.primaryContainer, letterSpacing: 0.5)),
                         ),
                       ),
                     ),
@@ -1563,6 +2030,7 @@ class _EnlargedCustomerCameraDialogState extends ConsumerState<_EnlargedCustomer
   @override
   Widget build(BuildContext context) {
     final custFace = ref.watch(customerFaceProvider);
+    final scheme = Theme.of(context).colorScheme;
     final hasFaceSnapshot = custFace.detected && custFace.faceCropB64 != null && custFace.faceCropB64!.isNotEmpty;
 
     return Dialog(
@@ -1585,19 +2053,19 @@ class _EnlargedCustomerCameraDialogState extends ConsumerState<_EnlargedCustomer
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                color: const Color(0xFF1A1A2E),
+                color: scheme.surfaceContainerHighest,
                 child: Row(
                   children: [
                     _CustomerTabBtn(label: 'Live Feed', icon: Icons.videocam_outlined, selected: _tabIndex == 0, onTap: () => setState(() => _tabIndex = 0)),
                     if (hasFaceSnapshot) ...[
                       SizedBox(width: AppSpacing.sm),
-                      _CustomerTabBtn(label: 'Face Snapshot', icon: Icons.face_outlined, selected: _tabIndex == 1, onTap: () => setState(() => _tabIndex = 1)),
+                      _CustomerTabBtn(label: 'Face Snapshot', icon: Icons.center_focus_strong_rounded, selected: _tabIndex == 1, onTap: () => setState(() => _tabIndex = 1)),
                     ],
                     const Spacer(),
                     if (custFace.name != null)
                       Padding(
                         padding: const EdgeInsets.only(right: 12),
-                        child: Text(custFace.name!, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+                        child: Text(custFace.name!, style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.w600)),
                       ),
                     if (widget.feed.isIpCamera && widget.feed.ipCameraKey != null) ...[
                       GestureDetector(
@@ -1607,8 +2075,8 @@ class _EnlargedCustomerCameraDialogState extends ConsumerState<_EnlargedCustomer
                         },
                         child: Container(
                           padding: EdgeInsets.all(6.rs),
-                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: AppRadius.chip),
-                          child: Icon(_audioEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded, size: 16, color: _audioEnabled ? Colors.white : Colors.white70),
+                          decoration: BoxDecoration(color: scheme.onSurface.withValues(alpha: 0.08), borderRadius: AppRadius.chip),
+                          child: Icon(_audioEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded, size: 16, color: _audioEnabled ? scheme.onSurface : scheme.onSurfaceVariant),
                         ),
                       ),
                       SizedBox(width: AppSpacing.sm),
@@ -1617,8 +2085,8 @@ class _EnlargedCustomerCameraDialogState extends ConsumerState<_EnlargedCustomer
                       onTap: () => Navigator.of(context).pop(),
                       child: Container(
                         padding: EdgeInsets.all(6.rs),
-                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: AppRadius.chip),
-                        child: const Icon(Icons.close_outlined, size: 16, color: Colors.white70),
+                        decoration: BoxDecoration(color: scheme.onSurface.withValues(alpha: 0.08), borderRadius: AppRadius.chip),
+                        child: Icon(Icons.close_outlined, size: 16, color: scheme.onSurfaceVariant),
                       ),
                     ),
                   ],
@@ -1679,21 +2147,23 @@ class _CustomerTabBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final fg = selected ? scheme.primary : scheme.onSurfaceVariant;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: selected ? Colors.white.withValues(alpha: 0.12) : Colors.transparent,
+          color: selected ? scheme.primary.withValues(alpha: 0.14) : Colors.transparent,
           borderRadius: AppRadius.chip,
-          border: selected ? null : Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          border: selected ? null : Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: selected ? Colors.white : Colors.white54),
+            Icon(icon, size: 13, color: fg),
             SizedBox(width: 5.rs),
-            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? Colors.white : Colors.white54)),
+            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
           ],
         ),
       ),

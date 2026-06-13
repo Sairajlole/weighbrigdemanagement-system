@@ -77,7 +77,7 @@ final _sessionLoggedInProvider = sessionLoggedInProvider;
 final routerProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/dashboard',
+    initialLocation: '/weighment',
     redirect: (context, state) {
       final perms = ref.read(permissionServiceProvider);
       if (perms.isLockdown && state.matchedLocation != '/lockdown') {
@@ -141,7 +141,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAuthRoute = authRoutes.contains(state.matchedLocation);
 
       if (!isLoggedIn && !isAuthRoute && !isSetupRoute) return '/setup';
-      if (isLoggedIn && isAuthRoute && state.matchedLocation != '/linkage-pending') return '/dashboard';
+      if (isLoggedIn && isAuthRoute && state.matchedLocation != '/linkage-pending') return '/weighment';
 
       // Postal address-verification grace gate — once the 30-day window lapses
       // and the address is still unverified, lock the app to the verify screen.

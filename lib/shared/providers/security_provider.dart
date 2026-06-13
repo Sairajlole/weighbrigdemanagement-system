@@ -45,6 +45,9 @@ class SecuritySettings {
   // Data security
   final bool autoLockEnabled;
   final int autoLockMinutes;
+  // Idle screensaver on the session-lock / authorization screen.
+  final bool screensaverEnabled;
+  final int screensaverMinutes;
   final bool maskSensitiveFields;
   final bool encryptBackups;
 
@@ -100,6 +103,8 @@ class SecuritySettings {
     this.auditLogExports = true,
     this.autoLockEnabled = true,
     this.autoLockMinutes = 5,
+    this.screensaverEnabled = true,
+    this.screensaverMinutes = 5,
     this.maskSensitiveFields = true,
     this.encryptBackups = false,
     this.faceVerifyOnWeighmentStart = false,
@@ -147,6 +152,8 @@ class SecuritySettings {
       auditLogExports: data['auditLogExports'] as bool? ?? true,
       autoLockEnabled: data['autoLockEnabled'] as bool? ?? true,
       autoLockMinutes: data['autoLockMinutes'] as int? ?? 5,
+      screensaverEnabled: data['screensaverEnabled'] as bool? ?? true,
+      screensaverMinutes: data['screensaverMinutes'] as int? ?? 5,
       maskSensitiveFields: data['maskSensitiveFields'] as bool? ?? true,
       encryptBackups: data['encryptBackups'] as bool? ?? false,
       faceVerifyOnWeighmentStart: data['faceVerifyOnWeighmentStart'] as bool? ?? data['requireFaceVerification'] as bool? ?? false,
@@ -616,9 +623,15 @@ class UsbMonitorService {
 
   const UsbMonitorService({required this.enabled});
 
+  /// USB restriction (detect/eject external volumes) is implemented via
+  /// macOS `diskutil` only. Off macOS this service is inert; the UI should
+  /// gate/label the `restrictUsb` toggle by reading this so it does not imply
+  /// security that is not enforced on Windows/Linux.
+  bool get supported => Platform.isMacOS;
+
   Future<List<String>> getExternalVolumes() async {
     if (!enabled) return [];
-    if (!Platform.isMacOS) return []; // diskutil is macOS-only
+    if (!supported) return []; // diskutil is macOS-only
     try {
       final result = await Process.run('diskutil', ['list', 'external']);
       if (result.exitCode == 0) {
@@ -649,7 +662,7 @@ class UsbMonitorService {
 
   Future<void> ejectAll() async {
     if (!enabled) return;
-    if (!Platform.isMacOS) return; // diskutil is macOS-only
+    if (!supported) return; // diskutil is macOS-only
     try {
       final result = await Process.run('diskutil', ['list', 'external']);
       if (result.exitCode == 0) {

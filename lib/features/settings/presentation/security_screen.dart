@@ -106,6 +106,8 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   // ── Data Security ──
   bool _autoLockEnabled = true;
   int _autoLockMinutes = 5;
+  bool _screensaverEnabled = true;
+  int _screensaverMinutes = 5;
   bool _maskSensitiveFields = true;
 
   // ── Operator Verification ──
@@ -118,6 +120,9 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
 
   // ── Privacy / Archival ──
   bool _anonymizeVehicleOnArchive = false;
+
+  // ── Audit retention input ──
+  final _auditRetentionController = TextEditingController();
 
   // ── Email Domain Restriction ──
   bool _domainRestrictionEnabled = false;
@@ -146,6 +151,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   @override
   void initState() {
     super.initState();
+    _auditRetentionController.text = '$_auditRetentionDays';
     _loadSessionLogs();
     _loadDomainRestriction();
   }
@@ -168,6 +174,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
 
   @override
   void dispose() {
+    _auditRetentionController.dispose();
     _domainController.dispose();
     super.dispose();
   }
@@ -226,7 +233,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       );
       AppNotifier.raise(paths,
           category: 'security', severity: 'warn', link: '/settings/mfa',
-          title: 'Email domain restriction changed',
+          title: 'Email domain rule changed',
           body: 'The allowed sign-up email domains for your company were updated.',
           throttleKey: 'domain-restriction-change', throttle: const Duration(minutes: 5));
       if (mounted) _showHeaderMsg('Domain restriction updated');
@@ -265,6 +272,8 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
 
     _autoLockEnabled = data['autoLockEnabled'] as bool? ?? true;
     _autoLockMinutes = data['autoLockMinutes'] as int? ?? 5;
+    _screensaverEnabled = data['screensaverEnabled'] as bool? ?? true;
+    _screensaverMinutes = data['screensaverMinutes'] as int? ?? 5;
     _maskSensitiveFields = data['maskSensitiveFields'] as bool? ?? true;
 
     _faceVerifyOnWeighmentStart = data['faceVerifyOnWeighmentStart'] as bool? ?? data['requireFaceVerification'] as bool? ?? false;
@@ -289,6 +298,12 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     _ipWhitelistEnabled = data['ipWhitelistEnabled'] as bool? ?? false;
     final ips = data['whitelistedIps'] as List<dynamic>?;
     if (ips != null) _whitelistedIps = ips.map((e) => e.toString()).toList();
+
+    // _loadData runs inside build (via whenData); defer the controller sync so we
+    // don't notify the field's listeners mid-build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _auditRetentionController.text = '$_auditRetentionDays';
+    });
   }
 
   void _markDirty() => setState(() => _dirty = true);
@@ -345,6 +360,8 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       'auditLogExports': _auditLogExports,
       'autoLockEnabled': _autoLockEnabled,
       'autoLockMinutes': _autoLockMinutes,
+      'screensaverEnabled': _screensaverEnabled,
+      'screensaverMinutes': _screensaverMinutes,
       'encryptBackups': true,
       'maskSensitiveFields': _maskSensitiveFields,
       'faceVerifyOnWeighmentStart': _faceVerifyOnWeighmentStart,
@@ -369,19 +386,20 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
       final db = ref.read(firestorePathsProvider);
       await db.securitySettings.set(data, SetOptions(merge: true));
       await _saveLocally(data);
+      if (!mounted) return;
       ref.read(auditServiceProvider).log(event: 'settingChange', description: 'Security settings updated');
       AppNotifier.raise(db,
           category: 'security', severity: 'warn', link: '/settings/mfa',
           title: 'Security settings changed',
           body: "Your security configuration (access permissions, IP allow-list, audit, lock) was updated. If this wasn't you, review it.",
           throttleKey: 'security-settings-change', throttle: const Duration(minutes: 10));
-      if (mounted) _showHeaderMsg('Security settings saved');
+      ref.read(securitySettingsOverrideProvider.notifier).state = SecuritySettings.fromMap(data);
+      ref.invalidate(_securitySettingsProvider);
+      _showHeaderMsg('Security settings saved');
     } catch (e) {
       await _saveLocally(data);
       if (mounted) _showHeaderMsg('Save failed: $e', isError: true);
     }
-    ref.read(securitySettingsOverrideProvider.notifier).state = SecuritySettings.fromMap(data);
-    ref.invalidate(_securitySettingsProvider);
     if (mounted) setState(() { _saving = false; _dirty = false; });
   }
 
@@ -653,7 +671,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               SizedBox(
                 width: 60,
                 child: TextField(
-                  controller: TextEditingController(text: '$_auditRetentionDays'),
+                  controller: _auditRetentionController,
                   keyboardType: TextInputType.number,
                   onChanged: (v) { final n = int.tryParse(v); if (n != null && n > 0) { _auditRetentionDays = n; _markDirty(); } },
                   decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
@@ -705,6 +723,37 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                 onChanged: (v) { setState(() => _autoLockMinutes = int.parse(v.replaceAll('m', ''))); _markDirty(); },
               ),
             ],
+          ),
+        ],
+        SizedBox(height: 14.rs),
+        // Screensaver on the lock / authorization screen
+        Row(
+          children: [
+            SizedBox(
+              height: 20, width: 36,
+              child: FittedBox(child: Switch(value: _screensaverEnabled, onChanged: (v) { setState(() => _screensaverEnabled = v); _markDirty(); })),
+            ),
+            SizedBox(width: AppSpacing.sm),
+            Text('Lock-screen screensaver', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        if (_screensaverEnabled) ...[
+          SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              SizedBox(width: 44.rs),
+              Text('after', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+              SizedBox(width: AppSpacing.sm),
+              _ChipGroup(
+                value: '${_screensaverMinutes}m',
+                options: const ['1m', '2m', '5m', '10m', '30m'],
+                onChanged: (v) { setState(() => _screensaverMinutes = int.parse(v.replaceAll('m', ''))); _markDirty(); },
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 44, top: 4),
+            child: Text('Shows the background art when the lock screen sits idle', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
           ),
         ],
         SizedBox(height: 14.rs),
@@ -1193,17 +1242,21 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
             padding: const EdgeInsets.only(left: 44, top: 4),
             child: Text('Screen lock (PIN to resume) is used instead', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
           ),
-        SizedBox(height: 14.rs),
-        // USB restriction
-        _PermissionToggle(
-          label: 'Restrict USB storage access',
-          value: _restrictUsb,
-          onChanged: (v) { setState(() => _restrictUsb = v); _markDirty(); },
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: 44),
-          child: Text('Blocks data copy to external USB drives', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
-        ),
+        // USB restriction — enforced via `diskutil eject` (macOS only). Hidden on
+        // Windows/Linux so the toggle can't imply protection the platform can't
+        // actually enforce (UsbMonitorService.supported == Platform.isMacOS).
+        if (Platform.isMacOS) ...[
+          SizedBox(height: 14.rs),
+          _PermissionToggle(
+            label: 'Restrict USB storage access',
+            value: _restrictUsb,
+            onChanged: (v) { setState(() => _restrictUsb = v); _markDirty(); },
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 44),
+            child: Text('Blocks data copy to external USB drives', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
+          ),
+        ],
         SizedBox(height: AppSpacing.sm),
         // Remote desktop blocking
         _PermissionToggle(

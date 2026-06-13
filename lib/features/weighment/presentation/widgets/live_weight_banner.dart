@@ -5,7 +5,6 @@ import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
 import 'package:weighbridgemanagement/shared/services/scale_service.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
-import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
 class LiveWeightBanner extends ConsumerStatefulWidget {
   final bool canManualEntry;
@@ -66,7 +65,6 @@ class LiveWeightBannerState extends ConsumerState<LiveWeightBanner> {
     final reading = ref.watch(scaleReadingProvider).valueOrNull ?? ScaleReading.zero;
     final status = ref.watch(scaleStatusProvider).valueOrNull ?? ScaleConnectionStatus.disconnected;
     final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
 
     final connected = status == ScaleConnectionStatus.connected;
     final weight = reading.weight;
@@ -96,79 +94,8 @@ class LiveWeightBannerState extends ConsumerState<LiveWeightBanner> {
         height: 200,
         child: Stack(
           children: [
-            // Status chip — top left
-            Positioned(
-              top: 10,
-              left: 12,
-              child: _editing
-                  ? RawChip(
-                      avatar: const Icon(Icons.edit_outlined, size: 14, color: Colors.blue),
-                      label: Text(
-                        'MANUAL ENTRY',
-                        style: textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                          color: Colors.blue,
-                        ),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.dialog,
-                        side: BorderSide(color: Colors.blue.withValues(alpha: 0.3)),
-                      ),
-                      backgroundColor: Colors.blue.withValues(alpha: 0.08),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    )
-                  : connected
-                      ? RawChip(
-                          avatar: Icon(
-                            stable ? Icons.check_circle_outlined : Icons.pending_outlined,
-                            size: 14,
-                            color: accentColor,
-                          ),
-                          label: Text(
-                            stable ? 'STABLE' : 'UNSTABLE',
-                            style: textTheme.labelSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                              color: accentColor,
-                            ),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.dialog,
-                            side: BorderSide(color: accentColor.withValues(alpha: 0.2)),
-                          ),
-                          backgroundColor: accentColor.withValues(alpha: 0.06),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        )
-                      : RawChip(
-                          avatar: Icon(
-                            Icons.link_off_outlined,
-                            size: 14,
-                            color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
-                          ),
-                          label: Text(
-                            'DISCONNECTED',
-                            style: textTheme.labelSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
-                              color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
-                            ),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.dialog,
-                            side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-                          ),
-                          backgroundColor: scheme.surfaceContainerLow,
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
-            ),
-
+            // Stability is conveyed by the colour of the weight value below
+            // (green = stable, red = unstable / disconnected) — no status chip.
 
             // Weight display or manual input — centered
             Center(

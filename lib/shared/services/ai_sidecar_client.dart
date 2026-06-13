@@ -446,7 +446,8 @@ class AiSidecarClient {
 
   Future<FaceCompareResult?> compareFaces(Uint8List image1, Uint8List image2, {double threshold = 0.4}) async {
     try {
-      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/face/compare?threshold=$threshold'));
+      final uri = Uri.parse('$baseUrl/face/compare').replace(queryParameters: {'threshold': '$threshold'});
+      final request = http.MultipartRequest('POST', uri);
       request.files.add(http.MultipartFile.fromBytes('file1', image1, filename: 'face1.jpg', contentType: MediaType('image', 'jpeg')));
       request.files.add(http.MultipartFile.fromBytes('file2', image2, filename: 'face2.jpg', contentType: MediaType('image', 'jpeg')));
 
@@ -475,7 +476,11 @@ class AiSidecarClient {
 
   Future<Map<String, dynamic>?> identifyFace(Uint8List imageBytes, {double threshold = 0.45, String collection = 'operator'}) async {
     try {
-      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/face/identify?threshold=$threshold&collection=$collection'));
+      final uri = Uri.parse('$baseUrl/face/identify').replace(queryParameters: {
+        'threshold': threshold.toString(),
+        'collection': collection,
+      });
+      final request = http.MultipartRequest('POST', uri);
       request.files.add(http.MultipartFile.fromBytes('file', imageBytes, filename: 'face.jpg', contentType: MediaType('image', 'jpeg')));
 
       final streamed = await request.send().timeout(timeout);
@@ -491,7 +496,8 @@ class AiSidecarClient {
   /// averages top 3 embeddings, requires at least one live frame.
   Future<Map<String, dynamic>?> verifyBurst(List<Uint8List> frames, {double threshold = 0.55, String collection = 'operator'}) async {
     try {
-      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/face/verify_burst?threshold=$threshold&collection=$collection'));
+      final uri = Uri.parse('$baseUrl/face/verify_burst').replace(queryParameters: {'threshold': '$threshold', 'collection': collection});
+      final request = http.MultipartRequest('POST', uri);
       for (var i = 0; i < frames.length; i++) {
         request.files.add(http.MultipartFile.fromBytes('files', frames[i], filename: 'frame_$i.jpg', contentType: MediaType('image', 'jpeg')));
       }
@@ -508,7 +514,10 @@ class AiSidecarClient {
 
   Future<bool> submitAnprCorrection(Uint8List imageBytes, String correctPlate, {List<double>? bbox}) async {
     try {
-      final uri = Uri.parse('$baseUrl/anpr/correct?correct_plate=$correctPlate${bbox != null ? '&bbox=${bbox.join(",")}' : ''}');
+      final uri = Uri.parse('$baseUrl/anpr/correct').replace(queryParameters: {
+        'correct_plate': correctPlate,
+        if (bbox != null) 'bbox': bbox.join(','),
+      });
       final request = http.MultipartRequest('POST', uri);
       request.files.add(http.MultipartFile.fromBytes('file', imageBytes, filename: 'frame.jpg', contentType: MediaType('image', 'jpeg')));
 
@@ -568,7 +577,8 @@ class AiSidecarClient {
     List<List<double>> privacyZones = const [],
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl/anpr/session/$sessionId/frame?camera_id=$cameraId');
+      final uri = Uri.parse('$baseUrl/anpr/session/$sessionId/frame')
+          .replace(queryParameters: {'camera_id': cameraId});
       final request = http.MultipartRequest('POST', uri);
       request.files.add(http.MultipartFile.fromBytes('file', imageBytes, filename: filename, contentType: MediaType('image', 'jpeg')));
       if (privacyZones.isNotEmpty) {
@@ -731,7 +741,7 @@ class AiSidecarClient {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return EnrollResult(
-          embedding: (data['embedding'] as List).cast<double>(),
+          embedding: (data['embedding'] as List).map((e) => (e as num).toDouble()).toList(),
           facesUsed: data['faces_used'] as int? ?? 0,
           totalImages: data['total_images'] as int? ?? images.length,
           avgQuality: (data['avg_quality'] as num?)?.toDouble() ?? 0.0,

@@ -141,7 +141,6 @@ class _CompanyInfoStepState extends ConsumerState<CompanyInfoStep> {
       // No local cache — the lookup returns PAN/address, so it's fetched fresh
       // from the portal each time rather than persisted on the device.
       final responseData = await CloudFunctionsService.call('lookupGstin', {'gstin': gstin});
-      debugPrint('GSTIN lookup raw response: $responseData');
       if (responseData['data'] == null) {
         debugPrint('GSTIN lookup: no data in response');
         if (mounted) {

@@ -7,8 +7,12 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class CloudFunctionsService {
-  static const _projectId = 'weighbridge-management';
-  static const _region = 'us-central1';
+  static const _projectId = 'tulanam';
+  static const _region = 'asia-south1';
+
+  /// Server-issued session token (set after loginUser, cleared on logout).
+  /// Attached to every callable so secured functions can authorize the caller.
+  static String? sessionToken;
 
   static bool get _useHttp => Platform.isWindows || Platform.isLinux;
 
@@ -20,15 +24,20 @@ class CloudFunctionsService {
     String functionName, [
     Map<String, dynamic>? parameters,
   ]) async {
+    // Attach the session token so secured callables can authorize the caller.
+    // Unsecured callables simply ignore the extra field.
+    final params = (sessionToken != null && sessionToken!.isNotEmpty)
+        ? {...?parameters, 'sessionToken': sessionToken}
+        : parameters;
     if (!_useHttp) {
-      final fn = FirebaseFunctions.instance.httpsCallable(functionName);
-      final result = await fn.call(parameters);
+      final fn = FirebaseFunctions.instanceFor(region: _region).httpsCallable(functionName);
+      final result = await fn.call(params);
       return result.data is Map
           ? Map<String, dynamic>.from(result.data as Map)
           : {'data': result.data};
     }
 
-    return _callViaHttp(functionName, parameters);
+    return _callViaHttp(functionName, params);
   }
 
   static Future<Map<String, dynamic>> _callViaHttp(

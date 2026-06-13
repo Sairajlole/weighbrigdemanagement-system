@@ -57,6 +57,18 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
   List<String> _availablePorts = [];
   bool _scanningPorts = false;
 
+  // Name-field controllers keyed by the stable board Map identity (not list
+  // index — removeAt() shifts indices). Created once per board so the field
+  // stops leaking + resetting its cursor on every rebuild.
+  final Map<Object, TextEditingController> _boardNameCtrls = {};
+
+  TextEditingController _boardNameCtrl(Map<String, dynamic> board) {
+    return _boardNameCtrls.putIfAbsent(
+      board,
+      () => TextEditingController(text: board['name'] as String? ?? ''),
+    );
+  }
+
   // ── Cloud Backup (Google Drive / S3) ──
   bool _gdriveEnabled = false;
   final _gdriveClientId = TextEditingController();
@@ -90,6 +102,9 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     _oracleUsername.dispose();
     _oraclePassword.dispose();
     _oracleResponsibility.dispose();
+    for (final c in _boardNameCtrls.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -625,7 +640,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                       SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: TextField(
-                          controller: TextEditingController(text: board['name'] as String? ?? ''),
+                          controller: _boardNameCtrl(board),
                           style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
                           decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10), border: InputBorder.none),
                           onChanged: (v) { board['name'] = v; _markDirty(); },

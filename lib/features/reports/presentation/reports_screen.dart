@@ -94,6 +94,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   List<Map<String, dynamic>> _prevData = [];
   bool _prevLoading = false;
 
+  // Cached audit-trail query so it isn't re-issued on every rebuild.
+  Future<QuerySnapshot<Map<String, dynamic>>>? _auditFuture;
+
   @override
   void initState() {
     super.initState();
@@ -318,7 +321,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
         _pickCustomDateRange();
         return;
     }
-    setState(() { _datePreset = preset; _dateRange = range; });
+    setState(() { _datePreset = preset; _dateRange = range; _prevData = []; });
     _loadReport();
   }
 
@@ -355,7 +358,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     }
   }
 
-  String _esc(String v) => v.contains(',') || v.contains('"') ? '"${v.replaceAll('"', '""')}"' : v;
+  String _esc(String v) {
+    // Neutralize spreadsheet formula injection: prefix a single quote so a leading =,+,-,@ is treated as text.
+    if (v.isNotEmpty && '=+-@'.contains(v[0])) v = "'$v";
+    // Quote on comma/quote and on embedded CR/LF so a newline can't break the row.
+    return v.contains(',') || v.contains('"') || v.contains('\n') || v.contains('\r')
+        ? '"${v.replaceAll('"', '""')}"'
+        : v;
+  }
 
   Future<void> _exportPdf() async {
     final dir = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Export PDF to');
@@ -376,7 +386,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             pw.SizedBox(height: 4),
             pw.Text('${DateFormat('dd MMM yyyy').format(_dateRange.start)} – ${DateFormat('dd MMM yyyy').format(_dateRange.end)}', style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
             pw.SizedBox(height: 4),
-            pw.Text('Total: ${completed.length} weighments | ${(totalNet / 1000).toStringAsFixed(1)} tonnes', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+            pw.Text('Total: ${completed.length} weighments | ${(totalNet / 1000).toStringAsFixed(1)} tonnes${completed.length > 200 ? ' (showing first 200)' : ''}', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
             pw.Divider(),
           ],
         ),
@@ -523,7 +533,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Text('${_activeTab.label} Report', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-            pw.Text('${DateFormat('dd MMM yyyy').format(_dateRange.start)} – ${DateFormat('dd MMM yyyy').format(_dateRange.end)} | ${completed.length} records | ${(totalNet / 1000).toStringAsFixed(1)}T', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+            pw.Text('${DateFormat('dd MMM yyyy').format(_dateRange.start)} – ${DateFormat('dd MMM yyyy').format(_dateRange.end)} | ${completed.length} records | ${(totalNet / 1000).toStringAsFixed(1)}T${completed.length > 500 ? ' (showing first 500)' : ''}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
             pw.Divider(),
           ],
         ),
@@ -615,7 +625,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                             } else {
                               setDialogState(() { end = date; });
                             }
-                            setState(() { _datePreset = _DatePreset.custom; _dateRange = DateTimeRange(start: start!, end: end!); });
+                            setState(() { _datePreset = _DatePreset.custom; _dateRange = DateTimeRange(start: start!, end: end!); _prevData = []; });
                             Navigator.pop(ctx);
                             _loadReport();
                           }
@@ -786,7 +796,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 maxLines: null,
                 style: const TextStyle(fontSize: 12),
                 decoration: InputDecoration(
-                  hintText: 'Customer...',
+                  hintText: 'Customer (3+)...',
                   hintStyle: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                   filled: true,
@@ -809,7 +819,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 maxLines: null,
                 style: const TextStyle(fontSize: 12),
                 decoration: InputDecoration(
-                  hintText: 'Vehicle...',
+                  hintText: 'Vehicle (3+)...',
                   hintStyle: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                   filled: true,
@@ -1732,11 +1742,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   // ─── Audit Trail ────────────────────────────────────────────────────────────
 
   Widget _buildAuditReport(ColorScheme scheme, TextTheme text) {
+    _auditFuture ??= ref.read(firestorePathsProvider).auditLog
+        .orderBy('timestamp', descending: true)
+        .limit(100)
+        .get();
     return FutureBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      future: ref.read(firestorePathsProvider).auditLog
-          .orderBy('timestamp', descending: true)
-          .limit(100)
-          .get(),
+      future: _auditFuture,
       builder: (context, snap) {
         if (!snap.hasData) return const AppLoading();
         final logs = snap.data!.docs.map((d) => d.data()).toList();

@@ -3,6 +3,11 @@ import 'dart:io';
 class PlatformService {
   PlatformService._();
 
+  /// Native desktop platforms (Windows + Linux) that need the Firestore
+  /// concurrent-stream deferral on startup — opening multiple snapshot streams
+  /// before auth queries settle crashes the native plugin there. macOS is fine.
+  static bool get isDesktopNative => Platform.isWindows || Platform.isLinux;
+
   // ─── File Operations ────────────────────────────────────────────────────────
 
   static Future<void> openFile(String path) async {

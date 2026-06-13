@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -9,11 +10,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:weighbridgemanagement/features/weighment/application/weighment_providers.dart';
 import 'package:weighbridgemanagement/features/weighment/application/weighment_state_machine.dart';
+import 'package:weighbridgemanagement/features/weighment/presentation/widgets/vehicle_info_form.dart' show CustomerFaceAvatar;
 import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/live_camera_feeds_provider.dart';
 import 'package:weighbridgemanagement/shared/services/multi_camera_service.dart';
-import 'package:weighbridgemanagement/shared/utils/responsive.dart';
+
+/// Decodes base64 image data from AI sidecar payloads, returning null on
+/// malformed input rather than throwing (which would red-screen the panel).
+Uint8List? _tryDecodeBase64(String s) {
+  try {
+    return base64Decode(s);
+  } catch (_) {
+    return null;
+  }
+}
 
 final _cameraSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   ref.watch(activeWeighbridgeCamerasProvider);
@@ -54,11 +65,16 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
   final _activeIpKeys = <String>{};
   Timer? _snapshotTimer;
   bool _syncing = false;
+  bool _capturing = false;
 
   @override
   void dispose() {
     _snapshotTimer?.cancel();
-    MultiCameraService.stopAll();
+    // Stop only this widget's owned native sessions; IP feeds are delegated to
+    // the global liveCameraFeedsProvider and must persist across navigation.
+    for (final key in _activeNativeKeys) {
+      MultiCameraService.stop(key);
+    }
     super.dispose();
   }
 
@@ -173,22 +189,32 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
     if (!dir.existsSync()) dir.createSync(recursive: true);
 
     Future<void> capture() async {
-      for (final entry in _nativeFeeds.entries) {
-        final bytes = await MultiCameraService.takePicture(entry.key);
-        if (bytes != null) {
-          final outPath = '$home/.weighbridge/frames/live_${entry.key}.jpg';
-          await File(outPath).writeAsBytes(bytes);
-        }
-      }
-      final liveFeeds = ref.read(liveCameraFeedsProvider).feeds;
-      for (final entry in liveFeeds.entries) {
-        try {
-          final bytes = await entry.value.player.screenshot(format: 'image/jpeg');
+      if (!mounted || _capturing) return;
+      _capturing = true;
+      try {
+        for (final entry in _nativeFeeds.entries) {
+          final bytes = await MultiCameraService.takePicture(entry.key);
+          if (!mounted) return;
           if (bytes != null) {
             final outPath = '$home/.weighbridge/frames/live_${entry.key}.jpg';
             await File(outPath).writeAsBytes(bytes);
+            if (!mounted) return;
           }
-        } catch (_) {}
+        }
+        final liveFeeds = ref.read(liveCameraFeedsProvider).feeds;
+        for (final entry in liveFeeds.entries) {
+          try {
+            final bytes = await entry.value.player.screenshot(format: 'image/jpeg');
+            if (!mounted) return;
+            if (bytes != null) {
+              final outPath = '$home/.weighbridge/frames/live_${entry.key}.jpg';
+              await File(outPath).writeAsBytes(bytes);
+              if (!mounted) return;
+            }
+          } catch (_) {}
+        }
+      } finally {
+        _capturing = false;
       }
     }
 
@@ -227,6 +253,14 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
     final isTarePhase = machine.session?.firstWeight != null;
     final anprOverlays = ref.watch(anprDetectionOverlayProvider);
     final isAnprScanning = ref.watch(anprScanningProvider);
+
+    // Customer-face CCTV: pinned to the top of the list whenever it's enabled.
+    final custCamEnabled = ref.watch(customerCameraConfigProvider).valueOrNull?.enabled ?? false;
+    final custCamFeed = ref.watch(customerCameraFeedProvider);
+    final custFace = ref.watch(customerFaceProvider);
+    final showCustomerTile = custCamEnabled && custCamFeed.active;
+    debugPrint('[cust-tile] enabled=$custCamEnabled active=${custCamFeed.active} '
+        'textureId=${custCamFeed.textureId} isIp=${custCamFeed.isIpCamera} show=$showCustomerTile');
     // Unified plate color from best detection across all cameras
     final bestColorOverlay = anprOverlays.values.where((o) => o.hasDetection).isEmpty
         ? null
@@ -283,7 +317,9 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
       );
     }
 
-    final panelWidth = Responsive.wp(28).clamp(280.0, 500.0);
+    // Reactive width (see PendingQueuePanel): MediaQuery rebuilds this on resize,
+    // unlike Responsive's static cache which can be stale on first paint.
+    final panelWidth = (MediaQuery.sizeOf(context).width * 0.28).clamp(280.0, 500.0);
 
     return Container(
       width: panelWidth,
@@ -310,7 +346,7 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
           ),
           // Camera list
           Expanded(
-            child: cameras.isEmpty
+            child: (cameras.isEmpty && !showCustomerTile)
                 ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -327,10 +363,30 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
                 : Scrollbar(
                     child: ListView.separated(
                       padding: const EdgeInsets.all(10),
-                      itemCount: cameras.length,
+                      itemCount: cameras.length + (showCustomerTile ? 1 : 0),
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (_, i) {
-                      final cam = cameras[i];
+                      // Customer-face CCTV is always the first tile when enabled.
+                      if (showCustomerTile && i == 0) {
+                        return AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: CustomerFaceAvatar(
+                              fillHeight: true,
+                              faceCropB64: custFace.faceCropB64,
+                              isKnown: custFace.isKnown,
+                              detected: custFace.detected,
+                              isAmbiguous: custFace.isAmbiguous,
+                              scanning: custFace.scanning,
+                              show: custFace.enabled,
+                              sessionActive: machine.session != null,
+                              scale: 0.85,
+                            ),
+                          ),
+                        );
+                      }
+                      final cam = cameras[showCustomerTile ? i - 1 : i];
                       return GestureDetector(
                         onTap: () => _showEnlargedCamera(cam, isTarePhase),
                         child: MouseRegion(
@@ -443,13 +499,13 @@ class _WeighbridgeCamerasColumnState extends ConsumerState<WeighbridgeCamerasCol
   Widget _buildCameraContent(ActiveCamera cam, ColorScheme scheme) {
     final liveFeeds = ref.watch(liveCameraFeedsProvider).feeds;
     if (liveFeeds.containsKey(cam.key)) {
-      return Video(controller: liveFeeds[cam.key]!.controller, controls: NoVideoControls, fit: BoxFit.cover);
+      return Video(controller: liveFeeds[cam.key]!.controller, controls: NoVideoControls, fit: BoxFit.contain);
     }
 
     final feed = _nativeFeeds[cam.key];
     if (feed != null) {
       return FittedBox(
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         clipBehavior: Clip.hardEdge,
         child: SizedBox(
           width: feed.width.toDouble(),
@@ -486,7 +542,11 @@ class _AnprOverlayPainter extends StatelessWidget {
   Color _parseBgColor() {
     if (plateBgColor.length == 7 && plateBgColor.startsWith('#')) {
       final hex = plateBgColor.substring(1);
-      return Color(int.parse('FF$hex', radix: 16));
+      try {
+        return Color(int.parse('FF$hex', radix: 16));
+      } catch (_) {
+        return Colors.white;
+      }
     }
     return Colors.white;
   }
@@ -504,6 +564,7 @@ class _AnprOverlayPainter extends StatelessWidget {
     final borderColor = bgColor;
     final opacity = (confidence.clamp(0.3, 1.0) - 0.3) / 0.7;
     final borderWidth = confidence > 0.7 ? 2.5 : 1.5;
+    final plateCropBytes = plateCropB64.isNotEmpty ? _tryDecodeBase64(plateCropB64) : null;
 
     return LayoutBuilder(builder: (context, constraints) {
       final w = constraints.maxWidth;
@@ -565,7 +626,7 @@ class _AnprOverlayPainter extends StatelessWidget {
               ),
             ),
             // PiP plate crop inset — always shown once captured (best crop persists)
-            if (plateCropB64.isNotEmpty)
+            if (plateCropBytes != null)
               Positioned(
                 right: 4,
                 bottom: 4,
@@ -578,7 +639,7 @@ class _AnprOverlayPainter extends StatelessWidget {
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Image.memory(
-                    base64Decode(plateCropB64),
+                    plateCropBytes,
                     fit: BoxFit.contain,
                     gaplessPlayback: true,
                   ),
@@ -629,12 +690,12 @@ class _EnlargedCameraDialogState extends ConsumerState<_EnlargedCameraDialog> {
   Widget _buildLiveFeed() {
     final liveFeeds = ref.watch(liveCameraFeedsProvider).feeds;
     if (liveFeeds.containsKey(widget.cameraKey)) {
-      return Video(controller: liveFeeds[widget.cameraKey]!.controller, controls: NoVideoControls, fit: BoxFit.cover);
+      return Video(controller: liveFeeds[widget.cameraKey]!.controller, controls: NoVideoControls, fit: BoxFit.contain);
     }
     if (widget.nativeFeed != null) {
       final feed = widget.nativeFeed!;
       return FittedBox(
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         clipBehavior: Clip.hardEdge,
         child: SizedBox(
           width: feed.width.toDouble(),
@@ -657,7 +718,10 @@ class _EnlargedCameraDialogState extends ConsumerState<_EnlargedCameraDialog> {
     final unifiedBgColor = bestColorOverlay?.plateBgColor ?? '#FFFFFF';
 
     final custFace = ref.watch(customerFaceProvider);
-    final hasFaceSnapshot = custFace.detected && custFace.faceCropB64 != null && custFace.faceCropB64!.isNotEmpty;
+    final faceCropBytes = (custFace.detected && custFace.faceCropB64 != null && custFace.faceCropB64!.isNotEmpty)
+        ? _tryDecodeBase64(custFace.faceCropB64!)
+        : null;
+    final hasFaceSnapshot = faceCropBytes != null;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -685,7 +749,7 @@ class _EnlargedCameraDialogState extends ConsumerState<_EnlargedCameraDialog> {
                     children: [
                       _TabButton(label: 'Live Feed', icon: Icons.videocam_outlined, selected: _tabIndex == 0, onTap: () => setState(() => _tabIndex = 0)),
                       const SizedBox(width: 8),
-                      _TabButton(label: 'Face Snapshot', icon: Icons.face_outlined, selected: _tabIndex == 1, onTap: () => setState(() => _tabIndex = 1)),
+                      _TabButton(label: 'Face Snapshot', icon: Icons.center_focus_strong_rounded, selected: _tabIndex == 1, onTap: () => setState(() => _tabIndex = 1)),
                       const Spacer(),
                       GestureDetector(
                         onTap: () => Navigator.of(context).pop(),
@@ -782,7 +846,7 @@ class _EnlargedCameraDialogState extends ConsumerState<_EnlargedCameraDialog> {
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
                                   child: Image.memory(
-                                    base64Decode(custFace.faceCropB64!),
+                                    faceCropBytes,
                                     height: MediaQuery.of(context).size.height * 0.45,
                                     fit: BoxFit.contain,
                                     gaplessPlayback: true,

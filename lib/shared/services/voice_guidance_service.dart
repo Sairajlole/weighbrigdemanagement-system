@@ -233,9 +233,11 @@ class VoiceGuidanceService {
     _activeProcess = null;
     _isSpeaking = false;
     if (Platform.isMacOS) {
-      Process.runSync('killall', ['-9', 'afplay']);
-      Process.runSync('killall', ['-9', 'say']);
-      Process.runSync('killall', ['-9', 'ffmpeg']);
+      // Fire-and-forget so stop() stays non-blocking; catch-all for any
+      // orphaned audio processes not tracked via _activeProcess.
+      Process.run('killall', ['-9', 'afplay']).ignore();
+      Process.run('killall', ['-9', 'say']).ignore();
+      Process.run('killall', ['-9', 'ffmpeg']).ignore();
     }
   }
 

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,6 +9,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:weighbridgemanagement/features/profile/presentation/profile_screen.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
+import 'package:weighbridgemanagement/shared/services/platform_service.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
@@ -20,9 +20,9 @@ import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 final _weighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) async* {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return;
-  // On Windows, wait for auth queries to complete before opening streams
+  // On Windows/Linux, wait for auth queries to complete before opening streams
   // to avoid concurrent Firestore channel messages crashing the app.
-  if (Platform.isWindows) {
+  if (PlatformService.isDesktopNative) {
     await ref.watch(currentOperatorDocProvider.future);
     await Future<void>.delayed(const Duration(milliseconds: 500));
   }
@@ -36,7 +36,7 @@ final _weighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) asy
 final _customersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) async* {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return;
-  if (Platform.isWindows) {
+  if (PlatformService.isDesktopNative) {
     await ref.watch(currentOperatorDocProvider.future);
     await Future<void>.delayed(const Duration(seconds: 1));
   }

@@ -996,11 +996,21 @@ class ScaleService {
       final match = regex.firstMatch(line);
       if (match == null) return;
 
-      final weightStr = match.group(1) ?? match.group(0);
-      if (weightStr == null) return;
+      // Guard groupCount: accessing group(1) when the regex has no capture
+      // group throws a RangeError that the catch below would swallow,
+      // silently dropping every reading. Fall back to the whole match.
+      final weightStr =
+          (match.groupCount >= 1 ? match.group(1) : null) ?? match.group(0);
+      if (weightStr == null) {
+        _lastError = 'No weight value in matched line: "$line"';
+        return;
+      }
 
       final weight = double.tryParse(weightStr);
-      if (weight == null) return;
+      if (weight == null) {
+        _lastError = 'Could not parse weight from "$weightStr"';
+        return;
+      }
 
       _recentWeights.add(weight);
       if (_recentWeights.length > 20) _recentWeights.removeAt(0);

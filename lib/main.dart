@@ -9,14 +9,16 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:weighbridgemanagement/shared/widgets/inactivity_wrapper.dart';
+import 'package:weighbridgemanagement/shared/widgets/update_banner.dart';
 import 'package:weighbridgemanagement/shared/widgets/window_title_bar.dart';
 import 'package:weighbridgemanagement/firebase_options.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/providers/appearance_provider.dart';
-import 'package:weighbridgemanagement/shared/providers/version_provider.dart';
 import 'package:weighbridgemanagement/shared/routing/app_router.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
+import 'package:weighbridgemanagement/shared/services/crash_reporter.dart';
 import 'package:weighbridgemanagement/shared/services/fcm_service.dart';
 
 void main() async {
@@ -25,7 +27,16 @@ void main() async {
     MediaKit.ensureInitialized();
   } catch (_) {}
   await windowManager.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Guard against hot-restart, where the native [DEFAULT] app persists across the
+  // Dart restart and a second initializeApp throws [core/duplicate-app].
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  }
+
+  // Capture Flutter + uncaught async errors to the server-only `error_reports`
+  // collection — production visibility into client bugs (Crashlytics has no
+  // Windows support, so this is the Firebase-native substitute).
+  await CrashReporter.init();
 
   // Disable keychain persistence — we sign out on every cold start anyway,
   // and this avoids keychain-error on macOS without a valid provisioning profile.
@@ -134,57 +145,26 @@ class _WeighbridgeAppState extends ConsumerState<WeighbridgeApp> {
           child: Column(
             children: [
               const WindowTitleBar(),
-              Expanded(child: _VersionGate(child: child!)),
+              // Lock overlay wraps the whole routed app (shell + sidebar) so the
+              // session/authorization lock covers the complete screen below the
+              // window title bar. The update banner sits under the lock.
+              Expanded(
+                child: InactivityWrapper(
+                  child: Stack(
+                    children: [
+                      child!,
+                      // Optional update → dismissible bottom banner; required
+                      // update → full-screen blocking overlay. Both via UpdateBanner.
+                      const Positioned.fill(child: UpdateBanner()),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         );
       },
     );
-  }
-}
-
-class _VersionGate extends ConsumerStatefulWidget {
-  final Widget child;
-  const _VersionGate({required this.child});
-
-  @override
-  ConsumerState<_VersionGate> createState() => _VersionGateState();
-}
-
-class _VersionGateState extends ConsumerState<_VersionGate> {
-  bool _dialogShown = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final versionAsync = ref.watch(versionProvider);
-
-    versionAsync.whenData((info) {
-      if (info.status == VersionStatus.updateRequired && !_dialogShown) {
-        _dialogShown = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Update Required'),
-              content: Text(
-                'A critical update (v${info.latestVersion}) is required to continue using this application.\n\n'
-                '${info.releaseNotes ?? "Please update to the latest version."}',
-              ),
-              actions: [
-                FilledButton(
-                  onPressed: () => exit(0),
-                  child: const Text('Close App'),
-                ),
-              ],
-            ),
-          );
-        });
-      }
-    });
-
-    return widget.child;
   }
 }
 

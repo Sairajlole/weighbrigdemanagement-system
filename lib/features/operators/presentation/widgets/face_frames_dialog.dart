@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -72,8 +73,12 @@ class _FaceFramesDialogState extends ConsumerState<FaceFramesDialog> {
 
   String get _otp => _otpControllers.map((c) => c.text).join();
   int get _keptCount => _frames.where((f) => !f.excluded).length;
-  bool get _dirty => _frames.any((f) => f.excluded) || _changedFromServer;
-  bool _changedFromServer = false;
+  // Excluded frame paths as loaded from the server. "Dirty" means the current
+  // selection differs from this — so unselecting then re-selecting back to the
+  // original set disables Apply again (no real change to apply).
+  final Set<String> _originalExcluded = {};
+  Set<String> get _currentExcluded => _frames.where((f) => f.excluded).map((f) => f.path).toSet();
+  bool get _dirty => !setEquals(_currentExcluded, _originalExcluded);
 
   Future<void> _load() async {
     try {
@@ -93,6 +98,9 @@ class _FaceFramesDialogState extends ConsumerState<FaceFramesDialog> {
           m['excluded'] == true,
         );
       }).toList();
+      _originalExcluded
+        ..clear()
+        ..addAll(_frames.where((f) => f.excluded).map((f) => f.path));
       _enrolledAt = data['enrolledAt'] as String? ?? '';
       if (mounted) setState(() => _loading = false);
     } catch (e) {
@@ -103,7 +111,6 @@ class _FaceFramesDialogState extends ConsumerState<FaceFramesDialog> {
   void _toggle(_Frame f) {
     setState(() {
       f.excluded = !f.excluded;
-      _changedFromServer = true;
     });
   }
 
@@ -149,8 +156,14 @@ class _FaceFramesDialogState extends ConsumerState<FaceFramesDialog> {
 
       // 3. Persist: new embedding, the excluded set, updated frame count.
       final paths = ref.read(firestorePathsProvider);
+      final opRef = paths.operators.doc(widget.operatorId);
       final excludedPaths = _frames.where((f) => f.excluded).map((f) => f.path).toList();
-      await paths.operators.doc(widget.operatorId).update({
+      // Read the operator's real active state so the FAISS sync mirrors it — a
+      // hardcoded is_active:true would re-activate a deactivated operator in the
+      // sidecar. The app's active predicate is the isActive boolean.
+      final opSnap = await opRef.get();
+      final isActive = opSnap.data()?['isActive'] == true;
+      await opRef.update({
         'faceEmbedding': result.embedding,
         'faceModelVersion': 'arcface_glintr100',
         'excludedFrames': excludedPaths,
@@ -162,7 +175,7 @@ class _FaceFramesDialogState extends ConsumerState<FaceFramesDialog> {
         'email': widget.operatorEmail,
         'name': widget.operatorName,
         'embedding': result.embedding,
-        'is_active': true,
+        'is_active': isActive,
       }]);
 
       if (mounted) {
@@ -180,13 +193,23 @@ class _FaceFramesDialogState extends ConsumerState<FaceFramesDialog> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final screenH = MediaQuery.of(context).size.height;
+    // Match the operator detail dialog on the horizontal axis: same width (1000)
+    // and the same 60px side insets. That window is centred at 0.88 of the
+    // screen height, so its bottom edge sits ~6% of the height above the screen
+    // bottom — bottom-align this window to that same line so their bottoms match.
+    final bottomInset = screenH * 0.06;
+    // Height adjusted to the wider window (two rows of the larger tiles), capped
+    // so it never overflows shorter screens — the body scrolls past that.
+    final bodyHeight = (screenH * 0.5).clamp(280.0, 470.0);
     return Dialog(
+      alignment: Alignment.bottomCenter,
+      insetPadding: EdgeInsets.only(left: 60, right: 60, top: 24, bottom: bottomInset),
       shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 1000,
-          maxHeight: MediaQuery.of(context).size.height * 0.88,
-        ),
+      child: SizedBox(
+        // Same width as the operator detail window; the body scrolls if an
+        // operator has more frames than fit (the per-slide max is ~10).
+        width: 1000,
         child: Padding(
           padding: AppSpacing.pagePadding,
           child: Column(
@@ -195,17 +218,36 @@ class _FaceFramesDialogState extends ConsumerState<FaceFramesDialog> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.face_retouching_natural_rounded, size: 20, color: scheme.primary),
-                  SizedBox(width: 10.rs),
-                  Expanded(child: Text('Face Verification Images', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700))),
+                  Container(
+                    width: 38, height: 38,
+                    decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), borderRadius: AppRadius.button),
+                    // The shared face-verification glyph (customer-counter SCAN FACE button).
+                    child: Icon(Icons.center_focus_strong_rounded, size: 20, color: scheme.primary),
+                  ),
+                  SizedBox(width: 12.rs),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Face Verification Images', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                        if (!_loading && _error == null && _frames.isNotEmpty)
+                          Text('${_frames.length} frame${_frames.length == 1 ? '' : 's'} captured',
+                              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 11)),
+                      ],
+                    ),
+                  ),
                   IconButton(onPressed: _busy ? null : () => Navigator.pop(context), icon: const Icon(Icons.close_rounded, size: 18)),
                 ],
               ),
-              SizedBox(height: 4.rs),
+              SizedBox(height: 10.rs),
               Text('Tap a frame to exclude it from the face model. Excluded frames are kept but won\'t be used for verification.',
                   style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-              SizedBox(height: AppSpacing.lg),
-              Flexible(child: _buildBody(scheme, text)),
+              SizedBox(height: AppSpacing.md),
+              Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.4)),
+              SizedBox(height: AppSpacing.md),
+              // Fixed body height (sized to the wider window) — constant whether
+              // buffering, empty, or loaded; the body scrolls if there are more.
+              SizedBox(height: bodyHeight, child: _buildBody(scheme, text)),
               if (!_loading && _error == null) ...[
                 SizedBox(height: AppSpacing.md),
                 _buildFooter(scheme, text),
@@ -229,7 +271,8 @@ class _FaceFramesDialogState extends ConsumerState<FaceFramesDialog> {
         ),
       );
     }
-    final specs = _frames.where((f) => f.specs).toList();
+    final specs = _frames.where((f) => f.specs).toList()
+      ..sort((a, b) => b.quality.compareTo(a.quality)); // best quality first
     final noSpecs = _frames.where((f) => !f.specs).toList()
       ..sort((a, b) => b.quality.compareTo(a.quality)); // best quality first
     return SingleChildScrollView(
@@ -237,18 +280,14 @@ class _FaceFramesDialogState extends ConsumerState<FaceFramesDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_enrolledAt.isNotEmpty) ...[
-            Row(children: [
-              Icon(Icons.event_rounded, size: 14, color: scheme.onSurfaceVariant),
-              SizedBox(width: 6.rs),
-              Text('Enrolled ${_formatEnrolledAt(_enrolledAt)}',
-                  style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600)),
-            ]),
+            Text('Enrolled ${_formatEnrolledAt(_enrolledAt)}',
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600)),
             SizedBox(height: AppSpacing.md),
           ],
           if (specs.isNotEmpty) ...[
-            _sectionHeader('With spectacles', specs.length, scheme, text),
+            _sectionHeader('With spectacles · best quality first', specs.length, scheme, text),
             SizedBox(height: 8.rs),
-            _grid(specs, scheme, showQuality: false),
+            _grid(specs, scheme, showQuality: true),
             SizedBox(height: AppSpacing.lg),
           ],
           if (noSpecs.isNotEmpty) ...[
@@ -372,26 +411,35 @@ class _FaceFramesDialogState extends ConsumerState<FaceFramesDialog> {
       children: [
         Row(
           children: [
-            Text('$_keptCount kept · $excluded excluded', style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+            _countChip('$_keptCount kept', AppTheme.successColor),
+            SizedBox(width: 8.rs),
+            _countChip('$excluded excluded', scheme.error),
             const Spacer(),
             if (_keptCount < _minKept)
-              Text('Min $_minKept required', style: text.bodySmall?.copyWith(color: scheme.error)),
+              Text('Min $_minKept required', style: text.bodySmall?.copyWith(color: scheme.error, fontWeight: FontWeight.w600)),
           ],
         ),
         if (_otpError != null) ...[
           SizedBox(height: 6.rs),
           Text(_otpError!, style: text.bodySmall?.copyWith(color: scheme.error)),
         ],
-        SizedBox(height: 10.rs),
+        SizedBox(height: 12.rs),
         SizedBox(
           width: double.infinity,
-          child: FilledButton.icon(
+          child: FilledButton(
             onPressed: (!_dirty || _busy || _keptCount < _minKept) ? null : _startApply,
-            icon: _busy ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.shield_rounded, size: 16),
-            label: const Text('Apply Exclusions (verify)'),
+            child: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Apply'),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _countChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: AppRadius.chip),
+      child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
     );
   }
 }

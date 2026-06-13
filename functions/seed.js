@@ -1,6 +1,6 @@
 const admin = require("firebase-admin");
 
-admin.initializeApp({ projectId: "weighbridge-management" });
+admin.initializeApp({ projectId: "tulanam" });
 const db = admin.firestore();
 
 const CUSTOMER_COUNT = 40;

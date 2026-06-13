@@ -28,7 +28,6 @@ import 'package:weighbridgemanagement/shared/providers/offline_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/live_camera_feeds_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/system_stats_provider.dart';
 import 'package:weighbridgemanagement/shared/widgets/background_art.dart';
-import 'package:weighbridgemanagement/shared/widgets/inactivity_wrapper.dart';
 import 'package:weighbridgemanagement/shared/widgets/security_overlay.dart';
 import 'package:weighbridgemanagement/shared/widgets/session_guard.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
@@ -155,7 +154,9 @@ class AppShell extends ConsumerWidget {
                       ],
                     ),
                   ),
-                Expanded(child: BackgroundArt(child: InactivityWrapper(child: SecurityOverlay(child: SessionGuard(child: child))))),
+                // Session/authorization lock is mounted once at the app root (main.dart)
+                // so it covers the whole screen incl. the sidebar — not wrapped here.
+                Expanded(child: BackgroundArt(child: SecurityOverlay(child: SessionGuard(child: child)))),
               ],
             ),
           ),
@@ -171,7 +172,6 @@ class _Sidebar extends ConsumerStatefulWidget {
   final ValueChanged<String> onItemTap;
   final VoidCallback onProfileTap;
   final bool isProfileSelected;
-  final bool horizontal;
 
   const _Sidebar({
     required this.navItems,
@@ -179,7 +179,6 @@ class _Sidebar extends ConsumerStatefulWidget {
     required this.onItemTap,
     required this.onProfileTap,
     required this.isProfileSelected,
-    this.horizontal = false,
   });
 
   @override
@@ -189,187 +188,7 @@ class _Sidebar extends ConsumerStatefulWidget {
 class _SidebarState extends ConsumerState<_Sidebar> {
   @override
   Widget build(BuildContext context) {
-    if (widget.horizontal) return _buildHorizontal(context);
     return _buildVertical(context);
-  }
-
-  Widget _buildHorizontal(BuildContext context) {
-    final profile = ref.watch(profileProvider).valueOrNull;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-
-    return ClipRRect(
-      borderRadius: AppRadius.card,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          height: 80,
-          decoration: BoxDecoration(
-            color: isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.65),
-            borderRadius: AppRadius.card,
-            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.06)),
-            boxShadow: AppElevation.card(scheme.shadow),
-          ),
-          child: Row(
-            children: [
-              SizedBox(width: AppSpacing.lg),
-              Expanded(
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                  children: [
-                    ...widget.navItems.asMap().entries.map((entry) {
-                      final i = entry.key;
-                      final item = entry.value;
-                      final isSelected = i == widget.selectedIndex;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: _NavChip(
-                          icon: isSelected ? item.selectedIcon : item.icon,
-                          label: item.label,
-                          isSelected: isSelected,
-                          onTap: () => widget.onItemTap(item.path),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-              Container(width: 1, height: 40, color: scheme.outlineVariant.withValues(alpha: 0.15)),
-              SizedBox(width: AppSpacing.lg),
-              // Settings
-              GestureDetector(
-                onTap: () => widget.onItemTap('/settings'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: GoRouterState.of(context).matchedLocation.startsWith('/settings') ? scheme.primaryContainer.withValues(alpha: 0.5) : Colors.transparent,
-                    borderRadius: AppRadius.button,
-                  ),
-                  child: Icon(Icons.settings_rounded, size: 20, color: GoRouterState.of(context).matchedLocation.startsWith('/settings') ? scheme.primary : scheme.onSurfaceVariant),
-                ),
-              ),
-              SizedBox(width: AppSpacing.sm),
-              // Profile
-              _ProfileTile(
-                isSelected: widget.isProfileSelected,
-                onTap: widget.onProfileTap,
-                profile: profile,
-                compact: true,
-              ),
-              SizedBox(width: AppSpacing.sm),
-              // Logout
-              GestureDetector(
-                onTap: () async {
-                  await ref.read(firebaseAuthProvider).signOut();
-                  await ref.read(siteContextProvider.notifier).clear();
-                  await LocalCacheService.clearCurrentUser();
-                  ref.read(setupWizardProvider.notifier).reset();
-                  if (context.mounted) context.go('/setup');
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    borderRadius: AppRadius.button,
-                  ),
-                  child: Icon(Icons.logout_rounded, size: 18, color: scheme.error.withValues(alpha: 0.7)),
-                ),
-              ),
-              SizedBox(width: AppSpacing.md),
-              // Notifications
-              PopupMenuButton<String>(
-                offset: const Offset(0, 50),
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.card),
-                color: scheme.surface,
-                elevation: 8,
-                constraints: const BoxConstraints(minWidth: 320, maxWidth: 360),
-                onSelected: (v) {
-                  if (v == 'view_all') widget.onItemTap('/notifications');
-                },
-                itemBuilder: (_) => [
-                  PopupMenuItem(
-                    enabled: false,
-                    child: Row(
-                      children: [
-                        Text('Notifications', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () { Navigator.pop(context); widget.onItemTap('/notifications'); },
-                          child: Text('View All', style: text.labelSmall?.copyWith(color: scheme.primary, fontWeight: FontWeight.w600)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  ...() {
-                    final unread = ref.read(unreadNotificationsProvider).valueOrNull ?? const [];
-                    if (unread.isEmpty) {
-                      return [
-                        PopupMenuItem<String>(
-                          enabled: false,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            child: Text('No new notifications',
-                                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                          ),
-                        ),
-                      ];
-                    }
-                    return unread.take(5).map((n) {
-                      final cat = (n['category'] as String?) ?? (n['type'] as String?) ?? 'system';
-                      final sev = (n['severity'] as String?) ?? 'info';
-                      return PopupMenuItem<String>(
-                        value: 'view_all',
-                        child: _NotificationItem(
-                          icon: _shellNotifIcon(cat),
-                          title: (n['title'] as String?) ?? '',
-                          subtitle: (n['body'] as String?) ?? '',
-                          time: _shellRelTime(n['createdAt']),
-                          scheme: scheme,
-                          text: text,
-                          isWarning: sev == 'critical' || sev == 'warn' || cat == 'security',
-                        ),
-                      );
-                    }).toList();
-                  }(),
-                ],
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(borderRadius: AppRadius.button),
-                  child: Builder(builder: (_) {
-                    final count = ref.watch(unreadCountProvider);
-                    final bell = Icon(Icons.notifications_outlined, size: 20, color: scheme.onSurfaceVariant);
-                    if (count == 0) return bell;
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        bell,
-                        Positioned(
-                          right: -4,
-                          top: -4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            constraints: const BoxConstraints(minWidth: 14),
-                            decoration: BoxDecoration(color: scheme.error, borderRadius: BorderRadius.circular(7)),
-                            child: Text(
-                              count > 9 ? '9+' : '$count',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: scheme.onError, fontSize: 9, fontWeight: FontWeight.w700, height: 1.3),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                ),
-              ),
-              SizedBox(width: AppSpacing.xl),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildVertical(BuildContext context) {
@@ -444,111 +263,6 @@ class _SidebarState extends ConsumerState<_Sidebar> {
     );
   }
 
-}
-
-IconData _shellNotifIcon(String category) {
-  switch (category) {
-    case 'security': return Icons.shield_outlined;
-    case 'billing': return Icons.payments_outlined;
-    case 'licence':
-    case 'license': return Icons.workspace_premium_outlined;
-    case 'operator': return Icons.person_outline_rounded;
-    case 'kyc': return Icons.verified_user_outlined;
-    case 'backup': return Icons.cloud_off_outlined;
-    case 'account': return Icons.lock_outline_rounded;
-    case 'welcome': return Icons.celebration_outlined;
-    default: return Icons.notifications_none_rounded;
-  }
-}
-
-String _shellRelTime(dynamic ts) {
-  try {
-    final DateTime d = ts.toDate() as DateTime;
-    final diff = DateTime.now().difference(d);
-    if (diff.inMinutes < 1) return 'now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return '${d.day}/${d.month}';
-  } catch (_) {
-    return '';
-  }
-}
-
-class _NotificationItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String time;
-  final ColorScheme scheme;
-  final TextTheme text;
-  final bool isWarning;
-
-  const _NotificationItem({required this.icon, required this.title, required this.subtitle, required this.time, required this.scheme, required this.text, this.isWarning = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 32, height: 32,
-            decoration: BoxDecoration(
-              color: (isWarning ? scheme.error : scheme.primary).withValues(alpha: 0.1),
-              borderRadius: AppRadius.button,
-            ),
-            child: Icon(icon, size: 16, color: isWarning ? scheme.error : scheme.primary),
-          ),
-          SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-              ],
-            ),
-          ),
-          Text(time, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _NavChip({required this.icon, required this.label, required this.isSelected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? scheme.primaryContainer.withValues(alpha: 0.5) : Colors.transparent,
-          borderRadius: AppRadius.button,
-          border: isSelected ? Border.all(color: scheme.primary.withValues(alpha: 0.2)) : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: AppSizes.iconMd, color: isSelected ? scheme.primary : scheme.onSurfaceVariant),
-            SizedBox(width: AppSpacing.sm),
-            Text(label, style: text.bodySmall?.copyWith(fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500, color: isSelected ? scheme.primary : scheme.onSurfaceVariant)),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _NavTile extends StatefulWidget {
@@ -663,9 +377,8 @@ class _ProfileTile extends StatefulWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final Map<String, dynamic>? profile;
-  final bool compact;
 
-  const _ProfileTile({required this.isSelected, required this.onTap, this.profile, this.compact = false});
+  const _ProfileTile({required this.isSelected, required this.onTap, this.profile});
 
   @override
   State<_ProfileTile> createState() => _ProfileTileState();
@@ -682,13 +395,20 @@ class _ProfileTileState extends State<_ProfileTile> {
     final verifiedPhoto = widget.profile?['verifiedPhotoUrl'] as String?;
 
     Widget avatar;
+    Uint8List? picBytes;
     if (pic != null && pic.isNotEmpty) {
-      // Uploaded profile photo (base64) takes priority.
-      String raw = pic;
-      if (raw.contains(',')) raw = raw.split(',').last;
+      // Uploaded profile photo (base64) takes priority. Guard against corrupt
+      // stored data so it can't crash the shell during build.
+      try {
+        String raw = pic;
+        if (raw.contains(',')) raw = raw.split(',').last;
+        picBytes = base64Decode(raw);
+      } catch (_) { picBytes = null; }
+    }
+    if (picBytes != null) {
       avatar = CircleAvatar(
         radius: 14,
-        backgroundImage: MemoryImage(Uint8List.fromList(base64Decode(raw))),
+        backgroundImage: MemoryImage(picBytes),
       );
     } else if (verifiedPhoto != null && verifiedPhoto.isNotEmpty) {
       // Fall back to the DigiLocker-verified photo so there's always a photo.
@@ -960,7 +680,7 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
           surfaceTintColor: scheme.surfaceTint,
           child: Container(
             width: 300,
-            constraints: const BoxConstraints(maxHeight: 460),
+            constraints: const BoxConstraints(minHeight: 380, maxHeight: 600),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14.rs),
               border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
@@ -1042,76 +762,99 @@ class _StatusPanelOverlayState extends ConsumerState<_StatusPanelOverlay> {
                       ),
                     ),
 
-                  // Alerts
+                  // Notifications — shows every current alert (no cap). When
+                  // there are none, an empty state fills the space.
                   Consumer(
                     builder: (_, ref2, __) {
                       final notifs = ref2.watch(unreadNotificationsProvider);
                       final items = notifs.valueOrNull ?? [];
-                      if (items.isEmpty) return const SizedBox.shrink();
+                      final timeFmt = ref2.read(timeFormatProvider);
+                      // Club identical notifications (same title + body) into one
+                      // entry, with a count of how many times it occurred.
+                      final groups = <String, List<Map<String, dynamic>>>{};
+                      for (final n in items) {
+                        final key = '${n['title']} ${n['body']}';
+                        (groups[key] ??= <Map<String, dynamic>>[]).add(n);
+                      }
+                      final clubbed = groups.values.toList();
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           SizedBox(height: 14.rs),
                           Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.3)),
                           SizedBox(height: AppSpacing.md),
+                          // Header: title on the left, Clear all (only when there
+                          // are items) at the top-right.
                           Row(
                             children: [
-                              Icon(Icons.shield_rounded, size: 14, color: scheme.error),
+                              Icon(Icons.notifications_rounded, size: 14, color: scheme.primary),
                               SizedBox(width: 6.rs),
-                              Text('Alerts', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+                              Text('Notifications', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+                              const Spacer(),
+                              if (clubbed.isNotEmpty)
+                                GestureDetector(
+                                  onTap: () => markAllNotificationsRead(ref2.read(firestorePathsProvider)),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                                    child: Text('Clear all', style: text.labelSmall?.copyWith(color: scheme.primary, fontWeight: FontWeight.w600)),
+                                  ),
+                                ),
                             ],
                           ),
                           SizedBox(height: AppSpacing.sm),
-                          ...items.take(5).map((n) {
-                            final title = n['title'] as String? ?? '';
-                            final body = n['body'] as String? ?? '';
-                            final createdAt = n['createdAt'];
-                            String timeStr = '';
-                            if (createdAt is Timestamp) {
-                              timeStr = formatTimestamp(createdAt, ref2.read(timeFormatProvider), dateFormat: 'dd MMM');
-                            }
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 6),
-                              padding: EdgeInsets.all(10.rs),
-                              decoration: BoxDecoration(
-                                color: scheme.errorContainer.withValues(alpha: 0.12),
-                                borderRadius: AppRadius.button,
-                                border: Border.all(color: scheme.error.withValues(alpha: 0.1)),
-                              ),
+                          if (clubbed.isEmpty)
+                            // Empty state — fills the panel's void space.
+                            Container(
+                              height: 120,
+                              alignment: Alignment.center,
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Expanded(child: Text(title, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700))),
-                                      Text(timeStr, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 9)),
-                                    ],
-                                  ),
-                                  if (body.isNotEmpty) ...[
-                                    SizedBox(height: 2.rs),
-                                    Text(body, style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant)),
-                                  ],
+                                  Icon(Icons.notifications_none_rounded, size: 30, color: scheme.onSurfaceVariant.withValues(alpha: 0.4)),
+                                  SizedBox(height: 8.rs),
+                                  Text('No new notifications', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                                 ],
                               ),
-                            );
-                          }),
-                          if (items.length > 5)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text('+${items.length - 5} more', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-                            ),
-                          // Clear all sits at the BOTTOM of the notifications, above Device stats.
-                          SizedBox(height: 6.rs),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: GestureDetector(
-                              onTap: () => markAllNotificationsRead(ref2.read(firestorePathsProvider)),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-                                child: Text('Clear all', style: text.labelSmall?.copyWith(color: scheme.primary, fontWeight: FontWeight.w600)),
-                              ),
-                            ),
-                          ),
+                            )
+                          else
+                            ...clubbed.map((group) {
+                              final n = group.first;
+                              final count = group.length;
+                              final title = n['title'] as String? ?? '';
+                              final latest = n['createdAt'];
+                              final shortTime = latest is Timestamp
+                                  ? formatTimestamp(latest, timeFmt, dateFormat: 'dd MMM')
+                                  : '';
+                              // Minimal entry: title + occurrence count + time.
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 6),
+                                padding: EdgeInsets.all(10.rs),
+                                decoration: BoxDecoration(
+                                  color: scheme.errorContainer.withValues(alpha: 0.12),
+                                  borderRadius: AppRadius.button,
+                                  border: Border.all(color: scheme.error.withValues(alpha: 0.1)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Flexible(child: Text(title, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis)),
+                                    if (count > 1) ...[
+                                      SizedBox(width: 5.rs),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: scheme.error.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text('×$count', style: text.labelSmall?.copyWith(color: scheme.error, fontWeight: FontWeight.w700, fontSize: 9)),
+                                      ),
+                                    ],
+                                    const Spacer(),
+                                    SizedBox(width: 6.rs),
+                                    Text(shortTime, style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 9)),
+                                  ],
+                                ),
+                              );
+                            }),
                         ],
                       );
                     },

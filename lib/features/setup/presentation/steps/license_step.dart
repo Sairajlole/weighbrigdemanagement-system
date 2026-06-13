@@ -59,6 +59,7 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
     final licenseNotifier = ref.read(licenseProvider.notifier);
     final db = ref.read(firestoreProvider);
     final companySnap = await db.doc('companies/$companyId').get();
+    if (!mounted) return false;
     final gstin = companySnap.data()?['gstin'] as String? ?? '';
 
     if (gstin.isEmpty) {
@@ -87,11 +88,13 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
           gstin: gstin,
           companyId: companyId,
         );
+        if (!mounted) return false;
       case LicenseTier.trial:
         success = await licenseNotifier.activateTrial(
           gstin: gstin,
           companyId: companyId,
         );
+        if (!mounted) return false;
         if (!success) {
           setState(() { _loading = false; _error = 'Trial already used for this GSTIN. Enter a Pro license key instead.'; });
           return false;
@@ -107,6 +110,7 @@ class _LicenseStepState extends ConsumerState<LicenseStep> {
           gstin: gstin,
           companyId: companyId,
         );
+        if (!mounted) return false;
         if (!success) {
           setState(() { _loading = false; _error = 'Invalid or already-used license key'; });
           return false;

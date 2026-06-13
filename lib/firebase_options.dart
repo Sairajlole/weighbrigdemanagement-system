@@ -38,57 +38,55 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDXIs-6_oUPoHXl6BOX3SVAWRAtA1xpDds',
-    appId: '1:189506147559:web:65fd04d8f472a07d18fe42',
-    messagingSenderId: '189506147559',
-    projectId: 'weighbridge-management',
-    authDomain: 'weighbridge-management.firebaseapp.com',
-    storageBucket: 'weighbridge-management.firebasestorage.app',
-    measurementId: 'G-9NBYE6DR2Q',
+    apiKey: 'AIzaSyDCtciv_cLCUGZjyI4mutbQPGHrvyFFfro',
+    appId: '1:399747278429:web:9b23a1f2ddf028bec9cfb4',
+    messagingSenderId: '399747278429',
+    projectId: 'tulanam',
+    authDomain: 'tulanam.firebaseapp.com',
+    storageBucket: 'tulanam.firebasestorage.app',
+    measurementId: 'G-R5R3XF95RQ',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBDhPTCTtMQoSdxo5u8NJ1GMdaIjFzI8t4',
-    appId: '1:189506147559:android:5c43a6d823085de718fe42',
-    messagingSenderId: '189506147559',
-    projectId: 'weighbridge-management',
-    storageBucket: 'weighbridge-management.firebasestorage.app',
+    apiKey: 'AIzaSyDlb5FsA8TDrUXxNEH2jdPBZry_luNsTxg',
+    appId: '1:399747278429:android:f65f617a6e94b54dc9cfb4',
+    messagingSenderId: '399747278429',
+    projectId: 'tulanam',
+    storageBucket: 'tulanam.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyArqTyP-Tv8yf2_YJ2u0ddpsH5d1hxUGVw',
-    appId: '1:189506147559:ios:0ed2e72ea5ebe6ef18fe42',
-    messagingSenderId: '189506147559',
-    projectId: 'weighbridge-management',
-    storageBucket: 'weighbridge-management.firebasestorage.app',
-    iosBundleId: 'com.example.weighbridgemanagement',
+    apiKey: 'AIzaSyCOCxdXL2neQT-V_kQGoL3gnAYYeOuDMP8',
+    appId: '1:399747278429:ios:dc1cb8dcfa7d0e60c9cfb4',
+    messagingSenderId: '399747278429',
+    projectId: 'tulanam',
+    storageBucket: 'tulanam.firebasestorage.app',
+    iosBundleId: 'com.yashkawdiya.weighbridge',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyArqTyP-Tv8yf2_YJ2u0ddpsH5d1hxUGVw',
-    appId: '1:189506147559:ios:0ed2e72ea5ebe6ef18fe42',
-    messagingSenderId: '189506147559',
-    projectId: 'weighbridge-management',
-    storageBucket: 'weighbridge-management.firebasestorage.app',
+    apiKey: 'AIzaSyCOCxdXL2neQT-V_kQGoL3gnAYYeOuDMP8',
+    appId: '1:399747278429:ios:33f313766a50167ec9cfb4',
+    messagingSenderId: '399747278429',
+    projectId: 'tulanam',
+    storageBucket: 'tulanam.firebasestorage.app',
     iosBundleId: 'com.example.weighbridgemanagement',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDXIs-6_oUPoHXl6BOX3SVAWRAtA1xpDds',
-    appId: '1:189506147559:web:f79dc544bc1d9a7318fe42',
-    messagingSenderId: '189506147559',
-    projectId: 'weighbridge-management',
-    authDomain: 'weighbridge-management.firebaseapp.com',
-    storageBucket: 'weighbridge-management.firebasestorage.app',
-    measurementId: 'G-Y98QMZ1TC5',
+    apiKey: 'AIzaSyDCtciv_cLCUGZjyI4mutbQPGHrvyFFfro',
+    appId: '1:399747278429:web:85748f17250b973ac9cfb4',
+    messagingSenderId: '399747278429',
+    projectId: 'tulanam',
+    authDomain: 'tulanam.firebaseapp.com',
+    storageBucket: 'tulanam.firebasestorage.app',
+    measurementId: 'G-BB3T53TFBN',
   );
-
+  // Linux has no native Firebase app type — it reuses the web config (tulanam).
   static const FirebaseOptions linux = FirebaseOptions(
-    apiKey: 'AIzaSyDXIs-6_oUPoHXl6BOX3SVAWRAtA1xpDds',
-    appId: '1:189506147559:web:65fd04d8f472a07d18fe42',
-    messagingSenderId: '189506147559',
-    projectId: 'weighbridge-management',
-    authDomain: 'weighbridge-management.firebaseapp.com',
-    storageBucket: 'weighbridge-management.firebasestorage.app',
+    apiKey: 'AIzaSyDCtciv_cLCUGZjyI4mutbQPGHrvyFFfro',
+    appId: '1:399747278429:web:9b23a1f2ddf028bec9cfb4',
+    messagingSenderId: '399747278429',
+    projectId: 'tulanam',
+    authDomain: 'tulanam.firebaseapp.com',
+    storageBucket: 'tulanam.firebasestorage.app',
   );
 }

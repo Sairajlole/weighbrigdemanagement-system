@@ -84,6 +84,13 @@ class _TimeColumn {
   const _TimeColumn(this.label, this.start, this.end);
 }
 
+/// Per-(customer, period) aggregate precomputed once per snapshot to avoid a
+/// per-row O(weighments) double full-scan of the weighments list.
+class _PeriodAgg {
+  int count = 0;
+  final Map<String, int> breakdown = {};
+}
+
 List<_TimeColumn> _buildAvailableTimeColumns() {
   final now = DateTime.now();
   final fyStartYear = now.month >= 4 ? now.year : now.year - 1;
@@ -928,28 +935,30 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   // TABLE VIEW
   // ═══════════════════════════════════════════════════════════════════════════
 
-  int _countInPeriod(String customerName, _TimeColumn col, List<Map<String, dynamic>> weighments) {
-    return weighments.where((w) {
-      if ((w['customerName'] as String? ?? '') != customerName) return false;
-      final ts = w['createdAt'];
-      if (ts is! Timestamp) return false;
-      final dt = ts.toDate();
-      return !dt.isBefore(col.start) && !dt.isAfter(col.end);
-    }).length;
-  }
-
-  Map<String, int> _materialBreakdownInPeriod(String customerName, _TimeColumn col, List<Map<String, dynamic>> weighments) {
-    final breakdown = <String, int>{};
+  // Single pass over all weighments × the (small) visible column set, producing
+  // count + material breakdown per (customerName, column). Replaces the former
+  // per-row double full-scan. A weighment can belong to multiple columns at once
+  // (All Time always matches; FY overlaps a quarter), so every matching column
+  // is incremented.
+  Map<String, Map<String, _PeriodAgg>> _buildPeriodAggregate(
+      List<_TimeColumn> cols, List<Map<String, dynamic>> weighments) {
+    final agg = <String, Map<String, _PeriodAgg>>{};
     for (final w in weighments) {
-      if ((w['customerName'] as String? ?? '') != customerName) continue;
+      final name = w['customerName'] as String? ?? '';
       final ts = w['createdAt'];
       if (ts is! Timestamp) continue;
       final dt = ts.toDate();
-      if (dt.isBefore(col.start) || dt.isAfter(col.end)) continue;
       final material = w['material'] as String? ?? 'Unknown';
-      breakdown[material] = (breakdown[material] ?? 0) + 1;
+      Map<String, _PeriodAgg>? byCol;
+      for (final col in cols) {
+        if (dt.isBefore(col.start) || dt.isAfter(col.end)) continue;
+        byCol ??= agg.putIfAbsent(name, () => {});
+        final cell = byCol.putIfAbsent(col.label, () => _PeriodAgg());
+        cell.count++;
+        cell.breakdown[material] = (cell.breakdown[material] ?? 0) + 1;
+      }
     }
-    return breakdown;
+    return agg;
   }
 
   void _showColumnPicker(BuildContext context, ColorScheme scheme) {
@@ -1028,6 +1037,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   Widget _buildTable(List<Map<String, dynamic>> customers, ColorScheme scheme, TextTheme text, bool shouldMask, List<Map<String, dynamic>> allWeighments) {
     final activeCols = _visibleTimeColumns.toList()..sort();
     final timeCols = activeCols.map((i) => _availableTimeColumns[i]).toList();
+    final periodAgg = _buildPeriodAggregate(timeCols, allWeighments);
 
     return Container(
       decoration: BoxDecoration(
@@ -1127,7 +1137,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         for (final col in timeCols)
                           SizedBox(
                             width: 90,
-                            child: _buildPeriodCell(name, col, allWeighments, scheme),
+                            child: _buildPeriodCell(name, col, periodAgg, scheme),
                           ),
                         SizedBox(width: 32.rs),
                       ],
@@ -1143,12 +1153,13 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
     );
   }
 
-  Widget _buildPeriodCell(String customerName, _TimeColumn col, List<Map<String, dynamic>> weighments, ColorScheme scheme) {
-    final count = _countInPeriod(customerName, col, weighments);
+  Widget _buildPeriodCell(String customerName, _TimeColumn col, Map<String, Map<String, _PeriodAgg>> periodAgg, ColorScheme scheme) {
+    final cell = periodAgg[customerName]?[col.label];
+    final count = cell?.count ?? 0;
     if (count == 0) {
       return Center(child: Text('–', style: TextStyle(fontSize: 12, color: scheme.outlineVariant)));
     }
-    final breakdown = _materialBreakdownInPeriod(customerName, col, weighments);
+    final breakdown = cell!.breakdown;
     return Tooltip(
       message: breakdown.entries.map((e) => '${e.key}: ${e.value}').join('\n'),
       child: Center(
@@ -1399,6 +1410,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
     for (final other in others) {
       final otherId = other['id'] as String;
       final otherName = other['name'] as String? ?? '';
+      final otherPhone = other['phone'] as String? ?? '';
 
       // Snapshot the merged customer data for revert
       final otherSnapshot = Map<String, dynamic>.from(other)..remove('id');
@@ -1411,19 +1423,26 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         lastFace = other['lastFace'] as String?;
       }
 
-      // Reassign weighments from other customer to primary
+      // Reassign weighments from other customer to primary. Weighments carry no
+      // customerId/siteId (they are already physically scoped to this
+      // site+weighbridge by path), so disambiguate same-named customers by phone:
+      // skip a doc only when both its phone and other's phone are present and differ.
       final weighments = await db.weighments.where('customerName', isEqualTo: otherName).get();
-      if (weighments.docs.isNotEmpty) {
-        for (final doc in weighments.docs) {
+      final matchingDocs = weighments.docs.where((doc) {
+        final docPhone = doc.data()['customerPhone'] as String? ?? '';
+        return otherPhone.isEmpty || docPhone.isEmpty || docPhone == otherPhone;
+      }).toList();
+      if (matchingDocs.isNotEmpty) {
+        for (final doc in matchingDocs) {
           weighmentReassignments.add({
             'weighmentId': doc.id,
             'originalCustomerName': otherName,
             'originalCustomerPhone': other['phone'] ?? '',
           });
         }
-        final chunks = <List<QueryDocumentSnapshot>>[];
-        for (var i = 0; i < weighments.docs.length; i += 450) {
-          chunks.add(weighments.docs.sublist(i, i + 450 > weighments.docs.length ? weighments.docs.length : i + 450));
+        final chunks = <List<QueryDocumentSnapshot<Map<String, dynamic>>>>[];
+        for (var i = 0; i < matchingDocs.length; i += 450) {
+          chunks.add(matchingDocs.sublist(i, i + 450 > matchingDocs.length ? matchingDocs.length : i + 450));
         }
         for (final chunk in chunks) {
           final batch = db.batch();
@@ -1542,10 +1561,12 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
       final newName = toTitleCase(_nameC.text.trim());
       final newPhone = _phoneC.text.trim();
 
-      // Check phone duplication
+      // Check phone duplication (per-site, matching the site-filtered reads).
+      // Single-field query then in-memory siteId filter to avoid a composite index.
       if (newPhone != oldPhone) {
+        final siteId = widget.customer['siteId'];
         final existing = await db.customers.where('phone', isEqualTo: newPhone).get();
-        if (existing.docs.any((d) => d.id != widget.customer['id'])) {
+        if (existing.docs.any((d) => d.id != widget.customer['id'] && d.data()['siteId'] == siteId)) {
           if (mounted) {
             AppError.show(context, 'Phone $newPhone already belongs to another customer');
             setState(() => _saving = false);
@@ -1561,12 +1582,19 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
         'updatedAt': Timestamp.now(),
       });
 
-      // Update weighments referencing old name/phone
+      // Update weighments referencing old name/phone. Disambiguate same-named
+      // customers by phone: skip a doc only when both its phone and the old phone
+      // are present and differ (weighments carry no customerId, and are already
+      // physically scoped to this site+weighbridge by path).
       if (newName != oldName || newPhone != oldPhone) {
         final weighments = await db.weighments.where('customerName', isEqualTo: oldName).get();
-        if (weighments.docs.isNotEmpty) {
+        final matchingDocs = weighments.docs.where((doc) {
+          final docPhone = doc.data()['customerPhone'] as String? ?? '';
+          return oldPhone.isEmpty || docPhone.isEmpty || docPhone == oldPhone;
+        }).toList();
+        if (matchingDocs.isNotEmpty) {
           final batch = db.batch();
-          for (final doc in weighments.docs) {
+          for (final doc in matchingDocs) {
             final updates = <String, dynamic>{};
             if (newName != oldName) updates['customerName'] = newName;
             if (newPhone != oldPhone) updates['customerPhone'] = newPhone;
@@ -1585,6 +1613,7 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
   Future<void> _requestReverification(BuildContext ctx, VoidCallback onVerified) async {
     final passC = TextEditingController();
     final scheme = Theme.of(ctx).colorScheme;
+    try {
     final verified = await showDialog<bool>(
       context: ctx,
       builder: (dCtx) => AlertDialog(
@@ -1643,7 +1672,10 @@ class _CustomerDetailDialogState extends ConsumerState<_CustomerDetailDialog> {
         ],
       ),
     );
-    if (verified == true) onVerified();
+    if (verified == true && mounted) onVerified();
+    } finally {
+      passC.dispose();
+    }
   }
 
   Future<void> _deleteCustomer(BuildContext ctx) async {
@@ -3832,9 +3864,10 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
     final db = widget.ref.read(firestorePathsProvider);
     final phone = _phoneC.text.trim();
 
-    // Check phone duplication
+    // Check phone duplication (per-site, matching the site-filtered reads).
+    // Single-field query then in-memory siteId filter to avoid a composite index.
     final existing = await db.customers.where('phone', isEqualTo: phone).get();
-    if (existing.docs.isNotEmpty) {
+    if (existing.docs.any((d) => d.data()['siteId'] == _selectedSiteId)) {
       if (mounted) {
         AppError.show(context, 'Phone $phone already belongs to another customer');
         setState(() => _saving = false);

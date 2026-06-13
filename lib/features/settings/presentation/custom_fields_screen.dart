@@ -150,6 +150,11 @@ class _CustomFieldsScreenState extends ConsumerState<CustomFieldsScreen> {
   Future<void> _changeScope(CollectionScope to) async {
     final saved = ref.read(settingsScopeProvider(_cfScopeArg)).valueOrNull ?? CollectionScope.company;
     if (saved == to) return;
+    // Flush any pending debounced auto-save to the CURRENT scope first, so an edit
+    // made within 600ms of the scope change isn't lost when the source doc is
+    // copied up/down (cancelling the debounce would discard that edit).
+    _saveDebounce?.cancel();
+    await _save();
     final ok = await showScopeChangeDialog(context, ref, from: saved, to: to, noun: 'fields', saveGated: false);
     if (!ok) return;
     final db = ref.read(firestorePathsProvider);

@@ -55,11 +55,11 @@ class PostWeighmentService {
       try {
         sheetsOk = await _sheets.appendRow(weighmentData);
         if (!sheetsOk) {
-          await _queue.enqueueWeighment({'_retryType': 'sheets', ...weighmentData});
+          await _queue.enqueueSheetsRetry(weighmentData);
         }
       } catch (e) {
         debugPrint('Sheets sync failed: $e');
-        await _queue.enqueueWeighment({'_retryType': 'sheets', ...weighmentData});
+        await _queue.enqueueSheetsRetry(weighmentData);
       }
     }
 
@@ -77,11 +77,11 @@ class PostWeighmentService {
       try {
         billingOk = await _billing.postWeighment(weighmentData);
         if (!billingOk) {
-          await _queue.enqueueWeighment({'_retryType': 'billing', ...weighmentData});
+          await _queue.enqueueBillingRetry(weighmentData);
         }
       } catch (e) {
         debugPrint('Billing webhook failed: $e');
-        await _queue.enqueueWeighment({'_retryType': 'billing', ...weighmentData});
+        await _queue.enqueueBillingRetry(weighmentData);
       }
     }
 
@@ -106,7 +106,7 @@ class PostWeighmentService {
         _queue.paths,
         category: 'system',
         severity: 'warn',
-        title: 'Integration sync issue',
+        title: 'Integration sync failed',
         body: "These post-weighment integrations didn't complete: ${failed.join(', ')}. Queued items retry automatically.",
         link: '/settings/integrations',
         throttleKey: 'integration-fail',
@@ -162,12 +162,14 @@ final stickerPrintServiceProvider = Provider<StickerPrintService?>((ref) {
 
 final postWeighmentServiceProvider = Provider<PostWeighmentService>((ref) {
   final paths = ref.watch(firestorePathsProvider);
-  final queue = OfflineQueueService(paths: paths);
+  final sheets = ref.watch(googleSheetsServiceProvider);
+  final billing = ref.watch(billingServiceProvider);
+  final queue = OfflineQueueService(paths: paths, sheets: sheets, billing: billing);
 
   return PostWeighmentService(
-    sheets: ref.watch(googleSheetsServiceProvider),
+    sheets: sheets,
     whatsapp: ref.watch(whatsappServiceProvider),
-    billing: ref.watch(billingServiceProvider),
+    billing: billing,
     sticker: ref.watch(stickerPrintServiceProvider),
     queue: queue,
   );

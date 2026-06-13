@@ -35,13 +35,18 @@ class MultiCameraService {
   static const _channel = MethodChannel('multi_camera');
 
   static Future<List<CameraDevice>> listDevices() async {
-    final result = await _channel.invokeListMethod<Map>('listDevices');
-    if (result == null) return [];
-    return result.map((m) => CameraDevice(
-      deviceId: m['deviceId'] as String? ?? '',
-      name: m['name'] as String? ?? '',
-      manufacturer: m['manufacturer'] as String? ?? '',
-    )).toList();
+    try {
+      final result = await _channel.invokeListMethod<Map>('listDevices');
+      if (result == null) return [];
+      return result.map((m) => CameraDevice(
+        deviceId: m['deviceId'] as String? ?? '',
+        name: m['name'] as String? ?? '',
+        manufacturer: m['manufacturer'] as String? ?? '',
+      )).toList();
+    } catch (e) {
+      debugPrint('[MultiCamera] listDevices error: $e');
+      return [];
+    }
   }
 
   static Future<CameraFeed?> start({

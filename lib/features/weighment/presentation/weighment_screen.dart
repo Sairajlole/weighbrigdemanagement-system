@@ -29,7 +29,9 @@ import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/providers/gate_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/integrations_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/print_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
+import 'package:weighbridgemanagement/shared/services/scale_service.dart';
 import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/face_verification_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/security_provider.dart';
@@ -51,7 +53,7 @@ class WeighmentScreen extends ConsumerStatefulWidget {
   ConsumerState<WeighmentScreen> createState() => _WeighmentScreenState();
 }
 
-class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
+class _WeighmentScreenState extends ConsumerState<WeighmentScreen> with WidgetsBindingObserver {
   final _weightBannerKey = GlobalKey<LiveWeightBannerState>();
   final _screenFocusNode = FocusNode();
   Timer? _elapsedTimer;
@@ -70,10 +72,24 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Future.microtask(() => ref.read(gateWeightTriggerProvider));
     Future.microtask(() => _checkSessionFaceVerification());
     Future.microtask(() => _setTrafficSignalIdle());
     _registerShortcuts();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Returning to the app (e.g. alt-tab / switching apps) can leave Flutter's
+    // keyboard focus cleared, so the F-key shortcuts silently stop firing. Re-grab
+    // focus to the screen node — but only when nothing inside the screen (e.g. a
+    // text field) currently holds it, so we don't kick the user out of a field.
+    if (state == AppLifecycleState.resumed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_screenFocusNode.hasFocus) _screenFocusNode.requestFocus();
+      });
+    }
   }
 
   void _setTrafficSignalIdle() {
@@ -94,7 +110,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       AppShortcut(key: LogicalKeyboardKey.f7, label: 'Close Gate', action: () => _handleCloseGate()),
       AppShortcut(key: LogicalKeyboardKey.f8, label: 'Retry Operator Verify', action: () => _handleRetryOperatorVerify()),
       AppShortcut(key: LogicalKeyboardKey.f9, label: 'Retry Customer Verify', action: () => _handleRetryCustomerVerify()),
-      AppShortcut(key: LogicalKeyboardKey.f10, label: 'Customer Search', action: () => _handleCustomerSearch()),
+      AppShortcut(key: LogicalKeyboardKey.f10, label: 'Search', action: () => _handleOpenBrowse()),
       AppShortcut(key: LogicalKeyboardKey.f11, label: 'Print Slip', action: _handlePrintSlip),
       AppShortcut(key: LogicalKeyboardKey.escape, label: 'Cancel / Back', action: _handleEscape),
     ]);
@@ -104,11 +120,38 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final s = ref.read(weighmentMachineProvider).session;
     if (s?.status == SessionStatus.completed) {
       _handlePrintSlip();
-    } else if (s?.secondWeight != null) {
+    } else {
+      _attemptSave();
+    }
+  }
+
+  /// SAVE entry point (button + F4). If the required fields (name + address +
+  /// required custom fields) aren't filled, flag them on the form instead of
+  /// saving; otherwise save the first weight or complete.
+  void _attemptSave() {
+    final s = ref.read(weighmentMachineProvider).session;
+    if (s == null) return;
+    if (!_requiredFieldsFilled(s)) {
+      ref.read(saveValidateTickProvider.notifier).state++;
+      return;
+    }
+    if (s.secondWeight != null) {
       _handleSaveComplete();
     } else {
       _handleSaveFirstWeight();
     }
+  }
+
+  bool _requiredFieldsFilled(WeighmentSession s) {
+    if (s.customerName.trim().isEmpty || s.customerAddress.trim().isEmpty || s.material.trim().isEmpty) return false;
+    final customFields = ref.read(customFieldsProvider).valueOrNull ?? const <Map<String, dynamic>>[];
+    for (final f in customFields) {
+      if (f['required'] != true) continue;
+      final key = f['key'] as String? ?? '';
+      if (key.isEmpty) continue;
+      if ((s.customFields[key] ?? '').trim().isEmpty) return false;
+    }
+    return true;
   }
 
   void _rescanAnpr() {
@@ -183,6 +226,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _elapsedTimer?.cancel();
     _anprScanTimer?.cancel();
     _anprScanTimer = null;
@@ -220,6 +264,8 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
   }
 
   Future<void> _handleNewWeighment() async {
+    // Leaving any read-only view of a saved ticket.
+    ref.read(viewingSavedTicketProvider.notifier).state = false;
     final settings = ref.read(securitySettingsProvider).valueOrNull ?? const SecuritySettings();
     final isAdmin = ref.read(isAdminProvider);
     final verifier = ref.read(faceVerificationProvider.notifier);
@@ -619,6 +665,21 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     _startTimer();
   }
 
+  /// A weighment row dragged onto the form. Completed (both weights) loads
+  /// read-only for view/re-print; first-weight-only resumes the 2nd weighment.
+  void _handleTicketDrop(Map<String, dynamic> data) {
+    final docId = data['id'] as String? ?? '';
+    if (docId.isEmpty) return;
+    if ((data['status'] as String? ?? '') == 'completed') {
+      ref.read(weighmentMachineProvider.notifier).loadSavedForView(data, docId);
+      ref.read(viewingSavedTicketProvider.notifier).state = true;
+    } else {
+      ref.read(viewingSavedTicketProvider.notifier).state = false;
+      _handleResumePending(data, docId);
+    }
+    _screenFocusNode.requestFocus();
+  }
+
   bool _validateMinWeightDiff(double secondWeight, double firstWeight) {
     final modeConfig = ref.read(weighmentModeConfigProvider).valueOrNull ?? const WeighmentModeConfig();
     if (modeConfig.entryMode != WeighmentEntryMode.singleEntry) return true;
@@ -658,7 +719,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     // (throttled) so a scale-down day doesn't flood, but the admin still knows.
     AppNotifier.raise(ref.read(firestorePathsProvider),
         category: 'security', severity: 'warn', link: '/weighments',
-        title: 'Manual weight entry used',
+        title: 'Manual weight entry',
         body: 'A weight was entered manually instead of read from the scale. Manual weights bypass the live reading — verify the entry.',
         throttleKey: 'manual-weight', throttle: const Duration(minutes: 15));
 
@@ -760,7 +821,6 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final notifier = ref.read(weighmentMachineProvider.notifier);
     final session = ref.read(weighmentMachineProvider).session;
     if (session == null) return;
-    if (!_verificationSatisfied()) { _blockUnverifiedSave(); return; }
 
     notifier.markCompleted();
     notifier.advanceToStep(WeighmentStep.saveToFirestore);
@@ -809,7 +869,6 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final notifier = ref.read(weighmentMachineProvider.notifier);
     final session = ref.read(weighmentMachineProvider).session;
     if (session == null || session.firstWeight == null) return;
-    if (!_verificationSatisfied()) { _blockUnverifiedSave(); return; }
 
     await _saveToFirestore();
     notifier.markAwaitingSecondWeight();
@@ -845,7 +904,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
       }
 
       // Enroll new customer face if detected during this weighment
-      _enrollNewCustomerFaceIfNeeded(session, paths);
+      _upsertCustomer(session);
     } catch (e) {
       ref.read(weighmentMachineProvider.notifier).setError('Save failed: $e');
     }
@@ -890,37 +949,61 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     } catch (_) {}
   }
 
-  Future<void> _enrollNewCustomerFaceIfNeeded(WeighmentSession session, dynamic paths) async {
-    final custFace = ref.read(customerFaceProvider);
-    if (!custFace.detected || custFace.isKnown || custFace.embedding == null) return;
-    if (session.customerName.isEmpty) return;
+  /// Upsert the customer directory on every save (option C): find by phone, then
+  /// name; update if found, create if not — so a customer is recorded even when
+  /// no face is scanned. A brand-new face is also enrolled in the FAISS index.
+  Future<void> _upsertCustomer(WeighmentSession session) async {
+    final name = session.customerName.trim();
+    if (name.isEmpty) return; // name is mandatory; nothing to dedupe on otherwise
+    final phone = session.customerPhone.trim();
+    final address = session.customerAddress.trim();
+    final paths = ref.read(firestorePathsProvider);
+    if (!paths.isConfigured) return;
 
-    final sidecar = ref.read(sidecarClientProvider);
-
-    // Create customer doc in Firestore
     try {
-      final custData = <String, dynamic>{
-        'name': session.customerName,
-        'address': session.customerAddress,
-        'phone': session.customerPhone,
-        'faceEmbedding': custFace.embedding,
-        'createdAt': DateTime.now().toIso8601String(),
+      String? customerId;
+      if (phone.isNotEmpty) {
+        final snap = await paths.customers.where('phone', isEqualTo: phone).limit(1).get();
+        if (snap.docs.isNotEmpty) customerId = snap.docs.first.id;
+      }
+      if (customerId == null) {
+        final snap = await paths.customers.where('name', isEqualTo: name).limit(1).get();
+        if (snap.docs.isNotEmpty) customerId = snap.docs.first.id;
+      }
+
+      final custFace = ref.read(customerFaceProvider);
+      final hasNewFace = custFace.detected && !custFace.isKnown && custFace.embedding != null;
+
+      final data = <String, dynamic>{
+        'name': name,
+        'address': address,
+        'phone': phone,
+        'siteId': ref.read(siteContextProvider).siteId,
+        'updatedAt': DateTime.now().toIso8601String(),
+        if (hasNewFace) 'faceEmbedding': custFace.embedding,
       };
-      final custDoc = await paths.customers.add(custData);
 
-      // Enroll in sidecar FAISS index
-      await sidecar.enrollCustomerFace(
-        customerId: custDoc.id,
-        name: session.customerName,
-        embedding: custFace.embedding!,
-        phone: session.customerPhone,
-        metadata: {'address': session.customerAddress},
-      );
+      if (customerId != null) {
+        await paths.customers.doc(customerId).set(data, SetOptions(merge: true));
+      } else {
+        data['createdAt'] = DateTime.now().toIso8601String();
+        final doc = await paths.customers.add(data);
+        customerId = doc.id;
+      }
 
-      // Update session with customer face ID
-      ref.read(weighmentMachineProvider.notifier).updateSession(
-        (s) => s.copyWith(customerFaceId: custDoc.id),
-      );
+      if (hasNewFace) {
+        final sidecar = ref.read(sidecarClientProvider);
+        await sidecar.enrollCustomerFace(
+          customerId: customerId,
+          name: name,
+          embedding: custFace.embedding!,
+          phone: phone,
+          metadata: {'address': address},
+        );
+        ref.read(weighmentMachineProvider.notifier).updateSession(
+          (s) => s.copyWith(customerFaceId: customerId),
+        );
+      }
     } catch (_) {}
   }
 
@@ -939,18 +1022,28 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
 
   void _handlePrintSlip() {
     final session = ref.read(weighmentMachineProvider).session;
-    if (session != null && session.existingDocId != null && session.status == SessionStatus.completed) {
-      ref.read(printServiceProvider).printWeighment(weighmentId: session.existingDocId!).then((r) {
-        if (!r.success) _notifyPrintFailed(r.error);
-      });
+    // Print the on-screen ticket directly if it has at least a first weight
+    // (first-weight slip uses the same template with 2nd-weigh fields blank).
+    if (session?.existingDocId != null &&
+        (session!.status == SessionStatus.completed || session.firstWeight != null)) {
+      _handlePrintSaved(const {}, session.existingDocId!);
       return;
     }
-    // No completed session — show print search panel
-    setState(() {
-      _showPrintSearch = true;
-      _showCustomerSearch = false;
-      _printSearchController.clear();
-      _printSearchResults = [];
+    // Otherwise open the left card's Browse mode to find a ticket to re-print.
+    _handleOpenBrowse();
+  }
+
+  /// Open the left card's Browse (search/print) mode — used by F10 (Search),
+  /// the SEARCH button, and F11 when there's nothing on screen to print.
+  void _handleOpenBrowse() {
+    ref.read(leftPanelModeProvider.notifier).state = LeftPanelMode.browse;
+    ref.read(pendingPanelCollapsedProvider.notifier).state = false;
+  }
+
+  void _handlePrintSaved(Map<String, dynamic> data, String docId) {
+    if (docId.isEmpty) return;
+    ref.read(printServiceProvider).printWeighment(weighmentId: docId).then((r) {
+      if (!r.success) _notifyPrintFailed(r.error);
     });
   }
 
@@ -958,6 +1051,19 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final bannerState = _weightBannerKey.currentState;
     if (bannerState != null && bannerState.isEditing) {
       bannerState.cancelEditing();
+      _screenFocusNode.requestFocus();
+      return;
+    }
+    // ESC in Browse (search/print) or a read-only ticket view reverts to Pending
+    // first — without cancelling any weighment that's in progress.
+    final inBrowse = ref.read(leftPanelModeProvider) == LeftPanelMode.browse;
+    final viewing = ref.read(viewingSavedTicketProvider);
+    if (inBrowse || viewing) {
+      if (viewing) {
+        ref.read(viewingSavedTicketProvider.notifier).state = false;
+        ref.read(weighmentMachineProvider.notifier).reset();
+      }
+      ref.read(leftPanelModeProvider.notifier).state = LeftPanelMode.pending;
       _screenFocusNode.requestFocus();
       return;
     }
@@ -994,15 +1100,6 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     ref.read(customerFaceProvider.notifier).state = const CustomerFaceState(enabled: true);
   }
 
-  void _handleCustomerSearch() {
-    setState(() {
-      _showCustomerSearch = !_showCustomerSearch;
-      if (_showCustomerSearch) {
-        _customerSearchController.clear();
-      }
-    });
-  }
-
   void _handleClear() {
     _stopAllScanning();
     _elapsedTimer?.cancel();
@@ -1010,6 +1107,10 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     ref.read(customerFaceProvider.notifier).state = CustomerFaceState.empty;
     ref.read(anprDetectionOverlayProvider.notifier).state = {};
     ref.read(weighmentMachineProvider.notifier).reset();
+    ref.read(viewingSavedTicketProvider.notifier).state = false;
+    ref.read(saveValidateTickProvider.notifier).state = 0;
+    // Leaving the weighment cycle → show the Pending list again.
+    ref.read(leftPanelModeProvider.notifier).state = LeftPanelMode.pending;
     // Set traffic signal to idle immediately on cancel/clear
     ref.read(trafficSignalServiceProvider).setIdle();
     setState(() {
@@ -1039,6 +1140,8 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     final session = machine.session;
     final inlineVerify = ref.watch(inlineVerificationProvider);
     final reading = ref.watch(scaleReadingProvider).valueOrNull;
+    final scaleConnected = (ref.watch(scaleStatusProvider).valueOrNull ?? ScaleConnectionStatus.disconnected) ==
+        ScaleConnectionStatus.connected;
 
     // Identity verification must be satisfied (face/PIN) before a weighment can
     // be captured, entered manually or saved — applies to admins too.
@@ -1049,12 +1152,44 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     );
     final verifyOk = !verifyNeeded || inlineVerify.phase == VerificationUIPhase.verified;
 
+    // SAVE enables once the required info is filled (no face scan needed): name +
+    // address, plus any custom field marked required. Optional fields don't block.
+    final customFields = ref.watch(customFieldsProvider).valueOrNull ?? const <Map<String, dynamic>>[];
+    final requiredCustomOk = customFields.every((f) {
+      if (f['required'] != true) return true;
+      final key = f['key'] as String? ?? '';
+      if (key.isEmpty) return true;
+      return ((session?.customFields[key]) ?? '').trim().isNotEmpty;
+    });
+    final fieldsComplete = session != null &&
+        session.customerName.trim().isNotEmpty &&
+        session.customerAddress.trim().isNotEmpty &&
+        session.material.trim().isNotEmpty &&
+        requiredCustomOk;
+
+    // When per-weighment verification is enforced and not yet satisfied during an
+    // active weighment, lock the screen down to ESCAPE only — no capture / save /
+    // new / gate / print / search. Verification is completed via the card (PIN box
+    // or the retry-scan icon), not a shortcut.
+    final activeSession = ref.watch(weighmentMachineProvider).session;
+    final verifyLock = !verifyOk && activeSession != null;
+    // A completed ticket dragged in for view/re-print: locked, no edit/save/capture.
+    final viewingSaved = ref.watch(viewingSavedTicketProvider);
+    final Map<ShortcutActivator, VoidCallback> shortcutBindings = verifyLock
+        ? {
+            for (final s in AppShortcutRegistry().all)
+              if (s.enabled)
+                SingleActivator(s.key):
+                    s.key == LogicalKeyboardKey.escape ? s.action : _blockUnverifiedSave,
+          }
+        : AppShortcutRegistry().asCallbackShortcuts;
+
     final gateConfig = ref.watch(gateConfigProvider).valueOrNull ?? const GateSystemConfig();
     final gateEnabled = gateConfig.systemEnabled && (gateConfig.entry.enabled || gateConfig.exit.enabled);
     const printConfigured = true;
 
     return CallbackShortcuts(
-      bindings: AppShortcutRegistry().asCallbackShortcuts,
+      bindings: shortcutBindings,
       child: Focus(
         focusNode: _screenFocusNode,
         autofocus: true,
@@ -1068,7 +1203,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
               child: Row(
                 children: [
                   // LEFT: Pending queue (always visible)
-                  PendingQueuePanel(onSelect: _handleResumePending),
+                  PendingQueuePanel(onSelect: _handleResumePending, onPrint: _handlePrintSaved),
 
                   // CENTER: Scale + Form + Identity cameras
                   Expanded(
@@ -1086,9 +1221,26 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
                           ),
                           SizedBox(height: AppSpacing.lg),
 
-                          // Data zone: Form + AI detections
+                          // Data zone: Form + AI detections. Drop a Browse row
+                          // here to fill it (completed = read-only view, first
+                          // weight = resume the 2nd weighment).
                           Expanded(
-                            child: _buildCenterContent(machine, session, scheme),
+                            child: DragTarget<Map<String, dynamic>>(
+                              onAcceptWithDetails: (d) => _handleTicketDrop(d.data),
+                              builder: (context, candidate, rejected) {
+                                final hovering = candidate.isNotEmpty;
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: AppRadius.card,
+                                    border: hovering
+                                        ? Border.all(color: scheme.primary, width: 2)
+                                        : Border.all(color: Colors.transparent, width: 2),
+                                    color: hovering ? scheme.primary.withValues(alpha: 0.04) : null,
+                                  ),
+                                  child: _buildCenterContent(machine, session, scheme, verifyOk),
+                                );
+                              },
+                            ),
                           ),
 
                           SizedBox(height: AppSpacing.md),
@@ -1120,19 +1272,30 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
                   session.status != SessionStatus.completed &&
                   (reading?.stable ?? false) &&
                   _canCaptureWeight(session) &&
-                  verifyOk,
-              canManualEntry: ref.watch(permissionServiceProvider).canManualWeight && verifyOk,
-              canSave: verifyOk,
+                  verifyOk &&
+                  scaleConnected &&
+                  !viewingSaved,
+              // Only show CAPTURE within a live, connected scale environment and
+              // once operator verification is satisfied (when enforced).
+              showCapture: session != null &&
+                  session.status != SessionStatus.completed &&
+                  reading != null &&
+                  scaleConnected &&
+                  verifyOk &&
+                  !viewingSaved,
+              canManualEntry: ref.watch(permissionServiceProvider).canManualWeight && verifyOk && !viewingSaved,
+              canSave: fieldsComplete && !viewingSaved,
               onNew: _handleNewWeighment,
               onCapture: _handleCaptureWeight,
               onManualEntry: _showManualEntryDialog,
-              onSaveWait: session?.secondWeight != null ? _handleSaveComplete : _handleSaveFirstWeight,
+              onSaveWait: _attemptSave,
               onPrint: _handlePrintSlip,
               onCancel: _handleCancel,
               gateEnabled: gateEnabled,
               onOpenGate: gateEnabled ? _handleOpenGate : null,
               onCloseGate: gateEnabled ? _handleCloseGate : null,
-              onCustomerSearch: _handleCustomerSearch,
+              onCustomerSearch: _handleOpenBrowse,
+              lockedUntilVerified: verifyLock,
               printConfigured: printConfigured,
             ),
           ],
@@ -1141,7 +1304,7 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
     );
   }
 
-  Widget _buildCenterContent(WeighmentMachineState machine, WeighmentSession? session, ColorScheme scheme) {
+  Widget _buildCenterContent(WeighmentMachineState machine, WeighmentSession? session, ColorScheme scheme, bool verifyOk) {
     final hasSession = session != null;
 
     return Scrollbar(
@@ -1156,15 +1319,16 @@ class _WeighmentScreenState extends ConsumerState<WeighmentScreen> {
           // Weight summary (always visible)
           if (!_showPrintSearch) ...[
             AppCard(
-              title: 'Weighments',
-              icon: Icons.scale_rounded,
               child: WeightSummaryStrip(
                 firstWeight: session?.firstWeight,
                 secondWeight: session?.secondWeight,
                 firstWeighType: session?.firstWeighType ?? 'gross',
                 firstWeightAt: session?.firstWeightAt,
                 secondWeightAt: session?.secondWeightAt,
-                onToggleType: session != null && session.status != SessionStatus.completed
+                // Swapping gross/tare is gated by operator verification — when
+                // per-weighment verification is enabled, it's only allowed after
+                // the operator is verified (verifyOk is always true when it's off).
+                onToggleType: session != null && session.status != SessionStatus.completed && verifyOk
                     ? () {
                         ref.read(weighmentMachineProvider.notifier).updateSession(
                           (s) => s.copyWith(firstWeighType: s.firstWeighType == 'gross' ? 'tare' : 'gross'),

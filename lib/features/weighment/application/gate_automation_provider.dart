@@ -84,7 +84,7 @@ class GateAutomationService {
         category: 'security',
         severity: 'warn',
         link: '/settings/gate-control',
-        title: 'Gate interlock blocked an open',
+        title: 'Gate interlock blocked',
         body: "The exit gate couldn't open because the other gate was still open (interlock). Vehicles may be waiting — check the gates.",
         throttleKey: 'gate-interlock',
         throttle: const Duration(hours: 1),

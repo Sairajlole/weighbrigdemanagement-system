@@ -1,7 +1,7 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 
-if (!admin.apps.length) admin.initializeApp({ projectId: "weighbridge-management" });
+if (!admin.apps.length) admin.initializeApp({ projectId: "tulanam" });
 const db = admin.firestore();
 
 // ═══════════════════════════════════════════════════════════════════════════════

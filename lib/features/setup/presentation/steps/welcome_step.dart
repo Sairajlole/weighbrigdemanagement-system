@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:weighbridgemanagement/shared/providers/app_version_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/auth_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/connectivity_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
@@ -23,11 +24,25 @@ import '../../application/setup_wizard_state.dart';
 import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
+/// Establishes the per-company Firestore identity. ensureFirebaseAuth returns a
+/// Firebase CUSTOM TOKEN embedding the {companyId, role} claim; signing in with it
+/// makes the app's reads AND background listeners run as this company user — which
+/// is what per-company Firestore rules gate on (request.auth.token.companyId).
+/// This replaces the email/password sign-in, which left Firestore on the anonymous
+/// session and never reliably carried the claim. Falls back to email/password if
+/// no token is returned (e.g. an older deployment).
 Future<void> _ensureFirebaseAuthAccount(String email, String password) async {
   try {
-    await CloudFunctionsService.call('ensureFirebaseAuth', {'email': email, 'password': password});
-    await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
+    final auth = await CloudFunctionsService.call('ensureFirebaseAuth', {'email': email, 'password': password});
+    final customToken = auth['customToken'] as String?;
+    if (customToken != null && customToken.isNotEmpty) {
+      await FirebaseAuth.instance.signInWithCustomToken(customToken);
+    } else {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
+      await FirebaseAuth.instance.currentUser?.getIdToken(true);
+    }
   } catch (e) {
+    debugPrint('[Login] ensureFirebaseAuth/custom-token sign-in failed: $e');
   }
 }
 
@@ -39,9 +54,9 @@ final _emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
 /// code and re-submits until it succeeds. Returns the final loginUser result,
 /// or null if the user cancels the 2FA prompt.
 Future<Map<String, dynamic>?> loginUserWithMfa(BuildContext context, String email, String password,
-    {Future<String?> Function({String? error})? getCode}) async {
-  final first = await CloudFunctionsService.call('loginUser', {'email': email, 'password': password});
-  if (first['mfaRequired'] != true) return first;
+    {Future<String?> Function({String? error})? getCode, bool reauth = false}) async {
+  final first = await CloudFunctionsService.call('loginUser', {'email': email, 'password': password, if (reauth) 'reauth': true});
+  if (first['mfaRequired'] != true) { await _storeSessionToken(first); return first; }
   // Inline code entry when [getCode] is supplied; otherwise fall back to the dialog.
   final prompt = getCode ?? (({String? error}) => _promptTotpCode(context, error: error));
   String? error;
@@ -51,15 +66,26 @@ Future<Map<String, dynamic>?> loginUserWithMfa(BuildContext context, String emai
     if (code == null || code.isEmpty) return null; // cancelled
     try {
       final r = await CloudFunctionsService.call(
-          'loginUser', {'email': email, 'password': password, 'totpCode': code});
+          'loginUser', {'email': email, 'password': password, 'totpCode': code, if (reauth) 'reauth': true});
       if (r['mfaRequired'] == true) {
         error = 'Invalid code. Try again.';
         continue;
       }
+      await _storeSessionToken(r);
       return r;
     } catch (_) {
       error = 'Invalid code. Try again.';
     }
+  }
+}
+
+/// Persist the server session token (in-memory for callables + on disk so it
+/// survives restart) after a successful login.
+Future<void> _storeSessionToken(Map<String, dynamic> r) async {
+  final t = r['sessionToken'] as String?;
+  if (t != null && t.isNotEmpty) {
+    CloudFunctionsService.sessionToken = t;
+    await LocalCacheService.cacheSessionToken(t);
   }
 }
 
@@ -144,7 +170,7 @@ class _WelcomeStepState extends ConsumerState<WelcomeStep> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Spacer(flex: _view == _WelcomeView.resumeSignIn || _view == _WelcomeView.forgotPassword ? 1 : 3),
+            Spacer(flex: _view == _WelcomeView.resumeSignIn ? 1 : 3),
             // Brand name
             Text(
               'tulanam',
@@ -214,6 +240,24 @@ class _WelcomeStepState extends ConsumerState<WelcomeStep> {
           bottom: 16,
           left: 20,
           child: _ConnectivityPing(),
+        ),
+        // Current app version — bottom centre.
+        Positioned(
+          bottom: 16,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: Consumer(
+              builder: (_, ref, __) {
+                final v = ref.watch(appVersionProvider).valueOrNull ?? '';
+                if (v.isEmpty) return const SizedBox.shrink();
+                return Text(
+                  v,
+                  style: TextStyle(fontSize: 11, color: contentScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                );
+              },
+            ),
+          ),
         ),
       ],
     );
@@ -478,10 +522,11 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
         final sid = r['activeSessionId'] as String?;
         if (sid != null) await LocalCacheService.cacheSessionId(sid);
       } catch (e) {
-        if (!firebaseAuthOk) {
-          setState(() { _error = 'Invalid email or password.'; _loading = false; });
-          return;
-        }
+        // loginUser (incl. the 2FA gate) is authoritative — never fall through to
+        // a password-only Firebase session on failure. Sign out and block.
+        try { await ref.read(firebaseAuthProvider).signOut(); } catch (_) {}
+        if (mounted) setState(() { _error = 'Invalid email or password.'; _loading = false; });
+        return;
       }
 
       // Find operator by email
@@ -511,7 +556,11 @@ class _ResumeSignInContentState extends ConsumerState<_ResumeSignInContent> {
         return;
       }
 
-      if (!firebaseAuthOk) await _ensureFirebaseAuthAccount(email, _password.text);
+      // Establish the per-company Firestore identity via the custom token from
+      // ensureFirebaseAuth (carries the companyId claim deterministically). Done
+      // unconditionally — this, not the email/password sign-in above, is the
+      // identity the app's Firestore reads/listeners use under per-company rules.
+      await _ensureFirebaseAuthAccount(email, _password.text);
       await LocalCacheService.cacheCurrentUserEmail(email);
 
       // Configure site context if a site+weighbridge exists (so Firestore paths work)
@@ -940,6 +989,24 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
     }
     if (!mounted) return;
 
+    // Server-side password verification + custom TOTP 2FA gate + single-session
+    // registration. loginUser is authoritative — on Windows it routes over HTTP
+    // (CloudFunctionsService) exactly like the default path, so the second factor
+    // and single-session enforcement are NOT skipped. Failure is fatal: sign out
+    // and block rather than fall through to a password-only Firebase session.
+    try {
+      final r = await loginUserWithMfa(context, email, _password.text, getCode: _inlineGetCode);
+      if (r == null) { setState(() { _loading = false; _mfaPending = false; }); return; } // 2FA cancelled
+      if (_mfaPending) setState(() { _mfaPending = false; _totp.clear(); });
+      final sid = r['activeSessionId'] as String?;
+      if (sid != null) await LocalCacheService.cacheSessionId(sid);
+    } catch (e) {
+      try { await ref.read(firebaseAuthProvider).signOut(); } catch (_) {}
+      if (mounted) setState(() { _error = 'Invalid email or password.'; _loading = false; });
+      return;
+    }
+    if (!mounted) return;
+
     await LocalCacheService.cacheCurrentUserEmail(email);
 
     // Step 2: Find the company — check if this user is a company admin first.
@@ -1034,10 +1101,12 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
       final sid = r['activeSessionId'] as String?;
       if (sid != null) await LocalCacheService.cacheSessionId(sid);
     } catch (e) {
-      if (!firebaseAuthOk) {
-        setState(() { _error = 'Invalid email or password.'; _loading = false; });
-        return;
-      }
+      // loginUser is the authoritative gate (including the 2FA second factor). If
+      // it fails we must NOT fall through to a password-only Firebase session —
+      // that would skip MFA. Sign out and block.
+      try { await ref.read(firebaseAuthProvider).signOut(); } catch (_) {}
+      if (mounted) setState(() { _error = 'Invalid email or password.'; _loading = false; });
+      return;
     }
 
     final operatorSnap = await db
@@ -1145,7 +1214,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         if (!mounted) return;
         final allowed = await _runPostLoginChecks(ref, email);
         if (!allowed || !mounted) return;
-        context.go('/dashboard');
+        context.go('/weighment');
         return;
       }
     }
@@ -1193,7 +1262,7 @@ class _SignInContentState extends ConsumerState<_SignInContent> {
         if (!mounted) return;
         final allowed = await _runPostLoginChecks(ref, email);
         if (!allowed || !mounted) return;
-        context.go('/dashboard');
+        context.go('/weighment');
         return;
       }
     }

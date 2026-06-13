@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_provider.dart';
@@ -12,6 +14,13 @@ class VersionInfo {
   final String? updateUrl;
   final String? releaseNotes;
 
+  // Auto-update package for THIS platform (zip of the app/installer). The
+  // updater downloads [downloadUrl] itself (so no Mark-of-the-Web on Windows)
+  // and verifies it against [sha256] before applying.
+  final String? downloadUrl;
+  final String? sha256;
+  final int? downloadSize;
+
   const VersionInfo({
     this.status = VersionStatus.unknown,
     this.currentVersion = '',
@@ -19,7 +28,13 @@ class VersionInfo {
     this.minimumVersion,
     this.updateUrl,
     this.releaseNotes,
+    this.downloadUrl,
+    this.sha256,
+    this.downloadSize,
   });
+
+  /// Whether a verifiable package is available to auto-apply on this platform.
+  bool get canAutoUpdate => (downloadUrl ?? '').isNotEmpty && (sha256 ?? '').isNotEmpty;
 }
 
 final versionProvider = FutureProvider<VersionInfo>((ref) async {
@@ -40,6 +55,22 @@ final versionProvider = FutureProvider<VersionInfo>((ref) async {
     final updateUrl = data['updateUrl'] as String?;
     final releaseNotes = data['releaseNotes'] as String?;
 
+    // Per-platform package: platforms.{macos|windows|linux} = {url, sha256, size}.
+    String? downloadUrl;
+    String? sha256;
+    int? downloadSize;
+    final platforms = data['platforms'] as Map<String, dynamic>?;
+    if (platforms != null) {
+      final key = Platform.isMacOS ? 'macos' : Platform.isWindows ? 'windows' : 'linux';
+      final p = platforms[key] as Map<String, dynamic>?;
+      if (p != null) {
+        downloadUrl = p['url'] as String?;
+        sha256 = p['sha256'] as String?;
+        downloadSize = (p['size'] as num?)?.toInt();
+      }
+    }
+    downloadUrl ??= updateUrl; // fall back to the legacy single URL
+
     final status = _compareVersions(current, latest, minimum);
 
     return VersionInfo(
@@ -49,6 +80,9 @@ final versionProvider = FutureProvider<VersionInfo>((ref) async {
       minimumVersion: minimum,
       updateUrl: updateUrl,
       releaseNotes: releaseNotes,
+      downloadUrl: downloadUrl,
+      sha256: sha256,
+      downloadSize: downloadSize,
     );
   } catch (_) {
     return const VersionInfo(status: VersionStatus.unknown, currentVersion: '0.0.0');
@@ -70,5 +104,5 @@ int _versionToInt(String version) {
   while (parts.length < 3) {
     parts.add(0);
   }
-  return parts[0] * 10000 + parts[1] * 100 + parts[2];
+  return parts[0] * 1000000 + parts[1] * 1000 + parts[2];
 }

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/site_context_provider.dart';
 
 // ─── ANPR Detection Overlay ─────────────────────────────────────────────────
 
@@ -159,6 +161,78 @@ final allWeighmentsForPrintProvider = StreamProvider<List<Map<String, dynamic>>>
       .limit(200)
       .snapshots()
       .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+});
+
+// ─── Left-panel hybrid: Pending queue ⇄ Browse / re-print ───────────────────
+
+enum LeftPanelMode { pending, browse }
+
+final leftPanelModeProvider = StateProvider<LeftPanelMode>((ref) => LeftPanelMode.pending);
+final browseSearchProvider = StateProvider<String>((ref) => '');
+
+/// True while a *completed* ticket is loaded read-only (dragged in for view /
+/// re-print) — locks the fields and disables capture/save/manual.
+final viewingSavedTicketProvider = StateProvider<bool>((ref) => false);
+
+/// Bumped each time SAVE is attempted with required fields missing — the form
+/// watches it to flag the empty required fields (red border + a shake).
+final saveValidateTickProvider = StateProvider<int>((ref) => 0);
+
+/// null = Today; otherwise a custom (start-of-day, end-of-day) range.
+final browseDateRangeProvider = StateProvider<(DateTime, DateTime)?>((ref) => null);
+
+/// Saved weighments — first weight done (`awaitingTare`) or completed — within
+/// the selected day window, newest first. Source for Browse/print mode.
+final browseWeighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  final custom = ref.watch(browseDateRangeProvider);
+  final now = DateTime.now();
+  final start = custom?.$1 ?? DateTime(now.year, now.month, now.day);
+  final endRaw = custom?.$2 ?? now;
+  final end = DateTime(endRaw.year, endRaw.month, endRaw.day, 23, 59, 59, 999);
+  return paths.weighments
+      .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+      .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(end))
+      .orderBy('createdAt', descending: true)
+      .snapshots()
+      .map((snap) => snap.docs
+          .map((d) => {'id': d.id, ...d.data()})
+          .where((w) {
+            final s = w['status'] as String? ?? '';
+            return s == 'completed' || s == 'awaitingTare';
+          })
+          .toList());
+});
+
+/// Full customer records for the form dropdowns — respects the
+/// `crossSiteCustomers` general setting (this site only, unless enabled).
+final weighmentCustomersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  final crossSite = (ref.watch(generalSettingsProvider).valueOrNull ?? const {})['crossSiteCustomers'] == true;
+  final siteId = ref.watch(siteContextProvider).siteId;
+  return paths.customers.orderBy('name').snapshots().map((snap) {
+    return snap.docs.map((d) => {'id': d.id, ...d.data()}).where((c) {
+      if (crossSite) return true;
+      final s = c['siteId'] as String? ?? '';
+      return s.isEmpty || s == siteId;
+    }).toList();
+  });
+});
+
+/// Distinct vehicle numbers from recent weighments (for the vehicle dropdown).
+final recentVehicleNumbersProvider = StreamProvider<List<String>>((ref) {
+  final paths = ref.watch(firestorePathsProvider);
+  if (!paths.isConfigured) return const Stream.empty();
+  return paths.weighments.orderBy('createdAt', descending: true).limit(300).snapshots().map((snap) {
+    final seen = <String>{};
+    for (final d in snap.docs) {
+      final v = (d.data()['vehicleNumber'] as String? ?? '').trim();
+      if (v.isNotEmpty) seen.add(v);
+    }
+    return seen.toList();
+  });
 });
 
 final customerNamesProvider = StreamProvider<List<String>>((ref) {

@@ -201,6 +201,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
         debugPrint('[FaceEnroll] Including ${referenceFrames.length} reference frames for cross-phase check');
       }
       final data = await CloudFunctionsService.call('validateFaceConsistency', payload);
+      if (!mounted) return;
       final facesDetected = data['facesDetected'] ?? 0;
       final avgConf = data['avgConfidence'] ?? 0;
       final avgSim = data['avgSimilarity'] ?? 0;
@@ -227,6 +228,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
       }
     } on FirebaseFunctionsException catch (e) {
       debugPrint('[FaceEnroll] FirebaseFunctionsException: code=${e.code}, message=${e.message}, details=${e.details}');
+      if (!mounted) return;
       setState(() {
         _enrolling = false;
         _enrollError = e.message?.isNotEmpty == true ? e.message! : 'Validation failed (${e.code}). Please try again.';
@@ -237,6 +239,7 @@ class _FaceEnrollStepState extends ConsumerState<FaceEnrollStep> {
       });
     } catch (e, stack) {
       debugPrint('[FaceEnroll] Unexpected error: $e\n$stack');
+      if (!mounted) return;
       setState(() {
         _enrolling = false;
         _enrollError = 'Failed to validate faces. Try again.';

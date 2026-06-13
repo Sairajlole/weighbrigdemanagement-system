@@ -15,6 +15,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const bwipjs = require("bwip-js");
 const { buildReceiptHtml, buildReportHtml, buildOtpHtml, buildNotificationHtml } = require("./email_templates");
 
@@ -22,7 +23,7 @@ if (!admin.apps.length) admin.initializeApp();
 
 /* global document */ // used inside page.evaluate() (runs in the browser context)
 
-const BUCKET = "weighbridge-management.firebasestorage.app";
+const BUCKET = "tulanam.firebasestorage.app";
 const RENDER_SECRET = process.env.RENDER_SECRET || "";
 
 let _logoTileUri;
@@ -49,10 +50,16 @@ async function pdf417DataUri(text) {
 
 const ALLOWED_SIZES = ["A4", "A5", "Letter", "Legal"];
 
-exports.renderEmailDoc = onRequest({ memory: "1GiB", timeoutSeconds: 120, concurrency: 1 }, async (req, res) => {
+exports.renderEmailDoc = onRequest({ region: "asia-south1", memory: "1GiB", timeoutSeconds: 120, concurrency: 1 }, async (req, res) => {
   let browser;
   try {
-    if (RENDER_SECRET && req.get("x-render-secret") !== RENDER_SECRET) {
+    // Public (allUsers) endpoint — the secret is the only gate, so fail CLOSED:
+    // an unset/empty RENDER_SECRET rejects everything rather than opening up.
+    const provided = req.get("x-render-secret") || "";
+    const okSecret = RENDER_SECRET.length > 0 &&
+      provided.length === RENDER_SECRET.length &&
+      crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(RENDER_SECRET));
+    if (!okSecret) {
       res.status(403).send("forbidden");
       return;
     }

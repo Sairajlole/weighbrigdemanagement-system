@@ -118,7 +118,11 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
     final db = ref.read(firestorePathsProvider);
     try {
       final src = await db.materialsForScope(saved).get();
+      final dst = await db.materialsForScope(to).get();
       final batch = db.batch();
+      for (final d in dst.docs) {
+        batch.delete(db.materialsForScope(to).doc(d.id));
+      }
       for (final d in src.docs) {
         batch.set(db.materialsForScope(to).doc(d.id), d.data());
       }

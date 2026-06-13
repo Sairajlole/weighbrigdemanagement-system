@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
 import 'package:weighbridgemanagement/shared/services/ai_sidecar_client.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/gate_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/integrations_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/scale_provider.dart';
@@ -13,7 +14,6 @@ import 'package:weighbridgemanagement/shared/services/scale_service.dart';
 import 'package:weighbridgemanagement/app/app_shell.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:weighbridgemanagement/shared/utils/responsive.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
 import 'package:weighbridgemanagement/shared/theme/app_tokens.dart';
 
@@ -31,6 +31,20 @@ final _weighbridgeListProvider = FutureProvider<List<_WbEntry>>((ref) async {
     }
   }
   return list;
+});
+
+final _companyNameProvider = FutureProvider<String>((ref) async {
+  final ctx = ref.watch(siteContextProvider);
+  if (ctx.companyId.isEmpty) return '';
+  // Primary source: the company doc's `name` (set during setup).
+  try {
+    final doc = await FirebaseFirestore.instance.doc('companies/${ctx.companyId}').get();
+    final name = doc.data()?['name'] as String? ?? '';
+    if (name.isNotEmpty) return name;
+  } catch (_) {}
+  // Fallback: general settings `companyName` (set if general settings were saved).
+  final settings = ref.watch(generalSettingsProvider).valueOrNull ?? const {};
+  return settings['companyName'] as String? ?? '';
 });
 
 class _WbEntry {
@@ -51,6 +65,7 @@ class DeviceContextBar extends ConsumerWidget {
     final wbListAsync = ref.watch(_weighbridgeListProvider);
     final allWbs = wbListAsync.valueOrNull ?? [];
     final current = allWbs.where((w) => w.siteId == ctx.siteId && w.wbId == ctx.weighbridgeId).firstOrNull;
+    final companyName = ref.watch(_companyNameProvider).valueOrNull ?? '';
 
     final scaleStatus = ref.watch(scaleStatusProvider).valueOrNull ?? ScaleConnectionStatus.disconnected;
     final gateStates = ref.watch(gateStateProvider).valueOrNull ?? {};
@@ -82,6 +97,7 @@ class DeviceContextBar extends ConsumerWidget {
           _WbChip(
             current: current,
             allWbs: allWbs,
+            companyName: companyName,
             scheme: scheme,
             onSelected: (wb) async {
               await ref.read(siteContextProvider.notifier).configure(
@@ -118,9 +134,10 @@ class DeviceContextBar extends ConsumerWidget {
           const Spacer(),
 
           // Scale + Display indicators on the right.
+          // Scale + Display: state shown by colour only (no on/off text).
           _DeviceChip(
             icon: Icons.scale_outlined,
-            label: scaleConnected ? 'Scale OK' : 'Scale Off',
+            label: 'Scale',
             color: scaleConnected ? positive : negative,
             isError: !scaleConnected,
           ),
@@ -129,7 +146,7 @@ class DeviceContextBar extends ConsumerWidget {
 
           _DeviceChip(
             icon: Icons.tv_outlined,
-            label: displayBoard.hasConnectedBoards ? 'Display OK' : 'Display Off',
+            label: 'Display',
             color: displayBoard.hasConnectedBoards ? positive : negative,
             isError: !displayBoard.hasConnectedBoards,
           ),
@@ -227,7 +244,7 @@ class _DeviceChip extends StatelessWidget {
             borderRadius: AppRadius.chip,
             border: Border.all(color: color.withValues(alpha: isError ? 0.4 : 0.2)),
           ),
-          child: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color)),
+          child: Text(label.toUpperCase(), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color)),
         ),
     );
   }
@@ -236,24 +253,27 @@ class _DeviceChip extends StatelessWidget {
 class _WbChip extends StatelessWidget {
   final _WbEntry? current;
   final List<_WbEntry> allWbs;
+  final String companyName;
   final ColorScheme scheme;
   final void Function(_WbEntry) onSelected;
 
-  const _WbChip({required this.current, required this.allWbs, required this.scheme, required this.onSelected});
+  const _WbChip({required this.current, required this.allWbs, required this.companyName, required this.scheme, required this.onSelected});
+
+  // Header label prefixes the company name (when known); the dropdown items do not.
+  String get _headerLabel {
+    if (current == null) return 'Weighbridge';
+    // Company name is shown without spaces (e.g. "Acme Corp" → "AcmeCorp").
+    final compact = companyName.replaceAll(RegExp(r'\s+'), '');
+    final prefix = compact.isNotEmpty ? '$compact / ' : '';
+    return '$prefix${current!.siteName} / ${current!.wbName}';
+  }
 
   @override
   Widget build(BuildContext context) {
     if (allWbs.length <= 1) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.scale_outlined, size: 17, color: scheme.primary),
-          SizedBox(width: 6.rs),
-          Text(
-            current != null ? '${current!.siteName} / ${current!.wbName}' : 'Weighbridge',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: scheme.primary),
-          ),
-        ],
+      return Text(
+        _headerLabel,
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: scheme.primary),
       );
     }
 
@@ -276,10 +296,8 @@ class _WbChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.scale_outlined, size: 15, color: scheme.primary),
-            SizedBox(width: 6.rs),
             Text(
-              current != null ? '${current!.siteName} / ${current!.wbName}' : 'Select',
+              current != null ? _headerLabel : 'Select',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: scheme.primary),
             ),
             SizedBox(width: AppSpacing.xs),

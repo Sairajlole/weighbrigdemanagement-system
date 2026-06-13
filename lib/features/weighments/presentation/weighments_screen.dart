@@ -32,33 +32,113 @@ void showWeighmentDetailDialog(BuildContext context, WidgetRef ref, Map<String, 
   }
 }
 
+/// Formats a date range "a – b", switching to [withYear] unless both dates fall
+/// in the current year — so cross-year and any not-this-year range is clear.
+String _rangeLabel(DateTime a, DateTime b, String noYear, String withYear) {
+  final thisYear = DateTime.now().year;
+  final showYear = a.year != thisYear || b.year != thisYear;
+  final f = DateFormat(showYear ? withYear : noYear);
+  return '${f.format(a)} – ${f.format(b)}';
+}
+
+/// Upper bound on weighments fetched per query. Combined with a server-side
+/// `createdAt` range this keeps the table bounded (most-recent N in range)
+/// rather than streaming an unbounded collection.
+const int _weighmentsFetchLimit = 1000;
+
+/// Computes the [start, end] bounds for a [range] selection. Pure so it can be
+/// shared by the data providers (server-side query) and the widget filter.
+DateTimeRange _computeBounds(_DateRange range, DateTimeRange? custom) {
+  final now = DateTime.now();
+  switch (range) {
+    case _DateRange.today:
+      return DateTimeRange(
+        start: DateTime(now.year, now.month, now.day),
+        end: DateTime(now.year, now.month, now.day, 23, 59, 59),
+      );
+    case _DateRange.thisWeek:
+      final weekday = now.weekday;
+      final start = now.subtract(Duration(days: weekday - 1));
+      return DateTimeRange(
+        start: DateTime(start.year, start.month, start.day),
+        end: DateTime(now.year, now.month, now.day, 23, 59, 59),
+      );
+    case _DateRange.thisMonth:
+      return DateTimeRange(
+        start: DateTime(now.year, now.month, 1),
+        end: DateTime(now.year, now.month, now.day, 23, 59, 59),
+      );
+    case _DateRange.thisYear:
+      return DateTimeRange(
+        start: DateTime(now.year, 1, 1),
+        end: DateTime(now.year, now.month, now.day, 23, 59, 59),
+      );
+    case _DateRange.thisFY:
+      final fyStart = now.month >= 4 ? DateTime(now.year, 4, 1) : DateTime(now.year - 1, 4, 1);
+      return DateTimeRange(start: fyStart, end: now);
+    case _DateRange.all:
+      return DateTimeRange(start: DateTime(2000), end: DateTime(2100));
+    case _DateRange.custom:
+      return custom ?? DateTimeRange(
+        start: DateTime(now.year, now.month, now.day),
+        end: DateTime(now.year, now.month, now.day, 23, 59, 59),
+      );
+  }
+}
+
+/// Selected date range, written by the screen and watched by the data
+/// providers so the `createdAt` filter can be pushed server-side.
+final _dateRangeProvider = StateProvider<DateTimeRange>(
+  (ref) => _computeBounds(_WeighmentsScreenState._persistedDateRange, _WeighmentsScreenState._persistedCustomRange),
+);
+
 final _weighmentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return const Stream.empty();
-  return paths.weighments.orderBy('createdAt', descending: true).snapshots().map(
-    (snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList(),
-  );
+  final bounds = ref.watch(_dateRangeProvider);
+  return paths.weighments
+      .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(bounds.start))
+      .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(bounds.end))
+      .orderBy('createdAt', descending: true)
+      .limit(_weighmentsFetchLimit)
+      .snapshots()
+      .map(
+        (snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList(),
+      );
 });
 
 final _allWbWeighmentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final paths = ref.watch(firestorePathsProvider);
   if (!paths.isConfigured) return [];
+  final bounds = ref.watch(_dateRangeProvider);
+  final startTs = Timestamp.fromDate(bounds.start);
+  final endTs = Timestamp.fromDate(bounds.end);
   final db = paths.firestore;
   final ctx = paths.context;
   final sitesSnap = await db.collection('companies/${ctx.companyId}/sites').get();
-  final all = <Map<String, dynamic>>[];
-  for (final site in sitesSnap.docs) {
+  // Fetch every weighbridge across all sites, then fan the per-weighbridge
+  // weighment reads out in parallel (was sequential N+1) — each bounded by the
+  // date range + limit.
+  final wbRefs = <({String siteId, String wbId, String wbName})>[];
+  await Future.wait(sitesSnap.docs.map((site) async {
     final wbSnap = await db.collection('companies/${ctx.companyId}/sites/${site.id}/weighbridges').get();
     for (final wb in wbSnap.docs) {
-      final wbName = wb.data()['name'] as String? ?? 'Unnamed WB';
-      final wmSnap = await db.collection('companies/${ctx.companyId}/sites/${site.id}/weighbridges/${wb.id}/weighments')
-          .orderBy('createdAt', descending: true)
-          .get();
-      for (final d in wmSnap.docs) {
-        all.add({'id': d.id, 'weighbridgeId': wb.id, 'weighbridgeName': wbName, ...d.data()});
-      }
+      wbRefs.add((siteId: site.id, wbId: wb.id, wbName: wb.data()['name'] as String? ?? 'Unnamed WB'));
     }
-  }
+  }));
+  final results = await Future.wait(wbRefs.map((wb) async {
+    final wmSnap = await db
+        .collection('companies/${ctx.companyId}/sites/${wb.siteId}/weighbridges/${wb.wbId}/weighments')
+        .where('createdAt', isGreaterThanOrEqualTo: startTs)
+        .where('createdAt', isLessThanOrEqualTo: endTs)
+        .orderBy('createdAt', descending: true)
+        .limit(_weighmentsFetchLimit)
+        .get();
+    return wmSnap.docs
+        .map((d) => {'id': d.id, 'weighbridgeId': wb.wbId, 'weighbridgeName': wb.wbName, ...d.data()})
+        .toList();
+  }));
+  final all = <Map<String, dynamic>>[for (final list in results) ...list];
   all.sort((a, b) {
     final ta = a['createdAt'];
     final tb = b['createdAt'];
@@ -124,6 +204,12 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
   void initState() {
     super.initState();
     _loadPersistedCols();
+    // Re-sync the shared bounds so relative ranges (e.g. today) recompute
+    // against the current clock when the screen reopens.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(_dateRangeProvider.notifier).state = _computeBounds(_dateRange, _customRange);
+    });
   }
 
   Future<void> _loadPersistedCols() async {
@@ -153,6 +239,9 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
     });
     _persistedDateRange = range;
     if (custom != null) _persistedCustomRange = custom;
+    // Push the new bounds to the data providers so the createdAt filter +
+    // limit query the right window server-side.
+    ref.read(_dateRangeProvider.notifier).state = _computeBounds(range, custom ?? _customRange);
   }
 
   void _setStatusFilter(_StatusFilter filter) {
@@ -165,43 +254,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
     _persistedMaterials = Set.of(materials);
   }
 
-  DateTimeRange _getDateRange() {
-    final now = DateTime.now();
-    switch (_dateRange) {
-      case _DateRange.today:
-        return DateTimeRange(
-          start: DateTime(now.year, now.month, now.day),
-          end: DateTime(now.year, now.month, now.day, 23, 59, 59),
-        );
-      case _DateRange.thisWeek:
-        final weekday = now.weekday;
-        final start = now.subtract(Duration(days: weekday - 1));
-        return DateTimeRange(
-          start: DateTime(start.year, start.month, start.day),
-          end: DateTime(now.year, now.month, now.day, 23, 59, 59),
-        );
-      case _DateRange.thisMonth:
-        return DateTimeRange(
-          start: DateTime(now.year, now.month, 1),
-          end: DateTime(now.year, now.month, now.day, 23, 59, 59),
-        );
-      case _DateRange.thisYear:
-        return DateTimeRange(
-          start: DateTime(now.year, 1, 1),
-          end: DateTime(now.year, now.month, now.day, 23, 59, 59),
-        );
-      case _DateRange.thisFY:
-        final fyStart = now.month >= 4 ? DateTime(now.year, 4, 1) : DateTime(now.year - 1, 4, 1);
-        return DateTimeRange(start: fyStart, end: now);
-      case _DateRange.all:
-        return DateTimeRange(start: DateTime(2000), end: DateTime(2100));
-      case _DateRange.custom:
-        return _customRange ?? DateTimeRange(
-          start: DateTime(now.year, now.month, now.day),
-          end: DateTime(now.year, now.month, now.day, 23, 59, 59),
-        );
-    }
-  }
+  DateTimeRange _getDateRange() => _computeBounds(_dateRange, _customRange);
 
   List<Map<String, dynamic>> _applyFilters(List<Map<String, dynamic>> all) {
     final perms = ref.read(permissionServiceProvider);
@@ -593,11 +646,18 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
     final chipSize = renderBox.size;
     final chipOffset = renderBox.localToGlobal(Offset.zero);
     const dialogWidth = 320.0;
-    final left = chipOffset.dx + (chipSize.width / 2) - (dialogWidth / 2);
+    final screenW = MediaQuery.of(context).size.width;
+    // Anchor the picker just below the Custom button with their LEFT edges
+    // aligned (clamped so it never runs off the right edge of the screen).
+    final maxLeft = (screenW - dialogWidth - 8).clamp(8.0, screenW);
+    final left = chipOffset.dx.clamp(8.0, maxLeft).toDouble();
     final top = chipOffset.dy + chipSize.height + 6;
 
     DateTime? start;
     DateTime? end;
+    // Picking a year fires onDisplayedMonthChanged then onDateChanged synchronously
+    // — suppress that auto-selection so navigating years doesn't pre-pick a date.
+    bool suppressNext = false;
 
     await showDialog(
       context: context,
@@ -623,7 +683,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                           children: [
                             Text(
                               start != null && end != null
-                                  ? '${DateFormat('dd MMM').format(start!)} – ${DateFormat('dd MMM').format(end!)}'
+                                  ? _rangeLabel(start!, end!, 'dd MMM', 'dd MMM yyyy')
                                   : start != null
                                       ? '${DateFormat('dd MMM').format(start!)} – select end'
                                       : 'Select date range',
@@ -633,10 +693,15 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
                         ),
                       ),
                       CalendarDatePicker(
-                        initialDate: _customRange?.start ?? DateTime.now(),
+                        initialDate: null, // nothing pre-selected — user picks freely
                         firstDate: DateTime(2020),
                         lastDate: DateTime.now(),
+                        onDisplayedMonthChanged: (_) {
+                          suppressNext = true;
+                          WidgetsBinding.instance.addPostFrameCallback((_) => suppressNext = false);
+                        },
                         onDateChanged: (date) {
+                          if (suppressNext) { suppressNext = false; return; } // year/month jump — not a pick
                           if (start == null || end != null) {
                             setDialogState(() { start = date; end = null; });
                           } else {
@@ -683,7 +748,7 @@ class _WeighmentsScreenState extends ConsumerState<WeighmentsScreen> {
           ),
           child: Text(
             range == _DateRange.custom && _dateRange == _DateRange.custom && _customRange != null
-                ? '${DateFormat('dd/MM').format(_customRange!.start)} – ${DateFormat('dd/MM').format(_customRange!.end)}'
+                ? _rangeLabel(_customRange!.start, _customRange!.end, 'dd/MM', 'dd/MM/yyyy')
                 : label,
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? scheme.onPrimary : scheme.onSurfaceVariant),
           ),
@@ -2992,10 +3057,29 @@ class _PrintToButton extends ConsumerWidget {
       if (result.success && result.pdfBytes != null) {
         final tmpFile = File('${Directory.systemTemp.path}/weighment_$weighmentId.pdf');
         await tmpFile.writeAsBytes(result.pdfBytes!);
-        await Process.run('open', ['-R', tmpFile.path]);
-        final msg = result.warning != null
-            ? 'PDF saved — ${result.warning}'
-            : 'PDF saved — opened in Finder';
+        var revealed = false;
+        String revealLabel = 'saved';
+        try {
+          if (Platform.isMacOS) {
+            await Process.run('open', ['-R', tmpFile.path]);
+            revealed = true;
+            revealLabel = 'opened in Finder';
+          } else if (Platform.isWindows) {
+            // explorer returns a non-zero exit code even on success, so treat
+            // a thrown ProcessException (binary missing) as the only failure.
+            await Process.run('explorer', ['/select,${tmpFile.path}']);
+            revealed = true;
+            revealLabel = 'opened in Explorer';
+          } else if (Platform.isLinux) {
+            await Process.run('xdg-open', [tmpFile.parent.path]);
+            revealed = true;
+            revealLabel = 'opened in file manager';
+          }
+        } on ProcessException {
+          revealed = false;
+        }
+        final base = revealed ? 'PDF saved — $revealLabel' : 'PDF saved to ${tmpFile.path}';
+        final msg = result.warning != null ? 'PDF saved — ${result.warning}' : base;
         onResult?.call(msg, result.warning != null);
       } else {
         onResult?.call('PDF generation failed: ${result.error}', true);

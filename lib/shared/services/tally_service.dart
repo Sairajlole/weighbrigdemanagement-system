@@ -174,17 +174,18 @@ class TallyService {
 
   String _buildVoucherXml(Map<String, dynamic> weighment) {
     final date = weighment['date'] as String? ?? _tallyDate(DateTime.now());
-    final vehicleNo = weighment['vehicleNumber'] as String? ?? '';
-    final material = weighment['material'] as String? ?? '';
+    final vehicleNo = _xmlEscape(weighment['vehicleNumber'] as String? ?? '');
+    final material = _xmlEscape(weighment['material'] as String? ?? '');
     final netWeight = weighment['netWeight'] as num? ?? 0;
-    final customer = weighment['customerName'] as String? ?? 'Cash';
+    final customer = _xmlEscape(weighment['customerName'] as String? ?? 'Cash');
+    final company = _xmlEscape(_config.company);
 
     return '''
 <ENVELOPE>
   <HEADER><TALLYREQUEST>Import Data</TALLYREQUEST></HEADER>
   <BODY><IMPORTDATA><REQUESTDESC>
     <REPORTNAME>Vouchers</REPORTNAME>
-    <STATICVARIABLES><SVCURRENTCOMPANY>${ _config.company }</SVCURRENTCOMPANY></STATICVARIABLES>
+    <STATICVARIABLES><SVCURRENTCOMPANY>$company</SVCURRENTCOMPANY></STATICVARIABLES>
   </REQUESTDESC>
   <REQUESTDATA>
     <TALLYMESSAGE xmlns:UDF="TallyUDF">
@@ -203,16 +204,17 @@ class TallyService {
   }
 
   String _buildLedgerXml(Map<String, dynamic> customer) {
-    final name = customer['name'] as String? ?? '';
-    final phone = customer['phone'] as String? ?? '';
-    final address = customer['address'] as String? ?? '';
+    final name = _xmlEscape(customer['name'] as String? ?? '');
+    final phone = _xmlEscape(customer['phone'] as String? ?? '');
+    final address = _xmlEscape(customer['address'] as String? ?? '');
+    final company = _xmlEscape(_config.company);
 
     return '''
 <ENVELOPE>
   <HEADER><TALLYREQUEST>Import Data</TALLYREQUEST></HEADER>
   <BODY><IMPORTDATA><REQUESTDESC>
     <REPORTNAME>All Masters</REPORTNAME>
-    <STATICVARIABLES><SVCURRENTCOMPANY>${ _config.company }</SVCURRENTCOMPANY></STATICVARIABLES>
+    <STATICVARIABLES><SVCURRENTCOMPANY>$company</SVCURRENTCOMPANY></STATICVARIABLES>
   </REQUESTDESC>
   <REQUESTDATA>
     <TALLYMESSAGE xmlns:UDF="TallyUDF">
@@ -256,6 +258,15 @@ class TallyService {
   }
 
   String _tallyDate(DateTime dt) => '${dt.year}${dt.month.toString().padLeft(2, '0')}${dt.day.toString().padLeft(2, '0')}';
+
+  /// Escape free-text values before interpolating into Tally XML (element
+  /// content and attribute values) to prevent voucher/XML injection.
+  String _xmlEscape(String value) => value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&apos;');
 
   void _setStatus(TallyConnectionStatus s) {
     _status = s;

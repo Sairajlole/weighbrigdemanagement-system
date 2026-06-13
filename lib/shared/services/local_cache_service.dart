@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:encrypt/encrypt.dart' as enc;
 import 'package:flutter/foundation.dart';
+import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 
 /// Offline cache for profile / settings / session / license data.
 ///
@@ -58,8 +59,20 @@ class LocalCacheService {
     return (data as Map)['sessionId'] as String?;
   }
 
+  /// Server-issued session token (loginUser) — authorizes secured callables.
+  static Future<void> cacheSessionToken(String token) async {
+    await _write('session_token.json', {'token': token});
+  }
+
+  static Future<String?> getCachedSessionToken() async {
+    final data = await _read('session_token.json');
+    if (data == null) return null;
+    return (data as Map)['token'] as String?;
+  }
+
   static Future<void> clearCurrentUser() async {
-    for (final name in ['current_user.json', 'session.json']) {
+    CloudFunctionsService.sessionToken = null; // drop the in-memory session token on logout
+    for (final name in ['current_user.json', 'session.json', 'session_token.json']) {
       try {
         final file = File('$_basePath/$name');
         if (file.existsSync()) await file.delete();

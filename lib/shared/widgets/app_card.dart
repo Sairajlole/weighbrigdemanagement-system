@@ -43,9 +43,13 @@ class _AppCardState extends State<AppCard> {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final w = widget;
-    // A header is shown if there's a title OR the card can be collapsed (the
-    // chevron lives in the header).
-    final showHeader = w.title != null || w.collapsible;
+    // A header is shown if there's a title, the card can be collapsed (the
+    // chevron lives in the header), or there are header actions to surface.
+    final showHeader = w.title != null ||
+        w.collapsible ||
+        (w.actions != null && w.actions!.isNotEmpty) ||
+        w.onSave != null ||
+        w.onReset != null;
 
     return Container(
       margin: w.margin ?? EdgeInsets.only(bottom: AppSpacing.lg),

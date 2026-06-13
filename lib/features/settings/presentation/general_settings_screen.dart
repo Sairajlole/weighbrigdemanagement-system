@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
-import 'package:weighbridgemanagement/shared/services/platform_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:weighbridgemanagement/shared/services/cloud_functions_service.dart';
 import 'package:weighbridgemanagement/shared/providers/mfa_provider.dart';
@@ -10,12 +8,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:weighbridgemanagement/shared/theme/app_theme.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image/image.dart' as img;
-import 'package:latlong2/latlong.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/app_notifier.dart';
 import 'package:weighbridgemanagement/shared/models/license_model.dart';
@@ -196,10 +192,6 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
   final _email = TextEditingController();
   final _gstin = TextEditingController();
   final _pan = TextEditingController();
-  final _latitude = TextEditingController();
-  final _longitude = TextEditingController();
-  final _officeLatitude = TextEditingController();
-  final _officeLongitude = TextEditingController();
 
   String _selectedDialCode = '+91';
   String _dateFormat = 'DD/MM/YYYY';
@@ -237,10 +229,6 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     _email.dispose();
     _gstin.dispose();
     _pan.dispose();
-    _latitude.dispose();
-    _longitude.dispose();
-    _officeLatitude.dispose();
-    _officeLongitude.dispose();
     super.dispose();
   }
 
@@ -277,10 +265,6 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     for (final k in ['verifiedName', 'verifiedPhotoUrl', 'aadhaarLast4', 'verifiedDob', 'verifiedGender', 'verifiedAddress', 'verificationMethod']) {
       if (data[k] != null) _verified[k] = data[k];
     }
-    _latitude.text = data['latitude']?.toString() ?? '';
-    _longitude.text = data['longitude']?.toString() ?? '';
-    _officeLatitude.text = data['officeLatitude']?.toString() ?? '';
-    _officeLongitude.text = data['officeLongitude']?.toString() ?? '';
     _dateFormat = data['dateFormat'] ?? 'DD/MM/YYYY';
     _timeFormat = data['timeFormat'] ?? '24-hour';
     _currency = data['currency'] ?? 'INR';
@@ -400,10 +384,6 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     'email': _email.text.trim(),
     'gstin': _gstin.text.trim(),
     'pan': _pan.text.trim(),
-    'latitude': _latitude.text.trim(),
-    'longitude': _longitude.text.trim(),
-    'officeLatitude': _officeLatitude.text.trim(),
-    'officeLongitude': _officeLongitude.text.trim(),
     'dateFormat': _dateFormat,
     'timeFormat': _timeFormat,
     'currency': _currency,
@@ -656,44 +636,6 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
     if (verified == true && mounted) {
       setState(() => _systemCodeRevealed = true);
-    }
-  }
-
-  Future<(double, double)> _getCurrentLocation() async {
-    try {
-      final response = await http.get(Uri.parse('https://ipapi.co/json/')).timeout(const Duration(seconds: 3));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final lat = (data['latitude'] as num?)?.toDouble();
-        final lon = (data['longitude'] as num?)?.toDouble();
-        if (lat != null && lon != null) return (lat, lon);
-      }
-    } catch (_) {}
-    return (18.5204, 73.8567);
-  }
-
-  Future<void> _pickOnMap({required TextEditingController latCtrl, required TextEditingController lngCtrl}) async {
-    double initLat = double.tryParse(latCtrl.text.trim()) ?? 0;
-    double initLng = double.tryParse(lngCtrl.text.trim()) ?? 0;
-
-    if (initLat == 0 && initLng == 0) {
-      final loc = await _getCurrentLocation();
-      initLat = loc.$1;
-      initLng = loc.$2;
-    }
-
-    if (!mounted) return;
-    final result = await showDialog<(double, double)?>(
-      context: context,
-      builder: (ctx) => _MapPickerDialog(initialLat: initLat, initialLng: initLng),
-    );
-
-    if (result != null) {
-      setState(() {
-        latCtrl.text = result.$1.toStringAsFixed(6);
-        lngCtrl.text = result.$2.toStringAsFixed(6);
-      });
-      _markDirty();
     }
   }
 
@@ -1114,13 +1056,10 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
         'gstin': _gstin.text.trim().toUpperCase(),
         'pan': _pan.text.trim().toUpperCase(),
         'systemCode': _systemCode,
-        'latitude': double.tryParse(_latitude.text.trim()),
-        'longitude': double.tryParse(_longitude.text.trim()),
-        'officeLatitude': double.tryParse(_officeLatitude.text.trim()),
-        'officeLongitude': double.tryParse(_officeLongitude.text.trim()),
         'dateFormat': _dateFormat,
         'timeFormat': _timeFormat,
         'currency': _currency,
+        'crossSiteCustomers': _crossSiteCustomers,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
@@ -1156,7 +1095,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
         if (changed.isNotEmpty) {
           AppNotifier.raise(db,
               category: 'account', severity: 'warn', link: '/settings/general',
-              title: 'Company details changed',
+              title: 'Company info changed',
               body: 'Your company ${changed.join(', ')} ${changed.length == 1 ? 'was' : 'were'} updated.',
               throttleKey: 'company-info-change', throttle: const Duration(minutes: 5));
         }
@@ -2488,99 +2427,6 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     );
   }
 
-  // ─── Location (Coordinates) ──────────────────────────────────────────────
-
-  Widget _buildLocationSection(ColorScheme scheme, TextTheme text) {
-    return _SettingsCard(
-      icon: Icons.location_on_rounded,
-      title: 'GPS Coordinates',
-      subtitle: 'Used for satellite verification and mapping',
-      scheme: scheme,
-      text: text,
-      child: Column(
-        children: [
-          _buildInfoRow('Coordinates are used for satellite imagery on reports and to verify the weighbridge physical location. Click "Pick on Map" for visual selection.', scheme, text),
-          SizedBox(height: 14.rs),
-          Row(
-            children: [
-              Icon(Icons.scale_rounded, size: 16, color: scheme.primary),
-              SizedBox(width: AppSpacing.sm),
-              Text('Weighbridge Location', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
-            ],
-          ),
-          SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(child: _Field(label: 'Latitude', controller: _latitude, hint: 'e.g. 23.0225', onChanged: (_) => _markDirty())),
-              SizedBox(width: 14.rs),
-              Expanded(child: _Field(label: 'Longitude', controller: _longitude, hint: 'e.g. 72.5714', onChanged: (_) => _markDirty())),
-              SizedBox(width: 14.rs),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(' ', style: text.labelSmall),
-                    SizedBox(height: 6.rs),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickOnMap(latCtrl: _latitude, lngCtrl: _longitude),
-                        icon: const Icon(Icons.map_rounded, size: 16),
-                        label: const Text('Pick on Map'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 20.rs),
-          Row(
-            children: [
-              Icon(Icons.business_rounded, size: 16, color: scheme.secondary),
-              SizedBox(width: AppSpacing.sm),
-              Text('Company Office Location', style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
-            ],
-          ),
-          SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(child: _Field(label: 'Latitude', controller: _officeLatitude, hint: 'e.g. 23.0395', onChanged: (_) => _markDirty())),
-              SizedBox(width: 14.rs),
-              Expanded(child: _Field(label: 'Longitude', controller: _officeLongitude, hint: 'e.g. 72.5660', onChanged: (_) => _markDirty())),
-              SizedBox(width: 14.rs),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(' ', style: text.labelSmall),
-                    SizedBox(height: 6.rs),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickOnMap(latCtrl: _officeLatitude, lngCtrl: _officeLongitude),
-                        icon: const Icon(Icons.map_rounded, size: 16),
-                        label: const Text('Pick on Map'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   // ─── Documents ───────────────────────────────────────────────────────────
 
 }
@@ -2646,43 +2492,6 @@ class _SettingsCard extends StatelessWidget {
           child,
         ],
       ),
-    );
-  }
-}
-
-class _Field extends StatelessWidget {
-  final String label;
-  final TextEditingController controller;
-  final String hint;
-  final ValueChanged<String>? onChanged;
-
-  const _Field({
-    required this.label,
-    required this.controller,
-    required this.hint,
-    this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: text.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-        SizedBox(height: 6.rs),
-        TextField(
-          controller: controller,
-          style: text.bodySmall,
-          onChanged: onChanged,
-          decoration: InputDecoration(
-            hintText: hint,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            isDense: true,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -2889,187 +2698,6 @@ class _RadioChip extends StatelessWidget {
                 fontSize: 12,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                 color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MapPickerDialog extends StatefulWidget {
-  final double initialLat;
-  final double initialLng;
-
-  const _MapPickerDialog({required this.initialLat, required this.initialLng});
-
-  @override
-  State<_MapPickerDialog> createState() => _MapPickerDialogState();
-}
-
-class _MapPickerDialogState extends State<_MapPickerDialog> {
-  late final TextEditingController _latCtrl;
-  late final TextEditingController _lngCtrl;
-  late final MapController _mapController;
-  late LatLng _marker;
-  bool _satellite = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _marker = LatLng(widget.initialLat, widget.initialLng);
-    _latCtrl = TextEditingController(text: _marker.latitude.toStringAsFixed(6));
-    _lngCtrl = TextEditingController(text: _marker.longitude.toStringAsFixed(6));
-    _mapController = MapController();
-  }
-
-  @override
-  void dispose() {
-    _latCtrl.dispose();
-    _lngCtrl.dispose();
-    _mapController.dispose();
-    super.dispose();
-  }
-
-  void _onTap(TapPosition tapPosition, LatLng point) {
-    setState(() {
-      _marker = point;
-      _latCtrl.text = point.latitude.toStringAsFixed(6);
-      _lngCtrl.text = point.longitude.toStringAsFixed(6);
-    });
-  }
-
-  void _updateFromFields() {
-    final lat = double.tryParse(_latCtrl.text.trim());
-    final lng = double.tryParse(_lngCtrl.text.trim());
-    if (lat != null && lng != null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-      setState(() => _marker = LatLng(lat, lng));
-      _mapController.move(_marker, _mapController.camera.zoom);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
-      child: SizedBox(
-        width: 600,
-        height: 500,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
-              child: Row(
-                children: [
-                  Icon(Icons.location_on_rounded, size: 20, color: scheme.primary),
-                  SizedBox(width: AppSpacing.sm),
-                  Text('Pick Location', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                  SizedBox(width: AppSpacing.md),
-                  Text('Tap on map to select', style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Stack(
-                children: [
-                  FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter: _marker,
-                      initialZoom: 16,
-                      onTap: _onTap,
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate: _satellite
-                            ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-                            : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.weighbridgemanagement.app',
-                      ),
-                      if (_satellite)
-                        TileLayer(
-                          urlTemplate: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-                          userAgentPackageName: 'com.weighbridgemanagement.app',
-                        ),
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: _marker,
-                            width: 40,
-                            height: 40,
-                            child: Icon(Icons.location_pin, size: 40, color: scheme.error),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: Material(
-                      elevation: 2,
-                      borderRadius: AppRadius.button,
-                      child: InkWell(
-                        borderRadius: AppRadius.button,
-                        onTap: () => setState(() => _satellite = !_satellite),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: AppRadius.button,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(_satellite ? Icons.map_rounded : Icons.satellite_rounded, size: 14),
-                              SizedBox(width: AppSpacing.xs),
-                              Text(_satellite ? 'Map' : 'Satellite', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.all(14.rs),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _latCtrl,
-                      style: text.bodySmall,
-                      decoration: const InputDecoration(labelText: 'Latitude', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
-                      onSubmitted: (_) => _updateFromFields(),
-                    ),
-                  ),
-                  SizedBox(width: 10.rs),
-                  Expanded(
-                    child: TextField(
-                      controller: _lngCtrl,
-                      style: text.bodySmall,
-                      decoration: const InputDecoration(labelText: 'Longitude', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
-                      onSubmitted: (_) => _updateFromFields(),
-                    ),
-                  ),
-                  SizedBox(width: 10.rs),
-                  FilledButton.icon(
-                    onPressed: () => Navigator.pop(context, (_marker.latitude, _marker.longitude)),
-                    icon: const Icon(Icons.check_rounded, size: 16),
-                    label: const Text('Confirm'),
-                  ),
-                ],
               ),
             ),
           ],
@@ -3345,7 +2973,9 @@ class _SiteWeighbridgeManagerState extends State<_SiteWeighbridgeManager> {
           content: TextField(
             controller: ctrl,
             autofocus: true,
-            decoration: InputDecoration(labelText: label, hintText: hint),
+            // Site / weighbridge names must not contain spaces.
+            inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
+            decoration: InputDecoration(labelText: label, hintText: hint, helperText: 'No spaces allowed'),
             onSubmitted: (v) => Navigator.pop(ctx, v),
           ),
           actions: [

@@ -278,8 +278,13 @@ class CloudBackupService {
 
       var accessToken = CryptoService.decrypt(gdriveToken);
 
+      // Drive's `parents` field expects a folder *ID*, not a name — resolve the
+      // configured folder name to an ID (creating it if absent) so the backup
+      // actually lands in the folder instead of being rejected/orphaned.
+      var folderId = await _resolveGDriveFolderId(accessToken, _gdriveConfig.folder);
+
       // Try upload
-      var response = await _gdriveUpload(accessToken, filename, content);
+      var response = await _gdriveUpload(accessToken, filename, content, folderId);
 
       // Token expired — try refresh
       if (response.statusCode == 401 && refreshToken != null && refreshToken.isNotEmpty) {
@@ -289,7 +294,8 @@ class CloudBackupService {
           await _paths.integrationsSettings.set({
             'gdrive': {'accessToken': CryptoService.encrypt(newToken)},
           }, SetOptions(merge: true));
-          response = await _gdriveUpload(accessToken, filename, content);
+          folderId = await _resolveGDriveFolderId(accessToken, _gdriveConfig.folder);
+          response = await _gdriveUpload(accessToken, filename, content, folderId);
         }
       }
 
@@ -304,8 +310,60 @@ class CloudBackupService {
     }
   }
 
-  Future<HttpClientResponse> _gdriveUpload(String accessToken, String filename, String content) async {
-    final metadata = jsonEncode({'name': filename, 'parents': [_gdriveConfig.folder]});
+  /// Resolve a Drive folder *name* to its ID, creating the folder at the root
+  /// if it does not already exist. Returns null if the lookup/create fails, in
+  /// which case the caller uploads to the Drive root rather than failing.
+  Future<String?> _resolveGDriveFolderId(String accessToken, String folderName) async {
+    try {
+      final escaped = folderName.replaceAll("'", r"\'");
+      final query = "mimeType='application/vnd.google-apps.folder' and name='$escaped' and trashed=false";
+      final listUri = Uri.parse('https://www.googleapis.com/drive/v3/files').replace(queryParameters: {
+        'q': query,
+        'fields': 'files(id,name)',
+        'spaces': 'drive',
+        'pageSize': '1',
+      });
+
+      final client = HttpClient();
+      try {
+        final listReq = await client.getUrl(listUri);
+        listReq.headers.set('Authorization', 'Bearer $accessToken');
+        final listResp = await listReq.close();
+        final listBody = await listResp.transform(utf8.decoder).join();
+        if (listResp.statusCode == 200) {
+          final data = jsonDecode(listBody) as Map<String, dynamic>;
+          final files = (data['files'] as List?) ?? const [];
+          if (files.isNotEmpty) {
+            return (files.first as Map<String, dynamic>)['id'] as String?;
+          }
+        } else {
+          return null;
+        }
+
+        // Not found — create it.
+        final createReq = await client.postUrl(Uri.parse('https://www.googleapis.com/drive/v3/files?fields=id'));
+        createReq.headers.set('Authorization', 'Bearer $accessToken');
+        createReq.headers.set('Content-Type', 'application/json; charset=UTF-8');
+        createReq.write(jsonEncode({'name': folderName, 'mimeType': 'application/vnd.google-apps.folder'}));
+        final createResp = await createReq.close();
+        final createBody = await createResp.transform(utf8.decoder).join();
+        if (createResp.statusCode == 200) {
+          return (jsonDecode(createBody) as Map<String, dynamic>)['id'] as String?;
+        }
+        return null;
+      } finally {
+        client.close();
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<HttpClientResponse> _gdriveUpload(String accessToken, String filename, String content, String? folderId) async {
+    final metadata = jsonEncode({
+      'name': filename,
+      if (folderId != null) 'parents': [folderId],
+    });
     final boundary = '===weighbridge_boundary===';
     final body = '--$boundary\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n$metadata\r\n--$boundary\r\nContent-Type: application/json\r\n\r\n$content\r\n--$boundary--';
 

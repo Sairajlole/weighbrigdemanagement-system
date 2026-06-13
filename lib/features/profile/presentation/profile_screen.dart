@@ -15,7 +15,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
-import 'package:weighbridgemanagement/features/profile/presentation/widgets/app_update_card.dart';
+import 'package:weighbridgemanagement/shared/providers/version_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/update_provider.dart';
+import 'package:weighbridgemanagement/shared/services/app_updater.dart';
 import 'package:weighbridgemanagement/shared/models/license_model.dart';
 import 'package:weighbridgemanagement/shared/providers/app_version_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
@@ -165,7 +167,9 @@ final _currentUserPinSetProvider = FutureProvider<bool>((ref) async {
     try {
       final snap = await col.where('email', isEqualTo: email).limit(1).get();
       if (snap.docs.isNotEmpty) {
-        return (snap.docs.first.data()['pinHash'] as String?)?.isNotEmpty == true;
+        final d = snap.docs.first.data();
+        // PIN hash moved server-side (operator_pins); doc carries `hasPin`.
+        return d['hasPin'] == true || (d['pinHash'] as String?)?.isNotEmpty == true;
       }
     } catch (_) {}
   }
@@ -431,18 +435,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   );
                 }),
-                SizedBox(height: AppSpacing.lg),
-
-                // App update — check + in-app download/install.
-                const AppUpdateCard(),
-
                 SizedBox(height: 24.rs),
-                Center(
-                  child: Text(
-                    ref.watch(appVersionProvider).valueOrNull ?? '',
-                    style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
-                  ),
-                ),
+                const Center(child: _VersionUpdateFooter()),
                 SizedBox(height: 8.rs),
               ],
             ),
@@ -912,7 +906,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           },
         );
       },
-    );
+    ).whenComplete(() => cooldownTimer?.cancel());
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1019,11 +1013,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ) : null,
                     borderRadius: BorderRadius.circular(20.rs),
                     boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 4))],
-                    image: hasLocalPic
-                        ? DecorationImage(image: MemoryImage(_decodeProfilePic(profilePic)), fit: BoxFit.cover)
-                        : hasVerifiedPic
-                            ? DecorationImage(image: NetworkImage(verifiedPhotoUrl), fit: BoxFit.cover)
-                            : null,
+                    image: () {
+                      final bytes = hasLocalPic ? _decodeProfilePic(profilePic) : null;
+                      if (bytes != null) return DecorationImage(image: MemoryImage(bytes), fit: BoxFit.cover);
+                      if (hasVerifiedPic) return DecorationImage(image: NetworkImage(verifiedPhotoUrl), fit: BoxFit.cover);
+                      return null;
+                    }(),
                   ),
                   child: !hasPhoto ? Center(
                     child: Text(
@@ -1106,10 +1101,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Uint8List _decodeProfilePic(String data) {
-    String raw = data;
-    if (raw.contains(',')) raw = raw.split(',').last;
-    return base64Decode(raw);
+  // Returns null on corrupt/invalid base64 so a bad stored value can't crash build.
+  Uint8List? _decodeProfilePic(String data) {
+    try {
+      String raw = data;
+      if (raw.contains(',')) raw = raw.split(',').last;
+      return base64Decode(raw);
+    } catch (_) {
+      return null;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1616,17 +1616,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<String> _getPublicIp() async {
+    HttpClient? client;
     try {
-      final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
+      client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
       final request = await client.getUrl(Uri.parse('https://api.ipify.org'));
       final response = await request.close();
       if (response.statusCode == 200) {
         final ip = await response.transform(utf8.decoder).join();
-        client.close();
         return ip.trim();
       }
-      client.close();
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      client?.close();
+    }
     return '--';
   }
 }
@@ -2258,4 +2260,119 @@ class _AdminFaceGuidePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _AdminFaceGuidePainter oldDelegate) => oldDelegate.detected != detected;
+}
+
+/// Current version + an inline update flow handled right here (no snackbar / no
+/// banner): Check → download progress → "Update & Restart". If the version feed
+/// has no verifiable in-app package (canAutoUpdate == false) it just reports the
+/// available version (install must be done manually).
+class _VersionUpdateFooter extends ConsumerStatefulWidget {
+  const _VersionUpdateFooter();
+  @override
+  ConsumerState<_VersionUpdateFooter> createState() => _VersionUpdateFooterState();
+}
+
+class _VersionUpdateFooterState extends ConsumerState<_VersionUpdateFooter> {
+  bool _checking = false;
+  String? _note;
+
+  Future<void> _check() async {
+    setState(() { _checking = true; _note = null; });
+    ref.invalidate(versionProvider);
+    try {
+      final info = await ref.read(versionProvider.future);
+      if (!mounted) return;
+      final hasUpdate = info.status == VersionStatus.updateAvailable || info.status == VersionStatus.updateRequired;
+      if (hasUpdate && info.canAutoUpdate) {
+        final updater = ref.read(appUpdaterProvider);
+        if (updater.value.phase == UpdatePhase.idle || updater.value.phase == UpdatePhase.error) {
+          updater.downloadAndStage(info); // download starts; progress shows below
+        }
+        setState(() => _checking = false);
+      } else {
+        setState(() {
+          _checking = false;
+          _note = switch (info.status) {
+            VersionStatus.updateAvailable || VersionStatus.updateRequired =>
+                'Update v${info.latestVersion ?? ''} available — manual install required.',
+            VersionStatus.unknown => "Couldn't check — try again.",
+            VersionStatus.upToDate => "You're on the latest version.",
+          };
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() { _checking = false; _note = "Couldn't check for updates."; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final version = ref.watch(appVersionProvider).valueOrNull ?? '';
+    final updater = ref.watch(appUpdaterProvider);
+
+    return ValueListenableBuilder<UpdateState>(
+      valueListenable: updater,
+      builder: (_, st, __) {
+        late final Widget action;
+        switch (st.phase) {
+          case UpdatePhase.downloading:
+          case UpdatePhase.verifying:
+            action = Column(mainAxisSize: MainAxisSize.min, children: [
+              SizedBox(
+                width: 180,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: st.phase == UpdatePhase.verifying ? null : (st.progress > 0 ? st.progress : null),
+                    minHeight: 5, backgroundColor: scheme.surfaceContainerHigh,
+                  ),
+                ),
+              ),
+              SizedBox(height: 6.rs),
+              Text(st.phase == UpdatePhase.verifying ? 'Verifying…' : 'Downloading update… ${(st.progress * 100).toStringAsFixed(0)}%',
+                  style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant)),
+            ]);
+          case UpdatePhase.ready:
+            action = FilledButton.icon(
+              onPressed: updater.apply,
+              icon: const Icon(Icons.restart_alt_rounded, size: 16),
+              label: const Text('Update & Restart', style: TextStyle(fontSize: 12)),
+              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)),
+            );
+          case UpdatePhase.applying:
+            action = Text('Updating…', style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant));
+          case UpdatePhase.error:
+            action = Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(st.error ?? 'Update failed.', textAlign: TextAlign.center,
+                  style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.error)),
+              TextButton.icon(onPressed: _checking ? null : _check, icon: const Icon(Icons.refresh_rounded, size: 14),
+                  label: const Text('Retry', style: TextStyle(fontSize: 12))),
+            ]);
+          case UpdatePhase.idle:
+            action = Column(mainAxisSize: MainAxisSize.min, children: [
+              if (_note != null)
+                Text(_note!, textAlign: TextAlign.center,
+                    style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant)),
+              TextButton.icon(
+                onPressed: _checking ? null : _check,
+                icon: _checking
+                    ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.refresh_rounded, size: 14),
+                label: Text(_checking ? 'Checking…' : 'Check for updates', style: const TextStyle(fontSize: 12)),
+              ),
+            ]);
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(version, style: text.bodySmall?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant.withValues(alpha: 0.6))),
+            SizedBox(height: 4.rs),
+            action,
+          ],
+        );
+      },
+    );
+  }
 }

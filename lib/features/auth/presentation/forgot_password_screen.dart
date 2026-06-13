@@ -92,6 +92,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   }
 
   Future<void> _verifyOTP() async {
+    if (_loading) return; // guard: 6-digit onChanged can fire twice
     final otp = _otpValue;
     if (otp.length != 6) {
       setState(() => _error = 'Please enter all 6 digits.');

@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weighbridgemanagement/shared/providers/ai_provider.dart';
+import 'package:weighbridgemanagement/shared/providers/camera_provider.dart';
 import 'package:weighbridgemanagement/shared/providers/firestore_path_provider.dart';
 import 'package:weighbridgemanagement/shared/services/local_cache_service.dart';
 import 'package:weighbridgemanagement/shared/providers/general_settings_provider.dart';
@@ -89,6 +90,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
   // System code OTP reveal: 'locked' → 'sending' → 'otp' → 'revealed'
   String _codeStep = 'locked';
   bool _codeMfaMode = false; // reveal-code: verify via authenticator instead of email OTP
+  bool _codeVerifying = false; // guard against double-fire on the 6-digit input
   String? _codeOtpError;
   final _codeOtpControllers = List.generate(6, (_) => TextEditingController());
   final _codeOtpFocusNodes = List.generate(6, (_) => FocusNode());
@@ -730,6 +732,8 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
   }
 
   Future<void> _verifyCodeOtp(String otp) async {
+    if (_codeVerifying) return; // guard: 6-digit onChanged can fire twice → double-consume
+    _codeVerifying = true;
     try {
       if (_codeMfaMode) {
         // 2FA verifies against the signed-in admin's login email.
@@ -750,6 +754,8 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
         for (final c in _codeOtpControllers) { c.clear(); }
         _codeOtpFocusNodes[0].requestFocus();
       }
+    } finally {
+      _codeVerifying = false;
     }
   }
 
@@ -1619,7 +1625,7 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
           ),
         ),
       ),
-    );
+    ).whenComplete(customCtrl.dispose);
   }
 
   Future<void> _rejectOperator(Map<String, dynamic> op, String reason) async {
@@ -1890,6 +1896,9 @@ class _OperatorsScreenState extends ConsumerState<OperatorsScreen> with WidgetsB
                 onTap: () => ref.read(firestorePathsProvider).operators.doc(op['id']).update({
                   'isArchived': FieldValue.delete(),
                   'isActive': true,
+                  // KYC is wiped on restore, so the operator must re-verify — don't
+                  // leave them flagged verified with no ID on file.
+                  'isVerified': false,
                   'archivedAt': FieldValue.delete(),
                   'permissionsRevoked': FieldValue.delete(),
                   'idStatus': 'not_submitted',
@@ -3081,7 +3090,9 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
     _wasAlreadyVerified = _idStatus == 'verified';
 
     _mustChangePassword = false;
-    _hasPinSet = (op['pinHash'] as String?)?.isNotEmpty == true;
+    // PIN hash now lives server-side (operator_pins); the doc carries `hasPin`.
+    // Keep the legacy pinHash check for not-yet-migrated docs.
+    _hasPinSet = op['hasPin'] == true || (op['pinHash'] as String?)?.isNotEmpty == true;
 
     _canViewCustomers = op['canViewCustomers'] as bool? ?? true;
     _canViewWeighments = op['canViewWeighments'] as bool? ?? true;
@@ -3239,6 +3250,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
   }
 
   Future<void> _verifyAndApplyChange() async {
+    if (_otpVerifying) return; // guard: 6-digit onChanged can fire twice
     final otp = _otpValue;
     if (otp.length != 6) {
       setState(() => _changeError = 'Enter all 6 digits.');
@@ -3296,21 +3308,34 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
 
       final updateData = <String, dynamic>{field: field == 'email' ? newVal.toLowerCase() : newVal};
 
-      // If changing email, also update Firebase Auth email
+      // If changing email and the operator has a Firebase Auth record, update
+      // Auth first. Only divert to pendingEmail when the Auth update was
+      // ATTEMPTED and FAILED — otherwise the Firestore email and the sign-in
+      // email diverge. With no uid there's no Auth record to diverge from, so
+      // the email is written normally as before.
+      bool emailAuthFailed = false;
       if (field == 'email') {
         final opUid = widget.operator['uid'] as String? ?? '';
         if (opUid.isNotEmpty) {
           try {
             await CloudFunctionsService.call('updateOperatorEmail', {'uid': opUid, 'newEmail': newVal.toLowerCase()});
-          } catch (_) {}
+          } catch (_) {
+            emailAuthFailed = true;
+          }
+        }
+        if (emailAuthFailed) {
+          // Don't overwrite the live email; stash it as pending so Auth/Firestore stay in sync.
+          updateData.remove(field);
+          updateData['pendingEmail'] = newVal.toLowerCase();
         }
       }
 
       await db.operators.doc(widget.operator['id']).update(updateData);
 
+      if (!mounted) return;
       setState(() {
         if (field == 'email') {
-          _currentEmail = newVal.toLowerCase();
+          if (!emailAuthFailed) _currentEmail = newVal.toLowerCase();
         } else {
           _currentPhone = newVal;
           _phoneCtrl.text = newVal;
@@ -3320,15 +3345,17 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
         _adminPhoneStep = false;
       });
 
-      if (mounted) {
+      if (field == 'email' && emailAuthFailed) {
+        AppError.show(context, 'Email saved as pending — sign-in email could not be updated. Try again later.');
+      } else {
         AppError.success(context, '${field == 'email' ? 'Email' : 'Phone'} updated successfully.');
       }
     } on FirebaseFunctionsException catch (e) {
-      setState(() => _changeError = e.message ?? 'Invalid OTP.');
+      if (mounted) setState(() => _changeError = e.message ?? 'Invalid OTP.');
     } catch (e) {
-      setState(() => _changeError = 'Verification failed.');
+      if (mounted) setState(() => _changeError = 'Verification failed.');
     } finally {
-      setState(() => _otpVerifying = false);
+      if (mounted) setState(() => _otpVerifying = false);
     }
   }
 
@@ -3867,7 +3894,20 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
           ],
         ),
         SizedBox(height: AppSpacing.sm),
-        Container(
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          // The enrolled card itself opens the face-images review/exclude window.
+          onTap: faceEnrolled
+              ? () => showDialog<bool>(
+                    context: context,
+                    builder: (_) => FaceFramesDialog(
+                      operatorId: widget.operator['id'] as String,
+                      operatorEmail: op['email'] as String? ?? '',
+                      operatorName: op['name'] as String? ?? '',
+                    ),
+                  ).then((changed) { if (changed == true) _refreshFaceEnrollment(); })
+              : null,
+          child: Container(
           width: double.infinity,
           padding: EdgeInsets.all(10.rs),
           decoration: BoxDecoration(
@@ -3885,7 +3925,15 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
                   Text(faceEnrolled ? 'Enrolled' : 'Not enrolled', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: faceEnrolled ? Colors.green.shade700 : scheme.error)),
                   if (faceEnrolled) ...[
                     SizedBox(width: AppSpacing.md),
-                    Text('$faceValidCount valid · ${(faceConfidence * 100).toStringAsFixed(0)}% conf', style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+                    Expanded(
+                      child: Text('$faceValidCount valid · ${(faceConfidence * 100).toStringAsFixed(0)}% conf',
+                          style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant), overflow: TextOverflow.ellipsis),
+                    ),
+                    // Tap the card to review the enrolled face images / exclude.
+                    Icon(Icons.photo_library_outlined, size: 13, color: scheme.primary),
+                    SizedBox(width: 4.rs),
+                    Text('Review', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.primary)),
+                    Icon(Icons.chevron_right_rounded, size: 15, color: scheme.primary),
                   ],
                 ],
               ),
@@ -3916,6 +3964,7 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
             ],
           ),
         ),
+        ),
         SizedBox(height: AppSpacing.sm),
         _FaceEnrollmentWidget(
           ref: widget.ref,
@@ -3924,25 +3973,6 @@ class _EditOperatorDialogState extends State<_EditOperatorDialog> {
           existingFaceEnrollment: _faceEnrollment,
           onEnrollmentComplete: _refreshFaceEnrollment,
         ),
-        if (faceEnrolled) ...[
-          SizedBox(height: AppSpacing.sm),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => showDialog<bool>(
-                context: context,
-                builder: (_) => FaceFramesDialog(
-                  operatorId: widget.operator['id'] as String,
-                  operatorEmail: op['email'] as String? ?? '',
-                  operatorName: op['name'] as String? ?? '',
-                ),
-              ).then((changed) { if (changed == true) _refreshFaceEnrollment(); }),
-              icon: const Icon(Icons.photo_library_outlined, size: 15),
-              label: const Text('Face Images — review & exclude', style: TextStyle(fontSize: 11)),
-              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: AppRadius.button)),
-            ),
-          ),
-        ],
       ],
     );
   }
@@ -5099,6 +5129,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
     // not enforced here (the original two-phase design kept them separate too).
     final sidecar = widget.ref.read(sidecarClientProvider);
     final r = await sidecar.enrollFromImages(frames);
+    if (!mounted) return;
     if (r != null && r.hasValidation) {
       final moved = r.poseVariance >= _kMinPoseVariance;
       debugPrint('[FaceValidate] faces=${r.facesUsed} consistent=${r.consistent} '
@@ -5129,6 +5160,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
         payload['referenceImages'] = referenceFrames.map((f) => base64Encode(f)).toList();
       }
       final data = await CloudFunctionsService.call('validateFaceConsistency', payload);
+      if (!mounted) return;
       if (data['success'] == true) {
         setState(() => _enrolling = false);
         onSuccess();
@@ -5145,6 +5177,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
         });
       }
     } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return;
       setState(() {
         _enrolling = false;
         _enrollError = e.message?.isNotEmpty == true ? e.message! : 'Validation failed (${e.code}). Please try again.';
@@ -5154,6 +5187,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
         }
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _enrolling = false;
         _enrollError = 'Failed to validate faces. Try again.';
@@ -6102,12 +6136,23 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
             ),
           ),
 
-        // Camera selector
-        if (_cameras.length > 1 && !_autoCapturing)
-          Padding(
+        // Camera selector — excludes the camera assigned to the customer counter
+        // (this is operator face enrolment). Reactive to assignment changes.
+        Consumer(builder: (_, cref, __) {
+          final customerCam = cref.watch(customerCameraDeviceNameProvider).valueOrNull ?? '';
+          final selectable = customerCam.isEmpty
+              ? _cameras
+              : _cameras.where((c) => c['name'] != customerCam).toList();
+          if (selectable.isNotEmpty && !selectable.any((c) => c['id'] == _selectedCameraId)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() { _selectedCameraId = selectable.first['id']; _cameraReady = false; _currentFrame = null; });
+            });
+          }
+          if (selectable.length <= 1 || _autoCapturing) return const SizedBox.shrink();
+          return Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: DropdownButtonFormField<String>(
-              initialValue: _selectedCameraId,
+              initialValue: selectable.any((c) => c['id'] == _selectedCameraId) ? _selectedCameraId : selectable.first['id'],
               isExpanded: true,
               decoration: InputDecoration(
                 isDense: true,
@@ -6115,7 +6160,7 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
                 border: OutlineInputBorder(borderRadius: AppRadius.button),
                 prefixIcon: const Icon(Icons.videocam_rounded, size: 14),
               ),
-              items: _cameras.map((cam) => DropdownMenuItem(
+              items: selectable.map((cam) => DropdownMenuItem(
                 value: cam['id'],
                 child: Text(cam['name']!, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
               )).toList(),
@@ -6126,7 +6171,8 @@ class _FaceEnrollmentWidgetState extends State<_FaceEnrollmentWidget> {
                 _stopCamera().then((_) => _initCamera());
               },
             ),
-          ),
+          );
+        }),
 
         // Camera preview
         Container(

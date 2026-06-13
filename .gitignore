@@ -57,3 +57,20 @@ flutter_*.png
 
 # Midjourney assets
 midjourney/
+
+# Editor/scratch backups (e.g. firestore.rules.bak, *.pbxproj.bak)
+*.bak
+
+# Python sidecar virtualenv & caches (models/ & datasets/ ignored above)
+python_sidecar/venv/
+python_sidecar/.venv/
+**/__pycache__/
+
+# Design-tool exports (UI mockups, not source) — large; keep on disk, off the repo
+/stitch_login_login_tab_active/
+
+# Local emulator debug log
+firestore-debug.log
+
+# NOTE: pubspec_overrides.yaml is intentionally NOT ignored here — it path-overrides
+# cloud_firestore to patches/cloud_firestore and is REQUIRED to build. Commit it.

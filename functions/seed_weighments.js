@@ -1,6 +1,6 @@
 const admin = require("firebase-admin");
 
-if (!admin.apps.length) admin.initializeApp({ projectId: "weighbridge-management" });
+if (!admin.apps.length) admin.initializeApp({ projectId: "tulanam" });
 const db = admin.firestore();
 
 const WEIGHMENT_COUNT = 250;

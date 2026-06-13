@@ -54,6 +54,9 @@ class _IdentityCamerasState extends ConsumerState<IdentityCameras> {
     _customerFaceTimer?.cancel();
     _stopWebcam();
     try { ref.read(customerNativeFeedProvider.notifier).shutdown(); } catch (_) {}
+    // Clear the published feed so re-entering the weigh screen never renders a
+    // dead texture from the now-stopped session — the next init repopulates it.
+    try { ref.read(customerCameraFeedProvider.notifier).state = CustomerCameraFeed.empty; } catch (_) {}
     super.dispose();
   }
 
@@ -162,7 +165,9 @@ class _IdentityCamerasState extends ConsumerState<IdentityCameras> {
             if (result.faceCropB64 != null) {
               update['faceCropB64'] = result.faceCropB64;
             }
-            paths.customers.doc(result.customerId).update(update).catchError((_) {});
+            paths.customers.doc(result.customerId).update(update).catchError(
+              (e) => debugPrint('customer face embedding update failed: $e'),
+            );
           }
         }
       } else if (result.isNewFace) {
@@ -281,8 +286,21 @@ class _IdentityCamerasState extends ConsumerState<IdentityCameras> {
       return;
     }
 
-    await ref.read(customerNativeFeedProvider.notifier).start(deviceName);
-    final feed = ref.read(customerNativeFeedProvider).feed;
+    final notifier = ref.read(customerNativeFeedProvider.notifier);
+    // Re-entry safe: drop any session the provider still thinks is live so
+    // start() can't be skipped by its `initialized` guard, then open fresh.
+    notifier.shutdown();
+    await notifier.start(deviceName);
+    var feed = ref.read(customerNativeFeedProvider).feed;
+
+    // The native device can still be releasing from the previous screen's stop;
+    // a null feed there is transient, so reset and retry once after a short beat.
+    if (feed == null && mounted) {
+      await Future.delayed(const Duration(milliseconds: 350));
+      notifier.shutdown();
+      await notifier.start(deviceName);
+      feed = ref.read(customerNativeFeedProvider).feed;
+    }
 
     if (feed != null && mounted) {
       _customerNativeCamera = true;
@@ -291,6 +309,8 @@ class _IdentityCamerasState extends ConsumerState<IdentityCameras> {
         width: feed.width,
         height: feed.height,
       );
+    } else {
+      debugPrint('[CustomerFace] native camera "$deviceName" failed to start (feed null)');
     }
   }
 
